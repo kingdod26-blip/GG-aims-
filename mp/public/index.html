@@ -914,9 +914,16 @@ function shoot(){
   // recoil kicks in AFTER the bullet leaves — shots land where the crosshair was
   me.pitch=Math.min(me.pitch + w.recoil*(1-ads*0.5), Math.PI/2-0.05);
 }
+const MAX_TRACERS = 48;   // hard cap so a stuck frame can never grow this unbounded
 function addTracer(o,dir,len){ const end=o.clone().add(dir.clone().multiplyScalar(len));
+  // retire the oldest if we somehow hit the cap (e.g. held trigger + 8-pellet shotgun)
+  if(tracers.length >= MAX_TRACERS) disposeTracer(tracers.shift());
   const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([o.clone(),end]), new THREE.LineBasicMaterial({color:0xffee88,transparent:true,opacity:0.9}));
   scene.add(line); tracers.push({line,life:0.06}); }
+// free BOTH the geometry and the material — leaking materials fills GPU memory
+function disposeTracer(t){ if(!t) return; scene.remove(t.line);
+  if(t.line.geometry) t.line.geometry.dispose();
+  if(t.line.material) t.line.material.dispose(); }
 
 /* ---- HUD ---- */
 function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Math.round(me.hp));
@@ -1165,7 +1172,7 @@ function loop(){ requestAnimationFrame(loop);
   for(const o of serverBots.values()) animate(o);
 
   for(let i=tracers.length-1;i>=0;i--){ tracers[i].life-=dt; tracers[i].line.material.opacity=Math.max(0,tracers[i].life/0.06)*0.9;
-    if(tracers[i].life<=0){ scene.remove(tracers[i].line); tracers[i].line.geometry.dispose(); tracers.splice(i,1); } }
+    if(tracers[i].life<=0){ disposeTracer(tracers[i]); tracers.splice(i,1); } }
 
   // bloom off = skip the composer's extra full-screen passes entirely
   if (composer && SETTINGS.bloom) composer.render(); else renderer.render(scene,camera);
