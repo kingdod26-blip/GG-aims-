@@ -44,8 +44,8 @@ Then open <http://localhost:8123/fps-game.html>.
 | `Mouse` | Look |
 | `Left click` | Fire |
 | `Right click` | Aim down sights / sniper scope |
-| `Space` | Jump (you can land on crates) |
-| `Shift` | Sprint |
+| `Space` | Jump — press again mid-air to double jump (you can land on crates) |
+| `Shift` | Sprint (hold while moving; widens the view) |
 | `C` | Crouch |
 | `Z` | Prone |
 | `R` | Reload |

@@ -115,7 +115,7 @@ const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff
 io.on('connection', (socket) => {
   const s = randomSpawn();
   const player = {
-    id: socket.id, x: s.x, z: s.z, y: 0, yaw: 0, pitch: 0,
+    id: socket.id, x: s.x, z: s.z, y: 0, yaw: 0, pitch: 0, st: 0,
     hp: 100, alive: true, kills: 0, deaths: 0,
     color: COLORS[players.size % COLORS.length],
     name: 'Player-' + socket.id.slice(0, 4),
@@ -133,6 +133,7 @@ io.on('connection', (socket) => {
     if (typeof d.y === 'number') p.y = d.y;
     if (typeof d.yaw === 'number') p.yaw = d.yaw;
     if (typeof d.pitch === 'number') p.pitch = d.pitch;
+    if (typeof d.st === 'number') p.st = Math.max(0, Math.min(2, d.st|0));   // 0 stand 1 crouch 2 prone
     if (typeof d.name === 'string') p.name = d.name.slice(0, 16);
   });
 
@@ -150,18 +151,24 @@ io.on('connection', (socket) => {
     for (const r of RECTS) wall = Math.min(wall, segRectDist(o.x, o.z, o.x + dir.x*range, o.z + dir.z*range, r));
 
     let best = { t: Math.min(wall, range), target: null, head: false };
+    // Hitboxes shrink with stance, so crouching and going prone genuinely make
+    // you a smaller target. [body height, body radius, head height]
+    const STANCE_BOX = [ [1.05, 0.55, 1.70],    // standing
+                         [0.70, 0.50, 1.10],    // crouched
+                         [0.32, 0.45, 0.50] ];  // prone
     // baseY lets us model targets standing on crates (players send their feet height)
-    const consider = (cx, cz, baseY, hitApply) => {
-      const body = raySphere(o, dir, cx, baseY + 1.05, cz, 0.55);
-      const head = raySphere(o, dir, cx, baseY + 1.70, cz, 0.30);
+    const consider = (cx, cz, baseY, st, hitApply) => {
+      const [bh, br, hh] = STANCE_BOX[st] || STANCE_BOX[0];
+      const body = raySphere(o, dir, cx, baseY + bh, cz, br);
+      const head = raySphere(o, dir, cx, baseY + hh, cz, 0.30);
       let t = Infinity, hs = false;
       if (head < t) { t = head; hs = true; }
       if (body < t) { t = body; hs = false; }
       if (t < best.t) best = { t, target: hitApply, head: hs };
     };
-    for (const b of bots) if (b.alive) consider(b.x, b.z, 0, { kind:'bot', ref:b });
+    for (const b of bots) if (b.alive) consider(b.x, b.z, 0, 0, { kind:'bot', ref:b });
     for (const other of players.values())
-      if (other.alive && other.id !== p.id) consider(other.x, other.z, other.y || 0, { kind:'player', ref:other });
+      if (other.alive && other.id !== p.id) consider(other.x, other.z, other.y || 0, other.st || 0, { kind:'player', ref:other });
 
     if (best.target) {
       const dealt = best.head ? dmg*2.5 : dmg;
@@ -205,7 +212,7 @@ setInterval(() => {
   // broadcast a snapshot of the whole world
   io.emit('snapshot', {
     t: now,
-    players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, name:p.name, color:p.color })),
+    players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, name:p.name, color:p.color })),
     bots: bots.map(b => ({ id:b.id, x:b.x, z:b.z, yaw:b.yaw, alive:b.alive, state:b.state })),
   });
 }, TICK);

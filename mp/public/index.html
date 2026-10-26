@@ -614,7 +614,7 @@ weaponHolders.forEach((h,i)=>{ gun.add(h); h.visible = i===0; });
 weaponHolders[0].add(at(new THREE.Mesh(new THREE.BoxGeometry(0.1,0.13,0.6),new THREE.MeshLambertMaterial({color:0x24262b})),0,0,-0.05));
 weaponHolders[0].add(at(new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,0.4),new THREE.MeshLambertMaterial({color:0x17181c})),0,0.01,-0.4));
 gun.position.set(0.3,-0.28,-0.55); camera.add(gun); scene.add(camera); gun.visible=false;
-let gunKick=0;
+let gunKick=0, sprintAmt=0, stanceAmt=0;
 
 /* Generic weapon-model loader: normalize size, center, auto-orient long axis
    forward (plus per-model ry flip), then drop into its slot. */
@@ -730,6 +730,10 @@ const heroGroup = [hero, podium, podiumRing, spot];   // hidden when the match s
 /* ---- Stance system + local player ---- */
 const STANCE = { stand:{eye:1.7,spd:1.0,body:1.8}, crouch:{eye:1.05,spd:0.5,body:1.15}, prone:{eye:0.6,spd:0.3,body:0.7} };
 const JUMP_V = 10.5, GRAV = 24;
+const MAX_JUMPS = 2;                 // ground jump + one mid-air jump
+let jumpPressed = false;             // edge-triggered by keydown
+const STANCE_ID = { stand:0, crouch:1, prone:2 };
+const STANCE_BY_ID = ['stand','crouch','prone'];
 const me = { x:0, z:44, feetY:0, eyeH:1.7, stance:'stand', yaw:0, pitch:0, vy:0, onGround:true, radius:0.4, hp:100, alive:true };
 /* Weapon roster (keys 1-5, Tab shows the armory). ADS on right-click. */
 const WEAPONS = [
@@ -929,7 +933,7 @@ function onSnapshot(s){
     let o=others.get(p.id); if(!o){ const mesh=humanoid(p.color); scene.add(mesh); o={mesh,tx:p.x,tz:p.z,ty:p.y||0,tyaw:p.yaw}; others.set(p.id,o); }
     // +PI: our character models face +Z, but a player's yaw describes a -Z
     // look direction — without this, remote players appear to run backwards.
-    o.tx=p.x; o.tz=p.z; o.ty=p.y||0; o.tyaw=p.yaw+Math.PI; o.mesh.visible=p.alive; }
+    o.tx=p.x; o.tz=p.z; o.ty=p.y||0; o.tyaw=p.yaw+Math.PI; o.tst=p.st||0; o.mesh.visible=p.alive; }
   for (const [id,o] of others){ if(!seen.has(id)){ scene.remove(o.mesh); others.delete(id); } }
   const bseen=new Set();
   for (const b of s.bots){ bseen.add(b.id);
@@ -962,6 +966,7 @@ addEventListener('keydown',e=>{ keys[e.code]=true;
   if(e.code==='Digit3') switchWeapon(2);
   if(e.code==='Digit4') switchWeapon(3);
   if(e.code==='Digit5') switchWeapon(4);
+  if(e.code==='Space' && !e.repeat) jumpPressed=true;   // edge, so holding won't spam
   if(e.code==='KeyC') me.stance = me.stance==='crouch' ? 'stand' : 'crouch';
   if(e.code==='KeyZ') me.stance = me.stance==='prone'  ? 'stand' : 'prone'; });
 addEventListener('keyup',e=> keys[e.code]=false);
@@ -1193,7 +1198,8 @@ function movePlayer(dt){
   const fwd=new THREE.Vector3(-Math.sin(me.yaw),0,-Math.cos(me.yaw)), rgt=new THREE.Vector3(Math.cos(me.yaw),0,-Math.sin(me.yaw));
   const mv=new THREE.Vector3();
   if(keys['KeyW'])mv.add(fwd); if(keys['KeyS'])mv.sub(fwd); if(keys['KeyD'])mv.add(rgt); if(keys['KeyA'])mv.sub(rgt);
-  const sprint=(keys['ShiftLeft']||keys['ShiftRight']) && me.stance==='stand';
+  const sprint=(keys['ShiftLeft']||keys['ShiftRight']) && me.stance==='stand' && mv.lengthSq()>0 && !aiming;
+  me.sprinting = sprint;                       // drives the FOV kick + faster bob
   const spd=(sprint?11:7)*st.spd;
   if(mv.lengthSq()>0){ mv.normalize().multiplyScalar(spd); me.x+=mv.x*dt; me.z+=mv.z*dt; }
   // footsteps: fire on distance travelled, so pace matches actual speed/stance
@@ -1202,16 +1208,28 @@ function movePlayer(dt){
     const stride = me.stance==='prone' ? 1.5 : me.stance==='crouch' ? 1.15 : (sprint ? 2.0 : 1.6);
     if(stepDist >= stride){ stepDist=0; stepLeft=!stepLeft; Sfx.step(stepLeft); }
   } else stepDist = Math.max(stepDist, 0);
-  // jump (also stands you up first)
+  // jump — edge-triggered so holding Space can't bunny-hop, and you get a
+  // second mid-air jump (MAX_JUMPS) before touching down again.
   const wasAir = !me.onGround;
-  if(keys['Space']){ if(me.stance!=='stand') me.stance='stand'; else if(me.onGround){ me.vy=JUMP_V; me.onGround=false; } }
+  if(jumpPressed){
+    jumpPressed=false;
+    if(me.stance!=='stand') me.stance='stand';            // first press stands you up
+    else if(me.jumpsUsed < MAX_JUMPS){
+      me.vy = (me.jumpsUsed===0) ? JUMP_V : JUMP_V*0.88;  // air jump slightly weaker
+      me.jumpsUsed++; me.onGround=false;
+      Sfx.step(me.jumpsUsed>1);
+    }
+  }
   // gravity on the feet
   me.vy-=GRAV*dt; me.feetY+=me.vy*dt;
   // ground level: floor, or the top of a crate we're standing over
   let groundY=0;
   for(const c of colliders){ if(me.x>c.minx && me.x<c.maxx && me.z>c.minz && me.z<c.maxz && c.maxy<=me.feetY+0.35) groundY=Math.max(groundY,c.maxy); }
   if(me.feetY<=groundY){ const hard=me.vy<-6; me.feetY=groundY; me.vy=0; me.onGround=true;
-    if(wasAir && hard) Sfx.land(); } else me.onGround=false;
+    me.jumpsUsed=0;                                        // refill jumps on landing
+    if(wasAir && hard) Sfx.land(); }
+  else { me.onGround=false;
+    if(me.jumpsUsed===0) me.jumpsUsed=1; }                 // walked off a ledge = no free double jump
   // horizontal walls (ignore the surface we stand on)
   const top=me.feetY+st.body;
   for(const c of colliders){ if(c.miny>top || c.maxy<=me.feetY+0.05) continue;
@@ -1251,7 +1269,7 @@ function loop(){ requestAnimationFrame(loop);
         if(curW().auto){ if(wantFire) shoot(); }
         else if(semiQueued){ shoot(); semiQueued=false; }   // bolt/semi: one shot per click
       }
-      if(gameMode==='mp' && socket){ sendAcc+=dt; if(sendAcc>0.033){ sendAcc=0; socket.emit('state',{x:me.x,z:me.z,y:me.feetY,yaw:me.yaw,pitch:me.pitch}); } }
+      if(gameMode==='mp' && socket){ sendAcc+=dt; if(sendAcc>0.033){ sendAcc=0; socket.emit('state',{x:me.x,z:me.z,y:me.feetY,yaw:me.yaw,pitch:me.pitch,st:STANCE_ID[me.stance]}); } }
     }
     if(me.hp<prevHp-0.5) dmgFlash(); prevHp=me.hp;
     drawCompass();
@@ -1259,7 +1277,10 @@ function loop(){ requestAnimationFrame(loop);
     camera.rotation.order='YXZ'; camera.rotation.set(me.pitch,me.yaw,0);
     // --- ADS (right-click aim): smooth zoom, tightened aim, scope on sniper ---
     ads += (((aiming && me.alive) ? 1 : 0) - ads) * Math.min(1, dt*10);
-    const targetFov = 80 + (curW().adsFov - 80) * ads;
+    // sprint widens the view a touch — the cue that tells you you're sprinting
+    sprintAmt += ((me.sprinting ? 1 : 0) - sprintAmt) * Math.min(1, dt*6);
+    const baseFov = 80 + 9*sprintAmt;
+    const targetFov = baseFov + (curW().adsFov - baseFov) * ads;
     if (Math.abs(camera.fov - targetFov) > 0.05){ camera.fov = targetFov; camera.updateProjectionMatrix(); }
     const scoped = curW().scope && ads > 0.85;
     document.getElementById('scope').style.display = scoped ? 'block' : 'none';
@@ -1275,10 +1296,18 @@ function loop(){ requestAnimationFrame(loop);
       rDip=s*0.22; rRot=s;
       if(p>0.3&&p<0.7) rWob=Math.sin(p*40)*0.02;    // hand jiggle mid-reload
     }
+    // Stance feedback you can actually see in first person: the weapon rides
+    // lower and tilts in as you crouch, more so when prone. Sprinting swings
+    // the gun down and aside like you're running with it.
+    stanceAmt += ((me.stance==='prone' ? 1 : me.stance==='crouch' ? 0.5 : 0) - stanceAmt) * Math.min(1, dt*10);
+    const sp = sprintAmt*(1-ads);
+    const sx = -0.06*stanceAmt + 0.10*sp;
+    const sy = -0.10*stanceAmt - 0.09*sp;
+    const sr =  0.30*stanceAmt + 0.45*sp;          // roll/tilt
     // base pose slides toward screen center while aiming
     const bx=0.3*(1-ads), by=-0.28+0.07*ads, bz=-0.55+0.12*ads;
-    gun.position.set(bx+rWob, by-rDip, bz+gunKick*0.1);
-    gun.rotation.set(gunKick*0.4*(1-ads*0.6) - rRot*0.85, rRot*0.3, rRot*0.5);
+    gun.position.set(bx+rWob+sx, by-rDip+sy, bz+gunKick*0.1);
+    gun.rotation.set(gunKick*0.4*(1-ads*0.6) - rRot*0.85 - 0.18*sp, rRot*0.3, rRot*0.5 + sr);
   } else {
     // menu: spatial showcase — the 3D camera parallaxes with the mouse to match
     // the CSS glass layers, and the operator can be dragged to inspect.
@@ -1300,6 +1329,14 @@ function loop(){ requestAnimationFrame(loop);
   // interpolate + animate networked entities
   const animate=(o)=>{ const m=o.mesh; const nx=m.position.x+(o.tx-m.position.x)*0.2, ny=m.position.y+((o.ty||0)-m.position.y)*0.2, nz=m.position.z+(o.tz-m.position.z)*0.2;
     const moved=Math.hypot(nx-m.position.x,nz-m.position.z)>0.002; m.position.set(nx,ny,nz);
+    // stance pose: crouched players squash down, prone players lie flat
+    if(o.tst!==undefined){
+      o.sAmt = (o.sAmt||0) + ((o.tst) - (o.sAmt||0))*0.18;     // 0 stand, 1 crouch, 2 prone
+      const crouch = Math.min(o.sAmt,1), prone = Math.max(0, o.sAmt-1);
+      m.scale.y = 1 - 0.28*crouch;                              // squat down
+      m.rotation.x = -prone*Math.PI/2;                          // tip onto the ground
+      m.position.y = ny + prone*0.25;                           // keep the body on the floor
+    }
     let a=m.rotation.y, da=((o.tyaw-a+Math.PI*3)%(Math.PI*2))-Math.PI; m.rotation.y=a+da*0.25;
     const u=m.userData; if(!u.ll) return;   // rigged soldier models have no swing-limbs
     if(moved){ u.walk+=dt*8; const s=Math.sin(u.walk)*0.5; u.ll.rotation.x=s; u.rl.rotation.x=-s; u.la.rotation.x=-s*0.6; u.ra.rotation.x=s*0.4; } else { u.ll.rotation.x*=0.8; u.rl.rotation.x*=0.8; } };
