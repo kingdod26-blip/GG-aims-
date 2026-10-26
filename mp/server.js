@@ -31,6 +31,14 @@ const LAYOUT = [ // [x, z, w, d]
 ];
 // Rectangles as {minx,minz,maxx,maxz}
 const RECTS = LAYOUT.map(([x,z,w,d]) => ({ minx:x-w/2, minz:z-d/2, maxx:x+w/2, maxz:z+d/2 }));
+// The perimeter walls are collidable on the client, so the server needs them
+// too — otherwise bullets and ricocheting arrows fly straight through them.
+RECTS.push(
+  { minx:-ARENA-1, minz:-ARENA-1, maxx: ARENA+1, maxz:-ARENA+1 },   // north
+  { minx:-ARENA-1, minz: ARENA-1, maxx: ARENA+1, maxz: ARENA+1 },   // south
+  { minx:-ARENA-1, minz:-ARENA-1, maxx:-ARENA+1, maxz: ARENA+1 },   // west
+  { minx: ARENA-1, minz:-ARENA-1, maxx: ARENA+1, maxz: ARENA+1 },   // east
+);
 
 /* ------------------------------- Geometry --------------------------------- */
 // 2D segment (from → to) vs axis-aligned rectangle. Returns nearest hit
@@ -79,6 +87,25 @@ function raySphere(o, dir, cx, cy, cz, radius) {
   const t = -b - Math.sqrt(disc);
   return t > 0 ? t : Infinity;
 }
+// 2D segment vs rectangle that also reports which face was hit, so arrows can
+// bounce off it. Returns { t (0..1), nx, nz } or null.
+function segRectHit(fx, fz, tx, tz, r) {
+  const dx = tx - fx, dz = tz - fz;
+  let tmin = 0, tmax = 1, axis = -1, sign = 1;
+  const slabs = [[fx, dx, r.minx, r.maxx], [fz, dz, r.minz, r.maxz]];
+  for (let i = 0; i < 2; i++) {
+    const [p, d, lo, hi] = slabs[i];
+    if (Math.abs(d) < 1e-9) { if (p < lo || p > hi) return null; continue; }
+    let t1 = (lo - p) / d, t2 = (hi - p) / d, s = -1;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; s = 1; }
+    if (t1 > tmin) { tmin = t1; axis = i; sign = s; }
+    tmax = Math.min(tmax, t2);
+    if (tmin > tmax) return null;
+  }
+  if (axis < 0) return null;
+  return { t: tmin, nx: axis === 0 ? sign : 0, nz: axis === 1 ? sign : 0 };
+}
+
 const rand = (a, b) => a + Math.random()*(b-a);
 function randomSpawn() {
   let x, z, t = 0;
@@ -94,6 +121,12 @@ function insideWall(x, z) {
 /* --------------------------------- State ---------------------------------- */
 const players = new Map(); // socket.id -> player
 const bots = [];
+// Crossbow ability tuning (must match the client's WEAPONS entry)
+const XBOW = { dmg: 90, burnDps: 6, burnMs: 9000, charges: 2, cooldownMs: 30000, speed: 62 };
+// Blade melee (must match the client's BLADE entry)
+const MELEE = { combo: [22,22,28,28,70], windowMs: 1600, rateMs: 320, reach: 3.4, arc: 0.5 };
+const arrows = [];
+let arrowSeq = 0;
 const BOT_COUNT = 4;
 let botSeq = 0;
 
@@ -184,12 +217,78 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ---- Blade: five-hit melee combo, validated server-side ----
+  socket.on('melee', (d) => {
+    const p = players.get(socket.id); if (!p || !p.alive) return;
+    const now = Date.now();
+    if (now - (p.lastMelee || 0) < MELEE.rateMs) return;      // rate limit
+    p.lastMelee = now;
+    if (now > (p.comboUntil || 0)) p.comboStep = 0;           // chain timed out
+    const dir = normalize(d.dx, d.dy, d.dz);
+    const ox = d.ox, oy = d.oy, oz = d.oz;
+    // nearest target inside the reach cone
+    let best = null, bestD = Infinity;
+    const tryT = (cx, cy, cz, ref) => {
+      const vx = cx-ox, vy = cy-oy, vz = cz-oz;
+      const dist = Math.hypot(vx, vy, vz);
+      if (dist > MELEE.reach) return;
+      if ((vx*dir.x + vy*dir.y + vz*dir.z)/(dist||1) < MELEE.arc) return;
+      if (dist < bestD) { bestD = dist; best = ref; }
+    };
+    for (const b of bots) if (b.alive) tryT(b.x, 1.1, b.z, { kind:'bot', ref:b });
+    for (const pl of players.values())
+      if (pl.alive && pl.id !== p.id) tryT(pl.x, (pl.y||0)+1.1, pl.z, { kind:'player', ref:pl });
+
+    if (!best) { p.comboStep = 0; return; }                   // a miss breaks the chain
+    const step = Math.min(p.comboStep || 0, MELEE.combo.length-1);
+    const t = best.ref, isPlayer = best.kind === 'player';
+    t.hp -= MELEE.combo[step];
+    io.emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false });
+    p.comboStep = (step + 1) % MELEE.combo.length;
+    p.comboUntil = now + MELEE.windowMs;
+    if (t.hp <= 0 && t.alive) {
+      t.alive = false; t.hp = 0; t.burnUntil = 0; p.kills++;
+      if (isPlayer) { t.deaths++; t.respawnAt = now + 3000; }
+      io.emit('kill', { by: p.name, victim: isPlayer ? t.name : 'a bot', head: step === MELEE.combo.length-1 });
+    }
+  });
+
+  // ---- Crossbow ability: launch a flaming arrow (server-simulated) ----
+  socket.on('arrow', (d) => {
+    const p = players.get(socket.id); if (!p || !p.alive) return;
+    // enforce the 2-charge / 30s budget here too, so it can't be spammed
+    const now = Date.now();
+    p.shots = (p.shots || []).filter(t => now - t < XBOW.cooldownMs);
+    if (p.shots.length >= XBOW.charges) return;
+    p.shots.push(now);
+    const dir = normalize(d.dx, d.dy, d.dz);
+    arrows.push({ id: 'a' + (arrowSeq++), by: socket.id,
+      x: d.ox, y: d.oy, z: d.oz,
+      vx: dir.x*XBOW.speed, vy: dir.y*XBOW.speed, vz: dir.z*XBOW.speed,
+      bounces: d.ric ? 1 : 0, life: 5 });
+  });
+
   socket.on('disconnect', () => {
     players.delete(socket.id);
     console.log(`[-] ${player.name} left (${players.size} online)`);
   });
 });
 function normalize(x, y, z) { const l = Math.hypot(x, y, z) || 1; return { x:x/l, y:y/l, z:z/l }; }
+
+/* Arrow impact: big direct hit, then it burns for 9s. */
+function igniteTarget(hit, byId, now) {
+  const t = hit.ref, isPlayer = hit.kind === 'player';
+  t.hp -= XBOW.dmg;
+  t.burnUntil = now + XBOW.burnMs; t.burnNext = now + 1000; t.burnBy = byId;
+  const shooter = players.get(byId);
+  io.emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false, fire:true });
+  if (t.hp <= 0 && t.alive) {
+    t.alive = false; t.hp = 0; t.burnUntil = 0;
+    if (shooter) shooter.kills++;
+    if (isPlayer) { t.deaths++; t.respawnAt = now + 3000; }
+    io.emit('kill', { by: shooter ? shooter.name : 'fire', victim: isPlayer ? t.name : 'a bot', head:false });
+  }
+}
 
 /* ------------------------------- Game loop -------------------------------- */
 const TICK = 1000 / 30;
@@ -206,6 +305,73 @@ setInterval(() => {
   // Bots are STATIONARY targets (target-practice): they don't move or shoot.
   // (They just stand there; being shot is handled in the 'fire' handler.)
 
+  // ---- Flaming arrows: fly, bounce off geometry, ignite what they hit ----
+  for (let i = arrows.length - 1; i >= 0; i--) {
+    const a = arrows[i];
+    a.life -= dt;
+    if (a.life <= 0) { arrows.splice(i, 1); continue; }
+    a.vy -= 9 * dt;                                     // slight drop
+    const nx = a.x + a.vx*dt, ny = a.y + a.vy*dt, nz = a.z + a.vz*dt;
+    const stepLen = Math.hypot(nx-a.x, nz-a.z) || 1e-6;
+
+    // nearest target along this step (players never cause a bounce)
+    const dirx = (nx-a.x)/stepLen, diry = (ny-a.y)/stepLen, dirz = (nz-a.z)/stepLen;
+    const o = { x:a.x, y:a.y, z:a.z }, dir = { x:dirx, y:diry, z:dirz };
+    let hitT = Infinity, victim = null;
+    const tryHit = (cx, cz, baseY, st, ref) => {
+      const box = [[1.05,0.60,1.70],[0.70,0.55,1.10],[0.32,0.50,0.50]][st] || [1.05,0.60,1.70];
+      const b1 = raySphere(o, dir, cx, baseY+box[0], cz, box[1]);
+      const h1 = raySphere(o, dir, cx, baseY+box[2], cz, 0.34);
+      const t = Math.min(b1, h1);
+      if (t < hitT && t <= stepLen) { hitT = t; victim = ref; }
+    };
+    for (const b of bots) if (b.alive) tryHit(b.x, b.z, 0, 0, { kind:'bot', ref:b });
+    for (const pl of players.values())
+      if (pl.alive && pl.id !== a.by) tryHit(pl.x, pl.z, pl.y||0, pl.st||0, { kind:'player', ref:pl });
+
+    // nearest wall along this step
+    let wallT = Infinity, wn = null;
+    for (const r of RECTS) {
+      const h = segRectHit(a.x, a.z, nx, nz, r);
+      if (h && h.t*stepLen < wallT) { wallT = h.t*stepLen; wn = h; }
+    }
+
+    if (victim && hitT <= wallT) {                      // hit someone
+      igniteTarget(victim, a.by, now);
+      arrows.splice(i, 1); continue;
+    }
+    if (wn && wallT <= stepLen) {
+      if (a.bounces > 0) {                              // RICOCHET: reflect once
+        a.bounces--;
+        a.x += dirx*wallT*0.98; a.z += dirz*wallT*0.98; a.y += diry*wallT*0.98;
+        if (wn.nx) a.vx = -a.vx; else a.vz = -a.vz;
+        a.vx *= 0.85; a.vy *= 0.85; a.vz *= 0.85;
+        continue;
+      }
+      arrows.splice(i, 1); continue;                    // stick in the wall
+    }
+    a.x = nx; a.y = ny; a.z = nz;
+    if (a.y < 0) arrows.splice(i, 1);                   // hit the ground
+  }
+
+  // ---- Burn damage over time ----
+  const burnTick = (e, isPlayer) => {
+    if (!e.burnUntil || !e.alive) return;
+    if (now > e.burnUntil) { e.burnUntil = 0; return; }
+    if (now < (e.burnNext || 0)) return;
+    e.burnNext = now + 1000;
+    e.hp -= XBOW.burnDps;
+    if (e.hp <= 0 && e.alive) {
+      e.alive = false; e.hp = 0; e.burnUntil = 0;
+      const killer = players.get(e.burnBy);
+      if (killer) killer.kills++;
+      if (isPlayer) { e.deaths++; e.respawnAt = now + 3000; }
+      io.emit('kill', { by: killer ? killer.name : 'fire', victim: isPlayer ? e.name : 'a bot', head:false });
+    }
+  };
+  for (const b of bots) burnTick(b, false);
+  for (const pl of players.values()) burnTick(pl, true);
+
   // respawn dead bots to keep the count constant
   for (let i = bots.length - 1; i >= 0; i--) if (!bots[i].alive) { bots.splice(i, 1); setTimeout(spawnBot, 2500); }
 
@@ -213,7 +379,8 @@ setInterval(() => {
   io.emit('snapshot', {
     t: now,
     players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, name:p.name, color:p.color })),
-    bots: bots.map(b => ({ id:b.id, x:b.x, z:b.z, yaw:b.yaw, alive:b.alive, state:b.state })),
+    bots: bots.map(b => ({ id:b.id, x:b.x, z:b.z, yaw:b.yaw, alive:b.alive, state:b.state, burning: !!b.burnUntil })),
+    arrows: arrows.map(a => ({ id:a.id, x:a.x, y:a.y, z:a.z, vx:a.vx, vy:a.vy, vz:a.vz })),
   });
 }, TICK);
 
