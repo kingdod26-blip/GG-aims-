@@ -373,7 +373,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/RGBELoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/curves/NURBSCurve.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
@@ -401,7 +400,6 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
 renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth, innerHeight); renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
 
 const scene = new THREE.Scene();
 /* Sky: equirect canvas — deep blue overhead fading to a bright horizon, with clouds. */
@@ -421,22 +419,9 @@ const skyTex = new THREE.CanvasTexture(skyCanvas);
 skyTex.mapping = THREE.EquirectangularReflectionMapping; skyTex.encoding = THREE.sRGBEncoding;
 scene.background = skyTex;
 scene.fog = new THREE.Fog(0xdfeaf2, 55, 150);
-const pmrem = new THREE.PMREMGenerator(renderer);
-let ENV = pmrem.fromEquirectangular(skyTex).texture; pmrem.dispose();
-
-/* Real HDR sky lighting (Poly Haven, CC0): once loaded, every PBR surface is
-   lit/reflected by a photographed sky instead of the painted one. */
-if (THREE.RGBELoader) new THREE.RGBELoader().load('assets/sky_1k.hdr', (hdr) => {
-  hdr.mapping = THREE.EquirectangularReflectionMapping;
-  const pg = new THREE.PMREMGenerator(renderer);
-  ENV = pg.fromEquirectangular(hdr).texture; pg.dispose(); hdr.dispose();
-  scene.environment = ENV;
-  if (typeof floor !== 'undefined'){ floor.material.envMap = ENV; floor.material.needsUpdate = true; }
-}, undefined, () => console.warn('[BotStrike] HDR sky failed, using painted sky lighting'));
-
 const camera = new THREE.PerspectiveCamera(80, innerWidth/innerHeight, 0.05, 500);
-scene.add(new THREE.HemisphereLight(0xcfe4ff, 0x5a5f52, 0.75));
-const sun = new THREE.DirectionalLight(0xfff2df, 1.25); sun.position.set(35,60,25); sun.castShadow = true;
+scene.add(new THREE.HemisphereLight(0xcfe4ff, 0x5a5f52, 0.70));
+const sun = new THREE.DirectionalLight(0xfff2df, 1.15); sun.position.set(35,60,25); sun.castShadow = true;
 sun.shadow.mapSize.set(2048,2048);
 Object.assign(sun.shadow.camera,{left:-70,right:70,top:70,bottom:-70,far:170}); scene.add(sun);
 
@@ -520,7 +505,6 @@ function pbr(prefix, rx, ry, extra={}){
   d.encoding = THREE.sRGBEncoding;
   return new THREE.MeshStandardMaterial(Object.assign({ map:d, normalMap:n, roughnessMap:r }, extra));
 }
-scene.environment = ENV;    // image-based lighting for all PBR surfaces
 const MAT_BY_COLOR = {
   0x8a6b45: pbr('crate', 1, 1),                     // real worn wood planks
   0x6b7280: new THREE.MeshLambertMaterial({ map: blockTex }),
@@ -538,7 +522,7 @@ function addBox(x,y,z,w,h,d,color){
   colliders.push({minx:x-w/2,minz:z-d/2,maxx:x+w/2,maxz:z+d/2,miny:y-h/2,maxy:y+h/2}); return m; }
 /* Wet, sky-reflecting concrete floor: photoscanned maps + strong reflections */
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(ARENA*2,ARENA*2),
-  pbr('floor', 16, 16, { roughness:0.55, metalness:0.08, envMap:ENV, envMapIntensity:1.0 }));
+  pbr('floor', 16, 16, { roughness:0.9, metalness:0.0 }));
 floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
 const WH=8;
 addBox(0,WH/2,-ARENA,ARENA*2,WH,2,0x5a6472); addBox(0,WH/2,ARENA,ARENA*2,WH,2,0x5a6472);
@@ -668,11 +652,11 @@ function spartanMaterial(name){
   const prefix = aliased || SPARTAN_MATS.find(p => name && name.toLowerCase().includes(p.toLowerCase()));
   if (prefix){
     const L=(suf,srgb)=>{ const t=texLoader.load(`assets/spartan_tex/${prefix}_${suf}.jpg`); if(srgb) t.encoding=THREE.sRGBEncoding; return t; };
-    return new THREE.MeshStandardMaterial({ map:L('BaseColor',1), normalMap:L('Normal'), roughnessMap:L('Roughness'), metalnessMap:L('Metallic'), metalness:1.0, roughness:1.0 });
+    return new THREE.MeshStandardMaterial({ map:L('BaseColor',1), normalMap:L('Normal'), roughnessMap:L('Roughness'), metalness:0.0, roughness:1.0 });
   }
   if (name && name.toLowerCase().includes('lambert')){   // visor / misc with opacity
     const t=texLoader.load('assets/spartan_tex/lambert1_Colour-Opacity.png'); t.encoding=THREE.sRGBEncoding;
-    return new THREE.MeshStandardMaterial({ map:t, transparent:true, roughness:0.25, metalness:0.7 });
+    return new THREE.MeshStandardMaterial({ map:t, transparent:true, roughness:0.5, metalness:0.0 });
   }
   return null;
 }
@@ -734,6 +718,10 @@ let jumpPressed = false;             // edge-triggered by keydown
 
 /* ---- Abilities ---- */
 const ROLL = { dur:0.62, speed:20, cdMs:1200 };       // V — dodge roll (~7m)
+// SLIDE IS CURRENTLY DISABLED — flip this to true to bring it back.
+// The full implementation is kept intact below and documented in
+// extras/slide-ability.md. With it off, C is always a plain crouch toggle.
+const SLIDE_ENABLED = false;
 const SLIDE= { dur:0.80, speed:13.0, cdMs:1500 };     // C while sprinting
 let rollT=0, rollCdUntil=0, rollDir=new THREE.Vector3();
 let slideT=0, slideCdUntil=0, slideDir=new THREE.Vector3(), slideSpd=0;
@@ -1055,7 +1043,7 @@ addEventListener('keydown',e=>{ keys[e.code]=true;
   if(e.code==='KeyC'){
     // sprinting -> slide; otherwise it's the normal crouch toggle
     // slide if you're sprinting OR still carrying speed (e.g. out of a roll)
-    if((me.sprinting || me.hv.length()>8.5) && me.onGround && slideT<=0) startSlide();
+    if(SLIDE_ENABLED && (me.sprinting || me.hv.length()>8.5) && me.onGround && slideT<=0) startSlide();
     else me.stance = me.stance==='crouch' ? 'stand' : 'crouch';
   }
   if(e.code==='KeyZ') me.stance = me.stance==='prone'  ? 'stand' : 'prone'; });
@@ -1225,17 +1213,60 @@ function makeArrowMesh(){
   const head=new THREE.Mesh(new THREE.ConeGeometry(0.075,0.22,8),
     new THREE.MeshBasicMaterial({color:0xffd9a0}));
   head.rotation.x=-Math.PI/2; head.position.z=-0.45; g.add(head);
-  const flame=new THREE.Mesh(new THREE.SphereGeometry(0.16,8,8),
-    new THREE.MeshBasicMaterial({color:0xff8a2a, transparent:true, opacity:0.85, blending:THREE.AdditiveBlending, depthWrite:false}));
-  flame.position.z=-0.2; g.add(flame);
-  const light=new THREE.PointLight(0xff8a2a, 2.2, 9); g.add(light);
-  g.userData={flame,light};
+  // Flame built from SOLID layers, not additive — additive orange is invisible
+  // against a bright sky/floor, which is why the fire couldn't be seen.
+  const flame=new THREE.Mesh(new THREE.SphereGeometry(0.3,10,10),
+    new THREE.MeshBasicMaterial({color:0xff5a05, transparent:true, opacity:0.8, depthWrite:false}));
+  flame.position.z=-0.18; g.add(flame);
+  const core=new THREE.Mesh(new THREE.SphereGeometry(0.15,10,10),
+    new THREE.MeshBasicMaterial({color:0xffe9a0}));
+  core.position.z=-0.2; g.add(core);
+  // a short trail of shrinking embers so it reads as a streak in flight
+  const trail=[];
+  for(let i=0;i<4;i++){
+    const t=new THREE.Mesh(new THREE.SphereGeometry(0.2-i*0.04,8,8),
+      new THREE.MeshBasicMaterial({color:i<2?0xff7a16:0xcf3a06, transparent:true, opacity:0.55-i*0.11, depthWrite:false}));
+    t.position.z = 0.18 + i*0.22; g.add(t); trail.push(t);
+  }
+  const light=new THREE.PointLight(0xff7a1a, 3.2, 12); g.add(light);
+  g.userData={flame,core,trail,light};
   return g;
 }
 function aimArrow(mesh,vel){ const p=mesh.position;
   mesh.lookAt(p.x+vel.x, p.y+vel.y, p.z+vel.z); }      // model points -Z
 function flickerArrow(mesh,t){ const u=mesh.userData; if(!u||!u.flame) return;
-  const f=0.85+Math.sin(t*0.04)*0.15; u.flame.scale.setScalar(f); u.light.intensity=1.8+f; }
+  const f=0.85+Math.sin(t*0.04)*0.18;
+  u.flame.scale.setScalar(f);
+  if(u.core) u.core.scale.setScalar(0.9+Math.sin(t*0.07)*0.15);
+  if(u.trail) u.trail.forEach((s,i)=> s.scale.setScalar(0.8+Math.sin(t*0.05+i)*0.22));
+  u.light.intensity=2.6+f; }
+/* Flames that engulf a burning target: several solid tongues of fire up the
+   body plus a light, so it's unmistakable even against a bright background. */
+function makeBurnFx(parent){
+  const g=new THREE.Group();
+  const tongues=[];
+  for(let i=0;i<6;i++){
+    const m=new THREE.Mesh(new THREE.ConeGeometry(0.13,0.44,6),
+      new THREE.MeshBasicMaterial({ color:i%2?0xff8a12:0xff3d05, transparent:true, opacity:0.8, depthWrite:false }));
+    const ang=(i/6)*Math.PI*2;
+    // kept around the torso/legs so the head stays clear for headshots
+    m.position.set(Math.cos(ang)*0.22, 0.5+(i%3)*0.27, Math.sin(ang)*0.22);
+    g.add(m); tongues.push(m);
+  }
+  g.add(new THREE.PointLight(0xff6a10, 2.6, 7));
+  g.userData={tongues, t:Math.random()*10};
+  parent.add(g);
+  return g;
+}
+function updateBurnFx(fx,dt){
+  const u=fx.userData; if(!u||!u.tongues) return;
+  u.t+=dt*9;
+  u.tongues.forEach((m,i)=>{
+    const f=0.75+Math.sin(u.t+i*1.7)*0.35;
+    m.scale.set(f,1.1+Math.sin(u.t*1.3+i)*0.4,f);
+    m.material.opacity=0.6+Math.sin(u.t*1.6+i)*0.28;
+  });
+}
 function spawnLocalArrow(origin,dir,w,ric){
   const mesh=makeArrowMesh(); mesh.position.copy(origin); scene.add(mesh);
   const a={ mesh, pos:origin.clone(), vel:dir.clone().multiplyScalar(w.speed),
@@ -1284,6 +1315,7 @@ function updateArrows(dt){
   for(const b of localBots){
     if(!b.alive || !b.burnUntil) continue;
     if(t>b.burnUntil){ b.burnUntil=0; if(b.fire){ b.mesh.remove(b.fire); b.fire=null; } continue; }
+    if(b.fire) updateBurnFx(b.fire, dt);              // flicker the flames
     if(t>=(b.burnNext||0)){
       b.burnNext=t+1000; b.hp-=b.burnDps||6;
       if(b.hp<=0 && b.alive){ b.alive=false; b.mesh.visible=false; b.burnUntil=0;
@@ -1294,11 +1326,7 @@ function updateArrows(dt){
 function igniteLocalBot(b,dmg,w){
   b.hp-=dmg; hitmark(); Sfx.hit();
   b.burnUntil=performance.now()+w.burnMs; b.burnNext=performance.now()+1000; b.burnDps=w.burnDps;
-  if(!b.fire){                                        // little flame on the target
-    b.fire=new THREE.Mesh(new THREE.SphereGeometry(0.4,8,8),
-      new THREE.MeshBasicMaterial({color:0xff7a1a,transparent:true,opacity:0.5,blending:THREE.AdditiveBlending,depthWrite:false}));
-    b.fire.position.y=1.1; b.mesh.add(b.fire);
-  }
+  if(!b.fire) b.fire = makeBurnFx(b.mesh);            // visible flames on the target
   if(b.hp<=0 && b.alive){ b.alive=false; b.mesh.visible=false; b.burnUntil=0;
     localKills++; updateHUD(); setTimeout(()=>respawnLocalBot(b),2000); }
 }
