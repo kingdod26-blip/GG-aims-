@@ -1228,7 +1228,7 @@ function makeArrowMesh(){
       new THREE.MeshBasicMaterial({color:i<2?0xff7a16:0xcf3a06, transparent:true, opacity:0.55-i*0.11, depthWrite:false}));
     t.position.z = 0.18 + i*0.22; g.add(t); trail.push(t);
   }
-  const light=new THREE.PointLight(0xff7a1a, 3.2, 12); g.add(light);
+  const light=new THREE.PointLight(0xff7a1a, 0.7, 3.5); g.add(light);   // subtle, won't wash out the floor
   g.userData={flame,core,trail,light};
   return g;
 }
@@ -1239,7 +1239,7 @@ function flickerArrow(mesh,t){ const u=mesh.userData; if(!u||!u.flame) return;
   u.flame.scale.setScalar(f);
   if(u.core) u.core.scale.setScalar(0.9+Math.sin(t*0.07)*0.15);
   if(u.trail) u.trail.forEach((s,i)=> s.scale.setScalar(0.8+Math.sin(t*0.05+i)*0.22));
-  u.light.intensity=2.6+f; }
+  u.light.intensity=0.55+f*0.3; }
 /* Flames that engulf a burning target: several solid tongues of fire up the
    body plus a light, so it's unmistakable even against a bright background. */
 function makeBurnFx(parent){
@@ -1253,7 +1253,8 @@ function makeBurnFx(parent){
     m.position.set(Math.cos(ang)*0.22, 0.5+(i%3)*0.27, Math.sin(ang)*0.22);
     g.add(m); tongues.push(m);
   }
-  g.add(new THREE.PointLight(0xff6a10, 2.6, 7));
+  // no point light here: without tone mapping it just blows the ground out
+  // to a white disc. The flame meshes themselves read fine on their own.
   g.userData={tongues, t:Math.random()*10};
   parent.add(g);
   return g;
