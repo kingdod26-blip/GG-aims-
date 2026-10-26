@@ -1,0 +1,16 @@
+# Render Blueprint — deploys the multiplayer game server.
+# Render reads this automatically: New → Blueprint → pick this repo.
+#
+# The game needs ONE long-lived Node process (Socket.IO holds persistent
+# connections and the shared world lives in memory), which is why this is a
+# "web service" and not a static site or serverless function.
+services:
+  - type: web
+    name: bot-strike
+    runtime: node
+    plan: free
+    rootDir: mp               # server.js + package.json live in mp/
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true          # redeploy on every push to main
