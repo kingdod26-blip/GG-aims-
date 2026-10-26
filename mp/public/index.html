@@ -197,6 +197,21 @@
   .gear { background:none; border:none; color:rgba(255,255,255,.6); cursor:pointer;
     font-size:11px; letter-spacing:2px; padding:0; }
   .gear:hover { color:#27ff9e; }
+  /* --- pause menu --- */
+  #pause { z-index:26; background:rgba(4,6,10,.62); backdrop-filter:blur(3px); }
+  .pausebtns { display:flex; flex-direction:column; gap:10px; margin-top:22px; }
+  .pausebtns .btn { margin-top:0; width:100%; padding:15px 0; }
+  .pbtn { width:100%; padding:13px 0; border-radius:11px; cursor:pointer;
+    font-size:12px; font-weight:800; letter-spacing:2px; color:rgba(255,255,255,.8);
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); transition:.15s; }
+  .pbtn:hover { color:#fff; border-color:rgba(255,255,255,.35); transform:translateY(-2px); }
+  .pbtn.danger:hover { color:#ff8585; border-color:rgba(255,80,80,.6); }
+  /* in-game exit button (top-right under the scoreboard) */
+  #exitHud { position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:12; padding:7px 14px; border-radius:9px;
+    cursor:pointer; font-size:11px; font-weight:800; letter-spacing:2px; color:rgba(255,255,255,.75);
+    background:rgba(12,15,20,.7); border:1px solid rgba(255,255,255,.14);
+    backdrop-filter:blur(8px); transition:.15s; }
+  #exitHud:hover { color:#fff; border-color:rgba(255,80,80,.6); background:rgba(40,14,14,.75); }
   .hidden { display:none !important; }
   @media (max-width:820px){
     .panel, .navlinks { display:none; }
@@ -232,6 +247,7 @@
   <div id="stance">STANCE: <b id="stanceVal">STANDING</b></div>
   <div id="status">—</div>
   <div id="fpsTag">-- FPS</div>
+  <button id="exitHud" title="Pause / exit (Esc)">⏸ ESC</button>
 </div>
 <div id="respawn"><h1>YOU DIED</h1><p>Respawning…</p></div>
 
@@ -282,6 +298,21 @@
       <div class="kcap"><b>1-5</b>weapons</div>
       <div class="kcap"><b>Tab</b>armory</div>
       <div class="kcap"><b>RMB</b>aim</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Pause menu (Esc) ===== -->
+<div id="pause" class="overlay hidden">
+  <div class="stage">
+    <div class="setpanel glass layer" style="width:min(380px,90vw)">
+      <h2>PAUSED</h2>
+      <p class="lead" id="pauseMode">Target Practice</p>
+      <div class="pausebtns">
+        <button class="btn" id="resumeBtn">RESUME</button>
+        <button class="pbtn" id="pauseSettings">⚙ GRAPHICS SETTINGS</button>
+        <button class="pbtn danger" id="quitBtn">✕ QUIT TO MENU</button>
+      </div>
     </div>
   </div>
 </div>
@@ -357,6 +388,9 @@
    jump onto crates, crouch (C), prone (Z). */
 
 const canvas = document.getElementById('game');
+// requestPointerLock() returns a promise that rejects if the document can't
+// take the lock (embedded/unfocused frames) — swallow it so it doesn't spam.
+function lockPointer(){ try{ const r=canvas.requestPointerLock(); if(r&&r.catch) r.catch(()=>{}); }catch(e){} }
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
 renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth, innerHeight); renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -755,6 +789,62 @@ function renderSettingsUI(){
     btn.onclick = ()=>{ SETTINGS[btn.closest('.seg').dataset.key] = Number(btn.dataset.v); applySettings(); renderSettingsUI(); };
   });
 }
+/* ---- Pause menu + quit to menu ---- */
+let paused=false;
+function openPause(){
+  if(gameState!=='playing' || paused) return;
+  paused=true;
+  document.getElementById('pauseMode').textContent = (gameMode==='mp') ? 'Multiplayer' : 'Target Practice';
+  document.getElementById('pause').classList.remove('hidden');
+  document.exitPointerLock();
+  wantFire=false; aiming=false;            // don't keep firing/aiming while paused
+}
+function closePause(resume){
+  paused=false;
+  document.getElementById('pause').classList.add('hidden');
+  if(resume && gameState==='playing') lockPointer();
+}
+/* Full teardown back to the home screen — leaves no timers, sockets or
+   leftover meshes behind, so starting a new match is a clean slate. */
+function quitToMenu(){
+  closePause(false);
+  toggleArmory(false);
+  document.getElementById('settings').classList.add('hidden');
+  // stop the match
+  gameState='home';
+  document.exitPointerLock();
+  // drop the multiplayer connection and everyone it spawned
+  if(socket){ try{ socket.disconnect(); }catch(e){} socket=null; }
+  myId=null; connected=false;
+  for(const o of others.values()) scene.remove(o.mesh); others.clear();
+  for(const o of serverBots.values()) scene.remove(o.mesh); serverBots.clear();
+  // clear local targets
+  localBots.forEach(b=>scene.remove(b.mesh)); localBots.length=0;
+  // clear tracers (frees their GPU resources too)
+  while(tracers.length) disposeTracer(tracers.pop());
+  // stop timers / audio / input state
+  clearTimeout(reloadTimer); reloadSfxTimers.forEach(clearTimeout); reloadSfxTimers=[];
+  reloading=false; wantFire=false; semiQueued=false; aiming=false; ads=0;
+  try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(e){}
+  // restore the menu presentation
+  camera.fov=80; camera.updateProjectionMatrix();
+  document.body.classList.remove('playing');
+  document.getElementById('crosshair').style.display='none';
+  document.getElementById('scope').style.display='none';
+  document.getElementById('respawn').style.display='none';
+  document.getElementById('feed').innerHTML=''; feedArr.length=0;
+  heroGroup.forEach(o=>o.visible=true); gun.visible=false;
+  document.getElementById('mode').classList.add('hidden');
+  document.getElementById('home').classList.remove('hidden');
+}
+document.getElementById('resumeBtn').onclick   = ()=> closePause(true);
+document.getElementById('quitBtn').onclick     = quitToMenu;
+document.getElementById('exitHud').onclick     = openPause;
+document.getElementById('pauseSettings').onclick = ()=>{
+  document.getElementById('pause').classList.add('hidden');   // keep paused underneath
+  openSettings();
+};
+
 let settingsReturnToPlay=false;
 function openSettings(){
   settingsReturnToPlay = (gameState==='playing');
@@ -764,7 +854,9 @@ function openSettings(){
 }
 function closeSettings(){
   document.getElementById('settings').classList.add('hidden');
-  if(settingsReturnToPlay && gameState==='playing') canvas.requestPointerLock();
+  // opened from the pause menu? go back to it rather than straight into the game
+  if(paused){ document.getElementById('pause').classList.remove('hidden'); return; }
+  if(settingsReturnToPlay && gameState==='playing') lockPointer();
 }
 document.getElementById('gearBtn').onclick = openSettings;
 document.getElementById('setClose').onclick = closeSettings;
@@ -794,12 +886,12 @@ function startPlay(mode){
   me.x=0; me.z=44; me.feetY=0; me.eyeH=1.7; me.stance='stand'; me.vy=0; me.hp=100; me.alive=true;
   weaponAmmo = WEAPONS.map(w=>({ mag:w.magMax, reserve:w.reserveMax }));
   currentWeapon=0; weaponHolders.forEach((h,i)=>h.visible=i===0);
-  reloading=false; clearTimeout(reloadTimer); aiming=false; ads=0; semiQueued=false;
+  reloading=false; clearTimeout(reloadTimer); aiming=false; ads=0; semiQueued=false; paused=false;
   camera.fov=80; camera.updateProjectionMatrix();
   localKills=0; updateHUD();
   if (mode==='mp'){ connectMP(nm); document.getElementById('status').textContent='connecting…'; }
   else { spawnLocalBots(8); document.getElementById('status').textContent='Target Practice — offline'; }
-  canvas.requestPointerLock();
+  lockPointer();
 }
 
 /* ---- Multiplayer networking ---- */
@@ -869,8 +961,16 @@ addEventListener('mouseup',e=>{
   if(e.button===0) wantFire=false;
   if(e.button===2) aiming=false; });
 addEventListener('contextmenu',e=> e.preventDefault());   // right-click = aim, not menu
-document.addEventListener('pointerlockchange',()=> pointerLocked=document.pointerLockElement===canvas);
-canvas.addEventListener('click',()=>{ if(gameState==='playing' && me.alive && !pointerLocked) canvas.requestPointerLock(); });
+document.addEventListener('pointerlockchange',()=>{
+  pointerLocked = document.pointerLockElement===canvas;
+  // Esc releases the mouse — treat that as "pause", unless another panel
+  // (armory / settings) is what deliberately released it.
+  if(!pointerLocked && gameState==='playing' && !paused && !armoryOpen
+     && document.getElementById('settings').classList.contains('hidden')){
+    openPause();
+  }
+});
+canvas.addEventListener('click',()=>{ if(gameState==='playing' && me.alive && !pointerLocked) lockPointer(); });
 
 /* ---- Shooting ---- */
 const _ray = new THREE.Raycaster();
@@ -1025,7 +1125,7 @@ function toggleArmory(force){
   armoryOpen = want;
   document.getElementById('armory').classList.toggle('hidden', !want);
   if(want){ renderArmory(); document.exitPointerLock(); }
-  else if(gameState==='playing') canvas.requestPointerLock();
+  else if(gameState==='playing') lockPointer();
 }
 
 /* ---- Compass strip (bearing ticks like AAA shooters) ---- */
@@ -1110,7 +1210,7 @@ function loop(){ requestAnimationFrame(loop);
     const b=document.getElementById('fpsTag'); if(b) b.textContent=fpsShown+' FPS'; }
 
   if(gameState==='playing'){
-    if(me.alive){
+    if(me.alive && !paused){      // frozen while the pause menu is up
       movePlayer(dt);
       if(pointerLocked){
         if(curW().auto){ if(wantFire) shoot(); }
