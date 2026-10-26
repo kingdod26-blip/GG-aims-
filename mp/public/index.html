@@ -733,7 +733,7 @@ const MAX_JUMPS = 2;                 // ground jump + one mid-air jump
 let jumpPressed = false;             // edge-triggered by keydown
 
 /* ---- Abilities ---- */
-const ROLL = { dur:0.42, speed:13.5, cdMs:1200 };     // V — dodge roll
+const ROLL = { dur:0.62, speed:20, cdMs:1200 };       // V — dodge roll (~7m)
 const SLIDE= { dur:0.80, speed:13.0, cdMs:1500 };     // C while sprinting
 let rollT=0, rollCdUntil=0, rollDir=new THREE.Vector3();
 let slideT=0, slideCdUntil=0, slideDir=new THREE.Vector3(), slideSpd=0;
@@ -1489,7 +1489,7 @@ function movePlayer(dt){
     slideT-=dt;
     slideSpd=Math.max(4, slideSpd-14*dt);       // friction
     me.x+=slideDir.x*slideSpd*dt; me.z+=slideDir.z*slideSpd*dt;
-    if(slideT<=0){ slideT=0; }                  // leaves you crouched
+    if(slideT<=0){ slideT=0; me.stance='stand'; }   // pop back up on your feet
   } else if(mv.lengthSq()>0){
     mv.normalize().multiplyScalar(spd); me.x+=mv.x*dt; me.z+=mv.z*dt;
   }
