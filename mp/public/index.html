@@ -747,7 +747,9 @@ function xbowTick(){
 }
 const STANCE_ID = { stand:0, crouch:1, prone:2 };
 const STANCE_BY_ID = ['stand','crouch','prone'];
-const me = { x:0, z:44, feetY:0, eyeH:1.7, stance:'stand', yaw:0, pitch:0, vy:0, onGround:true, radius:0.4, hp:100, alive:true };
+const me = { x:0, z:44, feetY:0, eyeH:1.7, stance:'stand', yaw:0, pitch:0, vy:0, onGround:true, radius:0.4, hp:100, alive:true,
+  hv:new THREE.Vector3() };     // horizontal velocity — carries momentum between abilities
+let camRoll=0, camDip=0, rollLean=0, slideLean=0;
 /* Weapon roster (keys 1-5, Tab shows the armory). ADS on right-click. */
 const WEAPONS = [
   { name:'RIFLE',    mode:'AUTO', auto:true,  fireRate:95,   dmg:26,  recoil:0.011, spread:0.014, adsSpread:0.006,  range:240, magMax:30, reserveMax:120, reloadMs:1600, adsFov:62, scope:false },
@@ -907,6 +909,7 @@ function quitToMenu(){
   while(arrows.length) removeArrow(arrows[0]);
   for(const [id,m] of arrowGfx) scene.remove(m); arrowGfx.clear();
   rollT=0; slideT=0; xbowCharges=WEAPONS[XBOW].charges; xbowRecharge.length=0; ricochet=false;
+  me.hv.set(0,0,0); camRoll=0; camDip=0; comboStep=0; swingT=0;
   // stop timers / audio / input state
   clearTimeout(reloadTimer); reloadSfxTimers.forEach(clearTimeout); reloadSfxTimers=[];
   reloading=false; wantFire=false; semiQueued=false; aiming=false; ads=0;
@@ -1051,14 +1054,17 @@ addEventListener('keydown',e=>{ keys[e.code]=true;
   if(e.code==='KeyV' && !e.repeat) startRoll();
   if(e.code==='KeyC'){
     // sprinting -> slide; otherwise it's the normal crouch toggle
-    if(me.sprinting && me.onGround && slideT<=0) startSlide();
+    // slide if you're sprinting OR still carrying speed (e.g. out of a roll)
+    if((me.sprinting || me.hv.length()>8.5) && me.onGround && slideT<=0) startSlide();
     else me.stance = me.stance==='crouch' ? 'stand' : 'crouch';
   }
   if(e.code==='KeyZ') me.stance = me.stance==='prone'  ? 'stand' : 'prone'; });
 
 function startRoll(){
   const now=performance.now();
-  if(gameState!=='playing' || !me.alive || rollT>0 || slideT>0 || now<rollCdUntil || !me.onGround) return;
+  // a roll may cancel a slide — that chain is the whole point
+  if(gameState!=='playing' || !me.alive || rollT>0 || now<rollCdUntil || !me.onGround) return;
+  slideT=0;
   // roll the way you're moving; straight ahead if you're standing still
   const fwd=new THREE.Vector3(-Math.sin(me.yaw),0,-Math.cos(me.yaw));
   const rgt=new THREE.Vector3(Math.cos(me.yaw),0,-Math.sin(me.yaw));
@@ -1066,6 +1072,9 @@ function startRoll(){
   if(keys['KeyW'])d.add(fwd); if(keys['KeyS'])d.sub(fwd); if(keys['KeyD'])d.add(rgt); if(keys['KeyA'])d.sub(rgt);
   if(d.lengthSq()===0) d.copy(fwd);
   rollDir.copy(d.normalize()); rollT=ROLL.dur; rollCdUntil=now+ROLL.cdMs;
+  // lean the camera the way we're rolling
+  rollLean = -rollDir.dot(new THREE.Vector3(Math.cos(me.yaw),0,-Math.sin(me.yaw)));
+  // velocity ramps in via the rate-30 easing below — punchy but not a jump
   me.stance='stand'; Sfx.land();
 }
 function startSlide(){
@@ -1076,7 +1085,10 @@ function startSlide(){
   const d=new THREE.Vector3();
   if(keys['KeyW'])d.add(fwd); if(keys['KeyS'])d.sub(fwd); if(keys['KeyD'])d.add(rgt); if(keys['KeyA'])d.sub(rgt);
   if(d.lengthSq()===0) d.copy(fwd);
-  slideDir.copy(d.normalize()); slideT=SLIDE.dur; slideSpd=SLIDE.speed;
+  slideDir.copy(d.normalize()); slideT=SLIDE.dur;
+  // keep whatever speed you already had, so a slide out of a roll stays fast
+  slideSpd=Math.max(SLIDE.speed, me.hv.length());
+  slideLean = -slideDir.dot(new THREE.Vector3(Math.cos(me.yaw),0,-Math.sin(me.yaw)));
   slideCdUntil=now+SLIDE.cdMs; me.stance='crouch'; Sfx.step(true);
 }
 addEventListener('keyup',e=> keys[e.code]=false);
@@ -1479,23 +1491,31 @@ function movePlayer(dt){
   me.sprinting = sprint;                       // drives the FOV kick + faster bob
   const spd=(sprint?11:7)*st.spd;
 
-  // --- abilities take over movement while they're running ---
-  if(rollT>0){                                  // V: dodge roll
-    rollT-=dt;
-    const k=Math.max(0.35, rollT/ROLL.dur);     // ease out, never fully stalls
-    me.x+=rollDir.x*ROLL.speed*k*dt; me.z+=rollDir.z*ROLL.speed*k*dt;
-    if(rollT<=0) rollT=0;
-  } else if(slideT>0){                          // C while sprinting: slide
-    slideT-=dt;
-    slideSpd=Math.max(4, slideSpd-14*dt);       // friction
-    me.x+=slideDir.x*slideSpd*dt; me.z+=slideDir.z*slideSpd*dt;
-    if(slideT<=0){ slideT=0; me.stance='stand'; }   // pop back up on your feet
+  // --- Movement runs through a velocity that carries between states ---
+  // Each source only says what velocity it WANTS; the real velocity eases
+  // toward it. Abilities snap in hard (that's the punch), but when one ends
+  // its speed bleeds off instead of dropping, so chaining sprint → slide →
+  // roll → sprint stays continuous instead of stuttering between modes.
+  const want=new THREE.Vector3();
+  let rate=18;                                   // how quickly velocity follows
+  if(rollT>0){                                   // V: dodge roll
+    rollT=Math.max(0, rollT-dt);
+    const k=Math.max(0.42, rollT/ROLL.dur);      // ease out, never fully stalls
+    want.copy(rollDir).multiplyScalar(ROLL.speed*k); rate=24;
+  } else if(slideT>0){                           // C while sprinting: slide
+    slideT=Math.max(0, slideT-dt);
+    slideSpd=Math.max(5, slideSpd-13*dt);        // friction
+    want.copy(slideDir).multiplyScalar(slideSpd); rate=24;
+    if(slideT===0) me.stance='stand';            // pop back up on your feet
   } else if(mv.lengthSq()>0){
-    mv.normalize().multiplyScalar(spd); me.x+=mv.x*dt; me.z+=mv.z*dt;
-  }
+    want.copy(mv).normalize().multiplyScalar(spd);
+  } else rate=12;                                // coast to a stop
+  me.hv.lerp(want, 1-Math.exp(-rate*dt));        // frame-rate independent easing
+  if(me.hv.lengthSq()<4e-4) me.hv.set(0,0,0);
+  me.x+=me.hv.x*dt; me.z+=me.hv.z*dt;
   // footsteps: fire on distance travelled, so pace matches actual speed/stance
-  if(mv.lengthSq()>0 && me.onGround){
-    stepDist += spd*dt;
+  if(me.hv.lengthSq()>1 && me.onGround){
+    stepDist += me.hv.length()*dt;              // paced by actual speed, not intent
     const stride = me.stance==='prone' ? 1.5 : me.stance==='crouch' ? 1.15 : (sprint ? 2.0 : 1.6);
     if(stepDist >= stride){ stepDist=0; stepLeft=!stepLeft; Sfx.step(stepLeft); }
   } else stepDist = Math.max(stepDist, 0);
@@ -1566,8 +1586,17 @@ function loop(){ requestAnimationFrame(loop);
     }
     if(me.hp<prevHp-0.5) dmgFlash(); prevHp=me.hp;
     drawCompass();
-    camera.position.set(me.x, me.feetY+me.eyeH, me.z);
-    camera.rotation.order='YXZ'; camera.rotation.set(me.pitch,me.yaw,0);
+    // Camera lean/dip during abilities — this is what sells the transition as
+    // momentum rather than a teleport between movement modes.
+    let wRoll=0, wDip=0;
+    if(rollT>0){ const p=1-rollT/ROLL.dur, s=Math.sin(p*Math.PI);
+      wRoll = s*0.40*rollLean; wDip = s*0.22; }
+    else if(slideT>0){ const s=Math.min(1, slideT/0.25);
+      wRoll = 0.20*slideLean*s; wDip = 0.10*s; }
+    camRoll += (wRoll-camRoll)*Math.min(1,dt*12);
+    camDip  += (wDip -camDip )*Math.min(1,dt*12);
+    camera.position.set(me.x, me.feetY+me.eyeH-camDip, me.z);
+    camera.rotation.order='YXZ'; camera.rotation.set(me.pitch,me.yaw,camRoll);
     // --- ADS (right-click aim): smooth zoom, tightened aim, scope on sniper ---
     ads += (((aiming && me.alive) ? 1 : 0) - ads) * Math.min(1, dt*10);
     // sprint widens the view a touch — the cue that tells you you're sprinting
