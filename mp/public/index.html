@@ -65,7 +65,9 @@
   #board .row { display:flex; justify-content:space-between; font-size:14px; margin:3px 0; }
   #board .me { color:#27ff9e; font-weight:700; } #board .k { color:#ffd15a; }
   #feed { position:fixed; top:16px; left:20px; z-index:10; }
-  #feed div { background:rgba(12,15,20,.7); border:1px solid rgba(255,255,255,.07); border-radius:6px; padding:4px 10px; margin-bottom:5px; color:#eaf0f5; font-size:13px; display:inline-block; }
+  #feed div { background:rgba(12,15,20,.7); border:1px solid rgba(255,255,255,.07); border-radius:6px; padding:4px 10px; margin-bottom:5px; color:#eaf0f5; font-size:13px; display:inline-block;
+    transition:opacity .6s ease, transform .6s ease; }
+  #feed div.fade { opacity:0; transform:translateX(-12px); }
   #feed .hs { color:#ffd15a; }
   #status { position:fixed; bottom:16px; right:20px; z-index:10; color:#5a6472; font-size:11px; letter-spacing:1px; }
   #respawn { position:fixed; inset:0; z-index:15; display:none; align-items:center; justify-content:center; flex-direction:column; color:#fff; background:rgba(6,8,11,.55); }
@@ -657,6 +659,9 @@ function makeSoldier(){
 function newBotMesh(){ return soldierTpl ? makeSoldier() : humanoid(0x8a3030); }
 /* Spartan Armour MKV (Halo Reach) by McCarthy3D — Sketchfab, CC-BY.
    FBX ships with detached PBR textures; we attach them by material name. */
+// Facing correction for the Spartan model (its front points +Z, Three.js
+// expects -Z). Set to 0 if a future model already faces the right way.
+const SPARTAN_FACE = Math.PI;
 const SPARTAN_MATS = ['ODST_Shoulder_Mat','Spartan_Arms_Mat','Spartan_Chest_Mat','Spartan_Ears_Mat','Spartan_Helmet_Mat','Spartan_Legs_Mat','Spartan_Undersuit_Mat'];
 const SPARTAN_ALIASES = { 'spartan_ear_mat':'Spartan_Ears_Mat', 'spartan_shoulders_mat':'ODST_Shoulder_Mat' };
 function spartanMaterial(name){
@@ -684,11 +689,18 @@ if (THREE.FBXLoader) try {
       o.material=Array.isArray(o.material)?swapped:swapped[0];
     } });
     console.log('[BotStrike] spartan materials:', [...new Set(matNames)].join(', '));
-    const holder=new THREE.Group(); holder.add(fbx);
+    // This model's "front" points the opposite way to Three.js's convention,
+    // so we'd see his back. A pivot between the holder and the model corrects
+    // the facing WITHOUT disturbing the centering below, and leaves the
+    // holder's own rotation free for aiming/spinning.
+    const holder=new THREE.Group();
+    const pivot=new THREE.Group();
+    pivot.add(fbx); holder.add(pivot);          // pivot unrotated while we measure
     const size=new THREE.Box3().setFromObject(fbx).getSize(new THREE.Vector3());
     fbx.scale.setScalar(1.9/(size.y||1));
     const bb=new THREE.Box3().setFromObject(fbx);
     fbx.position.set(-(bb.min.x+bb.max.x)/2, -bb.min.y, -(bb.min.z+bb.max.z)/2);
+    pivot.rotation.y = SPARTAN_FACE;            // flip AFTER centring, so he spins in place
     soldierTpl = holder;
     // upgrade whatever is already in the world
     for(const b of localBots){ if(!b.alive) continue; const old=b.mesh;
@@ -832,7 +844,7 @@ function quitToMenu(){
   document.getElementById('crosshair').style.display='none';
   document.getElementById('scope').style.display='none';
   document.getElementById('respawn').style.display='none';
-  document.getElementById('feed').innerHTML=''; feedArr.length=0;
+  clearFeed();
   heroGroup.forEach(o=>o.visible=true); gun.visible=false;
   document.getElementById('mode').classList.add('hidden');
   document.getElementById('home').classList.remove('hidden');
@@ -915,12 +927,15 @@ function onSnapshot(s){
   const seen=new Set();
   for (const p of s.players){ if(p.id===myId) continue; seen.add(p.id);
     let o=others.get(p.id); if(!o){ const mesh=humanoid(p.color); scene.add(mesh); o={mesh,tx:p.x,tz:p.z,ty:p.y||0,tyaw:p.yaw}; others.set(p.id,o); }
-    o.tx=p.x; o.tz=p.z; o.ty=p.y||0; o.tyaw=p.yaw; o.mesh.visible=p.alive; }
+    // +PI: our character models face +Z, but a player's yaw describes a -Z
+    // look direction — without this, remote players appear to run backwards.
+    o.tx=p.x; o.tz=p.z; o.ty=p.y||0; o.tyaw=p.yaw+Math.PI; o.mesh.visible=p.alive; }
   for (const [id,o] of others){ if(!seen.has(id)){ scene.remove(o.mesh); others.delete(id); } }
   const bseen=new Set();
   for (const b of s.bots){ bseen.add(b.id);
     let o=serverBots.get(b.id); if(!o){ const mesh=newBotMesh(); scene.add(mesh); o={mesh,tx:b.x,tz:b.z,ty:0,tyaw:b.yaw}; serverBots.set(b.id,o); }
-    o.tx=b.x; o.tz=b.z; o.tyaw=b.yaw; o.mesh.visible=b.alive; }
+    // server bots are stationary with a fixed yaw — turn them to face you instead
+    o.tx=b.x; o.tz=b.z; o.tyaw=Math.atan2(me.x-b.x, me.z-b.z); o.mesh.visible=b.alive; }
   for (const [id,o] of serverBots){ if(!bseen.has(id)){ scene.remove(o.mesh); serverBots.delete(id); } }
   updateBoard(s.players);
 }
@@ -1034,8 +1049,25 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
   document.getElementById('stanceVal').textContent = me.stance.toUpperCase().replace('STAND','STANDING').replace('CROUCH','CROUCHING').replace('PRONE','PRONE'); }
 let hmT; function hitmark(){ const h=document.getElementById('hitmarker'); h.style.opacity=1; clearTimeout(hmT); hmT=setTimeout(()=>h.style.opacity=0,90); }
 let dmgT; function dmgFlash(){ const d=document.getElementById('dmg'); d.style.opacity=1; clearTimeout(dmgT); dmgT=setTimeout(()=>d.style.opacity=0,120); }
-const feedArr=[]; function addFeed(d){ feedArr.unshift(`<b>${esc(d.by)}</b> ${d.head?'<span class="hs">⚡</span>':'✖'} ${esc(d.victim)}`); if(feedArr.length>5) feedArr.pop();
-  document.getElementById('feed').innerHTML=feedArr.map(t=>`<div>${t}</div>`).join(''); }
+/* Kill feed: each entry lives briefly, fades out, then removes itself so the
+   feed never stays cluttered. */
+const FEED_LIFE_MS = 4500, FEED_FADE_MS = 600;
+function addFeed(d){
+  const host = document.getElementById('feed'); if(!host) return;
+  const el = document.createElement('div');
+  el.innerHTML = `<b>${esc(d.by)}</b> ${d.head?'<span class="hs">⚡</span>':'✖'} ${esc(d.victim)}`;
+  host.prepend(el);                                   // newest first
+  while(host.children.length > 5) host.lastChild.remove();
+  el._fadeT = setTimeout(()=>{
+    el.classList.add('fade');
+    el._killT = setTimeout(()=>el.remove(), FEED_FADE_MS);
+  }, FEED_LIFE_MS);
+}
+function clearFeed(){
+  const host = document.getElementById('feed'); if(!host) return;
+  [...host.children].forEach(el=>{ clearTimeout(el._fadeT); clearTimeout(el._killT); });
+  host.innerHTML='';
+}
 function updateBoard(pl){ document.getElementById('rows').innerHTML=[...pl].sort((a,b)=>b.kills-a.kills).map(p=>
   `<div class="row ${p.id===myId?'me':''}"><span>${esc(p.name)}</span><span class="k">${p.kills}</span></div>`).join(''); }
 function esc(s){ return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
@@ -1212,6 +1244,9 @@ function loop(){ requestAnimationFrame(loop);
   if(gameState==='playing'){
     if(me.alive && !paused){      // frozen while the pause menu is up
       movePlayer(dt);
+      // stationary targets turn to look at you (our models face +Z)
+      if(gameMode==='bots') for(const b of localBots){
+        if(b.alive) b.mesh.rotation.y = Math.atan2(me.x-b.x, me.z-b.z); }
       if(pointerLocked){
         if(curW().auto){ if(wantFire) shoot(); }
         else if(semiQueued){ shoot(); semiQueued=false; }   // bolt/semi: one shot per click
