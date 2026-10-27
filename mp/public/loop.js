@@ -122,15 +122,15 @@ function loop(){ requestAnimationFrame(loop);
     drawCompass();
     // Camera lean/dip during abilities — this is what sells the transition as
     // momentum rather than a teleport between movement modes.
-    let wRoll=0, wDip=0, wArc=0;
+    let wRoll=0, wDip=0, wPunch=0;
     if(rollT>0){ const p=1-rollT/ROLL.dur, s=Math.sin(p*Math.PI);
       wRoll = s*ROLL.lean*rollLean; wDip = s*0.22;
-      // negative pitch looks DOWN here, and a dive roll tips you toward the
-      // ground before whipping back up — hence the minus
-      wArc  = -s*ROLL.arc*rollFwd; }
+      // forward/back rolls kick the FOV and tuck the weapon, but deliberately
+      // do NOT pitch the view — that tilt was removed for feeling bad
+      wPunch = s*Math.abs(rollFwd); }
     else if(slideT>0){ const s=Math.min(1, slideT/0.25);
       wRoll = 0.20*slideLean*s; wDip = 0.10*s; }
-    rollArc = wArc;                                // follows the roll exactly, no lag
+    rollPunch = wPunch;                            // follows the roll exactly, no lag
     camRoll += (wRoll-camRoll)*Math.min(1,dt*12);
     camDip  += (wDip -camDip )*Math.min(1,dt*12);
     // Q/E peek: hold to lean. Suppressed mid-roll/slide, which own the camera.
@@ -146,14 +146,12 @@ function loop(){ requestAnimationFrame(loop);
     const off = leanAmt ? clearLean(me.x, me.z, eyeY, rgtX, rgtZ, leanAmt*LEAN.offset) : 0;
     camera.position.set(me.x + rgtX*off, eyeY, me.z + rgtZ*off);
     // right lean rolls negative, matching the sign the dodge roll already uses
-    const LIM = Math.PI/2 - 0.02;
-    const pitch = Math.max(-LIM, Math.min(LIM, me.pitch + rollArc));
-    camera.rotation.order='YXZ'; camera.rotation.set(pitch,me.yaw,camRoll - leanAmt*LEAN.angle);
+    camera.rotation.order='YXZ'; camera.rotation.set(me.pitch,me.yaw,camRoll - leanAmt*LEAN.angle);
     // --- ADS (right-click aim): smooth zoom, tightened aim, scope on sniper ---
     ads += (((aiming && me.alive) ? 1 : 0) - ads) * Math.min(1, dt*10);
     // sprint widens the view a touch — the cue that tells you you're sprinting
     sprintAmt += ((me.sprinting ? 1 : 0) - sprintAmt) * Math.min(1, dt*6);
-    const baseFov = 80 + 9*sprintAmt + ROLL.fov*Math.abs(rollArc)/Math.max(ROLL.arc,1e-6);
+    const baseFov = 80 + 9*sprintAmt + ROLL.fov*rollPunch;
     const targetFov = baseFov + (curW().adsFov - baseFov) * ads;
     if (Math.abs(camera.fov - targetFov) > 0.05){ camera.fov = targetFov; camera.updateProjectionMatrix(); }
     const scoped = curW().scope && ads > 0.85;
@@ -185,7 +183,7 @@ function loop(){ requestAnimationFrame(loop);
     const bx=0.3*(1-ads), by=-0.28+0.07*ads, bz=-0.55+0.12*ads;
     // tuck the weapon down and in while rolling — you don't run a somersault
     // with the gun still levelled at the horizon
-    const tuck = ROLL.tuck*Math.abs(rollArc)/Math.max(ROLL.arc,1e-6);
+    const tuck = ROLL.tuck*rollPunch;
     gun.position.set(bx+rWob+sx - sw*0.26, by-rDip+sy + Math.abs(sw)*0.10 - tuck, bz+gunKick*0.1 - Math.abs(sw)*0.14 + tuck*0.5);
     gun.rotation.set(gunKick*0.4*(1-ads*0.6) - rRot*0.85 - 0.18*sp - Math.abs(sw)*0.5,
                      rRot*0.3 + sw*0.9,

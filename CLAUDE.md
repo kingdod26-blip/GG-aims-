@@ -92,10 +92,11 @@ arrives as one mesh with one material, so `splitGeometryByAxis` cuts the
 triangles into material groups along the model's long axis — limbs/stock for
 the crossbow, grip/guard/blade for the sword. The procedural versions are
 still there and stay on screen until the files load, or if a load fails.
-`V` roll (~7m, 1.2s cd). Sideways rolls lean the camera (`ROLL.lean`, ~12°);
-forward/back rolls pitch it through a somersault (`ROLL.arc`, ~29°) with an
-FOV punch and the weapon tucked out of frame. Other players see a full
-hip-pivoted tumble, driven by roll progress sent in the state packet.
+`V` roll (~7m, 1.2s cd). Sideways rolls lean the camera (`ROLL.lean`, ~12°).
+Forward/back rolls punch the FOV and tuck the weapon but **do not pitch the
+view** — there was a `ROLL.arc` somersault and Jack had it removed, so don't
+reintroduce camera pitch here. Other players see a full hip-pivoted tumble,
+driven by roll progress sent in the state packet.
 `Q`/`E` peek left/right — hold to lean. `LEAN.angle` 0.16 rad (~9°) plus a
 0.45m sideways shift of the eye, clamped by `clearLean` so you can't put your
 camera through a corner. Suppressed during a roll or slide. Double jump. Sprint (Shift). Stances: `C` crouch,

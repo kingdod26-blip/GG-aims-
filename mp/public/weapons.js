@@ -19,12 +19,12 @@ let jumpPressed = false;             // edge-triggered by keydown
 /* ---- Abilities ---- */
 // lean: peak camera roll, in radians, on a pure sideways roll (0.22 ~= 12.6 deg).
 // A forward/back roll scales this to 0 and only dips.
-/* arc/fov/tuck are the forward roll's punch. A forward roll used to do almost
-   nothing on camera: lean is scaled by rollDir·right, which is exactly 0 going
-   straight ahead, so all you got was a 0.22 dip. arc pitches the view through
-   a somersault, fov punches outward, tuck drops the weapon out of frame. */
+/* fov/tuck give a forward roll some punch without touching where you're
+   looking. There WAS a pitch arc here that somersaulted the view; it was
+   removed on Jack's call — tilting the POV on a forward roll felt bad.
+   Sideways rolls still lean (ROLL.lean). */
 const ROLL = { dur:0.62, speed:20, cdMs:1200, lean:0.22,
-               arc:0.5, fov:9, tuck:0.22 };            // V — dodge roll (~7m)
+               fov:9, tuck:0.22 };                     // V — dodge roll (~7m)
 /* Q/E peek. Deliberately shallow — angle is the camera roll in radians
    (0.16 ~= 9 deg), offset is how far the eye slides sideways. Enough to
    clear a corner without the horizon tipping over. */
@@ -59,7 +59,8 @@ const STANCE_BY_ID = ['stand','crouch','prone'];
 const me = { x:0, z:44, feetY:0, eyeH:1.7, stance:'stand', yaw:0, pitch:0, vy:0, onGround:true, radius:0.4, hp:100, alive:true,
   hv:new THREE.Vector3() };     // horizontal velocity — carries momentum between abilities
 let camRoll=0, camDip=0, rollLean=0, slideLean=0, leanAmt=0;   // leanAmt: -1 left .. +1 right
-let rollFwd=0, rollArc=0;        // rollFwd: +1 rolling forward, -1 backward, 0 sideways
+let rollFwd=0, rollPunch=0;      // rollFwd: +1 forward, -1 backward, 0 sideways
+                                 // rollPunch: 0..1 envelope for the FOV/weapon kick
 /* Weapon roster (keys 1-5, Tab shows the armory). ADS on right-click. */
 const WEAPONS = [
   { name:'RIFLE',    mode:'AUTO', auto:true,  fireRate:95,   dmg:26,  recoil:0.011, spread:0.014, adsSpread:0.006,  range:240, magMax:30, reserveMax:120, reloadMs:1600, adsFov:62, scope:false },
