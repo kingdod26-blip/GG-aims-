@@ -900,11 +900,11 @@ weaponHolders.forEach((h,i)=>{ gun.add(h); h.visible = i===0; });
    the fallback if a load fails. */
 const ABILITY_MODELS = [
   // Limbs are the wide end and already point -Z, so no reorientation.
-  { slot:XBOW,  url:'assets/crossbow.fbx', len:0.70, ry:0, autoOrient:false,
+  { slots:[XBOW, SMOKE], url:'assets/crossbow.fbx', len:0.70, ry:0, autoOrient:false,
     pos:[0.02,-0.05,-0.08],
     split:{ axis:'z', cuts:[0.42, Infinity], colors:[0x4a4f57, 0x3a322b] } },  // limbs | stock
   // Modelled standing upright with the tip at +Y; rx lays it forward.
-  { slot:BLADE, url:'assets/sword.fbx',    len:0.82, ry:0, rx:-Math.PI/2, autoOrient:false,
+  { slots:[BLADE], url:'assets/sword.fbx',  len:0.82, ry:0, rx:-Math.PI/2, autoOrient:false,
     pos:[0.05,-0.06,0.02],
     split:{ axis:'z', cuts:[0.25, 0.47, Infinity], colors:[0x1b1f25, 0xd8a441, 0xd8dde4] } },  // grip | guard | blade
 ];
@@ -968,9 +968,13 @@ if (THREE.FBXLoader) ABILITY_MODELS.forEach(am=>{
       });
       const { holder, size } = fitWeaponModel(model, am);
       holder.position.set(am.pos[0], am.pos[1], am.pos[2]);
-      const h = weaponHolders[am.slot];
-      while(h.children.length){ const c=h.children[0]; h.remove(c); disposeTree(c); }
-      h.add(holder);
+      // The first slot takes the model; any others get a clone, which shares
+      // geometry and materials — so don't disposeTree a holder after this.
+      am.slots.forEach((slot, n)=>{
+        const h = weaponHolders[slot];
+        while(h.children.length){ const c=h.children[0]; h.remove(c); disposeTree(c); }
+        h.add(n === 0 ? holder : holder.clone());
+      });
       console.log(`[BotStrike] ${am.url} loaded, raw size`, size.toArray().map(n=>+n.toFixed(2)));
     }, undefined, onErr);
   } catch(e){ onErr(e); }
