@@ -122,7 +122,9 @@ function insideWall(x, z) {
 const players = new Map(); // socket.id -> player
 const bots = [];
 // Crossbow ability tuning (must match the client's WEAPONS entry)
-const XBOW = { dmg: 90, burnDps: 6, burnMs: 9000, charges: 2, cooldownMs: 30000, speed: 62 };
+// burnMs is how long a PERSON burns. The fire left on the ground is a
+// client-side visual with its own (longer) lifetime — see GFIRE in the client.
+const XBOW = { dmg: 90, burnDps: 6, burnMs: 5000, charges: 2, cooldownMs: 30000, speed: 62 };
 // Blade melee (must match the client's BLADE entry)
 const MELEE = { combo: [22,22,28,28,70], windowMs: 1600, rateMs: 320, reach: 3.4, arc: 0.5 };
 const arrows = [];
@@ -282,6 +284,7 @@ function igniteTarget(hit, byId, now) {
   t.burnUntil = now + XBOW.burnMs; t.burnNext = now + 1000; t.burnBy = byId;
   const shooter = players.get(byId);
   io.emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false, fire:true });
+  io.emit('groundfire', { x:t.x, z:t.z });          // pool at their feet
   if (t.hp <= 0 && t.alive) {
     t.alive = false; t.hp = 0; t.burnUntil = 0;
     if (shooter) shooter.kills++;
@@ -348,10 +351,11 @@ setInterval(() => {
         a.vx *= 0.85; a.vy *= 0.85; a.vz *= 0.85;
         continue;
       }
+      io.emit('groundfire', { x:a.x + dirx*wallT, z:a.z + dirz*wallT });
       arrows.splice(i, 1); continue;                    // stick in the wall
     }
     a.x = nx; a.y = ny; a.z = nz;
-    if (a.y < 0) arrows.splice(i, 1);                   // hit the ground
+    if (a.y < 0) { io.emit('groundfire', { x:a.x, z:a.z }); arrows.splice(i, 1); }  // hit the ground
   }
 
   // ---- Burn damage over time ----

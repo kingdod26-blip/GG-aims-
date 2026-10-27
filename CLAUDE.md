@@ -48,6 +48,9 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   **Multiplayer** (server simulates). Shared gameplay numbers must be kept in
   sync between `WEAPONS` (client) and `XBOW`/`MELEE`/`STANCE_BOX` (server).
 - Bots are **stationary targets** by design — they don't move or shoot.
+- The arena is **indoors**: flat dark backdrop, fog on the same value, a
+  ceiling at `WH`, and unlit emissive panels standing in for ceiling lamps.
+  There is no sky and no sun.
 - **The Spartan is the player avatar**, not the bots. Bots are the cheap
   procedural box humanoids (`humanoid()`) on purpose: stationary targets
   don't earn the detail, and eight boxes cost nearly nothing.
@@ -55,8 +58,11 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
 ## Features
 
 Weapons (`1`–`5`): rifle, sniper (4× scope), shotgun (8 pellets), 2 pistols.
-`G` crossbow ability — 2 charges, 30s each, flaming arrow, 90 dmg + 6/s burn
-for 9s, right-click toggles ricochet (bounces off geometry once).
+`G` crossbow ability — 2 charges, 30s each, flaming arrow, 90 dmg + 6/s burn.
+Two separate fire lifetimes: a **person** burns for `burnMs` (5s), while the
+**pool the arrow leaves on the ground** lasts `GFIRE.ms` (9s). A pool is
+dropped wherever the arrow ends up — floor, foot of a wall, or under whoever
+it hit. Right-click toggles ricochet (bounces off geometry once).
 `F` blade — 5-hit combo 22/22/28/28/70, resets on miss.
 Both now use real models (`assets/crossbow.fbx`, `assets/sword.fbx`). Each
 arrives as one mesh with one material, so `splitGeometryByAxis` cuts the
@@ -101,6 +107,12 @@ sideways roll, 0 on a forward one). Double jump. Sprint (Shift). Stances: `C` cr
 - Viewmodel holders are built from `WEAPONS`, not the model-file list. A new
   weapon needs a holder or every model vanishes when you equip it.
 - Dispose **both** geometry and material on throwaway meshes (tracer leak).
+- **Put fire out through `extinguish()`, never by zeroing `burnUntil`.** The
+  burn loop skips dead bots, so a bot killed mid-burn kept its fx group
+  parented to its mesh and `respawnLocalBot` made that mesh visible again —
+  it came back permanently alight. Every kill path has to call it.
+- **Don't let the ceiling cast shadows.** A shadow-casting lid between the key
+  light and the floor drops the entire room to black.
 
 ## Testing notes
 
@@ -115,6 +127,8 @@ Verify in the browser via `javascript_tool`, not by eyeballing. Two traps:
 ## Parked / possible next
 
 - **Slide is disabled** behind `SLIDE_ENABLED` — see `extras/slide-ability.md`.
+- Ground fire is **cosmetic**: standing in a pool doesn't hurt you. Making it
+  damage anyone who walks through is a server change (`burnTick`).
 - The crossbow's CreativeTrio palette texture wasn't in the download, so it's
   flat two-tone (limbs vs stock). A palette JPG would give it real colour.
 - Never built: a real fail state. Bots don't shoot, so you can't lose. Wave

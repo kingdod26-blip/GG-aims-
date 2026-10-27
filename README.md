@@ -74,8 +74,9 @@ Then open <http://localhost:8123/fps-game.html>.
 
 **Presentation**
 - Photoscanned PBR materials (colour + normal + roughness)
-- HDR image-based lighting from a captured sky
-- Bloom post-processing, soft shadows, wet reflective floor
+- Indoor arena: ceiling, lamp panels, and a dark backdrop with matched fog
+- Bloom post-processing and soft shadows
+- Flaming crossbow bolts that leave a burning pool on the ground
 - Spatial glass UI homepage with mouse parallax driving both the CSS layers and the 3D camera
 - Drag-to-inspect character showcase
 - Procedural audio (gunfire, reloads with a spoken call-out, distance-paced footsteps)
@@ -99,7 +100,7 @@ Then open <http://localhost:8123/fps-game.html>.
     ├── package.json
     └── public/
         ├── index.html                # the client (renderer, UI, netcode)
-        └── assets/                   # models, textures, HDR sky
+        └── assets/                   # models and textures
 ```
 
 ---
@@ -112,7 +113,7 @@ Code is MIT (see `LICENSE`). Third-party assets keep their own licences:
 |---|---|---|
 | Weapon models (rifle, sniper, shotgun, pistols, sword) | [Quaternius](https://quaternius.com) | CC0 |
 | Crossbow | CreativeTrio | see source |
-| Textures & HDR sky | [Poly Haven](https://polyhaven.com) | CC0 |
+| Textures | [Poly Haven](https://polyhaven.com) | CC0 |
 | Soldier model | Manaos | CC0 |
 | **Spartan Armour MKV (Halo Reach)** | **McCarthy3D (Sketchfab)** | **CC-BY 4.0 — attribution required** |
 

@@ -402,17 +402,21 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
 
 const scene = new THREE.Scene();
-/* No sky. The gradient-and-clouds equirect canvas that used to sit here is
-   gone; the background is a flat colour that matches the fog exactly, so the
-   arena fades out at distance with no visible horizon line or dome. Change
-   SKY_COLOR alone to retint the whole backdrop — keep the fog on the same
-   value or a seam reappears where the fog stops. */
-const SKY_COLOR = 0xdfeaf2;
-scene.background = new THREE.Color(SKY_COLOR);
-scene.fog = new THREE.Fog(SKY_COLOR, 55, 150);
+/* Indoors. No sky at all: the backdrop is a flat dark colour and the fog is
+   on the SAME value, so distance just falls off into unlit depth with no
+   horizon line. Change BACKDROP alone to retint it — if the fog and the
+   background ever differ you get a visible seam where the fog stops.
+   Everything is lit as a hall: a dim cool bounce plus one warm overhead key.
+   Still no tone mapping and no envMap, so keep intensities modest and leave
+   metalness at 0 — and do NOT add point lights for the ceiling lamps; the
+   glowing panels below are unlit geometry precisely so they can't blow the
+   floor out to white discs. */
+const BACKDROP = 0x0e1116;
+scene.background = new THREE.Color(BACKDROP);
+scene.fog = new THREE.Fog(BACKDROP, 42, 135);
 const camera = new THREE.PerspectiveCamera(80, innerWidth/innerHeight, 0.05, 500);
-scene.add(new THREE.HemisphereLight(0xcfe4ff, 0x5a5f52, 0.70));
-const sun = new THREE.DirectionalLight(0xfff2df, 1.15); sun.position.set(35,60,25); sun.castShadow = true;
+scene.add(new THREE.HemisphereLight(0x8c9bb0, 0x1b1e24, 0.55));
+const sun = new THREE.DirectionalLight(0xffeccf, 0.85); sun.position.set(25,55,18); sun.castShadow = true;
 sun.shadow.mapSize.set(2048,2048);
 Object.assign(sun.shadow.camera,{left:-70,right:70,top:70,bottom:-70,far:170}); scene.add(sun);
 
@@ -518,6 +522,24 @@ floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
 const WH=8;
 addBox(0,WH/2,-ARENA,ARENA*2,WH,2,0x5a6472); addBox(0,WH/2,ARENA,ARENA*2,WH,2,0x5a6472);
 addBox(-ARENA,WH/2,0,2,WH,ARENA*2,0x5a6472); addBox(ARENA,WH/2,0,2,WH,ARENA*2,0x5a6472);
+/* Roof. castShadow is deliberately left OFF — a shadow-casting lid between
+   the key light and the arena would drop the whole room into black. It is the
+   walls and crates that cast, not the ceiling. */
+const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ARENA*2, ARENA*2),
+  pbr('wall', 20, 20, { roughness:0.95, metalness:0.0, color:0x6a7079 }));
+ceiling.rotation.x = Math.PI/2; ceiling.position.y = WH; scene.add(ceiling);
+/* Ceiling lamps: unlit geometry, not lights. They read as the source of the
+   room's light without adding a single real light to the scene — which is the
+   point, because with no tone mapping a grid of point lights would burn the
+   floor to white. */
+const lampMat = new THREE.MeshBasicMaterial({ color:0xffe8cc });
+const lampGeo = new THREE.PlaneGeometry(6, 2.4);
+for(let gx=-2; gx<=2; gx++) for(let gz=-2; gz<=2; gz++){
+  const lamp = new THREE.Mesh(lampGeo, lampMat);
+  lamp.rotation.x = Math.PI/2;
+  lamp.position.set(gx*24, WH-0.06, gz*24);
+  scene.add(lamp);
+}
 const LAYOUT=[[0,0,6,3,6,0x707a88],[-18,-12,4,2.5,4,0x8a6b45],[18,-12,4,2.5,4,0x8a6b45],[-18,12,4,2.5,4,0x8a6b45],[18,12,4,2.5,4,0x8a6b45],
  [0,-24,12,4,2,0x6b7280],[0,24,12,4,2,0x6b7280],[-30,0,2,4,12,0x6b7280],[30,0,2,4,12,0x6b7280],
  [-10,-30,3,2,3,0x8a6b45],[10,30,3,2,3,0x8a6b45],[-34,-30,5,3,5,0x707a88],[34,30,5,3,5,0x707a88],
@@ -769,7 +791,9 @@ const WEAPONS = [
   // ABILITY: charge-based, no magazine/reload. Each shot burns one charge that
   // regenerates on its own 30s timer. Right-click toggles RICOCHET.
   { name:'CROSSBOW', mode:'ABILITY', ability:true, auto:false, fireRate:700, dmg:90,
-    burnDps:6, burnMs:9000, charges:2, cooldownMs:30000, speed:62,
+    // burnMs is how long a PERSON burns; the fire left on the ground is a
+    // separate, longer-lived thing (GFIRE.ms).
+    burnDps:6, burnMs:5000, charges:2, cooldownMs:30000, speed:62,
     recoil:0.02, spread:0.004, adsSpread:0.004, range:320, adsFov:70, scope:false },
 ];
 // MELEE: five-hit combo. Each landed hit within the window advances the chain,
@@ -1017,7 +1041,7 @@ function quitToMenu(){
   document.getElementById('crosshair').style.display='none';
   document.getElementById('scope').style.display='none';
   document.getElementById('respawn').style.display='none';
-  clearFeed();
+  clearFeed(); clearGroundFires();
   heroGroup.forEach(o=>o.visible=true); gun.visible=false;
   document.getElementById('mode').classList.add('hidden');
   document.getElementById('home').classList.remove('hidden');
@@ -1088,6 +1112,7 @@ function connectMP(name){
   socket.on('snapshot', onSnapshot);
   socket.on('shot', d=> addTracer(new THREE.Vector3(d.ox,d.oy,d.oz), new THREE.Vector3(d.dx,d.dy,d.dz), d.len));
   socket.on('impact', ()=> hitmark());
+  socket.on('groundfire', d=> spawnGroundFire(d.x, d.z));
   socket.on('kill', addFeed);
 }
 function onSnapshot(s){
@@ -1130,7 +1155,7 @@ function insideWall(x,z){ for(const c of colliders) if(x>c.minx-1&&x<c.maxx+1&&z
 function spawnLocalBots(n){ localBots.forEach(b=>scene.remove(b.mesh)); localBots.length=0;
   for(let i=0;i<n;i++){ const s=openSpot(); const mesh=newBotMesh(); mesh.position.set(s.x,0,s.z); mesh.rotation.y=Math.random()*6.28; scene.add(mesh);
     localBots.push({mesh,x:s.x,z:s.z,hp:100,alive:true}); } }
-function respawnLocalBot(b){ const s=openSpot(); b.x=s.x; b.z=s.z; b.hp=100; b.alive=true; b.mesh.position.set(s.x,0,s.z); b.mesh.visible=true; }
+function respawnLocalBot(b){ extinguish(b); const s=openSpot(); b.x=s.x; b.z=s.z; b.hp=100; b.alive=true; b.mesh.position.set(s.x,0,s.z); b.mesh.visible=true; }
 
 /* ---- Input ---- */
 const keys={}; let pointerLocked=false, wantFire=false;
@@ -1261,7 +1286,7 @@ function shoot(){
       best.hp-=dmg; hitmark(); Sfx.hit();
       comboStep=(comboStep+1)%w.combo.length; comboUntil=now+w.comboWindowMs;
       if(finisher){ gunKick=1; Sfx.land(); }
-      if(best.hp<=0 && best.alive){ best.alive=false; best.mesh.visible=false; best.burnUntil=0;
+      if(best.hp<=0 && best.alive){ best.alive=false; best.mesh.visible=false; extinguish(best);
         localKills++; setTimeout(()=>respawnLocalBot(best),2000); }
     } else { comboStep=0; }                          // a miss breaks the chain
     updateHUD();
@@ -1309,6 +1334,59 @@ function shoot(){
   // recoil kicks in AFTER the bullet leaves — shots land where the crosshair was
   me.pitch=Math.min(me.pitch + w.recoil*(1-ads*0.5), Math.PI/2-0.05);
 }
+/* ---- Ground fire: the pool an arrow leaves where it lands ----
+   Solid, unlit discs plus a few tongues — NOT additive, which is invisible
+   against a bright floor, and no point light, which would blow the ground out
+   to a white disc. This is the fire you actually see; a person only burns for
+   WEAPONS[XBOW].burnMs, but the pool stays for GFIRE.ms. */
+const GFIRE = { ms:9000, radius:1.45, max:14, fadeMs:1200 };
+const groundFires = [];
+function spawnGroundFire(x, z){
+  while(groundFires.length >= GFIRE.max) removeGroundFire(groundFires[0]);
+  const g = new THREE.Group(); g.position.set(x, 0, z);
+  const flat = (r, color, opacity, y)=>{
+    const m = new THREE.Mesh(new THREE.CircleGeometry(r, 24),
+      new THREE.MeshBasicMaterial({ color, transparent:true, opacity, depthWrite:false }));
+    m.rotation.x = -Math.PI/2; m.position.y = y; g.add(m); return m;
+  };
+  const disc  = flat(GFIRE.radius,      0xff4a08, 0.55, 0.02);   // outer pool
+  const inner = flat(GFIRE.radius*0.55, 0xffb020, 0.75, 0.03);   // hot centre
+  const tongues = [];
+  for(let i=0;i<7;i++){
+    const m = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.62, 6),
+      new THREE.MeshBasicMaterial({ color:i%2?0xff8a12:0xff3d05, transparent:true, opacity:0.8, depthWrite:false }));
+    const ang = (i/7)*Math.PI*2, r = GFIRE.radius*(0.15+Math.random()*0.6);
+    m.position.set(Math.cos(ang)*r, 0.31, Math.sin(ang)*r);
+    g.add(m); tongues.push(m);
+  }
+  scene.add(g);
+  const f = { g, disc, inner, tongues, until:performance.now()+GFIRE.ms, t:Math.random()*10 };
+  groundFires.push(f);
+  return f;
+}
+function removeGroundFire(f){
+  scene.remove(f.g);
+  f.g.traverse(o=>{ if(o.isMesh){ o.geometry.dispose(); o.material.dispose(); } });
+  const i = groundFires.indexOf(f); if(i>=0) groundFires.splice(i,1);
+}
+function clearGroundFires(){ while(groundFires.length) removeGroundFire(groundFires[0]); }
+function updateGroundFires(dt){
+  const now = performance.now();
+  for(let i=groundFires.length-1;i>=0;i--){
+    const f = groundFires[i], left = f.until-now;
+    if(left <= 0){ removeGroundFire(f); continue; }
+    f.t += dt*7;
+    const fade = Math.min(1, left/GFIRE.fadeMs);       // ease out at the end
+    f.tongues.forEach((m,k)=>{
+      const sc = 0.7+Math.sin(f.t+k*1.9)*0.3;
+      m.scale.set(sc, 1+Math.sin(f.t*1.4+k)*0.45, sc);
+      m.material.opacity = (0.55+Math.sin(f.t*1.7+k)*0.25)*fade;
+    });
+    f.disc.material.opacity  = (0.45+Math.sin(f.t*0.9)*0.12)*fade;
+    f.inner.material.opacity = (0.65+Math.sin(f.t*1.2)*0.15)*fade;
+  }
+}
+
 /* ===================== FLAMING ARROWS (crossbow) =====================
    Real projectiles, not hitscan. In target practice the client simulates
    them; in multiplayer the server does, and we just render what it sends. */
@@ -1398,16 +1476,20 @@ function updateArrows(dt){
     // walls first
     _aray.set(a.pos, dir); _aray.far=dist;
     const hit=_aray.intersectObjects(wallMeshes,false)[0];
+    // the floor, as a distance along this step (it was never tested before —
+    // arrows simply fell through and expired, leaving nothing behind)
+    let floorT = Infinity;
+    if(step.y < 0 && a.pos.y > 0.02) floorT = ((a.pos.y-0.02)/(-step.y))*dist;
     // targets (local bots)
     let bestT=Infinity, bestBot=null, head=false;
     for(const b of localBots){ if(!b.alive) continue;
       const body=raySphere(a.pos,dir,b.x,1.05,b.z,0.6), hh=raySphere(a.pos,dir,b.x,1.70,b.z,0.34);
       let tt=Infinity,hs=false; if(hh<tt){tt=hh;hs=true;} if(body<tt){tt=body;hs=false;}
       if(tt<bestT){bestT=tt;bestBot=b;head=hs;} }
-    if(bestBot && bestT<=dist && (!hit || bestT<hit.distance)){
+    if(bestBot && bestT<=dist && bestT<=floorT && (!hit || bestT<hit.distance)){
       igniteLocalBot(bestBot, a.dmg, a.w); removeArrow(a); continue;
     }
-    if(hit){
+    if(hit && hit.distance<=floorT){
       if(a.bounces>0 && hit.face){                    // RICOCHET: reflect once
         a.bounces--;
         const n=hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
@@ -1417,27 +1499,45 @@ function updateArrows(dt){
         Sfx.hit();
         continue;
       }
+      spawnGroundFire(hit.point.x, hit.point.z);      // burning at the foot of the wall
       removeArrow(a); continue;                       // stick / vanish
+    }
+    if(floorT <= dist){                               // landed on the floor
+      spawnGroundFire(a.pos.x + dir.x*floorT, a.pos.z + dir.z*floorT);
+      removeArrow(a); continue;
     }
     a.pos.add(step); a.mesh.position.copy(a.pos); aimArrow(a.mesh,a.vel); flickerArrow(a.mesh,t);
   }
   // burn damage on local targets
   for(const b of localBots){
     if(!b.alive || !b.burnUntil) continue;
-    if(t>b.burnUntil){ b.burnUntil=0; if(b.fire){ b.mesh.remove(b.fire); b.fire=null; } continue; }
+    if(t>b.burnUntil){ extinguish(b); continue; }
     if(b.fire) updateBurnFx(b.fire, dt);              // flicker the flames
     if(t>=(b.burnNext||0)){
       b.burnNext=t+1000; b.hp-=b.burnDps||6;
-      if(b.hp<=0 && b.alive){ b.alive=false; b.mesh.visible=false; b.burnUntil=0;
+      if(b.hp<=0 && b.alive){ b.alive=false; b.mesh.visible=false; extinguish(b);
         localKills++; updateHUD(); setTimeout(()=>respawnLocalBot(b),2000); }
     }
   }
+  updateGroundFires(dt);
+}
+/* Kill the flames AND drop the reference. Without this a bot that dies while
+   burning keeps the fx group parented to its mesh, and respawnLocalBot makes
+   that mesh visible again — so it comes back permanently on fire. */
+function extinguish(b){
+  if(b.fire){
+    b.mesh.remove(b.fire);
+    b.fire.traverse(o=>{ if(o.isMesh){ o.geometry.dispose(); o.material.dispose(); } });
+    b.fire = null;
+  }
+  b.burnUntil = 0;
 }
 function igniteLocalBot(b,dmg,w){
   b.hp-=dmg; hitmark(); Sfx.hit();
+  spawnGroundFire(b.x, b.z);                          // the pool it leaves underfoot
   b.burnUntil=performance.now()+w.burnMs; b.burnNext=performance.now()+1000; b.burnDps=w.burnDps;
   if(!b.fire) b.fire = makeBurnFx(b.mesh);            // visible flames on the target
-  if(b.hp<=0 && b.alive){ b.alive=false; b.mesh.visible=false; b.burnUntil=0;
+  if(b.hp<=0 && b.alive){ b.alive=false; b.mesh.visible=false; extinguish(b);
     localKills++; updateHUD(); setTimeout(()=>respawnLocalBot(b),2000); }
 }
 
