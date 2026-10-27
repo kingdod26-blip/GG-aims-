@@ -156,6 +156,13 @@ const XBOW = { dmg: 90, burnDps: 6, burnMs: 5000, charges: 2, cooldownMs: 30000,
 const SMOKE = { charges: 2, cooldownMs: 30000, speed: 52, ms: 10000,
                 radius: 5.5, top: 3.4, markMs: 4000 };
 const smokes = [];   // { x, z, by, until }
+// Ground fire was a client-only visual; the server now tracks the pools too,
+// because standing in one has to actually hurt. radius/ms MUST match the
+// client's GFIRE or the fire you see won't be the fire that burns you.
+// top: feet height above which you are clear of it (on a crate, say).
+// graceMs: how long the burn lingers after you step out.
+const FIRE = { radius: 4.35, ms: 9000, top: 1.0, graceMs: 1200 };
+const fires = [];    // { x, z, by, until }
 // Blade melee (must match the client's BLADE entry)
 const MELEE = { combo: [22,22,28,28,70], windowMs: 1600, rateMs: 320, reach: 3.4, arc: 0.5 };
 const arrows = [];
@@ -396,7 +403,8 @@ setInterval(() => {
     const drop = (px, pz) => {
       if (a.smoke) { smokes.push({ x:px, z:pz, by:a.by, until: now + SMOKE.ms });
                      io.emit('smoke', { x:px, z:pz, by:a.by }); }
-      else io.emit('groundfire', { x:px, z:pz });
+      else { fires.push({ x:px, z:pz, by:a.by, until: now + FIRE.ms });
+             io.emit('groundfire', { x:px, z:pz }); }
     };
     if (victim && hitT <= wallT) {                      // hit someone
       if (a.smoke) drop(victim.ref.x, victim.ref.z);    // cover, not damage
@@ -432,6 +440,28 @@ setInterval(() => {
     }
     if (pl.markedUntil && pl.markedUntil <= now) { pl.markedUntil = 0; pl.markedBy = null; }
   }
+
+  // ---- Ground fire: expire pools, and set light to anyone standing in one ----
+  for (let i = fires.length - 1; i >= 0; i--) if (fires[i].until <= now) fires.splice(i, 1);
+  const standingInFire = (e, id, y) => {
+    for (const f of fires) {
+      if (f.by === id) continue;                       // your own pool won't burn you
+      if ((y || 0) > FIRE.top) continue;               // stood above it, e.g. on a crate
+      if (Math.hypot(e.x - f.x, e.z - f.z) > FIRE.radius) continue;
+      return f;
+    }
+    return null;
+  };
+  const scorch = (e, id, y) => {
+    if (!e.alive) return;
+    const f = standingInFire(e, id, y);
+    if (!f) return;
+    if (!e.burnUntil) e.burnNext = now + 1000;         // first tick a second from now
+    e.burnUntil = now + FIRE.graceMs;                  // renews while they stand in it
+    e.burnBy = f.by;
+  };
+  for (const b of bots) scorch(b, b.id, 0);
+  for (const pl of players.values()) scorch(pl, pl.id, pl.y);
 
   // ---- Burn damage over time ----
   const burnTick = (e, isPlayer) => {

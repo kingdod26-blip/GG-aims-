@@ -17,7 +17,11 @@
    WEAPONS[XBOW].burnMs, but the pool stays for GFIRE.ms. */
 /* radius is 3x the original 1.45. tongueCount/tongueScale follow it, or a
    wide pool is just a flat orange disc with a few specks on it. */
-const GFIRE = { ms:9000, radius:4.35, baseRadius:1.45, max:14, fadeMs:1200 };
+/* top/graceMs mirror the server's FIRE block — standing in a pool burns you.
+   Keep radius and ms in step with the server or the fire you see won't be
+   the fire that hurts. */
+const GFIRE = { ms:9000, radius:4.35, baseRadius:1.45, max:14, fadeMs:1200,
+                top:1.0, graceMs:1200 };
 const groundFires = [];
 function spawnGroundFire(x, z){
   while(groundFires.length >= GFIRE.max) removeGroundFire(groundFires[0]);
@@ -108,6 +112,13 @@ function removeSmoke(sm){
 function clearSmoke(){ while(smokes.length) removeSmoke(smokes[0]); }
 /* Is this point inside any cloud? Height matters, so someone on top of a
    crate above the smoke is not tagged. Returns the cloud, or null. */
+/* Is this point standing in a fire pool? Mirrors smokeAt, including the
+   height check so someone up on a crate is clear of it. */
+function fireAt(x, y, z){
+  if(y > GFIRE.top) return null;
+  for(const f of groundFires) if(Math.hypot(x-f.g.position.x, z-f.g.position.z) <= GFIRE.radius) return f;
+  return null;
+}
 function smokeAt(x, y, z){
   for(const sm of smokes){
     if(y > SMOKEFX.top) continue;
@@ -163,6 +174,13 @@ function clearMark(e){
 function updateMarks(){
   const now = performance.now();
   for(const b of localBots){
+    // stationary targets, so a pool landing on one keeps burning it
+    if(b.alive && fireAt(b.x, 0, b.z)){
+      if(!b.burnUntil) b.burnNext = now + 1000;
+      b.burnUntil = now + GFIRE.graceMs;               // renews while it stands in it
+      b.burnDps = WEAPONS[XBOW].burnDps;
+      if(!b.fire) b.fire = makeBurnFx(b.mesh);
+    }
     if(b.alive && smokeAt(b.x, 0, b.z)) b.markedUntil = now + SMOKEFX.markMs;
     const on = b.alive && (b.markedUntil||0) > now;
     if(on && !b.mark) b.mark = makeMarkFx(b.mesh);

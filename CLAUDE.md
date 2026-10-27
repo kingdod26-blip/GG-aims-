@@ -77,6 +77,7 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
 
 Weapons (`1`–`5`): rifle, sniper (4× scope), shotgun (8 pellets), 2 pistols.
 `G` crossbow ability — 2 charges, 30s each, flaming arrow, 90 dmg + 6/s burn.
+The pool it leaves burns anyone who stands in it at the same 6/s.
 Two separate fire lifetimes: a **person** burns for `burnMs` (5s), while the
 **pool the arrow leaves on the ground** lasts `GFIRE.ms` (9s). A pool is
 dropped wherever the arrow ends up — floor, foot of a wall, or under whoever
@@ -199,8 +200,13 @@ Verify in the browser via `javascript_tool`, not by eyeballing. Two traps:
   you send, so leaning out shows you more without exposing you. That is the
   usual lean tradeoff; closing it means sending a lean offset and applying it
   to the server's hitbox.
-- Ground fire is **cosmetic**: standing in a pool doesn't hurt you. Making it
-  damage anyone who walks through is a server change (`burnTick`).
+- **Ground fire burns whoever stands in it** — 6 dps, renewed every tick they
+  stay, lingering `graceMs` (1.2s) after they step out. The pool's own thrower
+  is immune, same rule as smoke not tagging its own thrower; drop the
+  `f.by === id` check in `standingInFire` to make it burn everyone.
+- **`FIRE` on the server and `GFIRE` on the client must agree** on radius and
+  lifetime, or the fire you see is not the fire that hurts you. Both also
+  carry `top`, the feet height above which you are clear of a pool.
 - `GFIRE.radius` is 4.35 (3x `baseRadius`). Flame count and size are derived
   from that ratio, so changing the radius alone keeps the pool looking right.
 - The crossbow's CreativeTrio palette texture wasn't in the download, so it's
