@@ -305,6 +305,8 @@
       <div class="kcap"><b>H</b>smoke</div>
       <div class="kcap"><b>F</b>blade</div>
       <div class="kcap"><b>V</b>roll</div>
+      <div class="kcap"><b>Q</b>peek L</div>
+      <div class="kcap"><b>E</b>peek R</div>
       <div class="kcap"><b>C</b>slide</div>
       <div class="kcap"><b>Tab</b>armory</div>
       <div class="kcap"><b>RMB</b>aim</div>
@@ -765,6 +767,10 @@ let jumpPressed = false;             // edge-triggered by keydown
 // lean: peak camera roll, in radians, on a pure sideways roll (0.22 ~= 12.6 deg).
 // A forward/back roll scales this to 0 and only dips.
 const ROLL = { dur:0.62, speed:20, cdMs:1200, lean:0.22 };  // V — dodge roll (~7m)
+/* Q/E peek. Deliberately shallow — angle is the camera roll in radians
+   (0.16 ~= 9 deg), offset is how far the eye slides sideways. Enough to
+   clear a corner without the horizon tipping over. */
+const LEAN = { angle:0.16, offset:0.45, rate:9 };
 // SLIDE IS CURRENTLY DISABLED — flip this to true to bring it back.
 // The full implementation is kept intact below and documented in
 // extras/slide-ability.md. With it off, C is always a plain crouch toggle.
@@ -794,7 +800,7 @@ const STANCE_ID = { stand:0, crouch:1, prone:2 };
 const STANCE_BY_ID = ['stand','crouch','prone'];
 const me = { x:0, z:44, feetY:0, eyeH:1.7, stance:'stand', yaw:0, pitch:0, vy:0, onGround:true, radius:0.4, hp:100, alive:true,
   hv:new THREE.Vector3() };     // horizontal velocity — carries momentum between abilities
-let camRoll=0, camDip=0, rollLean=0, slideLean=0;
+let camRoll=0, camDip=0, rollLean=0, slideLean=0, leanAmt=0;   // leanAmt: -1 left .. +1 right
 /* Weapon roster (keys 1-5, Tab shows the armory). ADS on right-click. */
 const WEAPONS = [
   { name:'RIFLE',    mode:'AUTO', auto:true,  fireRate:95,   dmg:26,  recoil:0.011, spread:0.014, adsSpread:0.006,  range:240, magMax:30, reserveMax:120, reloadMs:1600, adsFov:62, scope:false },
@@ -1085,7 +1091,7 @@ function quitToMenu(){
   // clear arrows in flight + reset ability state
   while(arrows.length) removeArrow(arrows[0]);
   for(const [id,m] of arrowGfx) scene.remove(m); arrowGfx.clear();
-  rollT=0; slideT=0; resetAbilities(); clearSmoke();
+  rollT=0; slideT=0; leanAmt=0; resetAbilities(); clearSmoke();
   me.hv.set(0,0,0); camRoll=0; camDip=0; comboStep=0; swingT=0;
   // stop timers / audio / input state
   clearTimeout(reloadTimer); reloadSfxTimers.forEach(clearTimeout); reloadSfxTimers=[];
@@ -1214,6 +1220,24 @@ function spawnLocalBots(n){ localBots.forEach(b=>scene.remove(b.mesh)); localBot
   for(let i=0;i<n;i++){ const s=openSpot(); const mesh=newBotMesh(); mesh.position.set(s.x,0,s.z); mesh.rotation.y=Math.random()*6.28; scene.add(mesh);
     localBots.push({mesh,x:s.x,z:s.z,hp:100,alive:true}); } }
 function respawnLocalBot(b){ extinguish(b); const s=openSpot(); b.x=s.x; b.z=s.z; b.hp=100; b.alive=true; b.mesh.position.set(s.x,0,s.z); b.mesh.visible=true; }
+
+/* A peek must not put your eye through a corner. Tries the full offset, then
+   shorter ones, and takes the first that is clear of geometry at eye height.
+   Height matters: you can lean out over a low crate. */
+function clearLean(x, z, y, rx, rz, want){
+  const blocked = (px, pz)=>{
+    for(const c of colliders){
+      if(y < c.miny || y > c.maxy) continue;
+      if(px > c.minx-0.12 && px < c.maxx+0.12 && pz > c.minz-0.12 && pz < c.maxz+0.12) return true;
+    }
+    return false;
+  };
+  for(const f of [1, 0.66, 0.33]){
+    const o = want*f;
+    if(!blocked(x + rx*o, z + rz*o)) return o;
+  }
+  return 0;
+}
 
 /* ---- Input ---- */
 const keys={}; let pointerLocked=false, wantFire=false;
@@ -2037,8 +2061,20 @@ function loop(){ requestAnimationFrame(loop);
       wRoll = 0.20*slideLean*s; wDip = 0.10*s; }
     camRoll += (wRoll-camRoll)*Math.min(1,dt*12);
     camDip  += (wDip -camDip )*Math.min(1,dt*12);
-    camera.position.set(me.x, me.feetY+me.eyeH-camDip, me.z);
-    camera.rotation.order='YXZ'; camera.rotation.set(me.pitch,me.yaw,camRoll);
+    // Q/E peek: hold to lean. Suppressed mid-roll/slide, which own the camera.
+    let wantLean = 0;
+    if(me.alive && rollT<=0 && slideT<=0){
+      if(keys['KeyQ']) wantLean -= 1;
+      if(keys['KeyE']) wantLean += 1;
+    }
+    leanAmt += (wantLean-leanAmt)*Math.min(1,dt*LEAN.rate);
+    if(Math.abs(leanAmt) < 0.001) leanAmt = 0;
+    const eyeY = me.feetY+me.eyeH-camDip;
+    const rgtX = Math.cos(me.yaw), rgtZ = -Math.sin(me.yaw);
+    const off = leanAmt ? clearLean(me.x, me.z, eyeY, rgtX, rgtZ, leanAmt*LEAN.offset) : 0;
+    camera.position.set(me.x + rgtX*off, eyeY, me.z + rgtZ*off);
+    // right lean rolls negative, matching the sign the dodge roll already uses
+    camera.rotation.order='YXZ'; camera.rotation.set(me.pitch,me.yaw,camRoll - leanAmt*LEAN.angle);
     // --- ADS (right-click aim): smooth zoom, tightened aim, scope on sniper ---
     ads += (((aiming && me.alive) ? 1 : 0) - ads) * Math.min(1, dt*10);
     // sprint widens the view a touch — the cue that tells you you're sprinting

@@ -54,6 +54,7 @@ Then open <http://localhost:8123/fps-game.html>.
 | `H` | Smoke ability — cloud that tags anyone inside it for 4s |
 | `F` | Blade — five-hit melee combo |
 | `V` | Dodge roll |
+| `Q` / `E` | Peek left / right (hold) |
 | `Tab` | Armory |
 | `O` | Graphics settings |
 | `Esc` | Release mouse |
