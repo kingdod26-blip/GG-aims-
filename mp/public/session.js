@@ -14,7 +14,7 @@
 let gameState='home', gameMode=null, myId=null, connected=false, localKills=0;
 /* Economy, mirrored from the server — never trusted as the source of truth,
    it only drives what the shop shows and what you're allowed to equip. */
-let myMoney=0, myGun=null, shopPrices=[150,300,150,50,50];
+let myMoney=0, myGun=null, shopPrices=[150,300,150,50,50], econOnline=false;
 let socket=null;
 const others = new Map();     // networked players
 const serverBots = new Map(); // networked bots (mp)
@@ -202,6 +202,10 @@ function onSnapshot(s){
   const mine = s.players.find(p=>p.id===myId);
   if (mine){ me.hp=mine.hp;
     const gunChanged = (myGun !== (mine.gun===undefined?null:mine.gun));
+    // A server from before the economy sends no money at all. Without this the
+    // shop just shows $0 and silently refuses every purchase, which looks
+    // exactly like a broken shop rather than a stale server.
+    econOnline = (mine.money !== undefined);
     myMoney = mine.money||0; myGun = (mine.gun===undefined?null:mine.gun);
     // unconditional: you join holding the rifle from init, which you do not own
     ensureValidWeapon();
@@ -232,7 +236,7 @@ function onSnapshot(s){
   const aseen=new Set();
   for(const ar of (s.arrows||[])){ aseen.add(ar.id);
     let m=arrowGfx.get(ar.id);
-    if(!m){ m=makeArrowMesh(); scene.add(m); arrowGfx.set(ar.id,m); }
+    if(!m){ m=makeArrowMesh(); if(ar.sm) tintSmokeBolt(m); scene.add(m); arrowGfx.set(ar.id,m); }
     m.position.set(ar.x,ar.y,ar.z);
     m.lookAt(ar.x+ar.vx, ar.y+ar.vy, ar.z+ar.vz);
     flickerArrow(m, performance.now());

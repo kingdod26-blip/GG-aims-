@@ -175,15 +175,18 @@ let armoryOpen=false;
 function renderArmory(){
   const shop = (gameMode === 'mp');
   const canBuy = shop && matchState && matchState.phase !== 'live';
+  const stale = shop && !econOnline;      // server is older than the economy
   const head = document.querySelector('#armory h2');
-  if(head) head.textContent = shop ? `ARMORY — $${myMoney}` +
-      (canBuy ? '' : '  (shop shut during a round)') : 'ARMORY';
+  if(head) head.textContent = !shop ? 'ARMORY'
+    : stale ? 'ARMORY — shop unavailable'
+    : `ARMORY — $${myMoney}` + (canBuy ? '' : '  (shop shut during a round)');
 
   const hint = document.querySelector('#armory .armHint');
-  if(hint) hint.textContent = shop
-    ? (canBuy ? 'Click to buy — you carry one gun at a time, abilities are free · Tab to close'
-              : 'Shop opens between rounds · Tab to close')
-    : 'Click a weapon or press its number · Tab to close';
+  if(hint) hint.textContent = !shop
+    ? 'Click a weapon or press its number · Tab to close'
+    : stale ? 'This server is running an older build with no economy — restart it · Tab to close'
+    : canBuy ? 'Click to buy — you carry one gun at a time, abilities are free · Tab to close'
+             : 'Shop opens between rounds · Tab to close';
 
   document.getElementById('armGrid').innerHTML = WEAPONS.map((w,i)=>{
     const free  = w.ability || w.melee;

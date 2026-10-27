@@ -79,7 +79,9 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   Money and ownership are server-side: the `buy` handler re-checks phase,
   price and affordability, so a patched client can't hand itself a sniper.
   `canEquip`/`ensureValidWeapon` keep the client honest about what's in hand —
-  you join holding the rifle from init, which in a match you don't own. Shared gameplay numbers must be kept in
+  you join holding the rifle from init, which in a match you don't own.
+  If the server predates the economy it sends no `money`, and the shop says
+  so (`econOnline`) rather than showing $0 and silently refusing everything. Shared gameplay numbers must be kept in
   sync between `WEAPONS` (client) and `XBOW`/`MELEE`/`STANCE_BOX` (server).
 - Bots are **stationary targets** by design — they don't move or shoot. They
   exist only in Target Practice now; the server has none.

@@ -275,14 +275,20 @@ function updateBurnFx(fx,dt){
     m.material.opacity=0.6+Math.sin(u.t*1.6+i)*0.28;
   });
 }
+/* A smoke bolt is the same mesh as a fire bolt, just cold: grey canister, no
+   flame colour, no light. Every arrow builds its own materials, so tinting one
+   never touches another. Used by the local sim AND by server-driven arrows —
+   without the latter, smoke bolts arrived looking like they were on fire. */
+function tintSmokeBolt(mesh){
+  const u = mesh.userData; if(!u || !u.flame) return;
+  u.flame.material.color.set(0x8d939b);
+  u.core.material.color.set(0xd7dbe0);
+  u.trail.forEach(t=>t.material.color.set(0x7c828a));
+  if(u.light) u.light.intensity = 0;
+}
 function spawnLocalArrow(origin,dir,w,ric){
   const mesh=makeArrowMesh(); mesh.position.copy(origin); scene.add(mesh);
-  if(w.kind==='smoke'){                               // grey canister, not a flame
-    const u=mesh.userData;
-    u.flame.material.color.set(0x8d939b); u.core.material.color.set(0xd7dbe0);
-    u.trail.forEach(t=>t.material.color.set(0x7c828a));
-    if(u.light) u.light.intensity = 0;
-  }
+  if(w.kind==='smoke') tintSmokeBolt(mesh);
   const a={ mesh, pos:origin.clone(), vel:dir.clone().multiplyScalar(w.speed),
             bounces: ric?1:0, life:5, dmg:w.dmg, w };
   aimArrow(mesh,a.vel); arrows.push(a); return a;

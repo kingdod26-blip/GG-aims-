@@ -581,7 +581,8 @@ setInterval(() => {
       name:p.name, color:p.color,
       mk: (p.markedUntil > now) ? p.markedBy : null, rl: p.rl || 0,
       bn: p.burnUntil > now })),      // on fire, so others can see it
-    arrows: arrows.map(a => ({ id:a.id, x:a.x, y:a.y, z:a.z, vx:a.vx, vy:a.vy, vz:a.vz })),
+    arrows: arrows.map(a => ({ id:a.id, x:a.x, y:a.y, z:a.z, vx:a.vx, vy:a.vy, vz:a.vz,
+      sm: !!a.smoke })),      // smoke bolts render cold grey, not aflame
   });
 }, TICK);
 
