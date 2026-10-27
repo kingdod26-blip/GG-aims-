@@ -176,6 +176,11 @@ function startPlay(mode){
 
 /* ---- Multiplayer networking ---- */
 function connectMP(name){
+  /* Never stack connections. io() happily opens a second socket, and the
+     server counts it as a whole extra player that nothing will ever clean up
+     — one tab, two people in the match. Entering multiplayer twice without
+     quitting in between (a double-click on the card will do it) was enough. */
+  if(socket){ try{ socket.disconnect(); }catch(e){} socket=null; }
   socket = io();
   socket.on('connect', ()=>{ connected=true; document.getElementById('status').textContent='connected'; socket.emit('state',{name}); });
   socket.on('disconnect', ()=>{ connected=false; document.getElementById('status').textContent='disconnected'; });
