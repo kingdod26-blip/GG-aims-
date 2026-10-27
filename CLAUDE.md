@@ -71,10 +71,13 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   by the server and shipped in the snapshot's `match` block so every client
   agrees. Damage handlers all return early unless the phase is `live`.
 - **There is an economy.** You start each match on `ECON.start` ($200) with no
-  gun, take `ECON.win` ($100) for winning a round and `ECON.loss` ($50) for
-  losing. `PRICES` by slot: rifle 150, sniper 300, shotgun 150, pistols 50.
-  You carry **one gun at a time** — buying another replaces it with no refund,
-  so saving up matters. The crossbow, smoke and blade are always yours and
+  guns, take `ECON.win` ($100) for winning a round and `ECON.loss` ($50) for
+  losing. Money resets **per match, never between rounds** — `resetEconomy`
+  runs only at match start and match end.
+  `PRICES` by slot: rifle 150, sniper 300, shotgun 150, pistols 50.
+  You carry **one MAIN** (rifle / sniper / shotgun, `MAIN_SLOTS`) **and one
+  SIDE** (either pistol, `SIDE_SLOTS`). Buying replaces whatever you held in
+  *that* category, no refund, so saving up matters. The crossbow, smoke and blade are always yours and
   cost nothing. **Tab opens the shop**, which only trades outside a live round.
   Money and ownership are server-side: the `buy` handler re-checks phase,
   price and affordability, so a patched client can't hand itself a sniper.
