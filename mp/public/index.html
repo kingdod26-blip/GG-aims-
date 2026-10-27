@@ -1339,7 +1339,9 @@ function shoot(){
    against a bright floor, and no point light, which would blow the ground out
    to a white disc. This is the fire you actually see; a person only burns for
    WEAPONS[XBOW].burnMs, but the pool stays for GFIRE.ms. */
-const GFIRE = { ms:9000, radius:1.45, max:14, fadeMs:1200 };
+/* radius is 3x the original 1.45. tongueCount/tongueScale follow it, or a
+   wide pool is just a flat orange disc with a few specks on it. */
+const GFIRE = { ms:9000, radius:4.35, baseRadius:1.45, max:14, fadeMs:1200 };
 const groundFires = [];
 function spawnGroundFire(x, z){
   while(groundFires.length >= GFIRE.max) removeGroundFire(groundFires[0]);
@@ -1351,12 +1353,16 @@ function spawnGroundFire(x, z){
   };
   const disc  = flat(GFIRE.radius,      0xff4a08, 0.55, 0.02);   // outer pool
   const inner = flat(GFIRE.radius*0.55, 0xffb020, 0.75, 0.03);   // hot centre
+  const grow  = GFIRE.radius/GFIRE.baseRadius;
+  const count = Math.max(7, Math.round(7*grow));       // keep the pool populated
+  const ts    = Math.sqrt(grow);                       // flames grow, but slower
   const tongues = [];
-  for(let i=0;i<7;i++){
-    const m = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.62, 6),
+  for(let i=0;i<count;i++){
+    const m = new THREE.Mesh(new THREE.ConeGeometry(0.17*ts, 0.62*ts, 6),
       new THREE.MeshBasicMaterial({ color:i%2?0xff8a12:0xff3d05, transparent:true, opacity:0.8, depthWrite:false }));
-    const ang = (i/7)*Math.PI*2, r = GFIRE.radius*(0.15+Math.random()*0.6);
-    m.position.set(Math.cos(ang)*r, 0.31, Math.sin(ang)*r);
+    // golden-angle spread so they scatter instead of forming a visible ring
+    const ang = i*2.39996, r = GFIRE.radius*Math.sqrt((i+0.5)/count)*0.85;
+    m.position.set(Math.cos(ang)*r, 0.31*ts, Math.sin(ang)*r);
     g.add(m); tongues.push(m);
   }
   scene.add(g);

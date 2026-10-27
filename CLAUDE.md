@@ -113,6 +113,15 @@ sideways roll, 0 on a forward one). Double jump. Sprint (Shift). Stances: `C` cr
   it came back permanently alight. Every kill path has to call it.
 - **Don't let the ceiling cast shadows.** A shadow-casting lid between the key
   light and the floor drops the entire room to black.
+- **Server colliders are 3D boxes (`RECTS` carry `miny`/`maxy`), and the ray
+  tests must stay 3D.** They used to be full-height 2D rectangles, so you
+  could never shoot over cover — and standing *on* a crate put your own muzzle
+  inside a collider, which set the wall distance to 0 and made every shot you
+  fired miss. `rayBoxHit` returns a true 3D distance in the same units as
+  `raySphere`; the old 2D test returned a *horizontal* distance, so any angled
+  shot was comparing two different scales. Keep `LAYOUT` heights in sync with
+  the client's. `resolve2D`, `lineClear` and `insideWall` are still 2D on
+  purpose — they only ever run at ground level.
 
 ## Testing notes
 
@@ -129,6 +138,8 @@ Verify in the browser via `javascript_tool`, not by eyeballing. Two traps:
 - **Slide is disabled** behind `SLIDE_ENABLED` — see `extras/slide-ability.md`.
 - Ground fire is **cosmetic**: standing in a pool doesn't hurt you. Making it
   damage anyone who walks through is a server change (`burnTick`).
+- `GFIRE.radius` is 4.35 (3x `baseRadius`). Flame count and size are derived
+  from that ratio, so changing the radius alone keeps the pool looking right.
 - The crossbow's CreativeTrio palette texture wasn't in the download, so it's
   flat two-tone (limbs vs stock). A palette JPG would give it real colour.
 - Never built: a real fail state. Bots don't shoot, so you can't lose. Wave

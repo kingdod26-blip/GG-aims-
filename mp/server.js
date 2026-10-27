@@ -19,25 +19,29 @@ const io = new Server(server);
 const PORT = process.env.PORT || 8200;
 
 /* ----------------------------- Shared arena ------------------------------- */
-/* Must match the client's arena. Obstacles are treated as full-height 2D
-   rectangles for line-of-sight, bullets and movement (simple + good enough). */
+/* Must match the client's arena. Heights matter: obstacles used to be treated
+   as infinitely tall for line-of-sight, so you could not shoot over a crate —
+   and standing ON one put your own muzzle inside a collider, which zeroed the
+   wall distance and made every shot you took miss. Movement and spawn checks
+   are still deliberately 2D (they only ever run at ground level). */
 const ARENA = 60;
-const LAYOUT = [ // [x, z, w, d]
-  [0,0,6,6],
-  [-18,-12,4,4],[18,-12,4,4],[-18,12,4,4],[18,12,4,4],
-  [0,-24,12,2],[0,24,12,2],[-30,0,2,12],[30,0,2,12],
-  [-10,-30,3,3],[10,30,3,3],[-34,-30,5,5],[34,30,5,5],
-  [24,-28,3,3],[-24,28,3,3],[12,8,2.5,2.5],[-12,-8,2.5,2.5],
+const WALL_H = 8;                 // perimeter wall height (client's WH)
+const LAYOUT = [ // [x, z, w, d, h]
+  [0,0,6,6,3],
+  [-18,-12,4,4,2.5],[18,-12,4,4,2.5],[-18,12,4,4,2.5],[18,12,4,4,2.5],
+  [0,-24,12,2,4],[0,24,12,2,4],[-30,0,2,12,4],[30,0,2,12,4],
+  [-10,-30,3,3,2],[10,30,3,3,2],[-34,-30,5,5,3],[34,30,5,5,3],
+  [24,-28,3,3,2],[-24,28,3,3,2],[12,8,2.5,2.5,1.5],[-12,-8,2.5,2.5,1.5],
 ];
-// Rectangles as {minx,minz,maxx,maxz}
-const RECTS = LAYOUT.map(([x,z,w,d]) => ({ minx:x-w/2, minz:z-d/2, maxx:x+w/2, maxz:z+d/2 }));
+// Boxes as {minx,minz,maxx,maxz,miny,maxy}; they all sit on the floor.
+const RECTS = LAYOUT.map(([x,z,w,d,h]) => ({ minx:x-w/2, minz:z-d/2, maxx:x+w/2, maxz:z+d/2, miny:0, maxy:h }));
 // The perimeter walls are collidable on the client, so the server needs them
 // too — otherwise bullets and ricocheting arrows fly straight through them.
 RECTS.push(
-  { minx:-ARENA-1, minz:-ARENA-1, maxx: ARENA+1, maxz:-ARENA+1 },   // north
-  { minx:-ARENA-1, minz: ARENA-1, maxx: ARENA+1, maxz: ARENA+1 },   // south
-  { minx:-ARENA-1, minz:-ARENA-1, maxx:-ARENA+1, maxz: ARENA+1 },   // west
-  { minx: ARENA-1, minz:-ARENA-1, maxx: ARENA+1, maxz: ARENA+1 },   // east
+  { minx:-ARENA-1, minz:-ARENA-1, maxx: ARENA+1, maxz:-ARENA+1, miny:0, maxy:WALL_H },   // north
+  { minx:-ARENA-1, minz: ARENA-1, maxx: ARENA+1, maxz: ARENA+1, miny:0, maxy:WALL_H },   // south
+  { minx:-ARENA-1, minz:-ARENA-1, maxx:-ARENA+1, maxz: ARENA+1, miny:0, maxy:WALL_H },   // west
+  { minx: ARENA-1, minz:-ARENA-1, maxx: ARENA+1, maxz: ARENA+1, miny:0, maxy:WALL_H },   // east
 );
 
 /* ------------------------------- Geometry --------------------------------- */
@@ -86,6 +90,27 @@ function raySphere(o, dir, cx, cy, cz, radius) {
   if (disc < 0) return Infinity;
   const t = -b - Math.sqrt(disc);
   return t > 0 ? t : Infinity;
+}
+/* Ray (origin o, UNIT dir) vs a box. Returns the 3D distance to the nearest
+   entry face, plus which axis it was, or null. Same units as raySphere, so the
+   two can be compared directly — the old 2D test returned a horizontal
+   distance, which silently under-reported every angled shot.
+   A ray starting inside the box returns 0 on purpose; callers that fire from
+   on top of a crate sit just above it, not inside it. */
+function rayBoxHit(o, dir, r) {
+  let tmin = 0, tmax = Infinity, axis = -1, sign = 1;
+  const slabs = [[o.x, dir.x, r.minx, r.maxx], [o.y, dir.y, r.miny, r.maxy], [o.z, dir.z, r.minz, r.maxz]];
+  for (let i = 0; i < 3; i++) {
+    const [p, d, lo, hi] = slabs[i];
+    if (Math.abs(d) < 1e-9) { if (p < lo || p > hi) return null; continue; }
+    let t1 = (lo - p) / d, t2 = (hi - p) / d, sg = -1;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; sg = 1; }
+    if (t1 > tmin) { tmin = t1; axis = i; sign = sg; }
+    if (t2 < tmax) tmax = t2;
+    if (tmin > tmax) return null;
+  }
+  if (tmax < 0) return null;
+  return { t: tmin, axis, sign };
 }
 // 2D segment vs rectangle that also reports which face was hit, so arrows can
 // bounce off it. Returns { t (0..1), nx, nz } or null.
@@ -181,9 +206,12 @@ io.on('connection', (socket) => {
     // broadcast a tracer so others see the shot
     socket.broadcast.emit('shot', { ox:o.x, oy:o.y, oz:o.z, dx:dir.x, dy:dir.y, dz:dir.z, len: range });
 
-    // nearest wall blocks the bullet
+    // nearest wall blocks the bullet — in 3D, so shots pass over low cover
     let wall = Infinity;
-    for (const r of RECTS) wall = Math.min(wall, segRectDist(o.x, o.z, o.x + dir.x*range, o.z + dir.z*range, r));
+    for (const r of RECTS) {
+      const h = rayBoxHit(o, dir, r);
+      if (h && h.t < wall) wall = h.t;
+    }
 
     let best = { t: Math.min(wall, range), target: null, head: false };
     // Hitboxes shrink with stance, so crouching and going prone genuinely make
@@ -315,7 +343,10 @@ setInterval(() => {
     if (a.life <= 0) { arrows.splice(i, 1); continue; }
     a.vy -= 9 * dt;                                     // slight drop
     const nx = a.x + a.vx*dt, ny = a.y + a.vy*dt, nz = a.z + a.vz*dt;
-    const stepLen = Math.hypot(nx-a.x, nz-a.z) || 1e-6;
+    // 3D step, not horizontal: raySphere and rayBoxHit both report true 3D
+    // distances, so measuring the step in XZ only made every angled shot
+    // compare two different scales.
+    const stepLen = Math.hypot(nx-a.x, ny-a.y, nz-a.z) || 1e-6;
 
     // nearest target along this step (players never cause a bounce)
     const dirx = (nx-a.x)/stepLen, diry = (ny-a.y)/stepLen, dirz = (nz-a.z)/stepLen;
@@ -332,11 +363,11 @@ setInterval(() => {
     for (const pl of players.values())
       if (pl.alive && pl.id !== a.by) tryHit(pl.x, pl.z, pl.y||0, pl.st||0, { kind:'player', ref:pl });
 
-    // nearest wall along this step
+    // nearest wall along this step, height-aware
     let wallT = Infinity, wn = null;
     for (const r of RECTS) {
-      const h = segRectHit(a.x, a.z, nx, nz, r);
-      if (h && h.t*stepLen < wallT) { wallT = h.t*stepLen; wn = h; }
+      const h = rayBoxHit(o, dir, r);
+      if (h && h.t < wallT && h.t <= stepLen) { wallT = h.t; wn = h; }
     }
 
     if (victim && hitT <= wallT) {                      // hit someone
@@ -347,7 +378,7 @@ setInterval(() => {
       if (a.bounces > 0) {                              // RICOCHET: reflect once
         a.bounces--;
         a.x += dirx*wallT*0.98; a.z += dirz*wallT*0.98; a.y += diry*wallT*0.98;
-        if (wn.nx) a.vx = -a.vx; else a.vz = -a.vz;
+        if (wn.axis === 0) a.vx = -a.vx; else if (wn.axis === 1) a.vy = -a.vy; else a.vz = -a.vz;
         a.vx *= 0.85; a.vy *= 0.85; a.vz *= 0.85;
         continue;
       }
