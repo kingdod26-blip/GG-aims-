@@ -402,23 +402,14 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
 
 const scene = new THREE.Scene();
-/* Sky: equirect canvas — deep blue overhead fading to a bright horizon, with clouds. */
-const skyCanvas = document.createElement('canvas'); skyCanvas.width=1024; skyCanvas.height=512;
-(function(g){
-  const grad=g.createLinearGradient(0,60,0,300);
-  grad.addColorStop(0,'#2e6bc4'); grad.addColorStop(0.55,'#7fb2e6'); grad.addColorStop(1,'#dfeaf2');
-  g.fillStyle=grad; g.fillRect(0,0,1024,300);
-  g.fillStyle='#dfeaf2'; g.fillRect(0,300,1024,212);      // below horizon
-  // clouds: layered soft ellipses
-  function cloud(cx,cy,s){ for(let i=0;i<7;i++){ g.beginPath();
-    g.ellipse(cx+(Math.random()-0.5)*90*s, cy+(Math.random()-0.5)*18*s, (28+Math.random()*38)*s, (10+Math.random()*14)*s, 0, 0, 7);
-    g.fillStyle=`rgba(255,255,255,${0.5+Math.random()*0.4})`; g.fill(); } }
-  for(let i=0;i<14;i++) cloud(Math.random()*1024, 120+Math.random()*140, 0.6+Math.random()*0.9);
-})(skyCanvas.getContext('2d'));
-const skyTex = new THREE.CanvasTexture(skyCanvas);
-skyTex.mapping = THREE.EquirectangularReflectionMapping; skyTex.encoding = THREE.sRGBEncoding;
-scene.background = skyTex;
-scene.fog = new THREE.Fog(0xdfeaf2, 55, 150);
+/* No sky. The gradient-and-clouds equirect canvas that used to sit here is
+   gone; the background is a flat colour that matches the fog exactly, so the
+   arena fades out at distance with no visible horizon line or dome. Change
+   SKY_COLOR alone to retint the whole backdrop — keep the fog on the same
+   value or a seam reappears where the fog stops. */
+const SKY_COLOR = 0xdfeaf2;
+scene.background = new THREE.Color(SKY_COLOR);
+scene.fog = new THREE.Fog(SKY_COLOR, 55, 150);
 const camera = new THREE.PerspectiveCamera(80, innerWidth/innerHeight, 0.05, 500);
 scene.add(new THREE.HemisphereLight(0xcfe4ff, 0x5a5f52, 0.70));
 const sun = new THREE.DirectionalLight(0xfff2df, 1.15); sun.position.set(35,60,25); sun.castShadow = true;
