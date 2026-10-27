@@ -281,6 +281,9 @@
       <div class="prow"><span>Shotgun</span><b>8 PELLET</b></div>
       <div class="prow"><span>Pistol</span><b>SEMI</b></div>
       <div class="prow"><span>Pistol X</span><b>SEMI</b></div>
+      <div class="prow"><span>Crossbow</span><b>G · FIRE</b></div>
+      <div class="prow"><span>Smoke</span><b>H · TAG</b></div>
+      <div class="prow"><span>Blade</span><b>F · COMBO</b></div>
     </div>
 
     <div class="panel glass layer pr">
@@ -822,6 +825,11 @@ const XBOW  = WEAPONS.findIndex(w=>w.kind==='xbow');    // crossbow slot
 const SMOKE = WEAPONS.findIndex(w=>w.kind==='smoke');   // smoke slot
 const BLADE = WEAPONS.findIndex(w=>w.melee);            // blade slot
 const ABILITY_SLOTS = WEAPONS.map((w,i)=>w.ability?i:-1).filter(i=>i>=0);
+/* What the armory should print on each card. Guns are 1-5; the abilities
+   and the blade have their own keys, and printing i+1 told you to press 7
+   for smoke — a key that isn't bound to anything. */
+const WEAPON_KEY = WEAPONS.map((w,i)=> String(i+1));
+WEAPON_KEY[XBOW]='G'; WEAPON_KEY[SMOKE]='H'; WEAPON_KEY[BLADE]='F';
 resetAbilities();
 
 // One holder per WEAPONS entry (the ability/melee slots have no file model,
@@ -1864,10 +1872,14 @@ let armoryOpen=false;
 function renderArmory(){
   document.getElementById('armGrid').innerHTML = WEAPONS.map((w,i)=>`
     <div class="wcard ${i===currentWeapon?'equipped':''}" data-i="${i}">
-      <div class="wkey">[ ${i+1} ]</div>
+      <div class="wkey">[ ${WEAPON_KEY[i]} ]</div>
       <div class="wname">${w.name}</div>
       <div class="wmode">${w.mode}${w.scope?' · SCOPE':''}${w.pellets?' · '+w.pellets+' PELLETS':''}</div>
-      <div class="wstats">DMG ${w.dmg}${w.pellets?'×'+w.pellets:''}<br>MAG ${w.magMax} / ${w.reserveMax}<br>${i===currentWeapon?'<b style="color:#27ff9e">EQUIPPED</b>':'&nbsp;'}</div>
+      <div class="wstats">${
+        w.ability ? `${w.dmg?('DMG '+w.dmg):'NO DAMAGE'}<br>CHARGES ${w.charges} · ${Math.round(w.cooldownMs/1000)}s`
+      : w.melee   ? `COMBO ${w.combo.join('/')}<br>REACH ${w.reach}m`
+      :             `DMG ${w.dmg}${w.pellets?'×'+w.pellets:''}<br>MAG ${w.magMax} / ${w.reserveMax}`
+      }<br>${i===currentWeapon?'<b style="color:#27ff9e">EQUIPPED</b>':'&nbsp;'}</div>
     </div>`).join('');
   [...document.querySelectorAll('.wcard')].forEach(el=> el.onclick=()=>{ switchWeapon(+el.dataset.i); toggleArmory(false); });
 }
