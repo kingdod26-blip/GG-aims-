@@ -13,19 +13,30 @@ GG aims/
 ├── mp/                # THE MAIN GAME — work here
 │   ├── server.js      # Node + Socket.IO authoritative server
 │   └── public/
-│       ├── index.html # markup only (~180 lines)
+│       ├── index.html # markup only (~190 lines)
 │       ├── style.css  # all the styling
-│       ├── game.js    # the client: render, UI, netcode, gameplay
+│       ├── core.js    # 1. scene, camera, lights, post, graphics settings
+│       ├── world.js   # 2. materials, arena, floor/walls/ceiling, signage
+│       ├── models.js  # 3. box humanoid, weapon models, Spartan, podium
+│       ├── weapons.js # 4. player state, ability charges, roster, viewmodels
+│       ├── session.js # 5. game state, menus, pause, networking, local bots
+│       ├── input.js   # 6. keyboard/mouse, shooting
+│       ├── effects.js # 7. fire pools, smoke, marks, arrows, burn FX
+│       ├── hud.js     # 8. HUD, kill feed, audio, armory, compass
+│       ├── loop.js    # 9. movement, collision, main loop
 │       └── assets/    # models + textures
 └── extras/            # parked features (see slide-ability.md)
 ```
 
-Almost all work happens in **`mp/public/game.js`** and **`mp/server.js`**.
-`game.js` opens with a table of contents listing every section in order —
-search for a banner's text to jump to it. It is one **classic** script, not
-a module, so everything shares one global scope and **execution order
-matters**: a `const` is only safe to move if nothing above it runs against
-it. Function declarations hoist and move freely.
+Almost all work happens in the numbered client files above and **`mp/server.js`**.
+
+Those nine are **classic scripts sharing one global scope**, not modules.
+**The order `index.html` lists them in is the contract** — each runs after
+the one before it, and anything referenced at load time must already have
+run. Function declarations hoist and move freely; a top-level `const` does
+not. Don't reorder the `<script>` tags, and when adding a file, put it where
+its dependencies are already satisfied. Each file's header says where it sits
+in the chain.
 
 ## Running it
 

@@ -1,0 +1,180 @@
+/* =============================================================
+   Bot Strike — hud.js  (8 of 9 in load order)
+
+   HUD, kill feed, audio, armory and compass.
+
+   These files are CLASSIC scripts sharing ONE global scope, loaded in
+   the order index.html lists them. That order is the whole contract:
+   this file runs after effects.js and before loop.js, and anything it
+   references at load time must already have run. Function declarations
+   hoist and are safe anywhere; a top-level const is not.
+   ============================================================= */
+
+/* ---- HUD ---- */
+function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Math.round(me.hp));
+  document.getElementById('hpFill').style.width=Math.max(0,me.hp)+'%';
+  document.getElementById('hpFill').style.background = me.hp>50 ? '#fff' : me.hp>25 ? '#ffb648' : '#ff4d4d';
+  const w=curW();
+  if(w.melee){                                     // combo chain, no ammo
+    if(performance.now()>comboUntil && comboStep!==0) comboStep=0;
+    document.getElementById('magNum').textContent = (comboStep||0)+1;
+    document.getElementById('reserveNum').textContent = '/ '+w.combo.length;
+    const nextDmg = w.combo[Math.min(comboStep,w.combo.length-1)];
+    document.getElementById('modeLbl').textContent =
+      'BLADE · HIT '+((comboStep||0)+1)+'/'+w.combo.length+
+      (comboStep===w.combo.length-1 ? ' · FINISHER' : '')+' · '+nextDmg+' DMG';
+  } else if(w.ability){                            // charges, not magazines
+    abilityTick();
+    const q = abilityRecharge[currentWeapon] || [];
+    document.getElementById('magNum').textContent = abilityCharges[currentWeapon];
+    document.getElementById('reserveNum').textContent = '/ '+w.charges;
+    const next = q.length ? Math.max(0,Math.ceil((q[0]-performance.now())/1000)) : 0;
+    const label = (w.kind==='xbow') ? 'CROSSBOW · '+(ricochet?'RICOCHET':'DIRECT') : 'SMOKE · TAG';
+    document.getElementById('modeLbl').textContent = label + (next?(' · '+next+'s'):'');
+  } else {
+    document.getElementById('magNum').textContent=reloading?'--':curAmmo().mag;
+    document.getElementById('reserveNum').textContent='/ '+curAmmo().reserve;
+    document.getElementById('modeLbl').textContent = w.name+' · '+w.mode;
+  }
+  document.getElementById('stanceVal').textContent = me.stance.toUpperCase().replace('STAND','STANDING').replace('CROUCH','CROUCHING').replace('PRONE','PRONE'); }
+let hmT; function hitmark(){ const h=document.getElementById('hitmarker'); h.style.opacity=1; clearTimeout(hmT); hmT=setTimeout(()=>h.style.opacity=0,90); }
+let dmgT; function dmgFlash(){ const d=document.getElementById('dmg'); d.style.opacity=1; clearTimeout(dmgT); dmgT=setTimeout(()=>d.style.opacity=0,120); }
+/* Kill feed: each entry lives briefly, fades out, then removes itself so the
+   feed never stays cluttered. */
+const FEED_LIFE_MS = 4500, FEED_FADE_MS = 600;
+function addFeed(d){
+  const host = document.getElementById('feed'); if(!host) return;
+  const el = document.createElement('div');
+  el.innerHTML = `<b>${esc(d.by)}</b> ${d.head?'<span class="hs">⚡</span>':'✖'} ${esc(d.victim)}`;
+  host.prepend(el);                                   // newest first
+  while(host.children.length > 5) host.lastChild.remove();
+  el._fadeT = setTimeout(()=>{
+    el.classList.add('fade');
+    el._killT = setTimeout(()=>el.remove(), FEED_FADE_MS);
+  }, FEED_LIFE_MS);
+}
+function clearFeed(){
+  const host = document.getElementById('feed'); if(!host) return;
+  [...host.children].forEach(el=>{ clearTimeout(el._fadeT); clearTimeout(el._killT); });
+  host.innerHTML='';
+}
+function updateBoard(pl){ document.getElementById('rows').innerHTML=[...pl].sort((a,b)=>b.kills-a.kills).map(p=>
+  `<div class="row ${p.id===myId?'me':''}"><span>${esc(p.name)}</span><span class="k">${p.kills}</span></div>`).join(''); }
+function esc(s){ return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+/* ================= AUDIO =================
+   All SFX are synthesized with Web Audio (no asset files). The reload
+   call-out uses the browser's speech synthesis so the character speaks. */
+const Sfx = (()=>{
+  let ctx=null;
+  const ensure = ()=> (ctx = ctx || new (window.AudioContext||window.webkitAudioContext)());
+  function noise(dur, vol, cutoff, type='lowpass'){
+    const c=ensure(); const buf=c.createBuffer(1, Math.max(1,c.sampleRate*dur), c.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length, 2);
+    const src=c.createBufferSource(); src.buffer=buf;
+    const g=c.createGain(); g.gain.value=vol;
+    const f=c.createBiquadFilter(); f.type=type; f.frequency.value=cutoff;
+    src.connect(f).connect(g).connect(c.destination); src.start();
+  }
+  function tone(freq, dur, type, vol, slideTo){
+    const c=ensure(); const o=c.createOscillator(), g=c.createGain();
+    o.type=type; o.frequency.setValueAtTime(freq, c.currentTime);
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, c.currentTime+dur);
+    g.gain.setValueAtTime(vol, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, c.currentTime+dur);
+    o.connect(g).connect(c.destination); o.start(); o.stop(c.currentTime+dur);
+  }
+  return {
+    resume(){ try{ const c=ensure(); if(c.state==='suspended') c.resume(); }catch(e){} },
+    // Each weapon gets a distinct report: punchy body + tail
+    shoot(w){ try{
+      const p = { RIFLE:{d:0.09,v:0.34,f:1400,t:150}, SNIPER:{d:0.34,v:0.5,f:900,t:70},
+                  SHOTGUN:{d:0.26,v:0.46,f:1100,t:90}, PISTOL:{d:0.11,v:0.32,f:1700,t:200},
+                  'PISTOL X':{d:0.09,v:0.3,f:1800,t:220} }[w.name] || {d:0.1,v:0.32,f:1500,t:170};
+      noise(p.d, p.v, p.f);                         // the crack
+      tone(p.t, p.d*1.4, 'sawtooth', p.v*0.5, p.t*0.4);   // low thump tail
+    }catch(e){} },
+    magOut(){ try{ tone(220,0.05,'square',0.18); noise(0.05,0.12,2500,'highpass'); }catch(e){} },
+    magIn(){  try{ tone(150,0.07,'square',0.22); noise(0.06,0.15,1800); }catch(e){} },
+    bolt(){   try{ tone(320,0.05,'square',0.16); setTimeout(()=>tone(260,0.05,'square',0.14),70); }catch(e){} },
+    empty(){  try{ tone(110,0.05,'square',0.18); }catch(e){} },
+    hit(){    try{ tone(950,0.035,'sine',0.22); }catch(e){} },
+    step(left){ try{ noise(0.07, left?0.10:0.085, 620); tone(left?95:88, 0.05,'sine',0.07); }catch(e){} },
+    land(){   try{ noise(0.12,0.18,450); tone(70,0.1,'sine',0.12); }catch(e){} },
+    swap(){   try{ tone(520,0.04,'square',0.14); setTimeout(()=>tone(700,0.04,'square',0.12),50); }catch(e){} },
+  };
+})();
+
+/* Character voice line — speaks "Reloading!" on reload. */
+const Voice = (()=>{
+  let pick=null;
+  function voice(){
+    if(pick!==null) return pick;
+    const vs = speechSynthesis.getVoices();
+    if(!vs.length) return null;
+    // prefer a deeper English male voice for the operator
+    pick = vs.find(v=>/en(-|_)?(US|GB)?/i.test(v.lang) && /david|male|daniel|george|mark/i.test(v.name))
+        || vs.find(v=>/^en/i.test(v.lang)) || vs[0];
+    return pick;
+  }
+  if (window.speechSynthesis) speechSynthesis.onvoiceschanged = ()=>{ pick=null; voice(); };
+  return { say(text, {rate=1.05, pitch=0.75, volume=0.9}={}){
+    try{ if(!window.speechSynthesis) return;
+      speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(text);
+      const v=voice(); if(v) u.voice=v;
+      u.rate=rate; u.pitch=pitch; u.volume=volume;
+      speechSynthesis.speak(u);
+    }catch(e){}
+  } };
+})();
+
+/* ---- Armory (Tab): every gun you've collected, click or number-key to equip ---- */
+let armoryOpen=false;
+function renderArmory(){
+  document.getElementById('armGrid').innerHTML = WEAPONS.map((w,i)=>`
+    <div class="wcard ${i===currentWeapon?'equipped':''}" data-i="${i}">
+      <div class="wkey">[ ${WEAPON_KEY[i]} ]</div>
+      <div class="wname">${w.name}</div>
+      <div class="wmode">${w.mode}${w.scope?' · SCOPE':''}${w.pellets?' · '+w.pellets+' PELLETS':''}</div>
+      <div class="wstats">${
+        w.ability ? `${w.dmg?('DMG '+w.dmg):'NO DAMAGE'}<br>CHARGES ${w.charges} · ${Math.round(w.cooldownMs/1000)}s`
+      : w.melee   ? `COMBO ${w.combo.join('/')}<br>REACH ${w.reach}m`
+      :             `DMG ${w.dmg}${w.pellets?'×'+w.pellets:''}<br>MAG ${w.magMax} / ${w.reserveMax}`
+      }<br>${i===currentWeapon?'<b style="color:#27ff9e">EQUIPPED</b>':'&nbsp;'}</div>
+    </div>`).join('');
+  [...document.querySelectorAll('.wcard')].forEach(el=> el.onclick=()=>{ switchWeapon(+el.dataset.i); toggleArmory(false); });
+}
+function toggleArmory(force){
+  const want = (force!==undefined) ? force : !armoryOpen;
+  armoryOpen = want;
+  document.getElementById('armory').classList.toggle('hidden', !want);
+  if(want){ renderArmory(); document.exitPointerLock(); }
+  else if(gameState==='playing') lockPointer();
+}
+
+/* ---- Compass strip (bearing ticks like AAA shooters) ---- */
+const cmp = document.getElementById('compass'), cg = cmp.getContext('2d');
+const CARDINALS = { 0:'N', 45:'NE', 90:'E', 135:'SE', 180:'S', 225:'SW', 270:'W', 315:'NW' };
+function drawCompass(){
+  const W=cmp.width, H=cmp.height, pxPerDeg = W/120;             // 120° field of view
+  const heading = (((-me.yaw)*180/Math.PI)%360+360)%360;
+  cg.clearRect(0,0,W,H);
+  cg.fillStyle='rgba(0,0,0,0.25)'; cg.fillRect(0,0,W,H);
+  cg.textAlign='center'; cg.textBaseline='top';
+  for(let d=-65; d<=65; d++){
+    const deg = ((Math.round(heading)+d)%360+360)%360;
+    if(deg%5!==0) continue;
+    const x = W/2 + (deg - heading + ((deg-heading>180)?-360:(deg-heading<-180)?360:0))*pxPerDeg;
+    if(x<4||x>W-4) continue;
+    const card = CARDINALS[deg];
+    if(card){ cg.fillStyle='rgba(255,255,255,0.95)'; cg.font='bold 12px Segoe UI'; cg.fillText(card, x, 3);
+      cg.fillRect(x-0.5, 18, 1.5, 8); }
+    else if(deg%15===0){ cg.fillStyle='rgba(255,255,255,0.6)'; cg.fillRect(x-0.5, 20, 1, 6); }
+    else { cg.fillStyle='rgba(255,255,255,0.3)'; cg.fillRect(x-0.5, 22, 1, 4); }
+  }
+  // center marker
+  cg.fillStyle='#fff'; cg.beginPath(); cg.moveTo(W/2,26); cg.lineTo(W/2-4,30); cg.lineTo(W/2+4,30); cg.closePath(); cg.fill();
+}
+let prevHp=100;

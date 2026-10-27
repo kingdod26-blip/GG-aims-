@@ -177,6 +177,17 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="game.js"></script>
+<!-- The client, split by concern. These are classic scripts sharing one
+     global scope, so THIS ORDER IS THE CONTRACT: each runs after the one
+     above it. Reordering them will break load-time references. -->
+<script src="core.js"></script>
+<script src="world.js"></script>
+<script src="models.js"></script>
+<script src="weapons.js"></script>
+<script src="session.js"></script>
+<script src="input.js"></script>
+<script src="effects.js"></script>
+<script src="hud.js"></script>
+<script src="loop.js"></script>
 </body>
 </html>
