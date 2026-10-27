@@ -124,6 +124,15 @@ Forward/back rolls punch the FOV and tuck the weapon but **do not pitch the
 view** — there was a `ROLL.arc` somersault and Jack had it removed, so don't
 reintroduce camera pitch here. Other players see a full hip-pivoted tumble,
 driven by roll progress sent in the state packet.
+**Passive detection** — everyone has it, nothing to equip. When an opponent
+makes a noise (gun, crossbow bolt or smoke bolt) it picks them out through
+walls for `DETECT.revealMs` (4s), then sleeps for `DETECT.cooldownMs` (30s).
+The same window also reveals **hazards** — `hazardMeshes()` currently returns
+fire pools and smoke clouds as stand-ins for traps; add real traps there and
+detection picks them up with no other change. Silhouettes are amber for
+"heard them fire" and green for a smoke tag, and smoke wins if both apply.
+Resets to ready at the start of every round.
+
 `Q`/`E` peek left/right — hold to lean. `LEAN.angle` 0.16 rad (~9°) plus a
 0.45m sideways shift of the eye, clamped by `clearLean` so you can't put your
 camera through a corner. Suppressed during a roll or slide. Double jump. Sprint (Shift). Stances: `C` crouch,

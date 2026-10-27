@@ -59,6 +59,22 @@ function clearFeed(){
   host.innerHTML='';
 }
 /* Rounds won is what decides the match, so it leads; kills are the tiebreak. */
+/* Passive detection readout. Three states: listening, something heard (and
+   for how much longer), or recharging. Multiplayer only — there is nothing to
+   hear in target practice. */
+function updateDetectHUD(){
+  const el = document.getElementById('detect');
+  if(!el) return;
+  if(gameMode !== 'mp' || gameState !== 'playing'){ el.style.display='none'; return; }
+  const now = performance.now();
+  const active = detectUntil > now, cooling = !active && detectReady > now;
+  el.style.display = 'block';
+  el.className = active ? 'active' : cooling ? 'cooling' : 'ready';
+  document.getElementById('detectTxt').textContent =
+      active  ? 'CONTACT ' + Math.ceil((detectUntil-now)/1000) + 's'
+    : cooling ? 'DETECT ' + Math.ceil((detectReady-now)/1000) + 's'
+    :           'DETECT READY';
+}
 function updateBoard(pl){ document.getElementById('rows').innerHTML=[...pl]
   .sort((a,b)=>(b.wins||0)-(a.wins||0) || b.kills-a.kills).map(p=>
   `<div class="row ${p.id===myId?'me':''}"><span>${esc(p.name)}</span>` +

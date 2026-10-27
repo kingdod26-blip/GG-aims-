@@ -120,6 +120,7 @@ function loop(){ requestAnimationFrame(loop);
     }
     if(me.hp<prevHp-0.5) dmgFlash(); prevHp=me.hp;
     drawCompass();
+    updateDetectHUD();
     // Camera lean/dip during abilities — this is what sells the transition as
     // momentum rather than a teleport between movement modes.
     let wRoll=0, wDip=0, wPunch=0;

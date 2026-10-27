@@ -15,6 +15,10 @@ let gameState='home', gameMode=null, myId=null, connected=false, localKills=0;
 /* Economy, mirrored from the server — never trusted as the source of truth,
    it only drives what the shop shows and what you're allowed to equip. */
 let myMoney=0, myMain=null, mySide=null, econOnline=false;
+/* Passive detection, mirrored from the server. detectTarget is who your
+   passive has picked out; detectUntil/detectReady are local deadlines so the
+   HUD can count down smoothly between snapshots. */
+let detectTarget=null, detectUntil=0, detectReady=0;
 let shopPrices=[150,300,150,50,50], MAIN_SLOTS=[0,1,2], SIDE_SLOTS=[3,4];
 let socket=null;
 const others = new Map();     // networked players
@@ -90,6 +94,7 @@ function quitToMenu(){
   // drop the multiplayer connection and everyone it spawned
   if(socket){ try{ socket.disconnect(); }catch(e){} socket=null; }
   myId=null; connected=false;
+  detectTarget=null; detectUntil=0; detectReady=0; revealHazards(false);
   for(const o of others.values()) scene.remove(o.mesh); others.clear();
   for(const o of serverBots.values()) scene.remove(o.mesh); serverBots.clear();
   // clear local targets
@@ -215,6 +220,9 @@ function onSnapshot(s){
     // shop just shows $0 and silently refuses every purchase, which looks
     // exactly like a broken shop rather than a stale server.
     econOnline = (mine.money !== undefined);
+    detectTarget = mine.dT || null;
+    detectUntil  = mine.dU ? performance.now() + mine.dU : 0;
+    detectReady  = mine.dR ? performance.now() + mine.dR : 0;
     myMoney = mine.money||0; myMain = norm(mine.main); mySide = norm(mine.side);
     // unconditional: you join holding the rifle from init, which you do not own
     ensureValidWeapon();

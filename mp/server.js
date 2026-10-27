@@ -189,6 +189,12 @@ const MATCH = { winsNeeded: 3, intermissionMs: 8000, endMs: 7000, minPlayers: 2,
    4 pistol X. */
 const ECON = { start: 200, win: 100, loss: 50 };
 const PRICES = [150, 300, 150, 50, 50];
+/* Passive detection. Everyone has it, nobody equips it. When an opponent
+   makes a noise — firing a gun, loosing a bolt — it picks them out through
+   walls for revealMs, then sleeps for cooldownMs. The same window also lights
+   up hazards on the client: fire pools and smoke clouds stand in for traps
+   until there are real ones. */
+const DETECT = { revealMs: 4000, cooldownMs: 30000 };
 const MAIN_SLOTS = [0, 1, 2];
 const SIDE_SLOTS = [3, 4];
 const match = { phase: 'waiting', round: 0, until: 0, roundWinner: null, matchWinner: null };
@@ -207,16 +213,31 @@ function clearField() {            // no fire, smoke or arrows carried between r
 }
 function openBuyWindow(now, ms) {          // intermission doubles as the shop
   match.phase = 'intermission'; match.until = now + ms;
-  clearField(); respawnAll();
+  clearField(); respawnAll(); resetDetection();
 }
 function resetEconomy() {
   for (const p of players.values()) { p.wins = 0; p.money = ECON.start; p.main = null; p.side = null; }
+}
+/* Somebody just made a noise. Anyone whose passive is off cooldown picks them
+   out, and their own passive then sleeps for 30s. Called from every handler
+   that represents a bang. */
+function noiseMade(byId, now) {
+  for (const p of players.values()) {
+    if (p.id === byId || !p.alive) continue;
+    if (now < p.detectReadyAt) continue;             // still recharging
+    p.detectUntil = now + DETECT.revealMs;
+    p.detectTarget = byId;
+    p.detectReadyAt = now + DETECT.cooldownMs;
+  }
+}
+function resetDetection() {
+  for (const p of players.values()) { p.detectReadyAt = 0; p.detectUntil = 0; p.detectTarget = null; }
 }
 function startRound(n, resetWins) {
   if (resetWins) resetEconomy();
   match.round = n; match.phase = 'live';
   match.roundWinner = null; match.matchWinner = null; match.until = 0;
-  clearField(); respawnAll();
+  clearField(); respawnAll(); resetDetection();     // everyone starts a round with it ready
 }
 
 const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff9a5a];
@@ -228,6 +249,7 @@ io.on('connection', (socket) => {
     id: socket.id, x: s.x, z: s.z, y: 0, yaw: 0, pitch: 0, st: 0,
     hp: 100, alive: true, kills: 0, deaths: 0, wins: 0,
     money: ECON.start, main: null, side: null,   // owned WEAPONS slots, or null
+    detectReadyAt: 0, detectUntil: 0, detectTarget: null,
     color: COLORS[players.size % COLORS.length],
     name: 'Player-' + socket.id.slice(0, 4),
   };
@@ -253,6 +275,7 @@ io.on('connection', (socket) => {
   socket.on('fire', (d) => {
     if (match.phase !== 'live') return;      // only during a live round
     const p = players.get(socket.id); if (!p || !p.alive) return;
+    noiseMade(p.id, Date.now());             // a bang: anyone listening picks it up
     const o = { x: d.ox, y: d.oy, z: d.oz };
     const dir = normalize(d.dx, d.dy, d.dz);
     const range = d.range || 220, dmg = d.dmg || 25;
@@ -303,6 +326,7 @@ io.on('connection', (socket) => {
   socket.on('smokebolt', (d) => {
     if (match.phase !== 'live') return;      // only during a live round
     const p = players.get(socket.id); if (!p || !p.alive) return;
+    noiseMade(p.id, Date.now());             // a bang: anyone listening picks it up
     const now = Date.now();
     p.smokeShots = (p.smokeShots || []).filter(t => now - t < SMOKE.cooldownMs);
     if (p.smokeShots.length >= SMOKE.charges) return;
@@ -370,6 +394,7 @@ io.on('connection', (socket) => {
   socket.on('arrow', (d) => {
     if (match.phase !== 'live') return;      // only during a live round
     const p = players.get(socket.id); if (!p || !p.alive) return;
+    noiseMade(p.id, Date.now());             // a bang: anyone listening picks it up
     // enforce the 2-charge / 30s budget here too, so it can't be spammed
     const now = Date.now();
     p.shots = (p.shots || []).filter(t => now - t < XBOW.cooldownMs);
@@ -558,6 +583,11 @@ setInterval(() => {
   };
   for (const pl of players.values()) scorch(pl, pl.id, pl.y);
 
+  // ---- Passive detection: let expired reveals lapse ----
+  for (const p of players.values()) {
+    if (p.detectUntil && now >= p.detectUntil) { p.detectUntil = 0; p.detectTarget = null; }
+  }
+
   // ---- Burn damage over time ----
   const burnTick = (e, isPlayer) => {
     if (!e.burnUntil || !e.alive) return;
@@ -587,6 +617,8 @@ setInterval(() => {
       main:p.main, side:p.side,
       name:p.name, color:p.color,
       mk: (p.markedUntil > now) ? p.markedBy : null, rl: p.rl || 0,
+      dT: p.detectTarget, dU: Math.max(0, p.detectUntil - now),
+      dR: Math.max(0, p.detectReadyAt - now),
       bn: p.burnUntil > now })),      // on fire, so others can see it
     arrows: arrows.map(a => ({ id:a.id, x:a.x, y:a.y, z:a.z, vx:a.vx, vy:a.vy, vz:a.vz,
       sm: !!a.smoke })),      // smoke bolts render cold grey, not aflame

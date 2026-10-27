@@ -151,8 +151,10 @@ function updateSmoke(dt){
 /* ---- Marked opponents: drawn through walls, for the thrower only ----
    depthTest:false is what puts the silhouette over the geometry; renderOrder
    keeps it behind your own viewmodel (switchWeapon pushes that to 1000). */
-function makeMarkFx(parent){
-  const mat = new THREE.MeshBasicMaterial({ color:0x27ff9e, transparent:true,
+const MARK_SMOKE = 0x27ff9e;     // you tagged them by walking them through smoke
+const MARK_HEARD = 0xffd15a;     // your passive heard them open fire
+function makeMarkFx(parent, color){
+  const mat = new THREE.MeshBasicMaterial({ color: color||MARK_SMOKE, transparent:true,
     opacity:0.5, depthTest:false, depthWrite:false });
   const g = new THREE.Group();
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,1.45,10), mat);
@@ -172,8 +174,30 @@ function clearMark(e){
 }
 /* One place decides who is lit up: local bots are tested against the clouds
    here, networked players arrive already marked by the server. */
+/* Everything the passive counts as a "trap". Fire pools and smoke clouds are
+   standing in until there are real ones — add those here and detection picks
+   them up with no other change. Revealing just means dropping depthTest so
+   they draw through walls; renderOrder stays below the viewmodel (1000), so
+   your own gun still covers them. */
+function hazardMeshes(){
+  const out = [];
+  for(const f of groundFires) f.g.traverse(o=>{ if(o.isMesh) out.push(o); });
+  for(const s of smokes)      s.g.traverse(o=>{ if(o.isMesh) out.push(o); });
+  return out;
+}
+let hazardsRevealed = false;
+function revealHazards(on){
+  if(on === hazardsRevealed && !on) return;     // nothing to do when already off
+  hazardsRevealed = on;
+  for(const m of hazardMeshes()){
+    if(m.material.depthTest === !on) continue;
+    m.material.depthTest = !on; m.material.needsUpdate = true;
+  }
+}
 function updateMarks(){
   const now = performance.now();
+  // the detection window lights up hazards as well as the shooter
+  revealHazards(gameMode === 'mp' && detectUntil > now);
   for(const b of localBots){
     // stationary targets, so a pool landing on one keeps burning it
     if(b.alive && fireAt(b.x, 0, b.z)){
@@ -196,9 +220,14 @@ function updateMarks(){
     else if(!on && b.mark) clearMark(b);
   }
   for(const o of others.values()){
-    const on = o.mesh.visible && o.markedBy && o.markedBy === myId;
-    if(on && !o.mark) o.mark = makeMarkFx(o.mesh);
-    else if(!on && o.mark) clearMark(o);
+    // two ways to see someone through a wall: you smoked them, or your passive
+    // heard them shoot. Smoke wins the colour if both are true.
+    const smoked = o.mesh.visible && o.markedBy && o.markedBy === myId;
+    const heard  = o.mesh.visible && detectTarget === o.id;
+    const want   = smoked ? MARK_SMOKE : heard ? MARK_HEARD : null;
+    if(want && (!o.mark || o.markColor !== want)){
+      clearMark(o); o.mark = makeMarkFx(o.mesh, want); o.markColor = want;
+    } else if(!want && o.mark){ clearMark(o); o.markColor = null; }
     // someone who is alight should look it — the server tells us who is
     const lit = o.mesh.visible && o.tburn;
     if(lit && !o.fire) o.fire = makeBurnFx(o.mesh);
