@@ -185,14 +185,17 @@ function renderArmory(){
   if(hint) hint.textContent = !shop
     ? 'Click a weapon or press its number · Tab to close'
     : stale ? 'This server is running an older build with no economy — restart it · Tab to close'
-    : canBuy ? 'Click to buy — you carry one gun at a time, abilities are free · Tab to close'
+    : canBuy ? 'Click to buy — one MAIN and one SIDE, abilities are free · Tab to close'
              : 'Shop opens between rounds · Tab to close';
 
   document.getElementById('armGrid').innerHTML = WEAPONS.map((w,i)=>{
     const free  = w.ability || w.melee;
     const price = free ? 0 : (shopPrices[i] || 0);
-    const owned = free || !shop || i === myGun;
+    const isMain = MAIN_SLOTS.includes(i), isSide = SIDE_SLOTS.includes(i);
+    const owned = free || !shop || i === myMain || i === mySide;
     const afford = myMoney >= price;
+    // what buying this would replace, so the card can say so
+    const heldInSlot = isMain ? myMain : isSide ? mySide : null;
     const stats = w.ability
       ? `${w.dmg?('DMG '+w.dmg):'NO DAMAGE'}<br>CHARGES ${w.charges} · ${Math.round(w.cooldownMs/1000)}s`
       : w.melee
@@ -203,12 +206,18 @@ function renderArmory(){
     else if(free)  tag = i===currentWeapon ? '<b style="color:#27ff9e">EQUIPPED</b>' : '<span style="opacity:.6">FREE</span>';
     else if(owned) tag = i===currentWeapon ? '<b style="color:#27ff9e">EQUIPPED</b>' : '<b style="color:#27ff9e">OWNED</b>';
     else if(!canBuy) tag = `<span style="opacity:.45">$${price}</span>`;
-    else           tag = `<b style="color:${afford?'#ffd15a':'#ff6a6a'}">$${price}</b>`;
+    else {
+      const swaps = heldInSlot !== null && heldInSlot !== undefined;
+      tag = `<b style="color:${afford?'#ffd15a':'#ff6a6a'}">$${price}</b>` +
+            (swaps && afford ? `<br><span style="opacity:.55;font-size:10px">replaces ${WEAPONS[heldInSlot].name}</span>` : '');
+    }
+    // label the category so the two-gun rule is visible rather than guessed at
+    const slotLbl = !shop ? '' : isMain ? ' · MAIN' : isSide ? ' · SIDE' : '';
     const dim = (shop && !owned && (!canBuy || !afford)) ? 'opacity:.45;' : '';
     return `<div class="wcard ${i===currentWeapon?'equipped':''}" data-i="${i}" style="${dim}">
       <div class="wkey">[ ${WEAPON_KEY[i]} ]</div>
       <div class="wname">${w.name}</div>
-      <div class="wmode">${w.mode}${w.scope?' · SCOPE':''}${w.pellets?' · '+w.pellets+' PELLETS':''}</div>
+      <div class="wmode">${w.mode}${slotLbl}${w.scope?' · SCOPE':''}${w.pellets?' · '+w.pellets+' PELLETS':''}</div>
       <div class="wstats">${stats}<br>${tag}</div>
     </div>`;
   }).join('');
@@ -216,7 +225,7 @@ function renderArmory(){
   [...document.querySelectorAll('.wcard')].forEach(el=> el.onclick=()=>{
     const i = +el.dataset.i, w = WEAPONS[i];
     const free = w.ability || w.melee;
-    if(shop && !free && i !== myGun){
+    if(shop && !free && i !== myMain && i !== mySide){
       if(!canBuy || myMoney < (shopPrices[i]||0)){ Sfx.empty(); return; }
       socket.emit('buy', { slot:i });     // server confirms with 'bought'
       return;

@@ -181,12 +181,16 @@ let arrowSeq = 0;
    out until the next one, which is what makes a round worth winning. */
 const MATCH = { winsNeeded: 3, intermissionMs: 8000, endMs: 7000, minPlayers: 2,
                 buyMs: 10000 };          // longer window before round 1 to kit out
-/* Economy. You hold ONE gun at a time — the crossbow, smoke and blade are
-   always yours and cost nothing. Buying another replaces it, no refund, so
-   money is worth saving. Indexed by the client's WEAPONS slots:
-   0 rifle, 1 sniper, 2 shotgun, 3 pistol, 4 pistol X. */
+/* Economy. You carry one MAIN (rifle / sniper / shotgun) and one SIDE (either
+   pistol) — buying within a category replaces what you had there, no refund,
+   so money is worth saving. The crossbow, smoke and blade are always yours and
+   cost nothing. Money resets per MATCH, never between rounds.
+   Slots match the client's WEAPONS: 0 rifle, 1 sniper, 2 shotgun, 3 pistol,
+   4 pistol X. */
 const ECON = { start: 200, win: 100, loss: 50 };
 const PRICES = [150, 300, 150, 50, 50];
+const MAIN_SLOTS = [0, 1, 2];
+const SIDE_SLOTS = [3, 4];
 const match = { phase: 'waiting', round: 0, until: 0, roundWinner: null, matchWinner: null };
 
 function respawnAll() {
@@ -206,7 +210,7 @@ function openBuyWindow(now, ms) {          // intermission doubles as the shop
   clearField(); respawnAll();
 }
 function resetEconomy() {
-  for (const p of players.values()) { p.wins = 0; p.money = ECON.start; p.gun = null; }
+  for (const p of players.values()) { p.wins = 0; p.money = ECON.start; p.main = null; p.side = null; }
 }
 function startRound(n, resetWins) {
   if (resetWins) resetEconomy();
@@ -223,7 +227,7 @@ io.on('connection', (socket) => {
   const player = {
     id: socket.id, x: s.x, z: s.z, y: 0, yaw: 0, pitch: 0, st: 0,
     hp: 100, alive: true, kills: 0, deaths: 0, wins: 0,
-    money: ECON.start, gun: null,      // gun: owned WEAPONS slot, or null
+    money: ECON.start, main: null, side: null,   // owned WEAPONS slots, or null
     color: COLORS[players.size % COLORS.length],
     name: 'Player-' + socket.id.slice(0, 4),
   };
@@ -310,18 +314,20 @@ io.on('connection', (socket) => {
       bounces: 0, life: 5 });
   });
 
-  /* ---- Buy a gun. One at a time, never mid-round, money checked here so a
-     patched client cannot hand itself a sniper. ---- */
+  /* ---- Buy a gun. One main and one side, never mid-round, money checked
+     here so a patched client cannot hand itself a sniper. ---- */
   socket.on('buy', (d) => {
     const p = players.get(socket.id); if (!p) return;
     if (match.phase === 'live') return;              // shop shuts during a round
     const slot = d && d.slot | 0;
     if (!(slot >= 0 && slot < PRICES.length)) return;
-    if (p.gun === slot) return;                      // already carrying it
+    const isMain = MAIN_SLOTS.includes(slot);
+    if ((isMain ? p.main : p.side) === slot) return; // already carrying that one
     const price = PRICES[slot];
     if (p.money < price) return;
-    p.money -= price; p.gun = slot;                  // replaces what you had, no refund
-    socket.emit('bought', { slot, money: p.money });
+    p.money -= price;                                // replaces that slot, no refund
+    if (isMain) p.main = slot; else p.side = slot;
+    socket.emit('bought', { slot, money: p.money, main: p.main, side: p.side });
   });
 
   // ---- Blade: five-hit melee combo, validated server-side ----
@@ -573,11 +579,12 @@ setInterval(() => {
   // broadcast a snapshot of the whole world
   io.emit('snapshot', {
     t: now,
-    prices: PRICES,
+    prices: PRICES, mainSlots: MAIN_SLOTS, sideSlots: SIDE_SLOTS,
     match: { phase: match.phase, round: match.round, winsNeeded: MATCH.winsNeeded,
              endsIn: match.until ? Math.max(0, match.until - now) : 0,
              roundWinner: match.roundWinner, matchWinner: match.matchWinner },
-    players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, wins:p.wins||0, money:p.money, gun:p.gun,
+    players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, wins:p.wins||0, money:p.money,
+      main:p.main, side:p.side,
       name:p.name, color:p.color,
       mk: (p.markedUntil > now) ? p.markedBy : null, rl: p.rl || 0,
       bn: p.burnUntil > now })),      // on fire, so others can see it

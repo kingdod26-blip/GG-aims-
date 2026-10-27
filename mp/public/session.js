@@ -14,7 +14,8 @@
 let gameState='home', gameMode=null, myId=null, connected=false, localKills=0;
 /* Economy, mirrored from the server — never trusted as the source of truth,
    it only drives what the shop shows and what you're allowed to equip. */
-let myMoney=0, myGun=null, shopPrices=[150,300,150,50,50], econOnline=false;
+let myMoney=0, myMain=null, mySide=null, econOnline=false;
+let shopPrices=[150,300,150,50,50], MAIN_SLOTS=[0,1,2], SIDE_SLOTS=[3,4];
 let socket=null;
 const others = new Map();     // networked players
 const serverBots = new Map(); // networked bots (mp)
@@ -184,7 +185,7 @@ function connectMP(name){
   socket.on('impact', ()=> hitmark());
   socket.on('groundfire', d=> spawnGroundFire(d.x, d.z));
   socket.on('smoke', d=> spawnSmoke(d.x, d.z, d.by));
-  socket.on('bought', d=>{ myGun=d.slot; myMoney=d.money; Sfx.swap();
+  socket.on('bought', d=>{ myMoney=d.money; myMain=d.main; mySide=d.side; Sfx.swap();
     switchWeapon(d.slot); if(armoryOpen) renderArmory(); });
   // the server wipes fire, smoke and arrows between rounds — follow it, or
   // last round's pools keep burning on screen over the new one
@@ -198,18 +199,21 @@ function connectMP(name){
 }
 function onSnapshot(s){
   if(s.prices) shopPrices = s.prices;
+  if(s.mainSlots) MAIN_SLOTS = s.mainSlots;
+  if(s.sideSlots) SIDE_SLOTS = s.sideSlots;
   updateMatchUI(s.match, s.players);
   const mine = s.players.find(p=>p.id===myId);
   if (mine){ me.hp=mine.hp;
-    const gunChanged = (myGun !== (mine.gun===undefined?null:mine.gun));
+    const norm = v => (v===undefined ? null : v);
+    const loadoutChanged = (myMain !== norm(mine.main) || mySide !== norm(mine.side));
     // A server from before the economy sends no money at all. Without this the
     // shop just shows $0 and silently refuses every purchase, which looks
     // exactly like a broken shop rather than a stale server.
     econOnline = (mine.money !== undefined);
-    myMoney = mine.money||0; myGun = (mine.gun===undefined?null:mine.gun);
+    myMoney = mine.money||0; myMain = norm(mine.main); mySide = norm(mine.side);
     // unconditional: you join holding the rifle from init, which you do not own
     ensureValidWeapon();
-    if(gunChanged && armoryOpen) renderArmory();
+    if(loadoutChanged && armoryOpen) renderArmory();
     if (me.alive && !mine.alive) { document.getElementById('respawn').style.display='flex';
       document.getElementById('respawnMsg').textContent = 'Out for this round — watch it play out';
       document.exitPointerLock(); }

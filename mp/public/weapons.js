@@ -256,19 +256,23 @@ const curW = ()=>WEAPONS[currentWeapon];
 const curAmmo = ()=>weaponAmmo[currentWeapon];
 let lastShot=0, reloading=false, reloadTimer=null;
 let aiming=false, ads=0, semiQueued=false;   // ads = smoothed 0..1 aim amount
-/* In multiplayer you carry the abilities plus the ONE gun you bought.
+/* In multiplayer you carry the free abilities plus the two guns you bought:
+   one MAIN (rifle / sniper / shotgun) and one SIDE (either pistol).
    Target practice is unrestricted — the economy is a multiplayer thing. */
 function canEquip(i){
   const w = WEAPONS[i]; if(!w) return false;
   if(gameMode !== 'mp') return true;
   if(w.ability || w.melee) return true;      // crossbow, smoke and blade are always yours
-  return i === myGun;
+  return i === myMain || i === mySide;
 }
-/* Called when ownership changes: if you're holding something you no longer
-   own, fall back to the crossbow rather than leaving a phantom gun in hand. */
+/* Called when the loadout changes: if you're holding something you no longer
+   own, fall back to your main, then your side, then the crossbow — never
+   leave a phantom gun in hand. */
 function ensureValidWeapon(){
   if(canEquip(currentWeapon)) return;
-  switchWeapon(myGun !== null && myGun !== undefined ? myGun : XBOW);
+  const fallback = (myMain !== null && myMain !== undefined) ? myMain
+                 : (mySide !== null && mySide !== undefined) ? mySide : XBOW;
+  switchWeapon(fallback);
 }
 function switchWeapon(i){
   if(i===currentWeapon || i<0 || i>=WEAPONS.length) return;
