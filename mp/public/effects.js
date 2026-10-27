@@ -20,6 +20,9 @@
 /* top/graceMs mirror the server's FIRE block — standing in a pool burns you.
    Keep radius and ms in step with the server or the fire you see won't be
    the fire that hurts. */
+/* Mirrors the server's BOUNCE: a reflected bolt is spent, keeping little of
+   its speed and only a short time to run. */
+const BOUNCE = { keep:0.55, lifeS:1.1 };
 const GFIRE = { ms:9000, radius:4.35, baseRadius:1.45, max:14, fadeMs:1200,
                 top:1.0, graceMs:1200, dps:18,     // dps must match the server's FIRE.dps
                 lingerDps:6, lingerMs:5000 };      // still alight after stepping out
@@ -358,7 +361,8 @@ function updateArrows(dt){
       if(a.bounces>0 && hit.face){                    // RICOCHET: reflect once
         a.bounces--;
         const n=hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
-        a.vel.reflect(n).multiplyScalar(0.85);
+        a.vel.reflect(n).multiplyScalar(BOUNCE.keep);
+        a.life = Math.min(a.life, BOUNCE.lifeS);      // spent after the bank
         a.pos.copy(hit.point).addScaledVector(n,0.06);
         a.mesh.position.copy(a.pos); aimArrow(a.mesh,a.vel);
         Sfx.hit();

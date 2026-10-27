@@ -29,7 +29,8 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
     document.getElementById('magNum').textContent = abilityCharges[currentWeapon];
     document.getElementById('reserveNum').textContent = '/ '+w.charges;
     const next = q.length ? Math.max(0,Math.ceil((q[0]-performance.now())/1000)) : 0;
-    const label = (w.kind==='xbow') ? 'CROSSBOW · '+(ricochet?'RICOCHET':'DIRECT') : 'SMOKE · TAG';
+    const label = (w.kind==='xbow') ? 'CROSSBOW · '+(ricochet?'RICOCHET':'DIRECT')
+                : 'SMOKE · ' + (ricochet?'RICOCHET':'DIRECT');
     document.getElementById('modeLbl').textContent = label + (next?(' · '+next+'s'):'');
   } else {
     document.getElementById('magNum').textContent=reloading?'--':curAmmo().mag;

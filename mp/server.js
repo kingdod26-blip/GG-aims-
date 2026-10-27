@@ -195,6 +195,10 @@ const PRICES = [150, 300, 150, 50, 50];
    up hazards on the client: fire pools and smoke clouds stand in for traps
    until there are real ones. */
 const DETECT = { revealMs: 4000, cooldownMs: 30000 };
+/* A bounced bolt is spent: it keeps BOUNCE.keep of its speed and no more
+   than BOUNCE.lifeS to run, so banking one round a corner is a short, close
+   shot rather than a second full-length flight. */
+const BOUNCE = { keep: 0.55, lifeS: 1.1 };
 const MAIN_SLOTS = [0, 1, 2];
 const SIDE_SLOTS = [3, 4];
 const match = { phase: 'waiting', round: 0, until: 0, roundWinner: null, matchWinner: null };
@@ -335,7 +339,7 @@ io.on('connection', (socket) => {
     arrows.push({ id: 'a' + (arrowSeq++), by: socket.id, smoke: true,
       x: d.ox, y: d.oy, z: d.oz,
       vx: dir.x*SMOKE.speed, vy: dir.y*SMOKE.speed, vz: dir.z*SMOKE.speed,
-      bounces: 0, life: 5 });
+      bounces: d.ric ? 1 : 0, life: 5 });     // smoke banks off a wall too
   });
 
   /* ---- Buy a gun. One main and one side, never mid-round, money checked
@@ -525,7 +529,8 @@ setInterval(() => {
         a.bounces--;
         a.x += dirx*wallT*0.98; a.z += dirz*wallT*0.98; a.y += diry*wallT*0.98;
         if (wn.axis === 0) a.vx = -a.vx; else if (wn.axis === 1) a.vy = -a.vy; else a.vz = -a.vz;
-        a.vx *= 0.85; a.vy *= 0.85; a.vz *= 0.85;
+        a.vx *= BOUNCE.keep; a.vy *= BOUNCE.keep; a.vz *= BOUNCE.keep;
+        a.life = Math.min(a.life, BOUNCE.lifeS);        // and it doesn't fly far after
         continue;
       }
       drop(a.x + dirx*wallT, a.z + dirz*wallT);

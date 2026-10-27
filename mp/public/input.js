@@ -88,7 +88,7 @@ addEventListener('mousemove',e=>{ if(!pointerLocked) return;
 addEventListener('mousedown',e=>{
   if(e.button===0){ wantFire=true; semiQueued=true; }
   // crossbow: right-click switches fire mode instead of aiming
-  if(e.button===2){ if(curW().kind==='xbow'){ ricochet=!ricochet; Sfx.swap(); updateHUD(); }
+  if(e.button===2){ if(curW().ability && !curW().melee){ ricochet=!ricochet; Sfx.swap(); updateHUD(); }
                     else if(!curW().ability) aiming=true; } });   // abilities don't ADS
 addEventListener('mouseup',e=>{
   if(e.button===0) wantFire=false;
@@ -173,8 +173,8 @@ function shoot(){
     dir.normalize();
     const o=camera.position.clone().addScaledVector(dir,0.6);
     if(w.kind==='smoke'){
-      if(gameMode==='mp' && socket) socket.emit('smokebolt',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z });
-      else spawnLocalArrow(o,dir,w,false);
+      if(gameMode==='mp' && socket) socket.emit('smokebolt',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, ric:ricochet?1:0 });
+      else spawnLocalArrow(o,dir,w,ricochet);
     } else if(gameMode==='mp' && socket)
       socket.emit('arrow',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, ric:ricochet?1:0 });
     else spawnLocalArrow(o,dir,w,ricochet);
