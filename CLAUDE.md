@@ -64,7 +64,11 @@ Two separate fire lifetimes: a **person** burns for `burnMs` (5s), while the
 dropped wherever the arrow ends up — floor, foot of a wall, or under whoever
 it hit. Right-click toggles ricochet (bounces off geometry once).
 `F` blade — 5-hit combo 22/22/28/28/70, resets on miss.
-Both now use real models (`assets/crossbow.fbx`, `assets/sword.fbx`). Each
+`H` smoke — 2 charges, 30s each, no damage. Lands a cloud (`SMOKEFX.radius`
+5.5, slightly wider than a fire pool) that **tags** anyone standing in it for
+4s; the thrower sees tagged opponents through walls, and the tag renews every
+tick they stay in the cloud. Your own smoke can't tag you.
+Both crossbow and blade use real models (`assets/crossbow.fbx`, `assets/sword.fbx`). Each
 arrives as one mesh with one material, so `splitGeometryByAxis` cuts the
 triangles into material groups along the model's long axis — limbs/stock for
 the crossbow, grip/guard/blade for the sword. The procedural versions are
@@ -107,6 +111,20 @@ sideways roll, 0 on a forward one). Double jump. Sprint (Shift). Stances: `C` cr
 - Viewmodel holders are built from `WEAPONS`, not the model-file list. A new
   weapon needs a holder or every model vanishes when you equip it.
 - Dispose **both** geometry and material on throwaway meshes (tracer leak).
+- **The global keydown handler must bail on form fields** (`typingInField`).
+  It binds bare letters, and `KeyO` sits *above* the `gameState` guard and
+  calls `preventDefault()` — so typing an `o` in the callsign box opened the
+  graphics panel and ate the character. Any new binding inherits this; add it
+  below the guard.
+- **Ability charges are per-slot** (`abilityCharges` / `abilityRecharge`,
+  keyed by weapon index, `ABILITY_SLOTS` lists them). They used to be two
+  crossbow-only globals; with a second ability that would have meant both
+  sharing one pool. Add an ability → give it `kind`, and read charges by
+  `currentWeapon`, never a global.
+- **Through-wall marks rely on `depthTest:false` plus `renderOrder`.** Marks
+  sit at 900 and `switchWeapon` pushes the equipped viewmodel to 1000, or an
+  enemy silhouette paints over your own gun. A newly loaded weapon model only
+  gets that renderOrder when you next equip it.
 - **Put fire out through `extinguish()`, never by zeroing `burnUntil`.** The
   burn loop skips dead bots, so a bot killed mid-burn kept its fx group
   parented to its mesh and `respawnLocalBot` made that mesh visible again —
@@ -136,6 +154,16 @@ Verify in the browser via `javascript_tool`, not by eyeballing. Two traps:
 ## Parked / possible next
 
 - **Slide is disabled** behind `SLIDE_ENABLED` — see `extras/slide-ability.md`.
+- **Smoke is cosmetic cover only**: it does not block bullets or line of
+  sight server-side. You can see and be shot straight through it. Making it
+  actually occlude means adding the clouds to the `fire` handler's occlusion
+  test, which is a real balance decision.
+- The snapshot ships `mk` (who tagged you) to **every** client, and each one
+  filters to `myId`. A modified client could read other people's tags — the
+  same accepted tradeoff as client-authoritative movement.
+- Firing while clipped **inside** a collider drops the payload at your feet,
+  since the ray starts inside the box. `resolve2D` normally keeps players out
+  of geometry, so it shouldn't happen in play.
 - Ground fire is **cosmetic**: standing in a pool doesn't hurt you. Making it
   damage anyone who walks through is a server change (`burnTick`).
 - `GFIRE.radius` is 4.35 (3x `baseRadius`). Flame count and size are derived

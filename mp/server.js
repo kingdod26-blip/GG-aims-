@@ -150,6 +150,12 @@ const bots = [];
 // burnMs is how long a PERSON burns. The fire left on the ground is a
 // client-side visual with its own (longer) lifetime — see GFIRE in the client.
 const XBOW = { dmg: 90, burnDps: 6, burnMs: 5000, charges: 2, cooldownMs: 30000, speed: 62 };
+// Smoke bolt: no damage. Anyone standing in the cloud is tagged for markMs,
+// and the tag renews every tick they stay in it. Must match the client's
+// SMOKEFX radius/top/markMs or the cloud you see won't match the one that tags.
+const SMOKE = { charges: 2, cooldownMs: 30000, speed: 52, ms: 10000,
+                radius: 5.5, top: 3.4, markMs: 4000 };
+const smokes = [];   // { x, z, by, until }
 // Blade melee (must match the client's BLADE entry)
 const MELEE = { combo: [22,22,28,28,70], windowMs: 1600, rateMs: 320, reach: 3.4, arc: 0.5 };
 const arrows = [];
@@ -245,6 +251,20 @@ io.on('connection', (socket) => {
         io.emit('kill', { by: p.name, victim: best.target.kind === 'bot' ? 'a bot' : tgt.name, head: best.head });
       }
     }
+  });
+
+  // ---- Smoke bolt: same flight as an arrow, leaves a tagging cloud ----
+  socket.on('smokebolt', (d) => {
+    const p = players.get(socket.id); if (!p || !p.alive) return;
+    const now = Date.now();
+    p.smokeShots = (p.smokeShots || []).filter(t => now - t < SMOKE.cooldownMs);
+    if (p.smokeShots.length >= SMOKE.charges) return;
+    p.smokeShots.push(now);
+    const dir = normalize(d.dx, d.dy, d.dz);
+    arrows.push({ id: 'a' + (arrowSeq++), by: socket.id, smoke: true,
+      x: d.ox, y: d.oy, z: d.oz,
+      vx: dir.x*SMOKE.speed, vy: dir.y*SMOKE.speed, vz: dir.z*SMOKE.speed,
+      bounces: 0, life: 5 });
   });
 
   // ---- Blade: five-hit melee combo, validated server-side ----
@@ -370,8 +390,15 @@ setInterval(() => {
       if (h && h.t < wallT && h.t <= stepLen) { wallT = h.t; wn = h; }
     }
 
+    // where this bolt's payload lands
+    const drop = (px, pz) => {
+      if (a.smoke) { smokes.push({ x:px, z:pz, by:a.by, until: now + SMOKE.ms });
+                     io.emit('smoke', { x:px, z:pz, by:a.by }); }
+      else io.emit('groundfire', { x:px, z:pz });
+    };
     if (victim && hitT <= wallT) {                      // hit someone
-      igniteTarget(victim, a.by, now);
+      if (a.smoke) drop(victim.ref.x, victim.ref.z);    // cover, not damage
+      else igniteTarget(victim, a.by, now);
       arrows.splice(i, 1); continue;
     }
     if (wn && wallT <= stepLen) {
@@ -382,11 +409,26 @@ setInterval(() => {
         a.vx *= 0.85; a.vy *= 0.85; a.vz *= 0.85;
         continue;
       }
-      io.emit('groundfire', { x:a.x + dirx*wallT, z:a.z + dirz*wallT });
+      drop(a.x + dirx*wallT, a.z + dirz*wallT);
       arrows.splice(i, 1); continue;                    // stick in the wall
     }
     a.x = nx; a.y = ny; a.z = nz;
-    if (a.y < 0) { io.emit('groundfire', { x:a.x, z:a.z }); arrows.splice(i, 1); }  // hit the ground
+    if (a.y < 0) { drop(a.x, a.z); arrows.splice(i, 1); }        // hit the ground
+  }
+
+  // ---- Smoke clouds: expire, and tag whoever is standing in one ----
+  for (let i = smokes.length - 1; i >= 0; i--) if (smokes[i].until <= now) smokes.splice(i, 1);
+  for (const pl of players.values()) {
+    if (!pl.alive) { pl.markedUntil = 0; pl.markedBy = null; continue; }
+    for (const sm of smokes) {
+      if (sm.by === pl.id) continue;                    // your own smoke won't tag you
+      if ((pl.y || 0) > SMOKE.top) continue;            // above the cloud, e.g. on a crate
+      if (Math.hypot(pl.x - sm.x, pl.z - sm.z) > SMOKE.radius) continue;
+      pl.markedUntil = now + SMOKE.markMs;              // renews while they stay in
+      pl.markedBy = sm.by;
+      break;
+    }
+    if (pl.markedUntil && pl.markedUntil <= now) { pl.markedUntil = 0; pl.markedBy = null; }
   }
 
   // ---- Burn damage over time ----
@@ -413,7 +455,8 @@ setInterval(() => {
   // broadcast a snapshot of the whole world
   io.emit('snapshot', {
     t: now,
-    players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, name:p.name, color:p.color })),
+    players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, name:p.name, color:p.color,
+      mk: (p.markedUntil > now) ? p.markedBy : null })),
     bots: bots.map(b => ({ id:b.id, x:b.x, z:b.z, yaw:b.yaw, alive:b.alive, state:b.state, burning: !!b.burnUntil })),
     arrows: arrows.map(a => ({ id:a.id, x:a.x, y:a.y, z:a.z, vx:a.vx, vy:a.vy, vz:a.vz })),
   });

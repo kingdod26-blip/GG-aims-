@@ -50,6 +50,10 @@ Then open <http://localhost:8123/fps-game.html>.
 | `Z` | Prone |
 | `R` | Reload |
 | `1` – `5` | Switch weapon |
+| `G` | Crossbow ability — flaming bolt, leaves fire on the ground |
+| `H` | Smoke ability — cloud that tags anyone inside it for 4s |
+| `F` | Blade — five-hit melee combo |
+| `V` | Dodge roll |
 | `Tab` | Armory |
 | `O` | Graphics settings |
 | `Esc` | Release mouse |
@@ -77,6 +81,7 @@ Then open <http://localhost:8123/fps-game.html>.
 - Indoor arena: ceiling, lamp panels, and a dark backdrop with matched fog
 - Bloom post-processing and soft shadows
 - Flaming crossbow bolts that leave a burning pool on the ground
+- Smoke bolts that tag opponents caught inside, shown through walls to the thrower
 - Spatial glass UI homepage with mouse parallax driving both the CSS layers and the 3D camera
 - Drag-to-inspect character showcase
 - Procedural audio (gunfire, reloads with a spoken call-out, distance-paced footsteps)
