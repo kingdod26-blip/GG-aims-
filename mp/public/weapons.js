@@ -73,7 +73,7 @@ const WEAPONS = [
   { name:'CROSSBOW', mode:'ABILITY', ability:true, kind:'xbow', auto:false, fireRate:700, dmg:90,
     // burnMs is how long a PERSON burns; the fire left on the ground is a
     // separate, longer-lived thing (GFIRE.ms).
-    burnDps:6, burnMs:5000, charges:2, cooldownMs:30000, speed:62,
+    burnDps:12, burnMs:5000, charges:2, cooldownMs:30000, speed:62,
     recoil:0.02, spread:0.004, adsSpread:0.004, range:320, adsFov:70, scope:false },
   // ABILITY: smoke bolt. Same charge model as the crossbow, no damage. The
   // cloud is a little wider than a fire pool, and anyone who walks into it is

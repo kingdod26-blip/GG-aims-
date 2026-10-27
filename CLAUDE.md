@@ -76,8 +76,10 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
 ## Features
 
 Weapons (`1`–`5`): rifle, sniper (4× scope), shotgun (8 pellets), 2 pistols.
-`G` crossbow ability — 2 charges, 30s each, flaming arrow, 90 dmg + 6/s burn.
-The pool it leaves burns anyone who stands in it at the same 6/s.
+`G` crossbow ability — 2 charges, 30s each, flaming arrow, 90 dmg then
+**12/s for 5s** on the victim. The pool it leaves burns anyone standing in it
+at **18/s** — higher on purpose, because a direct hit already lands 90 up
+front while a pool only hurts you for as long as you stay in it.
 Two separate fire lifetimes: a **person** burns for `burnMs` (5s), while the
 **pool the arrow leaves on the ground** lasts `GFIRE.ms` (9s). A pool is
 dropped wherever the arrow ends up — floor, foot of a wall, or under whoever
@@ -201,8 +203,12 @@ Verify in the browser via `javascript_tool`, not by eyeballing. Two traps:
   you send, so leaning out shows you more without exposing you. That is the
   usual lean tradeoff; closing it means sending a lean offset and applying it
   to the server's hitbox.
-- **Ground fire burns whoever stands in it** — 6 dps, renewed every tick they
-  stay, lingering `graceMs` (1.2s) after they step out. The pool's own thrower
+- **Ground fire burns whoever stands in it** — `FIRE.dps` (18), renewed every
+  tick they stay, lingering `graceMs` (1.2s) after they step out. That is ~6s
+  to kill a full-health player, in a 8.7m pool that lasts 9s: strong area
+  denial, so it is the first number to turn down if the crossbow feels
+  oppressive. Burns carry a per-victim `burnRate`, and walking into a pool
+  takes the MAX of the two so a pool can never slow a fiercer burn. The pool's own thrower
   is immune, same rule as smoke not tagging its own thrower; drop the
   `f.by === id` check in `standingInFire` to make it burn everyone.
 - **`FIRE` on the server and `GFIRE` on the client must agree** on radius and

@@ -149,7 +149,7 @@ const bots = [];
 // Crossbow ability tuning (must match the client's WEAPONS entry)
 // burnMs is how long a PERSON burns. The fire left on the ground is a
 // client-side visual with its own (longer) lifetime — see GFIRE in the client.
-const XBOW = { dmg: 90, burnDps: 6, burnMs: 5000, charges: 2, cooldownMs: 30000, speed: 62 };
+const XBOW = { dmg: 90, burnDps: 12, burnMs: 5000, charges: 2, cooldownMs: 30000, speed: 62 };
 // Smoke bolt: no damage. Anyone standing in the cloud is tagged for markMs,
 // and the tag renews every tick they stay in it. Must match the client's
 // SMOKEFX radius/top/markMs or the cloud you see won't match the one that tags.
@@ -161,7 +161,10 @@ const smokes = [];   // { x, z, by, until }
 // client's GFIRE or the fire you see won't be the fire that burns you.
 // top: feet height above which you are clear of it (on a crate, say).
 // graceMs: how long the burn lingers after you step out.
-const FIRE = { radius: 4.35, ms: 9000, top: 1.0, graceMs: 1200 };
+// dps is deliberately higher than XBOW.burnDps: a direct hit already lands 90
+// up front, whereas a pool only hurts you for as long as you choose to stand
+// in it. Keep in step with the client's GFIRE.dps.
+const FIRE = { radius: 4.35, ms: 9000, top: 1.0, graceMs: 1200, dps: 18 };
 const fires = [];    // { x, z, by, until }
 // Blade melee (must match the client's BLADE entry)
 const MELEE = { combo: [22,22,28,28,70], windowMs: 1600, rateMs: 320, reach: 3.4, arc: 0.5 };
@@ -339,6 +342,7 @@ function igniteTarget(hit, byId, now) {
   const t = hit.ref, isPlayer = hit.kind === 'player';
   t.hp -= XBOW.dmg;
   t.burnUntil = now + XBOW.burnMs; t.burnNext = now + 1000; t.burnBy = byId;
+  t.burnRate = XBOW.burnDps;
   const shooter = players.get(byId);
   io.emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false, fire:true });
   io.emit('groundfire', { x:t.x, z:t.z });          // pool at their feet
@@ -459,6 +463,8 @@ setInterval(() => {
     if (!e.burnUntil) e.burnNext = now + 1000;         // first tick a second from now
     e.burnUntil = now + FIRE.graceMs;                  // renews while they stand in it
     e.burnBy = f.by;
+    // never let walking into a pool slow an existing, fiercer burn
+    e.burnRate = Math.max(e.burnRate || 0, FIRE.dps);
   };
   for (const b of bots) scorch(b, b.id, 0);
   for (const pl of players.values()) scorch(pl, pl.id, pl.y);
@@ -466,10 +472,10 @@ setInterval(() => {
   // ---- Burn damage over time ----
   const burnTick = (e, isPlayer) => {
     if (!e.burnUntil || !e.alive) return;
-    if (now > e.burnUntil) { e.burnUntil = 0; return; }
+    if (now > e.burnUntil) { e.burnUntil = 0; e.burnRate = 0; return; }
     if (now < (e.burnNext || 0)) return;
     e.burnNext = now + 1000;
-    e.hp -= XBOW.burnDps;
+    e.hp -= (e.burnRate || XBOW.burnDps);
     if (e.hp <= 0 && e.alive) {
       e.alive = false; e.hp = 0; e.burnUntil = 0;
       const killer = players.get(e.burnBy);

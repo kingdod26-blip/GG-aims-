@@ -21,7 +21,7 @@
    Keep radius and ms in step with the server or the fire you see won't be
    the fire that hurts. */
 const GFIRE = { ms:9000, radius:4.35, baseRadius:1.45, max:14, fadeMs:1200,
-                top:1.0, graceMs:1200 };
+                top:1.0, graceMs:1200, dps:18 };   // dps must match the server's FIRE.dps
 const groundFires = [];
 function spawnGroundFire(x, z){
   while(groundFires.length >= GFIRE.max) removeGroundFire(groundFires[0]);
@@ -178,7 +178,7 @@ function updateMarks(){
     if(b.alive && fireAt(b.x, 0, b.z)){
       if(!b.burnUntil) b.burnNext = now + 1000;
       b.burnUntil = now + GFIRE.graceMs;               // renews while it stands in it
-      b.burnDps = WEAPONS[XBOW].burnDps;
+      b.burnDps = Math.max(b.burnDps||0, GFIRE.dps);   // a pool never slows a fiercer burn
       if(!b.fire) b.fire = makeBurnFx(b.mesh);
     }
     if(b.alive && smokeAt(b.x, 0, b.z)) b.markedUntil = now + SMOKEFX.markMs;
@@ -344,6 +344,7 @@ function updateArrows(dt){
    that mesh visible again — so it comes back permanently on fire. */
 function extinguish(b){
   clearMark(b);
+  b.burnDps = 0;
   if(b.fire){
     b.mesh.remove(b.fire);
     b.fire.traverse(o=>{ if(o.isMesh){ o.geometry.dispose(); o.material.dispose(); } });
