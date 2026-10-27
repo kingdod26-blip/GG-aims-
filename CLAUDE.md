@@ -13,12 +13,19 @@ GG aims/
 ├── mp/                # THE MAIN GAME — work here
 │   ├── server.js      # Node + Socket.IO authoritative server
 │   └── public/
-│       ├── index.html # the whole client (render, UI, netcode, gameplay)
+│       ├── index.html # markup only (~180 lines)
+│       ├── style.css  # all the styling
+│       ├── game.js    # the client: render, UI, netcode, gameplay
 │       └── assets/    # models + textures
 └── extras/            # parked features (see slide-ability.md)
 ```
 
-Almost all work happens in **`mp/public/index.html`** and **`mp/server.js`**.
+Almost all work happens in **`mp/public/game.js`** and **`mp/server.js`**.
+`game.js` opens with a table of contents listing every section in order —
+search for a banner's text to jump to it. It is one **classic** script, not
+a module, so everything shares one global scope and **execution order
+matters**: a `const` is only safe to move if nothing above it runs against
+it. Function declarations hoist and move freely.
 
 ## Running it
 
