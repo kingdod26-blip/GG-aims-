@@ -73,6 +73,8 @@ Then open <http://localhost:8123/fps-game.html>.
 
 **Multiplayer**
 - Authoritative Node + Socket.IO server: hits, deaths and scores are decided server-side
+- Round-based duelling: kill the opposition to take a round, first to 3 wins the match,
+  then it resets and runs again. Death in a round means sitting it out.
 - Shared world — all players see the same targets and each other
 - Player elevation is networked, so someone on a crate is shot at the right height
 - Live scoreboard and kill feed

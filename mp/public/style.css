@@ -66,6 +66,15 @@
   #respawn { position:fixed; inset:0; z-index:15; display:none; align-items:center; justify-content:center; flex-direction:column; color:#fff; background:rgba(6,8,11,.55); }
   #respawn h1 { font-size:42px; font-weight:900; color:#ff6a6a; letter-spacing:2px; }
 
+  /* Round / match banner, centred above the crosshair so it reads instantly */
+  #banner { position:fixed; left:0; right:0; top:14%; z-index:14; display:none;
+            text-align:center; pointer-events:none; color:#fff;
+            text-shadow:0 2px 18px rgba(0,0,0,.75); }
+  #bannerBig { font-size:40px; font-weight:900; letter-spacing:2px; }
+  #bannerSub { margin-top:6px; font-size:15px; letter-spacing:3px; opacity:.85; }
+  #banner.win  #bannerBig { color:#27ff9e; }
+  #banner.lose #bannerBig { color:#ff6a6a; }
+
   /* ---------- Menus ---------- */
   /* ===================== SPATIAL MENU UI =====================
      Glass panels layered on a CSS 3D stage, floating over the LIVE

@@ -152,6 +152,7 @@ function startPlay(mode){
   document.body.classList.add('playing');
   document.getElementById('crosshair').style.display='block';
   document.getElementById('board').style.display = (mode==='mp') ? 'block' : 'none';
+  document.getElementById('banner').style.display = 'none';
   document.getElementById('feed').style.display  = (mode==='mp') ? 'block' : 'none';
   Sfx.resume();                       // unlock audio (browsers require a user gesture)
   if(window.speechSynthesis) speechSynthesis.getVoices();   // warm up voice list
@@ -180,12 +181,23 @@ function connectMP(name){
   socket.on('impact', ()=> hitmark());
   socket.on('groundfire', d=> spawnGroundFire(d.x, d.z));
   socket.on('smoke', d=> spawnSmoke(d.x, d.z, d.by));
+  // the server wipes fire, smoke and arrows between rounds — follow it, or
+  // last round's pools keep burning on screen over the new one
+  socket.on('fieldclear', ()=>{
+    clearGroundFires(); clearSmoke();
+    for(const [id,m] of arrowGfx){ scene.remove(m); disposeTree(m); }
+    arrowGfx.clear();
+    for(const o of others.values()){ clearBurnFx(o); clearMark(o); }
+  });
   socket.on('kill', addFeed);
 }
 function onSnapshot(s){
+  updateMatchUI(s.match, s.players);
   const mine = s.players.find(p=>p.id===myId);
   if (mine){ me.hp=mine.hp;
-    if (me.alive && !mine.alive) { document.getElementById('respawn').style.display='flex'; document.exitPointerLock(); }
+    if (me.alive && !mine.alive) { document.getElementById('respawn').style.display='flex';
+      document.getElementById('respawnMsg').textContent = 'Out for this round — watch it play out';
+      document.exitPointerLock(); }
     if (!me.alive && mine.alive){ me.x=mine.x; me.z=mine.z; me.feetY=0; document.getElementById('respawn').style.display='none'; }
     me.alive=mine.alive;
   }
@@ -196,10 +208,11 @@ function onSnapshot(s){
     // look direction — without this, remote players appear to run backwards.
     o.tx=p.x; o.tz=p.z; o.ty=p.y||0; o.tyaw=p.yaw+Math.PI; o.tst=p.st||0; o.trl=p.rl||0;
     o.tburn=!!p.bn; o.mesh.visible=p.alive;
+    o.wins=p.wins||0;
     o.markedBy = p.mk || null; }       // set only while the tag is live
   for (const [id,o] of others){ if(!seen.has(id)){ clearMark(o); clearBurnFx(o); scene.remove(o.mesh); others.delete(id); } }
   const bseen=new Set();
-  for (const b of s.bots){ bseen.add(b.id);
+  for (const b of (s.bots||[])){ bseen.add(b.id);   // no bots in MP any more
     let o=serverBots.get(b.id); if(!o){ const mesh=newBotMesh(); scene.add(mesh); o={mesh,tx:b.x,tz:b.z,ty:0,tyaw:b.yaw}; serverBots.set(b.id,o); }
     // server bots are stationary with a fixed yaw — turn them to face you instead
     o.tx=b.x; o.tz=b.z; o.tyaw=Math.atan2(me.x-b.x, me.z-b.z); o.mesh.visible=b.alive; }

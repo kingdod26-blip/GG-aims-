@@ -1,9 +1,10 @@
 /* ============================================================================
    BOT STRIKE — Multiplayer server (authoritative-ish).
    - Serves the client from /public
-   - Holds ONE shared world: all connected players + server-simulated bots
-   - Players own their own movement (sent to the server); the server owns
-     bots, all damage, deaths, respawns and the scoreboard.
+   - Holds ONE shared world of connected players. No bots: multiplayer is
+     round-based duelling, and target practice is simulated on the client.
+   - Players own their own movement (sent to the server); the server owns all
+     damage, deaths, the round/match state machine and the scoreboard.
    Run:  npm install  &&  npm start
    ============================================================================ */
 const path = require('path');
@@ -145,7 +146,6 @@ function insideWall(x, z) {
 
 /* --------------------------------- State ---------------------------------- */
 const players = new Map(); // socket.id -> player
-const bots = [];
 // Crossbow ability tuning (must match the client's WEAPONS entry)
 // burnMs is how long a PERSON burns. The fire left on the ground is a
 // client-side visual with its own (longer) lifetime — see GFIRE in the client.
@@ -174,20 +174,32 @@ const fires = [];    // { x, z, by, until }
 const MELEE = { combo: [22,22,28,28,70], windowMs: 1600, rateMs: 320, reach: 3.4, arc: 0.5 };
 const arrows = [];
 let arrowSeq = 0;
-const BOT_COUNT = 4;
-let botSeq = 0;
+/* ----------------------------- Match format ------------------------------
+   Multiplayer is round-based and has no bots. Kill the opposition to take a
+   round; first to MATCH.winsNeeded rounds takes the match, then everything
+   resets and it runs again. Death inside a round is elimination — you sit it
+   out until the next one, which is what makes a round worth winning. */
+const MATCH = { winsNeeded: 3, intermissionMs: 4000, endMs: 7000, minPlayers: 2 };
+const match = { phase: 'waiting', round: 0, until: 0, roundWinner: null, matchWinner: null };
 
-function spawnBot() {
-  const s = randomSpawn();
-  bots.push({
-    id: 'bot' + (botSeq++), x: s.x, z: s.z, yaw: 0,
-    hp: 100, alive: true, speed: rand(3.2, 4.6),
-    target: randomSpawn(), retargetAt: 0,
-    lastShot: 0, fireRate: rand(600, 1100), damage: rand(6, 12), accuracy: rand(0.5, 0.75),
-    state: 'patrol',
-  });
+function respawnAll() {
+  for (const p of players.values()) {
+    const s = randomSpawn();
+    p.x = s.x; p.z = s.z; p.y = 0; p.hp = 100; p.alive = true;
+    p.burnUntil = 0; p.burnRate = 0; p.inFire = false;
+    p.markedUntil = 0; p.markedBy = null; p.rl = 0; p.st = 0;
+  }
 }
-for (let i = 0; i < BOT_COUNT; i++) spawnBot();
+function clearField() {            // no fire, smoke or arrows carried between rounds
+  arrows.length = 0; smokes.length = 0; fires.length = 0;
+  io.emit('fieldclear');
+}
+function startRound(n, resetWins) {
+  if (resetWins) for (const p of players.values()) p.wins = 0;
+  match.round = n; match.phase = 'live';
+  match.roundWinner = null; match.matchWinner = null; match.until = 0;
+  clearField(); respawnAll();
+}
 
 const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff9a5a];
 
@@ -196,10 +208,9 @@ io.on('connection', (socket) => {
   const s = randomSpawn();
   const player = {
     id: socket.id, x: s.x, z: s.z, y: 0, yaw: 0, pitch: 0, st: 0,
-    hp: 100, alive: true, kills: 0, deaths: 0,
+    hp: 100, alive: true, kills: 0, deaths: 0, wins: 0,
     color: COLORS[players.size % COLORS.length],
     name: 'Player-' + socket.id.slice(0, 4),
-    respawnAt: 0,
   };
   players.set(socket.id, player);
   socket.emit('welcome', { id: socket.id, spawn: s, color: player.color, arena: ARENA });
@@ -221,6 +232,7 @@ io.on('connection', (socket) => {
 
   // Authoritative hit detection when a player fires.
   socket.on('fire', (d) => {
+    if (match.phase !== 'live') return;      // only during a live round
     const p = players.get(socket.id); if (!p || !p.alive) return;
     const o = { x: d.ox, y: d.oy, z: d.oz };
     const dir = normalize(d.dx, d.dy, d.dz);
@@ -251,7 +263,6 @@ io.on('connection', (socket) => {
       if (body < t) { t = body; hs = false; }
       if (t < best.t) best = { t, target: hitApply, head: hs };
     };
-    for (const b of bots) if (b.alive) consider(b.x, b.z, 0, 0, { kind:'bot', ref:b });
     for (const other of players.values())
       if (other.alive && other.id !== p.id) consider(other.x, other.z, other.y || 0, other.st || 0, { kind:'player', ref:other });
 
@@ -263,7 +274,7 @@ io.on('connection', (socket) => {
       if (tgt.hp <= 0 && tgt.alive) {
         tgt.alive = false; tgt.hp = 0;
         p.kills++;
-        if (best.target.kind === 'player') { tgt.deaths++; tgt.respawnAt = Date.now() + 3000; }
+        if (best.target.kind === 'player') tgt.deaths++;   // eliminated for this round
         io.emit('kill', { by: p.name, victim: best.target.kind === 'bot' ? 'a bot' : tgt.name, head: best.head });
       }
     }
@@ -271,6 +282,7 @@ io.on('connection', (socket) => {
 
   // ---- Smoke bolt: same flight as an arrow, leaves a tagging cloud ----
   socket.on('smokebolt', (d) => {
+    if (match.phase !== 'live') return;      // only during a live round
     const p = players.get(socket.id); if (!p || !p.alive) return;
     const now = Date.now();
     p.smokeShots = (p.smokeShots || []).filter(t => now - t < SMOKE.cooldownMs);
@@ -285,6 +297,7 @@ io.on('connection', (socket) => {
 
   // ---- Blade: five-hit melee combo, validated server-side ----
   socket.on('melee', (d) => {
+    if (match.phase !== 'live') return;      // only during a live round
     const p = players.get(socket.id); if (!p || !p.alive) return;
     const now = Date.now();
     if (now - (p.lastMelee || 0) < MELEE.rateMs) return;      // rate limit
@@ -301,7 +314,6 @@ io.on('connection', (socket) => {
       if ((vx*dir.x + vy*dir.y + vz*dir.z)/(dist||1) < MELEE.arc) return;
       if (dist < bestD) { bestD = dist; best = ref; }
     };
-    for (const b of bots) if (b.alive) tryT(b.x, 1.1, b.z, { kind:'bot', ref:b });
     for (const pl of players.values())
       if (pl.alive && pl.id !== p.id) tryT(pl.x, (pl.y||0)+1.1, pl.z, { kind:'player', ref:pl });
 
@@ -314,13 +326,14 @@ io.on('connection', (socket) => {
     p.comboUntil = now + MELEE.windowMs;
     if (t.hp <= 0 && t.alive) {
       t.alive = false; t.hp = 0; t.burnUntil = 0; p.kills++;
-      if (isPlayer) { t.deaths++; t.respawnAt = now + 3000; }
+      if (isPlayer) t.deaths++;
       io.emit('kill', { by: p.name, victim: isPlayer ? t.name : 'a bot', head: step === MELEE.combo.length-1 });
     }
   });
 
   // ---- Crossbow ability: launch a flaming arrow (server-simulated) ----
   socket.on('arrow', (d) => {
+    if (match.phase !== 'live') return;      // only during a live round
     const p = players.get(socket.id); if (!p || !p.alive) return;
     // enforce the 2-charge / 30s budget here too, so it can't be spammed
     const now = Date.now();
@@ -353,7 +366,7 @@ function igniteTarget(hit, byId, now) {
   if (t.hp <= 0 && t.alive) {
     t.alive = false; t.hp = 0; t.burnUntil = 0;
     if (shooter) shooter.kills++;
-    if (isPlayer) { t.deaths++; t.respawnAt = now + 3000; }
+    if (isPlayer) t.deaths++;
     io.emit('kill', { by: shooter ? shooter.name : 'fire', victim: isPlayer ? t.name : 'a bot', head:false });
   }
 }
@@ -365,13 +378,30 @@ setInterval(() => {
   const now = Date.now();
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
 
-  // respawn dead players
-  for (const p of players.values()) {
-    if (!p.alive && now >= p.respawnAt) { const s = randomSpawn(); p.x=s.x; p.z=s.z; p.hp=100; p.alive=true; }
+  /* ---- Match flow: waiting -> live -> intermission -> ... -> over ---- */
+  const livePlayers = [...players.values()];
+  const standing = livePlayers.filter(p => p.alive);
+  if (match.phase === 'waiting') {
+    if (livePlayers.length >= MATCH.minPlayers) startRound(1, true);
+  } else if (livePlayers.length < MATCH.minPlayers) {
+    match.phase = 'waiting'; match.round = 0;
+    match.roundWinner = null; match.matchWinner = null;
+    respawnAll();                                  // free roam until someone joins
+  } else if (match.phase === 'live') {
+    if (standing.length <= 1) {
+      const w = standing[0] || null;               // nobody standing = a draw
+      if (w) w.wins = (w.wins || 0) + 1;
+      match.roundWinner = w ? w.id : null;
+      if (w && w.wins >= MATCH.winsNeeded) {
+        match.phase = 'over'; match.matchWinner = w.id; match.until = now + MATCH.endMs;
+      } else {
+        match.phase = 'intermission'; match.until = now + MATCH.intermissionMs;
+      }
+    }
+  } else if (now >= match.until) {
+    if (match.phase === 'intermission') startRound(match.round + 1, false);
+    else startRound(1, true);                      // match over -> run it again
   }
-
-  // Bots are STATIONARY targets (target-practice): they don't move or shoot.
-  // (They just stand there; being shot is handled in the 'fire' handler.)
 
   // ---- Flaming arrows: fly, bounce off geometry, ignite what they hit ----
   for (let i = arrows.length - 1; i >= 0; i--) {
@@ -396,7 +426,6 @@ setInterval(() => {
       const t = Math.min(b1, h1);
       if (t < hitT && t <= stepLen) { hitT = t; victim = ref; }
     };
-    for (const b of bots) if (b.alive) tryHit(b.x, b.z, 0, 0, { kind:'bot', ref:b });
     for (const pl of players.values())
       if (pl.alive && pl.id !== a.by) tryHit(pl.x, pl.z, pl.y||0, pl.st||0, { kind:'player', ref:pl });
 
@@ -480,7 +509,6 @@ setInterval(() => {
       if (!e.burnNext || e.burnNext > now + 1000) e.burnNext = now + 1000;
     }
   };
-  for (const b of bots) scorch(b, b.id, 0);
   for (const pl of players.values()) scorch(pl, pl.id, pl.y);
 
   // ---- Burn damage over time ----
@@ -494,23 +522,22 @@ setInterval(() => {
       e.alive = false; e.hp = 0; e.burnUntil = 0; e.burnRate = 0; e.inFire = false;
       const killer = players.get(e.burnBy);
       if (killer) killer.kills++;
-      if (isPlayer) { e.deaths++; e.respawnAt = now + 3000; }
+      if (isPlayer) e.deaths++;
       io.emit('kill', { by: killer ? killer.name : 'fire', victim: isPlayer ? e.name : 'a bot', head:false });
     }
   };
-  for (const b of bots) burnTick(b, false);
   for (const pl of players.values()) burnTick(pl, true);
 
-  // respawn dead bots to keep the count constant
-  for (let i = bots.length - 1; i >= 0; i--) if (!bots[i].alive) { bots.splice(i, 1); setTimeout(spawnBot, 2500); }
 
   // broadcast a snapshot of the whole world
   io.emit('snapshot', {
     t: now,
-    players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, name:p.name, color:p.color,
+    match: { phase: match.phase, round: match.round, winsNeeded: MATCH.winsNeeded,
+             endsIn: match.until ? Math.max(0, match.until - now) : 0,
+             roundWinner: match.roundWinner, matchWinner: match.matchWinner },
+    players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, wins:p.wins||0, name:p.name, color:p.color,
       mk: (p.markedUntil > now) ? p.markedBy : null, rl: p.rl || 0,
       bn: p.burnUntil > now })),      // on fire, so others can see it
-    bots: bots.map(b => ({ id:b.id, x:b.x, z:b.z, yaw:b.yaw, alive:b.alive, state:b.state, burning: !!b.burnUntil })),
     arrows: arrows.map(a => ({ id:a.id, x:a.x, y:a.y, z:a.z, vx:a.vx, vy:a.vy, vz:a.vz })),
   });
 }, TICK);

@@ -62,10 +62,17 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   `server.js`). Movement is client-authoritative — cheatable, accepted tradeoff.
 - Client sends `state {x,z,y,yaw,pitch,st}` at ~30Hz; server broadcasts a
   snapshot of players, bots and arrows at 30Hz.
-- Two modes: **Target Practice** (offline, client simulates) and
-  **Multiplayer** (server simulates). Shared gameplay numbers must be kept in
+- Two modes: **Target Practice** (offline, client simulates, stationary bots)
+  and **Multiplayer** (server simulates, **no bots** — round-based duelling).
+- **Multiplayer is round-based.** Kill the opposition to take a round; first to
+  `MATCH.winsNeeded` (3) takes the match, then it resets and runs again. Death
+  inside a round is **elimination** — no respawn until the next round starts.
+  Phases are `waiting` → `live` → `intermission` → … → `over`, driven entirely
+  by the server and shipped in the snapshot's `match` block so every client
+  agrees. Damage handlers all return early unless the phase is `live`. Shared gameplay numbers must be kept in
   sync between `WEAPONS` (client) and `XBOW`/`MELEE`/`STANCE_BOX` (server).
-- Bots are **stationary targets** by design — they don't move or shoot.
+- Bots are **stationary targets** by design — they don't move or shoot. They
+  exist only in Target Practice now; the server has none.
 - The arena is **indoors**: flat dark backdrop, fog on the same value, a
   ceiling at `WH`, and unlit emissive panels standing in for ceiling lamps.
   There is no sky and no sun.

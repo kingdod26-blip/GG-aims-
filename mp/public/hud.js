@@ -58,8 +58,44 @@ function clearFeed(){
   [...host.children].forEach(el=>{ clearTimeout(el._fadeT); clearTimeout(el._killT); });
   host.innerHTML='';
 }
-function updateBoard(pl){ document.getElementById('rows').innerHTML=[...pl].sort((a,b)=>b.kills-a.kills).map(p=>
-  `<div class="row ${p.id===myId?'me':''}"><span>${esc(p.name)}</span><span class="k">${p.kills}</span></div>`).join(''); }
+/* Rounds won is what decides the match, so it leads; kills are the tiebreak. */
+function updateBoard(pl){ document.getElementById('rows').innerHTML=[...pl]
+  .sort((a,b)=>(b.wins||0)-(a.wins||0) || b.kills-a.kills).map(p=>
+  `<div class="row ${p.id===myId?'me':''}"><span>${esc(p.name)}</span>` +
+  `<span class="k">${p.wins||0} · ${p.kills}</span></div>`).join(''); }
+
+/* The round/match banner. Everything it shows comes from the server's match
+   block, so every client agrees on the score and the countdown. */
+let matchState = null;
+function updateMatchUI(m, players){
+  matchState = m;
+  const el = document.getElementById('banner');
+  if(!m || gameMode !== 'mp'){ el.style.display='none'; return; }
+  const nameOf = id => { const p = players.find(p=>p.id===id); return p ? p.name : 'nobody'; };
+  const secs = Math.ceil(m.endsIn/1000);
+  let big='', sub='', cls='';
+  if(m.phase === 'waiting'){
+    big = 'WAITING FOR AN OPPONENT';
+    sub = 'first to ' + m.winsNeeded + ' rounds wins';
+  } else if(m.phase === 'live'){
+    big = ''; sub = 'ROUND ' + m.round;
+  } else if(m.phase === 'intermission'){
+    const won = m.roundWinner === myId;
+    big = m.roundWinner ? (won ? 'ROUND WON' : 'ROUND LOST') : 'DRAW';
+    cls = m.roundWinner ? (won ? 'win' : 'lose') : '';
+    sub = m.roundWinner && !won ? nameOf(m.roundWinner).toUpperCase() + ' TAKES IT · NEXT IN ' + secs
+                                : 'NEXT ROUND IN ' + secs;
+  } else {                                   // over
+    const won = m.matchWinner === myId;
+    big = won ? 'YOU WIN THE MATCH' : nameOf(m.matchWinner).toUpperCase() + ' WINS THE MATCH';
+    cls = won ? 'win' : 'lose';
+    sub = 'RESTARTING IN ' + secs;
+  }
+  el.className = cls;
+  el.style.display = 'block';
+  document.getElementById('bannerBig').textContent = big;
+  document.getElementById('bannerSub').textContent = sub;
+}
 function esc(s){ return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
 /* ================= AUDIO =================
