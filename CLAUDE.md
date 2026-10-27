@@ -48,6 +48,9 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   **Multiplayer** (server simulates). Shared gameplay numbers must be kept in
   sync between `WEAPONS` (client) and `XBOW`/`MELEE`/`STANCE_BOX` (server).
 - Bots are **stationary targets** by design — they don't move or shoot.
+- **The Spartan is the player avatar**, not the bots. Bots are the cheap
+  procedural box humanoids (`humanoid()`) on purpose: stationary targets
+  don't earn the detail, and eight boxes cost nearly nothing.
 
 ## Features
 
@@ -55,7 +58,13 @@ Weapons (`1`–`5`): rifle, sniper (4× scope), shotgun (8 pellets), 2 pistols.
 `G` crossbow ability — 2 charges, 30s each, flaming arrow, 90 dmg + 6/s burn
 for 9s, right-click toggles ricochet (bounces off geometry once).
 `F` blade — 5-hit combo 22/22/28/28/70, resets on miss.
-`V` roll (~7m, 1.2s cd). Double jump. Sprint (Shift). Stances: `C` crouch,
+Both now use real models (`assets/crossbow.fbx`, `assets/sword.fbx`). Each
+arrives as one mesh with one material, so `splitGeometryByAxis` cuts the
+triangles into material groups along the model's long axis — limbs/stock for
+the crossbow, grip/guard/blade for the sword. The procedural versions are
+still there and stay on screen until the files load, or if a load fails.
+`V` roll (~7m, 1.2s cd, camera leans `ROLL.lean` = 0.22 rad / ~12° on a
+sideways roll, 0 on a forward one). Double jump. Sprint (Shift). Stances: `C` crouch,
 `Z` prone — these shrink your server-side hitbox.
 `Tab` armory, `O` graphics settings, `Esc` pause/quit.
 
@@ -70,9 +79,23 @@ for 9s, right-click toggles ricochet (bounces off geometry once).
   reflect renders black. Don't reintroduce `envMap`/`metalness` without an env.
 - **Don't add point lights casually** — with no tone mapping they blow the
   ground out to white discs.
-- Character models face **+Z**; a player's yaw describes a **−Z** look
-  direction, so remote avatars need `yaw + PI`. The Spartan has its own 180°
-  correction (`SPARTAN_FACE`) on an inner pivot.
+- Character models face **+Z**, and every place we aim one already accounts
+  for it: remote players get `yaw + PI`, and bots get `atan2(dx,dz)`, which
+  points +Z at you. So **no extra per-model flip is needed** — `SPARTAN_FACE`
+  is 0. It used to be `Math.PI`, which corrected an already-corrected angle
+  and showed you the Spartan's back.
+- **Replacement materials on a SkinnedMesh need `skinning: true`.** Build a
+  fresh `MeshStandardMaterial` for a rigged model and it defaults to false,
+  the GPU ignores the bones, and the model renders in its raw bind pose —
+  standing there with its arms out. The shadow pass warns once per mesh per
+  frame, which also floods the console.
+- **Sketchfab FBX exports carry junk**: the Spartan ships a display
+  groundplane mesh named `Floor` (drop it, or every player drags a 2.3m disc
+  around) and references three `.dds` IBL cubemaps that aren't in the
+  download. `fbxTexMgr` redirects those and the crossbow's missing palette
+  JPG to a 1px blank so they don't 404.
+- **Force `metalness = 0` on anything loaded from a file.** `fitWeaponModel`
+  does this now — the sniper's GLB arrived at 0.4 and rendered dark.
 - `requestPointerLock()` returns a promise that rejects in embedded frames —
   always go through `lockPointer()`.
 - Viewmodel holders are built from `WEAPONS`, not the model-file list. A new
@@ -92,8 +115,8 @@ Verify in the browser via `javascript_tool`, not by eyeballing. Two traps:
 ## Parked / possible next
 
 - **Slide is disabled** behind `SLIDE_ENABLED` — see `extras/slide-ability.md`.
-- Jack may supply better `.glb` weapon models to swap in (procedural crossbow
-  and blade are placeholders).
+- The crossbow's CreativeTrio palette texture wasn't in the download, so it's
+  flat two-tone (limbs vs stock). A palette JPG would give it real colour.
 - Never built: a real fail state. Bots don't shoot, so you can't lose. Wave
   survival + a difficulty toggle is the biggest remaining gameplay gap.
 - Sound is synthesized; Jack finds it weak. Real `.mp3` files would help.

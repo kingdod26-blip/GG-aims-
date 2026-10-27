@@ -599,19 +599,37 @@ const WEAPON_MODELS = [
 gun.position.set(0.3,-0.28,-0.55); camera.add(gun); scene.add(camera); gun.visible=false;
 let gunKick=0, sprintAmt=0, stanceAmt=0;
 
+/* Several of these FBX exports reference textures that aren't in the download:
+   the crossbow wants a CreativeTrio palette JPG, and the Sketchfab Spartan asks
+   for three .dds IBL cubemaps. We re-material the first and deliberately run
+   with no environment map at all (no tone mapping here, so an envMap would
+   only blow things out), and the browser was 404ing on all of them. Point those
+   lookups at a 1px blank instead. */
+const BLANK_PX='data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
+const MISSING_TEX=/(\.fbm[\/]|\.dds(\?|$))/i;
+const fbxTexMgr=new THREE.LoadingManager();
+fbxTexMgr.setURLModifier(u=> MISSING_TEX.test(u) ? BLANK_PX : u);
+
 /* Generic weapon-model loader: normalize size, center, auto-orient long axis
-   forward (plus per-model ry flip), then drop into its slot. */
+   forward (plus per-model ry flip, and an optional rx to lay an upright model
+   down), then drop into its slot. */
 function fitWeaponModel(model, tune){
-  model.traverse(o=>{ if(o.isMesh){ o.castShadow=false; o.frustumCulled=false; } });
+  model.traverse(o=>{ if(o.isMesh){ o.castShadow=false; o.frustumCulled=false;
+    // There is no environment map in this scene by design, and metal with
+    // nothing to reflect renders black. The sniper's GLB shipped at
+    // metalness 0.4, which left its receiver dark no matter the lighting.
+    const ms=Array.isArray(o.material)?o.material:[o.material];
+    ms.forEach(m=>{ if(m && m.metalness){ m.metalness=0; m.needsUpdate=true; } });
+  } });
   const bbox=new THREE.Box3().setFromObject(model);
   const size=new THREE.Vector3(); bbox.getSize(size);
   const center=new THREE.Vector3(); bbox.getCenter(center);
   const s=tune.len/(Math.max(size.x,size.y,size.z)||1);
   model.scale.setScalar(s);
   model.position.copy(center).multiplyScalar(-s);
-  let ry=tune.ry; if(size.x>size.z) ry+=Math.PI/2;
+  let ry=tune.ry; if(tune.autoOrient!==false && size.x>size.z) ry+=Math.PI/2;
   const holder=new THREE.Group(); holder.add(model);
-  holder.rotation.set(0,ry,0);
+  holder.rotation.set(tune.rx||0, ry, 0);
   holder.position.set(0.02,-0.03,0.05);
   return { holder, size };
 }
@@ -624,27 +642,30 @@ WEAPON_MODELS.forEach((wm,i)=>{
   };
   const onErr = (err)=> console.warn(`[BotStrike] weapon model failed: ${wm.url}`, err);
   try {
-    if (wm.type==='glb' && THREE.GLTFLoader) new THREE.GLTFLoader().load(wm.url, g=>onLoad(g.scene), undefined, onErr);
-    else if (wm.type==='fbx' && THREE.FBXLoader) new THREE.FBXLoader().load(wm.url, onLoad, undefined, onErr);
+    if (wm.type==='glb' && THREE.GLTFLoader) new THREE.GLTFLoader(fbxTexMgr).load(wm.url, g=>onLoad(g.scene), undefined, onErr);
+    else if (wm.type==='fbx' && THREE.FBXLoader) new THREE.FBXLoader(fbxTexMgr).load(wm.url, onLoad, undefined, onErr);
   } catch(e){ onErr(e); }
 });
 
 /* (Weapon models are loaded by the generic WEAPON_MODELS loader above.) */
 
-/* Real soldier model (Soldier by Manaos, CC0) for target bots + the home-page
-   operator. Normalized to 1.8m tall with feet at ground level. Other players
-   stay as the animated box-soldiers (the FBX has no walk animation to play). */
-let soldierTpl = null;
-function makeSoldier(){
-  const m = (THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(soldierTpl) : soldierTpl.clone());
-  return m;
+/* The Spartan is the PLAYER avatar — it's what you are, and what everyone
+   else sees of you. Bots deliberately stay as the cheap box humanoids: they're
+   stationary targets, so the detail would be wasted, and boxes keep eight of
+   them nearly free. Falls back to a box player until the FBX arrives. */
+let spartanTpl = null;
+function makeSpartan(){
+  return (THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(spartanTpl) : spartanTpl.clone());
 }
-function newBotMesh(){ return soldierTpl ? makeSoldier() : humanoid(0x8a3030); }
+function newPlayerMesh(color){ return spartanTpl ? makeSpartan() : humanoid(color); }
+function newBotMesh(){ return humanoid(0x8a3030); }
 /* Spartan Armour MKV (Halo Reach) by McCarthy3D — Sketchfab, CC-BY.
    FBX ships with detached PBR textures; we attach them by material name. */
-// Facing correction for the Spartan model (its front points +Z, Three.js
-// expects -Z). Set to 0 if a future model already faces the right way.
-const SPARTAN_FACE = Math.PI;
+// Facing correction for the Spartan model. It faces +Z, and so does the box
+// humanoid, and every place we aim an avatar (atan2(dx,dz) for bots, yaw+PI
+// for players) already points +Z the right way — so no correction is needed.
+// This was Math.PI, which spun him a second time and showed you his back.
+const SPARTAN_FACE = 0;
 const SPARTAN_MATS = ['ODST_Shoulder_Mat','Spartan_Arms_Mat','Spartan_Chest_Mat','Spartan_Ears_Mat','Spartan_Helmet_Mat','Spartan_Legs_Mat','Spartan_Undersuit_Mat'];
 const SPARTAN_ALIASES = { 'spartan_ear_mat':'Spartan_Ears_Mat', 'spartan_shoulders_mat':'ODST_Shoulder_Mat' };
 function spartanMaterial(name){
@@ -661,14 +682,24 @@ function spartanMaterial(name){
   return null;
 }
 if (THREE.FBXLoader) try {
-  new THREE.FBXLoader().load('assets/spartan.fbx', (fbx)=>{
+  new THREE.FBXLoader(fbxTexMgr).load('assets/spartan.fbx', (fbx)=>{
     const matNames=[];
+    // The Sketchfab export ships a display groundplane inside the character.
+    // Left in, every player drags a 2.3m disc around at their feet — and it
+    // throws off the height normalization below. Drop it before measuring.
+    const junk=[]; fbx.traverse(o=>{ if(o.isMesh && /^floor/i.test(o.name)) junk.push(o); });
+    junk.forEach(o=>{ if(o.parent) o.parent.remove(o); if(o.geometry) o.geometry.dispose(); });
     // frustumCulled stays TRUE here: these targets are static, so their bounds
     // are valid and off-screen ones can be skipped (big saving with 8 of them).
     fbx.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=true;
       const mats=Array.isArray(o.material)?o.material:[o.material];
       matNames.push(...mats.map(m=>m&&m.name));
       const swapped=mats.map(m=>spartanMaterial(m&&m.name)||m);
+      // The Spartan is a SkinnedMesh. Our replacement materials default to
+      // skinning:false, which makes the GPU ignore the bones and render the
+      // raw bind pose — that's why he stood there with his arms out. The
+      // shadow pass warned about it every single frame.
+      swapped.forEach(m=>{ if(m){ m.skinning = !!o.isSkinnedMesh; m.needsUpdate = true; } });
       o.material=Array.isArray(o.material)?swapped:swapped[0];
     } });
     console.log('[BotStrike] spartan materials:', [...new Set(matNames)].join(', '));
@@ -683,18 +714,15 @@ if (THREE.FBXLoader) try {
     fbx.scale.setScalar(1.9/(size.y||1));
     const bb=new THREE.Box3().setFromObject(fbx);
     fbx.position.set(-(bb.min.x+bb.max.x)/2, -bb.min.y, -(bb.min.z+bb.max.z)/2);
-    pivot.rotation.y = SPARTAN_FACE;            // flip AFTER centring, so he spins in place
-    soldierTpl = holder;
-    // upgrade whatever is already in the world
-    for(const b of localBots){ if(!b.alive) continue; const old=b.mesh;
-      b.mesh=makeSoldier(); b.mesh.position.copy(old.position); b.mesh.rotation.y=old.rotation.y;
-      scene.remove(old); scene.add(b.mesh); }
-    for(const o of serverBots.values()){ const old=o.mesh;
-      o.mesh=makeSoldier(); o.mesh.position.copy(old.position); o.mesh.rotation.y=old.rotation.y;
+    pivot.rotation.y = SPARTAN_FACE;            // applied AFTER centring, so he spins in place
+    spartanTpl = holder;
+    // upgrade the players already in the world (bots stay boxes on purpose)
+    for(const o of others.values()){ const old=o.mesh;
+      o.mesh=makeSpartan(); o.mesh.position.copy(old.position); o.mesh.rotation.y=old.rotation.y;
       scene.remove(old); scene.add(o.mesh); }
-    if (gameState!=='playing'){ // swap the home-page hero
-      scene.remove(hero); hero=makeSoldier(); hero.position.set(0,0.12,32); scene.add(hero);
-      heroGroup[0]=hero;
+    if (gameState!=='playing'){ // swap the home-page showcase — that figure is you
+      scene.remove(hero); hero=makeSpartan(); hero.position.set(0,0.12,32); scene.add(hero);
+      heroGroup[0]=hero; spot.target=hero; scene.add(spot.target);
     }
     console.log('[BotStrike] spartan model loaded, raw size', size.toArray().map(n=>+n.toFixed(1)));
   }, undefined, (err)=> console.warn('[BotStrike] spartan FBX failed, keeping box soldiers', err));
@@ -717,7 +745,9 @@ const MAX_JUMPS = 2;                 // ground jump + one mid-air jump
 let jumpPressed = false;             // edge-triggered by keydown
 
 /* ---- Abilities ---- */
-const ROLL = { dur:0.62, speed:20, cdMs:1200 };       // V — dodge roll (~7m)
+// lean: peak camera roll, in radians, on a pure sideways roll (0.22 ~= 12.6 deg).
+// A forward/back roll scales this to 0 and only dips.
+const ROLL = { dur:0.62, speed:20, cdMs:1200, lean:0.22 };  // V — dodge roll (~7m)
 // SLIDE IS CURRENTLY DISABLED — flip this to true to bring it back.
 // The full implementation is kept intact below and documented in
 // extras/slide-ability.md. With it off, C is always a plain crouch toggle.
@@ -794,6 +824,94 @@ weaponHolders.forEach((h,i)=>{ gun.add(h); h.visible = i===0; });
   g.position.set(0.05,-0.06,0.02);
   weaponHolders[BLADE].add(g);
 })();
+/* Real crossbow + sword models (CreativeTrio / Quaternius, FBX).
+   Both arrive as a SINGLE mesh with a SINGLE material and no usable texture —
+   the sword has no maps at all, the crossbow points at a palette JPG that
+   isn't in the download — so there is no material name to paint by. Instead we
+   cut each one into material groups along its own long axis; the fractions
+   below come from measuring where the parts actually sit in the geometry.
+   Lambert throughout: no metalness, no envMap, no emissive, no extra lights,
+   because there's no tone mapping or environment here to light them with.
+   The procedural versions above stay on screen until these land, and remain
+   the fallback if a load fails. */
+const ABILITY_MODELS = [
+  // Limbs are the wide end and already point -Z, so no reorientation.
+  { slot:XBOW,  url:'assets/crossbow.fbx', len:0.70, ry:0, autoOrient:false,
+    pos:[0.02,-0.05,-0.08],
+    split:{ axis:'z', cuts:[0.42, Infinity], colors:[0x4a4f57, 0x3a322b] } },  // limbs | stock
+  // Modelled standing upright with the tip at +Y; rx lays it forward.
+  { slot:BLADE, url:'assets/sword.fbx',    len:0.82, ry:0, rx:-Math.PI/2, autoOrient:false,
+    pos:[0.05,-0.06,0.02],
+    split:{ axis:'z', cuts:[0.25, 0.47, Infinity], colors:[0x1b1f25, 0xd8a441, 0xd8dde4] } },  // grip | guard | blade
+];
+
+/* Reorder a mesh's triangles into contiguous material groups, split by where
+   each triangle's centre falls along `axis` as a 0..1 fraction of the model's
+   own bounding box. Returns a new geometry; the caller disposes the old one. */
+function splitGeometryByAxis(geo, axis, cuts){
+  const src = geo.index ? geo.toNonIndexed() : geo;
+  const pos = src.attributes.position, triCount = pos.count/3;
+  const bb = new THREE.Box3().setFromBufferAttribute(pos);
+  const lo = bb.min[axis], span = (bb.max[axis]-lo) || 1;
+  const buckets = cuts.map(()=>[]);
+  const v = new THREE.Vector3();
+  for(let t=0;t<triCount;t++){
+    let mid=0;
+    for(let k=0;k<3;k++){ v.fromBufferAttribute(pos, t*3+k); mid+=v[axis]; }
+    const f = ((mid/3)-lo)/span;
+    let gi = cuts.findIndex(c=>f<c); if(gi<0) gi = cuts.length-1;
+    buckets[gi].push(t);
+  }
+  const out = new THREE.BufferGeometry();
+  const order = [].concat(...buckets);
+  for(const name of Object.keys(src.attributes)){
+    const a = src.attributes[name], n = a.itemSize;
+    const arr = new a.array.constructor(order.length*3*n);
+    let w = 0;
+    for(const t of order) for(let k=0;k<3;k++){
+      const base = (t*3+k)*n;
+      for(let c=0;c<n;c++) arr[w++] = a.array[base+c];
+    }
+    out.setAttribute(name, new THREE.BufferAttribute(arr, n));
+  }
+  let at = 0;
+  buckets.forEach((list,gi)=>{ out.addGroup(at, list.length*3, gi); at += list.length*3; });
+  out.computeBoundingBox(); out.computeBoundingSphere();
+  if(src!==geo) src.dispose();
+  return out;
+}
+
+function disposeTree(obj){
+  obj.traverse(o=>{
+    if(!o.isMesh) return;
+    if(o.geometry) o.geometry.dispose();
+    const ms = Array.isArray(o.material)?o.material:[o.material];
+    ms.forEach(m=>{ if(!m) return; if(m.map) m.map.dispose(); m.dispose(); });
+  });
+}
+if (THREE.FBXLoader) ABILITY_MODELS.forEach(am=>{
+  const onErr=(err)=> console.warn(`[BotStrike] ${am.url} failed, keeping procedural`, err);
+  try {
+    new THREE.FBXLoader(fbxTexMgr).load(am.url, (model)=>{
+      model.traverse(o=>{
+        if(!o.isMesh) return;
+        const old = o.geometry;
+        o.geometry = splitGeometryByAxis(old, am.split.axis, am.split.cuts);
+        if(old!==o.geometry) old.dispose();
+        const prev = Array.isArray(o.material)?o.material:[o.material];
+        prev.forEach(m=>{ if(!m) return; if(m.map) m.map.dispose(); m.dispose(); });
+        o.material = am.split.colors.map(c=>new THREE.MeshLambertMaterial({color:c}));
+      });
+      const { holder, size } = fitWeaponModel(model, am);
+      holder.position.set(am.pos[0], am.pos[1], am.pos[2]);
+      const h = weaponHolders[am.slot];
+      while(h.children.length){ const c=h.children[0]; h.remove(c); disposeTree(c); }
+      h.add(holder);
+      console.log(`[BotStrike] ${am.url} loaded, raw size`, size.toArray().map(n=>+n.toFixed(2)));
+    }, undefined, onErr);
+  } catch(e){ onErr(e); }
+});
+
 // fallback box gun in slot 0 until the real model arrives
 weaponHolders[0].add(at(new THREE.Mesh(new THREE.BoxGeometry(0.1,0.13,0.6),new THREE.MeshLambertMaterial({color:0x24262b})),0,0,-0.05));
 weaponHolders[0].add(at(new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,0.4),new THREE.MeshLambertMaterial({color:0x17181c})),0,0.01,-0.4));
@@ -990,7 +1108,7 @@ function onSnapshot(s){
   }
   const seen=new Set();
   for (const p of s.players){ if(p.id===myId) continue; seen.add(p.id);
-    let o=others.get(p.id); if(!o){ const mesh=humanoid(p.color); scene.add(mesh); o={mesh,tx:p.x,tz:p.z,ty:p.y||0,tyaw:p.yaw}; others.set(p.id,o); }
+    let o=others.get(p.id); if(!o){ const mesh=newPlayerMesh(p.color); scene.add(mesh); o={mesh,tx:p.x,tz:p.z,ty:p.y||0,tyaw:p.yaw}; others.set(p.id,o); }
     // +PI: our character models face +Z, but a player's yaw describes a -Z
     // look direction — without this, remote players appear to run backwards.
     o.tx=p.x; o.tz=p.z; o.ty=p.y||0; o.tyaw=p.yaw+Math.PI; o.tst=p.st||0; o.mesh.visible=p.alive; }
@@ -1619,7 +1737,7 @@ function loop(){ requestAnimationFrame(loop);
     // momentum rather than a teleport between movement modes.
     let wRoll=0, wDip=0;
     if(rollT>0){ const p=1-rollT/ROLL.dur, s=Math.sin(p*Math.PI);
-      wRoll = s*0.40*rollLean; wDip = s*0.22; }
+      wRoll = s*ROLL.lean*rollLean; wDip = s*0.22; }
     else if(slideT>0){ const s=Math.min(1, slideT/0.25);
       wRoll = 0.20*slideLean*s; wDip = 0.10*s; }
     camRoll += (wRoll-camRoll)*Math.min(1,dt*12);

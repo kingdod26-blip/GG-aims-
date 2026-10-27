@@ -63,7 +63,7 @@ Then open <http://localhost:8123/fps-game.html>.
   with its own ammo pool, recoil, spread, reload time and ADS zoom
 - Three stances (stand / crouch / prone) that change view height, movement speed and profile
 - Vertical collision — jump onto crates and shoot from elevation
-- Stationary Spartan targets for aim practice
+- Stationary targets for aim practice; you and the other players are Spartans
 - Hitscan combat with headshot multipliers and wall occlusion
 
 **Multiplayer**
@@ -110,7 +110,8 @@ Code is MIT (see `LICENSE`). Third-party assets keep their own licences:
 
 | Asset | Author | Licence |
 |---|---|---|
-| Weapon models (rifle, sniper, shotgun, pistols) | [Quaternius](https://quaternius.com) | CC0 |
+| Weapon models (rifle, sniper, shotgun, pistols, sword) | [Quaternius](https://quaternius.com) | CC0 |
+| Crossbow | CreativeTrio | see source |
 | Textures & HDR sky | [Poly Haven](https://polyhaven.com) | CC0 |
 | Soldier model | Manaos | CC0 |
 | **Spartan Armour MKV (Halo Reach)** | **McCarthy3D (Sketchfab)** | **CC-BY 4.0 — attribution required** |
