@@ -256,8 +256,23 @@ const curW = ()=>WEAPONS[currentWeapon];
 const curAmmo = ()=>weaponAmmo[currentWeapon];
 let lastShot=0, reloading=false, reloadTimer=null;
 let aiming=false, ads=0, semiQueued=false;   // ads = smoothed 0..1 aim amount
+/* In multiplayer you carry the abilities plus the ONE gun you bought.
+   Target practice is unrestricted — the economy is a multiplayer thing. */
+function canEquip(i){
+  const w = WEAPONS[i]; if(!w) return false;
+  if(gameMode !== 'mp') return true;
+  if(w.ability || w.melee) return true;      // crossbow, smoke and blade are always yours
+  return i === myGun;
+}
+/* Called when ownership changes: if you're holding something you no longer
+   own, fall back to the crossbow rather than leaving a phantom gun in hand. */
+function ensureValidWeapon(){
+  if(canEquip(currentWeapon)) return;
+  switchWeapon(myGun !== null && myGun !== undefined ? myGun : XBOW);
+}
 function switchWeapon(i){
   if(i===currentWeapon || i<0 || i>=WEAPONS.length) return;
+  if(!canEquip(i)){ Sfx.empty(); return; }   // you don't own that one
   currentWeapon=i; reloading=false; clearTimeout(reloadTimer); reloadSfxTimers.forEach(clearTimeout); semiQueued=false;
   weaponHolders.forEach((h,idx)=> h.visible = idx===i);
   // marks draw with depthTest off at renderOrder 900; the viewmodel has to

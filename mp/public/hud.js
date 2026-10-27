@@ -166,21 +166,60 @@ const Voice = (()=>{
   } };
 })();
 
-/* ---- Armory (Tab): every gun you've collected, click or number-key to equip ---- */
+/* ---- Armory (Tab) ----
+   In target practice this is a rack: click anything, equip it. In multiplayer
+   it is the SHOP — you hold one bought gun at a time plus the free abilities,
+   and it only opens its till between rounds. Prices and money come from the
+   server; clicking sends a 'buy' and the server decides. ---- */
 let armoryOpen=false;
 function renderArmory(){
-  document.getElementById('armGrid').innerHTML = WEAPONS.map((w,i)=>`
-    <div class="wcard ${i===currentWeapon?'equipped':''}" data-i="${i}">
+  const shop = (gameMode === 'mp');
+  const canBuy = shop && matchState && matchState.phase !== 'live';
+  const head = document.querySelector('#armory h2');
+  if(head) head.textContent = shop ? `ARMORY — $${myMoney}` +
+      (canBuy ? '' : '  (shop shut during a round)') : 'ARMORY';
+
+  const hint = document.querySelector('#armory .armHint');
+  if(hint) hint.textContent = shop
+    ? (canBuy ? 'Click to buy — you carry one gun at a time, abilities are free · Tab to close'
+              : 'Shop opens between rounds · Tab to close')
+    : 'Click a weapon or press its number · Tab to close';
+
+  document.getElementById('armGrid').innerHTML = WEAPONS.map((w,i)=>{
+    const free  = w.ability || w.melee;
+    const price = free ? 0 : (shopPrices[i] || 0);
+    const owned = free || !shop || i === myGun;
+    const afford = myMoney >= price;
+    const stats = w.ability
+      ? `${w.dmg?('DMG '+w.dmg):'NO DAMAGE'}<br>CHARGES ${w.charges} · ${Math.round(w.cooldownMs/1000)}s`
+      : w.melee
+      ? `COMBO ${w.combo.join('/')}<br>REACH ${w.reach}m`
+      : `DMG ${w.dmg}${w.pellets?'×'+w.pellets:''}<br>MAG ${w.magMax} / ${w.reserveMax}`;
+    let tag;
+    if(!shop)      tag = i===currentWeapon ? '<b style="color:#27ff9e">EQUIPPED</b>' : '&nbsp;';
+    else if(free)  tag = i===currentWeapon ? '<b style="color:#27ff9e">EQUIPPED</b>' : '<span style="opacity:.6">FREE</span>';
+    else if(owned) tag = i===currentWeapon ? '<b style="color:#27ff9e">EQUIPPED</b>' : '<b style="color:#27ff9e">OWNED</b>';
+    else if(!canBuy) tag = `<span style="opacity:.45">$${price}</span>`;
+    else           tag = `<b style="color:${afford?'#ffd15a':'#ff6a6a'}">$${price}</b>`;
+    const dim = (shop && !owned && (!canBuy || !afford)) ? 'opacity:.45;' : '';
+    return `<div class="wcard ${i===currentWeapon?'equipped':''}" data-i="${i}" style="${dim}">
       <div class="wkey">[ ${WEAPON_KEY[i]} ]</div>
       <div class="wname">${w.name}</div>
       <div class="wmode">${w.mode}${w.scope?' · SCOPE':''}${w.pellets?' · '+w.pellets+' PELLETS':''}</div>
-      <div class="wstats">${
-        w.ability ? `${w.dmg?('DMG '+w.dmg):'NO DAMAGE'}<br>CHARGES ${w.charges} · ${Math.round(w.cooldownMs/1000)}s`
-      : w.melee   ? `COMBO ${w.combo.join('/')}<br>REACH ${w.reach}m`
-      :             `DMG ${w.dmg}${w.pellets?'×'+w.pellets:''}<br>MAG ${w.magMax} / ${w.reserveMax}`
-      }<br>${i===currentWeapon?'<b style="color:#27ff9e">EQUIPPED</b>':'&nbsp;'}</div>
-    </div>`).join('');
-  [...document.querySelectorAll('.wcard')].forEach(el=> el.onclick=()=>{ switchWeapon(+el.dataset.i); toggleArmory(false); });
+      <div class="wstats">${stats}<br>${tag}</div>
+    </div>`;
+  }).join('');
+
+  [...document.querySelectorAll('.wcard')].forEach(el=> el.onclick=()=>{
+    const i = +el.dataset.i, w = WEAPONS[i];
+    const free = w.ability || w.melee;
+    if(shop && !free && i !== myGun){
+      if(!canBuy || myMoney < (shopPrices[i]||0)){ Sfx.empty(); return; }
+      socket.emit('buy', { slot:i });     // server confirms with 'bought'
+      return;
+    }
+    switchWeapon(i); toggleArmory(false);
+  });
 }
 function toggleArmory(force){
   const want = (force!==undefined) ? force : !armoryOpen;

@@ -12,6 +12,9 @@
 
 /* ---- Game state ---- */
 let gameState='home', gameMode=null, myId=null, connected=false, localKills=0;
+/* Economy, mirrored from the server — never trusted as the source of truth,
+   it only drives what the shop shows and what you're allowed to equip. */
+let myMoney=0, myGun=null, shopPrices=[150,300,150,50,50];
 let socket=null;
 const others = new Map();     // networked players
 const serverBots = new Map(); // networked bots (mp)
@@ -181,6 +184,8 @@ function connectMP(name){
   socket.on('impact', ()=> hitmark());
   socket.on('groundfire', d=> spawnGroundFire(d.x, d.z));
   socket.on('smoke', d=> spawnSmoke(d.x, d.z, d.by));
+  socket.on('bought', d=>{ myGun=d.slot; myMoney=d.money; Sfx.swap();
+    switchWeapon(d.slot); if(armoryOpen) renderArmory(); });
   // the server wipes fire, smoke and arrows between rounds — follow it, or
   // last round's pools keep burning on screen over the new one
   socket.on('fieldclear', ()=>{
@@ -192,9 +197,15 @@ function connectMP(name){
   socket.on('kill', addFeed);
 }
 function onSnapshot(s){
+  if(s.prices) shopPrices = s.prices;
   updateMatchUI(s.match, s.players);
   const mine = s.players.find(p=>p.id===myId);
   if (mine){ me.hp=mine.hp;
+    const gunChanged = (myGun !== (mine.gun===undefined?null:mine.gun));
+    myMoney = mine.money||0; myGun = (mine.gun===undefined?null:mine.gun);
+    // unconditional: you join holding the rifle from init, which you do not own
+    ensureValidWeapon();
+    if(gunChanged && armoryOpen) renderArmory();
     if (me.alive && !mine.alive) { document.getElementById('respawn').style.display='flex';
       document.getElementById('respawnMsg').textContent = 'Out for this round — watch it play out';
       document.exitPointerLock(); }

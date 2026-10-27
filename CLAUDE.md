@@ -69,7 +69,17 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   inside a round is **elimination** — no respawn until the next round starts.
   Phases are `waiting` → `live` → `intermission` → … → `over`, driven entirely
   by the server and shipped in the snapshot's `match` block so every client
-  agrees. Damage handlers all return early unless the phase is `live`. Shared gameplay numbers must be kept in
+  agrees. Damage handlers all return early unless the phase is `live`.
+- **There is an economy.** You start each match on `ECON.start` ($200) with no
+  gun, take `ECON.win` ($100) for winning a round and `ECON.loss` ($50) for
+  losing. `PRICES` by slot: rifle 150, sniper 300, shotgun 150, pistols 50.
+  You carry **one gun at a time** — buying another replaces it with no refund,
+  so saving up matters. The crossbow, smoke and blade are always yours and
+  cost nothing. **Tab opens the shop**, which only trades outside a live round.
+  Money and ownership are server-side: the `buy` handler re-checks phase,
+  price and affordability, so a patched client can't hand itself a sniper.
+  `canEquip`/`ensureValidWeapon` keep the client honest about what's in hand —
+  you join holding the rifle from init, which in a match you don't own. Shared gameplay numbers must be kept in
   sync between `WEAPONS` (client) and `XBOW`/`MELEE`/`STANCE_BOX` (server).
 - Bots are **stationary targets** by design — they don't move or shoot. They
   exist only in Target Practice now; the server has none.

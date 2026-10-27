@@ -179,7 +179,14 @@ let arrowSeq = 0;
    round; first to MATCH.winsNeeded rounds takes the match, then everything
    resets and it runs again. Death inside a round is elimination — you sit it
    out until the next one, which is what makes a round worth winning. */
-const MATCH = { winsNeeded: 3, intermissionMs: 4000, endMs: 7000, minPlayers: 2 };
+const MATCH = { winsNeeded: 3, intermissionMs: 8000, endMs: 7000, minPlayers: 2,
+                buyMs: 10000 };          // longer window before round 1 to kit out
+/* Economy. You hold ONE gun at a time — the crossbow, smoke and blade are
+   always yours and cost nothing. Buying another replaces it, no refund, so
+   money is worth saving. Indexed by the client's WEAPONS slots:
+   0 rifle, 1 sniper, 2 shotgun, 3 pistol, 4 pistol X. */
+const ECON = { start: 200, win: 100, loss: 50 };
+const PRICES = [150, 300, 150, 50, 50];
 const match = { phase: 'waiting', round: 0, until: 0, roundWinner: null, matchWinner: null };
 
 function respawnAll() {
@@ -194,8 +201,15 @@ function clearField() {            // no fire, smoke or arrows carried between r
   arrows.length = 0; smokes.length = 0; fires.length = 0;
   io.emit('fieldclear');
 }
+function openBuyWindow(now, ms) {          // intermission doubles as the shop
+  match.phase = 'intermission'; match.until = now + ms;
+  clearField(); respawnAll();
+}
+function resetEconomy() {
+  for (const p of players.values()) { p.wins = 0; p.money = ECON.start; p.gun = null; }
+}
 function startRound(n, resetWins) {
-  if (resetWins) for (const p of players.values()) p.wins = 0;
+  if (resetWins) resetEconomy();
   match.round = n; match.phase = 'live';
   match.roundWinner = null; match.matchWinner = null; match.until = 0;
   clearField(); respawnAll();
@@ -209,6 +223,7 @@ io.on('connection', (socket) => {
   const player = {
     id: socket.id, x: s.x, z: s.z, y: 0, yaw: 0, pitch: 0, st: 0,
     hp: 100, alive: true, kills: 0, deaths: 0, wins: 0,
+    money: ECON.start, gun: null,      // gun: owned WEAPONS slot, or null
     color: COLORS[players.size % COLORS.length],
     name: 'Player-' + socket.id.slice(0, 4),
   };
@@ -293,6 +308,20 @@ io.on('connection', (socket) => {
       x: d.ox, y: d.oy, z: d.oz,
       vx: dir.x*SMOKE.speed, vy: dir.y*SMOKE.speed, vz: dir.z*SMOKE.speed,
       bounces: 0, life: 5 });
+  });
+
+  /* ---- Buy a gun. One at a time, never mid-round, money checked here so a
+     patched client cannot hand itself a sniper. ---- */
+  socket.on('buy', (d) => {
+    const p = players.get(socket.id); if (!p) return;
+    if (match.phase === 'live') return;              // shop shuts during a round
+    const slot = d && d.slot | 0;
+    if (!(slot >= 0 && slot < PRICES.length)) return;
+    if (p.gun === slot) return;                      // already carrying it
+    const price = PRICES[slot];
+    if (p.money < price) return;
+    p.money -= price; p.gun = slot;                  // replaces what you had, no refund
+    socket.emit('bought', { slot, money: p.money });
   });
 
   // ---- Blade: five-hit melee combo, validated server-side ----
@@ -382,7 +411,13 @@ setInterval(() => {
   const livePlayers = [...players.values()];
   const standing = livePlayers.filter(p => p.alive);
   if (match.phase === 'waiting') {
-    if (livePlayers.length >= MATCH.minPlayers) startRound(1, true);
+    if (livePlayers.length >= MATCH.minPlayers) {
+      // straight into a buy window, not into a round — you start with money
+      // and no gun, so you need a chance to spend it before round 1
+      resetEconomy();
+      match.round = 0; match.roundWinner = null; match.matchWinner = null;
+      openBuyWindow(now, MATCH.buyMs);
+    }
   } else if (livePlayers.length < MATCH.minPlayers) {
     match.phase = 'waiting'; match.round = 0;
     match.roundWinner = null; match.matchWinner = null;
@@ -391,6 +426,8 @@ setInterval(() => {
     if (standing.length <= 1) {
       const w = standing[0] || null;               // nobody standing = a draw
       if (w) w.wins = (w.wins || 0) + 1;
+      // payday: the round winner banks more, but losing still pays
+      for (const p of players.values()) p.money += (p === w ? ECON.win : ECON.loss);
       match.roundWinner = w ? w.id : null;
       if (w && w.wins >= MATCH.winsNeeded) {
         match.phase = 'over'; match.matchWinner = w.id; match.until = now + MATCH.endMs;
@@ -400,7 +437,11 @@ setInterval(() => {
     }
   } else if (now >= match.until) {
     if (match.phase === 'intermission') startRound(match.round + 1, false);
-    else startRound(1, true);                      // match over -> run it again
+    else {                                         // match over -> run it again
+      resetEconomy();
+      match.round = 0; match.roundWinner = null; match.matchWinner = null;
+      openBuyWindow(now, MATCH.buyMs);
+    }
   }
 
   // ---- Flaming arrows: fly, bounce off geometry, ignite what they hit ----
@@ -532,10 +573,12 @@ setInterval(() => {
   // broadcast a snapshot of the whole world
   io.emit('snapshot', {
     t: now,
+    prices: PRICES,
     match: { phase: match.phase, round: match.round, winsNeeded: MATCH.winsNeeded,
              endsIn: match.until ? Math.max(0, match.until - now) : 0,
              roundWinner: match.roundWinner, matchWinner: match.matchWinner },
-    players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, wins:p.wins||0, name:p.name, color:p.color,
+    players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, wins:p.wins||0, money:p.money, gun:p.gun,
+      name:p.name, color:p.color,
       mk: (p.markedUntil > now) ? p.markedBy : null, rl: p.rl || 0,
       bn: p.burnUntil > now })),      // on fire, so others can see it
     arrows: arrows.map(a => ({ id:a.id, x:a.x, y:a.y, z:a.z, vx:a.vx, vy:a.vy, vz:a.vz })),
