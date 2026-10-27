@@ -79,7 +79,10 @@ Weapons (`1`–`5`): rifle, sniper (4× scope), shotgun (8 pellets), 2 pistols.
 `G` crossbow ability — 2 charges, 30s each, flaming arrow, 90 dmg then
 **12/s for 5s** on the victim. The pool it leaves burns anyone standing in it
 at **18/s** — higher on purpose, because a direct hit already lands 90 up
-front while a pool only hurts you for as long as you stay in it.
+front while a pool only hurts you for as long as you stay in it. Walk out and
+you keep burning at 6/s for 5s.
+Burning players show flames in multiplayer: the snapshot carries `bn` and the
+client attaches the same `makeBurnFx` used on local bots.
 Two separate fire lifetimes: a **person** burns for `burnMs` (5s), while the
 **pool the arrow leaves on the ground** lasts `GFIRE.ms` (9s). A pool is
 dropped wherever the arrow ends up — floor, foot of a wall, or under whoever
@@ -204,7 +207,10 @@ Verify in the browser via `javascript_tool`, not by eyeballing. Two traps:
   usual lean tradeoff; closing it means sending a lean offset and applying it
   to the server's hitbox.
 - **Ground fire burns whoever stands in it** — `FIRE.dps` (18), renewed every
-  tick they stay, lingering `graceMs` (1.2s) after they step out. That is ~6s
+  tick they stay. **Stepping out doesn't put you out**: you walk away alight
+  at `FIRE.lingerDps` (6) for `FIRE.lingerMs` (5s). `graceMs` only covers the
+  gap between ticks while you're still in it. A fiercer burn from a direct hit
+  keeps precedence over the lingering rate. That is ~6s
   to kill a full-health player, in a 8.7m pool that lasts 9s: strong area
   denial, so it is the first number to turn down if the crossbow feels
   oppressive. Burns carry a per-victim `burnRate`, and walking into a pool

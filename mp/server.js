@@ -164,7 +164,11 @@ const smokes = [];   // { x, z, by, until }
 // dps is deliberately higher than XBOW.burnDps: a direct hit already lands 90
 // up front, whereas a pool only hurts you for as long as you choose to stand
 // in it. Keep in step with the client's GFIRE.dps.
-const FIRE = { radius: 4.35, ms: 9000, top: 1.0, graceMs: 1200, dps: 18 };
+// lingerDps/lingerMs: you walk out of a pool still alight, but burning at a
+// lower rate than the fire itself. graceMs only covers gaps between ticks
+// while you are still standing in it.
+const FIRE = { radius: 4.35, ms: 9000, top: 1.0, graceMs: 1200, dps: 18,
+               lingerDps: 6, lingerMs: 5000 };
 const fires = [];    // { x, z, by, until }
 // Blade melee (must match the client's BLADE entry)
 const MELEE = { combo: [22,22,28,28,70], windowMs: 1600, rateMs: 320, reach: 3.4, arc: 0.5 };
@@ -457,14 +461,24 @@ setInterval(() => {
     return null;
   };
   const scorch = (e, id, y) => {
-    if (!e.alive) return;
+    if (!e.alive) { e.inFire = false; return; }
     const f = standingInFire(e, id, y);
-    if (!f) return;
-    if (!e.burnUntil) e.burnNext = now + 1000;         // first tick a second from now
-    e.burnUntil = now + FIRE.graceMs;                  // renews while they stand in it
-    e.burnBy = f.by;
-    // never let walking into a pool slow an existing, fiercer burn
-    e.burnRate = Math.max(e.burnRate || 0, FIRE.dps);
+    if (f) {
+      if (!e.burnUntil) e.burnNext = now + 1000;       // first tick a second from now
+      e.burnUntil = now + FIRE.graceMs;                // renews while they stand in it
+      e.burnBy = f.by;
+      // never let walking into a pool slow an existing, fiercer burn
+      e.burnRate = Math.max(e.burnRate || 0, FIRE.dps);
+      e.inFire = true;
+    } else if (e.inFire) {
+      // Just stepped out: they walk away still alight, but at the lower
+      // lingering rate. A fiercer burn from a direct hit keeps precedence.
+      e.inFire = false;
+      if (e.burnRate === FIRE.dps) e.burnRate = FIRE.lingerDps;
+      const until = now + FIRE.lingerMs;
+      if (e.burnUntil < until) e.burnUntil = until;
+      if (!e.burnNext || e.burnNext > now + 1000) e.burnNext = now + 1000;
+    }
   };
   for (const b of bots) scorch(b, b.id, 0);
   for (const pl of players.values()) scorch(pl, pl.id, pl.y);
@@ -477,7 +491,7 @@ setInterval(() => {
     e.burnNext = now + 1000;
     e.hp -= (e.burnRate || XBOW.burnDps);
     if (e.hp <= 0 && e.alive) {
-      e.alive = false; e.hp = 0; e.burnUntil = 0;
+      e.alive = false; e.hp = 0; e.burnUntil = 0; e.burnRate = 0; e.inFire = false;
       const killer = players.get(e.burnBy);
       if (killer) killer.kills++;
       if (isPlayer) { e.deaths++; e.respawnAt = now + 3000; }
@@ -494,7 +508,8 @@ setInterval(() => {
   io.emit('snapshot', {
     t: now,
     players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, name:p.name, color:p.color,
-      mk: (p.markedUntil > now) ? p.markedBy : null, rl: p.rl || 0 })),
+      mk: (p.markedUntil > now) ? p.markedBy : null, rl: p.rl || 0,
+      bn: p.burnUntil > now })),      // on fire, so others can see it
     bots: bots.map(b => ({ id:b.id, x:b.x, z:b.z, yaw:b.yaw, alive:b.alive, state:b.state, burning: !!b.burnUntil })),
     arrows: arrows.map(a => ({ id:a.id, x:a.x, y:a.y, z:a.z, vx:a.vx, vy:a.vy, vz:a.vz })),
   });

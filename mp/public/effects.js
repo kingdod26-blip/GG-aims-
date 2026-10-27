@@ -21,7 +21,8 @@
    Keep radius and ms in step with the server or the fire you see won't be
    the fire that hurts. */
 const GFIRE = { ms:9000, radius:4.35, baseRadius:1.45, max:14, fadeMs:1200,
-                top:1.0, graceMs:1200, dps:18 };   // dps must match the server's FIRE.dps
+                top:1.0, graceMs:1200, dps:18,     // dps must match the server's FIRE.dps
+                lingerDps:6, lingerMs:5000 };      // still alight after stepping out
 const groundFires = [];
 function spawnGroundFire(x, z){
   while(groundFires.length >= GFIRE.max) removeGroundFire(groundFires[0]);
@@ -180,6 +181,14 @@ function updateMarks(){
       b.burnUntil = now + GFIRE.graceMs;               // renews while it stands in it
       b.burnDps = Math.max(b.burnDps||0, GFIRE.dps);   // a pool never slows a fiercer burn
       if(!b.fire) b.fire = makeBurnFx(b.mesh);
+      b.inFire = true;
+    } else if(b.inFire){
+      // walked out still alight, at the lower lingering rate
+      b.inFire = false;
+      if(b.burnDps === GFIRE.dps) b.burnDps = GFIRE.lingerDps;
+      const until = now + GFIRE.lingerMs;
+      if((b.burnUntil||0) < until) b.burnUntil = until;
+      if(!b.burnNext || b.burnNext > now + 1000) b.burnNext = now + 1000;
     }
     if(b.alive && smokeAt(b.x, 0, b.z)) b.markedUntil = now + SMOKEFX.markMs;
     const on = b.alive && (b.markedUntil||0) > now;
@@ -190,6 +199,11 @@ function updateMarks(){
     const on = o.mesh.visible && o.markedBy && o.markedBy === myId;
     if(on && !o.mark) o.mark = makeMarkFx(o.mesh);
     else if(!on && o.mark) clearMark(o);
+    // someone who is alight should look it — the server tells us who is
+    const lit = o.mesh.visible && o.tburn;
+    if(lit && !o.fire) o.fire = makeBurnFx(o.mesh);
+    else if(!lit && o.fire) clearBurnFx(o);
+    if(o.fire) updateBurnFx(o.fire, 1/60);
   }
 }
 
@@ -342,15 +356,16 @@ function updateArrows(dt){
 /* Kill the flames AND drop the reference. Without this a bot that dies while
    burning keeps the fx group parented to its mesh, and respawnLocalBot makes
    that mesh visible again — so it comes back permanently on fire. */
+function clearBurnFx(e){
+  if(!e.fire) return;
+  e.mesh.remove(e.fire);
+  e.fire.traverse(o=>{ if(o.isMesh){ o.geometry.dispose(); o.material.dispose(); } });
+  e.fire = null;
+}
 function extinguish(b){
   clearMark(b);
-  b.burnDps = 0;
-  if(b.fire){
-    b.mesh.remove(b.fire);
-    b.fire.traverse(o=>{ if(o.isMesh){ o.geometry.dispose(); o.material.dispose(); } });
-    b.fire = null;
-  }
-  b.burnUntil = 0;
+  clearBurnFx(b);
+  b.burnDps = 0; b.burnUntil = 0; b.inFire = false;
 }
 function igniteLocalBot(b,dmg,w){
   b.hp-=dmg; hitmark(); Sfx.hit();
