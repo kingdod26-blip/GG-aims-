@@ -108,7 +108,11 @@ client attaches the same `makeBurnFx` used on local bots.
 Two separate fire lifetimes: a **person** burns for `burnMs` (5s), while the
 **pool the arrow leaves on the ground** lasts `GFIRE.ms` (9s). A pool is
 dropped wherever the arrow ends up — floor, foot of a wall, or under whoever
-it hit. Right-click toggles ricochet (bounces off geometry once).
+it hit. Right-click toggles ricochet on **either** ability — the crossbow
+and the smoke bolt both bank off geometry once. A bounced bolt is spent:
+`BOUNCE.keep` (0.55) of its speed and at most `BOUNCE.lifeS` (1.1s) left to
+run, so a bank is a short shot round a corner rather than a second full
+flight. Keep the client and server `BOUNCE` blocks in step.
 `F` blade — 5-hit combo 22/22/28/28/70, resets on miss.
 `H` smoke — 2 charges, 30s each, no damage. Lands a cloud (`SMOKEFX.radius`
 5.5, slightly wider than a fire pool) that **tags** anyone standing in it for
