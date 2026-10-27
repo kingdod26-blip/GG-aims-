@@ -194,7 +194,7 @@ function onSnapshot(s){
     let o=others.get(p.id); if(!o){ const mesh=newPlayerMesh(p.color); scene.add(mesh); o={mesh,tx:p.x,tz:p.z,ty:p.y||0,tyaw:p.yaw}; others.set(p.id,o); }
     // +PI: our character models face +Z, but a player's yaw describes a -Z
     // look direction — without this, remote players appear to run backwards.
-    o.tx=p.x; o.tz=p.z; o.ty=p.y||0; o.tyaw=p.yaw+Math.PI; o.tst=p.st||0; o.mesh.visible=p.alive;
+    o.tx=p.x; o.tz=p.z; o.ty=p.y||0; o.tyaw=p.yaw+Math.PI; o.tst=p.st||0; o.trl=p.rl||0; o.mesh.visible=p.alive;
     o.markedBy = p.mk || null; }       // set only while the tag is live
   for (const [id,o] of others){ if(!seen.has(id)){ clearMark(o); scene.remove(o.mesh); others.delete(id); } }
   const bseen=new Set();

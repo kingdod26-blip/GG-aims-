@@ -114,17 +114,23 @@ function loop(){ requestAnimationFrame(loop);
         if(curW().auto){ if(wantFire) shoot(); }
         else if(semiQueued){ shoot(); semiQueued=false; }   // bolt/semi: one shot per click
       }
-      if(gameMode==='mp' && socket){ sendAcc+=dt; if(sendAcc>0.033){ sendAcc=0; socket.emit('state',{x:me.x,z:me.z,y:me.feetY,yaw:me.yaw,pitch:me.pitch,st:STANCE_ID[me.stance]}); } }
+      if(gameMode==='mp' && socket){ sendAcc+=dt; if(sendAcc>0.033){ sendAcc=0; socket.emit('state',{x:me.x,z:me.z,y:me.feetY,yaw:me.yaw,pitch:me.pitch,st:STANCE_ID[me.stance],
+          rl: rollT>0 ? +(1-rollT/ROLL.dur).toFixed(3) : 0});   // roll progress, so others see the tumble
+      } }
     }
     if(me.hp<prevHp-0.5) dmgFlash(); prevHp=me.hp;
     drawCompass();
     // Camera lean/dip during abilities — this is what sells the transition as
     // momentum rather than a teleport between movement modes.
-    let wRoll=0, wDip=0;
+    let wRoll=0, wDip=0, wArc=0;
     if(rollT>0){ const p=1-rollT/ROLL.dur, s=Math.sin(p*Math.PI);
-      wRoll = s*ROLL.lean*rollLean; wDip = s*0.22; }
+      wRoll = s*ROLL.lean*rollLean; wDip = s*0.22;
+      // negative pitch looks DOWN here, and a dive roll tips you toward the
+      // ground before whipping back up — hence the minus
+      wArc  = -s*ROLL.arc*rollFwd; }
     else if(slideT>0){ const s=Math.min(1, slideT/0.25);
       wRoll = 0.20*slideLean*s; wDip = 0.10*s; }
+    rollArc = wArc;                                // follows the roll exactly, no lag
     camRoll += (wRoll-camRoll)*Math.min(1,dt*12);
     camDip  += (wDip -camDip )*Math.min(1,dt*12);
     // Q/E peek: hold to lean. Suppressed mid-roll/slide, which own the camera.
@@ -140,12 +146,14 @@ function loop(){ requestAnimationFrame(loop);
     const off = leanAmt ? clearLean(me.x, me.z, eyeY, rgtX, rgtZ, leanAmt*LEAN.offset) : 0;
     camera.position.set(me.x + rgtX*off, eyeY, me.z + rgtZ*off);
     // right lean rolls negative, matching the sign the dodge roll already uses
-    camera.rotation.order='YXZ'; camera.rotation.set(me.pitch,me.yaw,camRoll - leanAmt*LEAN.angle);
+    const LIM = Math.PI/2 - 0.02;
+    const pitch = Math.max(-LIM, Math.min(LIM, me.pitch + rollArc));
+    camera.rotation.order='YXZ'; camera.rotation.set(pitch,me.yaw,camRoll - leanAmt*LEAN.angle);
     // --- ADS (right-click aim): smooth zoom, tightened aim, scope on sniper ---
     ads += (((aiming && me.alive) ? 1 : 0) - ads) * Math.min(1, dt*10);
     // sprint widens the view a touch — the cue that tells you you're sprinting
     sprintAmt += ((me.sprinting ? 1 : 0) - sprintAmt) * Math.min(1, dt*6);
-    const baseFov = 80 + 9*sprintAmt;
+    const baseFov = 80 + 9*sprintAmt + ROLL.fov*Math.abs(rollArc)/Math.max(ROLL.arc,1e-6);
     const targetFov = baseFov + (curW().adsFov - baseFov) * ads;
     if (Math.abs(camera.fov - targetFov) > 0.05){ camera.fov = targetFov; camera.updateProjectionMatrix(); }
     const scoped = curW().scope && ads > 0.85;
@@ -175,7 +183,10 @@ function loop(){ requestAnimationFrame(loop);
     const sr =  0.30*stanceAmt + 0.45*sp;          // roll/tilt
     // base pose slides toward screen center while aiming
     const bx=0.3*(1-ads), by=-0.28+0.07*ads, bz=-0.55+0.12*ads;
-    gun.position.set(bx+rWob+sx - sw*0.26, by-rDip+sy + Math.abs(sw)*0.10, bz+gunKick*0.1 - Math.abs(sw)*0.14);
+    // tuck the weapon down and in while rolling — you don't run a somersault
+    // with the gun still levelled at the horizon
+    const tuck = ROLL.tuck*Math.abs(rollArc)/Math.max(ROLL.arc,1e-6);
+    gun.position.set(bx+rWob+sx - sw*0.26, by-rDip+sy + Math.abs(sw)*0.10 - tuck, bz+gunKick*0.1 - Math.abs(sw)*0.14 + tuck*0.5);
     gun.rotation.set(gunKick*0.4*(1-ads*0.6) - rRot*0.85 - 0.18*sp - Math.abs(sw)*0.5,
                      rRot*0.3 + sw*0.9,
                      rRot*0.5 + sr + sw*1.1);
@@ -198,9 +209,20 @@ function loop(){ requestAnimationFrame(loop);
   }
 
   // interpolate + animate networked entities
-  const animate=(o)=>{ const m=o.mesh; const nx=m.position.x+(o.tx-m.position.x)*0.2, ny=m.position.y+((o.ty||0)-m.position.y)*0.2, nz=m.position.z+(o.tz-m.position.z)*0.2;
-    const moved=Math.hypot(nx-m.position.x,nz-m.position.z)>0.002; m.position.set(nx,ny,nz);
+  const animate=(o)=>{ const m=o.mesh;
+    /* Interpolate a BASE position that the tumble offset never feeds back into.
+       Writing the offset onto m.position and then lerping FROM m.position next
+       frame compounds it: a roll used to end with the avatar floating ~2m up,
+       sinking back down over the following second. */
+    if(o.bx===undefined){ o.bx=o.tx; o.by=o.ty||0; o.bz=o.tz; }
+    const px=o.bx, pz=o.bz;
+    o.bx += (o.tx-o.bx)*0.2; o.by += ((o.ty||0)-o.by)*0.2; o.bz += (o.tz-o.bz)*0.2;
+    const nx=o.bx, ny=o.by, nz=o.bz;
+    const moved=Math.hypot(nx-px,nz-pz)>0.002; m.position.set(nx,ny,nz);
     // stance pose: crouched players squash down, prone players lie flat
+    // YXZ so yaw is applied first: x then tips relative to the way they face,
+    // instead of about the world axis (which cartwheeled anyone facing east)
+    m.rotation.order = 'YXZ';
     if(o.tst!==undefined){
       o.sAmt = (o.sAmt||0) + ((o.tst) - (o.sAmt||0))*0.18;     // 0 stand, 1 crouch, 2 prone
       const crouch = Math.min(o.sAmt,1), prone = Math.max(0, o.sAmt-1);
@@ -209,6 +231,16 @@ function loop(){ requestAnimationFrame(loop);
       m.position.y = ny + prone*0.25;                           // keep the body on the floor
     }
     let a=m.rotation.y, da=((o.tyaw-a+Math.PI*3)%(Math.PI*2))-Math.PI; m.rotation.y=a+da*0.25;
+    // A roll is a full somersault, pivoted at the hips rather than the feet —
+    // spinning about the feet swings the head through a 1.9m arc and looks wrong.
+    // You can't be prone and rolling (startRoll stands you up), so these don't fight.
+    const rl = o.trl || 0;
+    if(rl > 0){
+      const th = rl*Math.PI*2, HIP = 0.95;
+      const fx = Math.sin(m.rotation.y), fz = Math.cos(m.rotation.y);   // their facing
+      m.rotation.x = th;
+      m.position.set(nx - fx*HIP*Math.sin(th), ny + HIP*(1-Math.cos(th)), nz - fz*HIP*Math.sin(th));
+    }
     const u=m.userData; if(!u.ll) return;   // rigged soldier models have no swing-limbs
     if(moved){ u.walk+=dt*8; const s=Math.sin(u.walk)*0.5; u.ll.rotation.x=s; u.rl.rotation.x=-s; u.la.rotation.x=-s*0.6; u.ra.rotation.x=s*0.4; } else { u.ll.rotation.x*=0.8; u.rl.rotation.x*=0.8; } };
   for(const o of others.values()) animate(o);

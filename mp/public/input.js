@@ -59,8 +59,10 @@ function startRoll(){
   if(keys['KeyW'])d.add(fwd); if(keys['KeyS'])d.sub(fwd); if(keys['KeyD'])d.add(rgt); if(keys['KeyA'])d.sub(rgt);
   if(d.lengthSq()===0) d.copy(fwd);
   rollDir.copy(d.normalize()); rollT=ROLL.dur; rollCdUntil=now+ROLL.cdMs;
-  // lean the camera the way we're rolling
+  // lean the camera the way we're rolling, and pitch it the way we're going:
+  // sideways rolls lean, forward/back rolls somersault
   rollLean = -rollDir.dot(new THREE.Vector3(Math.cos(me.yaw),0,-Math.sin(me.yaw)));
+  rollFwd  =  rollDir.dot(fwd);
   // velocity ramps in via the rate-30 easing below — punchy but not a jump
   me.stance='stand'; Sfx.land();
 }

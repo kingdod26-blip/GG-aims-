@@ -200,6 +200,8 @@ io.on('connection', (socket) => {
     if (typeof d.yaw === 'number') p.yaw = d.yaw;
     if (typeof d.pitch === 'number') p.pitch = d.pitch;
     if (typeof d.st === 'number') p.st = Math.max(0, Math.min(2, d.st|0));   // 0 stand 1 crouch 2 prone
+    // roll progress 0..1, relayed so everyone sees the same somersault
+    if (typeof d.rl === 'number') p.rl = Math.max(0, Math.min(1, d.rl));
     if (typeof d.name === 'string') p.name = d.name.slice(0, 16);
   });
 
@@ -456,7 +458,7 @@ setInterval(() => {
   io.emit('snapshot', {
     t: now,
     players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, name:p.name, color:p.color,
-      mk: (p.markedUntil > now) ? p.markedBy : null })),
+      mk: (p.markedUntil > now) ? p.markedBy : null, rl: p.rl || 0 })),
     bots: bots.map(b => ({ id:b.id, x:b.x, z:b.z, yaw:b.yaw, alive:b.alive, state:b.state, burning: !!b.burnUntil })),
     arrows: arrows.map(a => ({ id:a.id, x:a.x, y:a.y, z:a.z, vx:a.vx, vy:a.vy, vz:a.vz })),
   });

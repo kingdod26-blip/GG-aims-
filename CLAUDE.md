@@ -91,8 +91,10 @@ arrives as one mesh with one material, so `splitGeometryByAxis` cuts the
 triangles into material groups along the model's long axis — limbs/stock for
 the crossbow, grip/guard/blade for the sword. The procedural versions are
 still there and stay on screen until the files load, or if a load fails.
-`V` roll (~7m, 1.2s cd, camera leans `ROLL.lean` = 0.22 rad / ~12° on a
-sideways roll, 0 on a forward one).
+`V` roll (~7m, 1.2s cd). Sideways rolls lean the camera (`ROLL.lean`, ~12°);
+forward/back rolls pitch it through a somersault (`ROLL.arc`, ~29°) with an
+FOV punch and the weapon tucked out of frame. Other players see a full
+hip-pivoted tumble, driven by roll progress sent in the state packet.
 `Q`/`E` peek left/right — hold to lean. `LEAN.angle` 0.16 rad (~9°) plus a
 0.45m sideways shift of the eye, clamped by `clearLean` so you can't put your
 camera through a corner. Suppressed during a roll or slide. Double jump. Sprint (Shift). Stances: `C` crouch,
@@ -185,6 +187,14 @@ Verify in the browser via `javascript_tool`, not by eyeballing. Two traps:
 - Firing while clipped **inside** a collider drops the payload at your feet,
   since the ray starts inside the box. `resolve2D` normally keeps players out
   of geometry, so it shouldn't happen in play.
+- **The roll tumble pivots at the hips, and its offset must not feed back
+  into the position lerp.** `animate()` keeps an interpolated base
+  (`o.bx/by/bz`) and adds the tumble on top. Writing the offset straight onto
+  `m.position` and lerping from it next frame compounds the error — the
+  avatar ended a roll floating ~2m up and sank back down.
+- Remote avatars use Euler order **`YXZ`** so `rotation.x` tips them relative
+  to the way they face. With the default order it is a world-axis rotation,
+  which cartwheeled anyone not facing north.
 - **Peek moves the camera, not your hitbox.** The server only knows the x/z
   you send, so leaning out shows you more without exposing you. That is the
   usual lean tradeoff; closing it means sending a lean offset and applying it
