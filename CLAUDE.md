@@ -78,7 +78,9 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   You carry **one MAIN** (rifle / sniper / shotgun, `MAIN_SLOTS`) **and one
   SIDE** (either pistol, `SIDE_SLOTS`). Buying replaces whatever you held in
   *that* category, no refund, so saving up matters. The crossbow, smoke and blade are always yours and
-  cost nothing. **Tab opens the shop**, which only trades outside a live round.
+  cost nothing. **Tab opens the shop**, which only trades outside a live round. A gun you
+  buy arrives loaded (`refillWeapon`). `MATCH.prepMs` (30s) is the prep
+  window, the same before round 1 as between rounds.
   Money and ownership are server-side: the `buy` handler re-checks phase,
   price and affordability, so a patched client can't hand itself a sniper.
   `canEquip`/`ensureValidWeapon` keep the client honest about what's in hand —

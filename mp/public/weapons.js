@@ -254,6 +254,13 @@ let currentWeapon = 0;
 let weaponAmmo = WEAPONS.map(w=>({ mag:w.magMax, reserve:w.reserveMax }));
 const curW = ()=>WEAPONS[currentWeapon];
 const curAmmo = ()=>weaponAmmo[currentWeapon];
+/* A gun you just paid for arrives loaded — mag and reserve both full.
+   Without this you could buy a rifle mid-match and get last round's
+   leftovers, or three rounds later an empty one. */
+function refillWeapon(i){
+  const w = WEAPONS[i]; if(!w || w.magMax === undefined) return;
+  weaponAmmo[i] = { mag: w.magMax, reserve: w.reserveMax };
+}
 let lastShot=0, reloading=false, reloadTimer=null;
 let aiming=false, ads=0, semiQueued=false;   // ads = smoothed 0..1 aim amount
 /* In multiplayer you carry the free abilities plus the two guns you bought:

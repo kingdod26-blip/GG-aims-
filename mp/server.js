@@ -179,8 +179,9 @@ let arrowSeq = 0;
    round; first to MATCH.winsNeeded rounds takes the match, then everything
    resets and it runs again. Death inside a round is elimination — you sit it
    out until the next one, which is what makes a round worth winning. */
-const MATCH = { winsNeeded: 3, intermissionMs: 8000, endMs: 7000, minPlayers: 2,
-                buyMs: 10000 };          // longer window before round 1 to kit out
+/* prepMs is the buy window, and it is the same before round 1 as it is
+   between rounds — it is all "prep" to the player, so one number. */
+const MATCH = { winsNeeded: 3, prepMs: 30000, endMs: 7000, minPlayers: 2 };
 /* Economy. You carry one MAIN (rifle / sniper / shotgun) and one SIDE (either
    pistol) — buying within a category replaces what you had there, no refund,
    so money is worth saving. The crossbow, smoke and blade are always yours and
@@ -451,7 +452,7 @@ setInterval(() => {
       // and no gun, so you need a chance to spend it before round 1
       resetEconomy();
       match.round = 0; match.roundWinner = null; match.matchWinner = null;
-      openBuyWindow(now, MATCH.buyMs);
+      openBuyWindow(now, MATCH.prepMs);
     }
   } else if (livePlayers.length < MATCH.minPlayers) {
     match.phase = 'waiting'; match.round = 0;
@@ -467,7 +468,7 @@ setInterval(() => {
       if (w && w.wins >= MATCH.winsNeeded) {
         match.phase = 'over'; match.matchWinner = w.id; match.until = now + MATCH.endMs;
       } else {
-        match.phase = 'intermission'; match.until = now + MATCH.intermissionMs;
+        match.phase = 'intermission'; match.until = now + MATCH.prepMs;
       }
     }
   } else if (now >= match.until) {
@@ -475,7 +476,7 @@ setInterval(() => {
     else {                                         // match over -> run it again
       resetEconomy();
       match.round = 0; match.roundWinner = null; match.matchWinner = null;
-      openBuyWindow(now, MATCH.buyMs);
+      openBuyWindow(now, MATCH.prepMs);
     }
   }
 

@@ -196,7 +196,9 @@ function connectMP(name){
   socket.on('groundfire', d=> spawnGroundFire(d.x, d.z));
   socket.on('smoke', d=> spawnSmoke(d.x, d.z, d.by));
   socket.on('bought', d=>{ myMoney=d.money; myMain=d.main; mySide=d.side; Sfx.swap();
-    switchWeapon(d.slot); if(armoryOpen) renderArmory(); });
+    refillWeapon(d.slot);              // you paid for it, it comes loaded
+    reloading=false; clearTimeout(reloadTimer);
+    switchWeapon(d.slot); updateHUD(); if(armoryOpen) renderArmory(); });
   // the server wipes fire, smoke and arrows between rounds — follow it, or
   // last round's pools keep burning on screen over the new one
   socket.on('fieldclear', ()=>{
