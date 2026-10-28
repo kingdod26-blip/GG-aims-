@@ -221,7 +221,12 @@ camera through a corner. Suppressed during a roll or slide. Double jump. Sprint 
   stops it dead and it falls straight down from the point of contact,
   landing wherever it comes to rest. Nothing hangs in mid-air on a wall
   or dangles from the ceiling. Ricochet reflects exactly **once**
-  (`bounces` starts at 1); after that the bolt obeys the same rule.
+  (`bounces` starts at 1); after that the bolt obeys the same rule. **The
+  floor is not a collider box** — it's the `a.y < 0` test — so it carries
+  its own ricochet branch, or a banked shot dies on the ground.
+- **A bolt that runs out of life mid-air fizzles onto the ground beneath**
+  rather than vanishing. A floor ricochet lands there: it skips upward and
+  the post-bounce life cap expires before it comes back down.
 - **Payloads land at the height the bolt stopped**, not on the floor. `dropFire`
   / `dropSmoke` and `spawnGroundFire` / `spawnSmoke` all take a y, and "am I
   standing in it" is measured relative to the pool's own height — so a pool on

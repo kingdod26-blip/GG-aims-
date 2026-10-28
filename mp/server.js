@@ -527,7 +527,14 @@ setInterval(() => {
   for (let i = arrows.length - 1; i >= 0; i--) {
     const a = arrows[i];
     a.life -= dt;
-    if (a.life <= 0) { arrows.splice(i, 1); continue; }
+    if (a.life <= 0) {
+      // A bolt that runs out of time mid-air used to vanish leaving nothing -
+      // which is where a floor ricochet ended up, since it skips upward and
+      // the post-bounce life cap expires before it comes back down. It fizzles
+      // onto the ground beneath instead.
+      (a.smoke ? dropSmoke : dropFire)(a.x, 0, a.z, a.by, now);
+      arrows.splice(i, 1); continue;
+    }
     a.vy -= 9 * dt;                                     // slight drop
     const nx = a.x + a.vx*dt, ny = a.y + a.vy*dt, nz = a.z + a.vz*dt;
     // 3D step, not horizontal: raySphere and rayBoxHit both report true 3D
@@ -588,7 +595,18 @@ setInterval(() => {
       arrows.splice(i, 1); continue;                    // landed on top
     }
     a.x = nx; a.y = ny; a.z = nz;
-    if (a.y < 0) { drop(a.x, 0, a.z); arrows.splice(i, 1); }     // hit the ground
+    /* The floor is not one of the collider boxes - it is this y<0 test - so
+       the ricochet branch above never saw it, and a banked shot died on the
+       ground instead of skipping off it. */
+    if (a.y < 0) {
+      if (a.bounces > 0) {
+        a.bounces--;
+        a.y = 0.02;                                   // back above the floor
+        a.vy = Math.abs(a.vy) * BOUNCE.keep;
+        a.vx *= BOUNCE.keep; a.vz *= BOUNCE.keep;
+        a.life = Math.min(a.life, BOUNCE.lifeS);
+      } else { drop(a.x, 0, a.z); arrows.splice(i, 1); }
+    }
   }
 
   // ---- Smoke clouds: expire, and tag whoever is standing in one ----

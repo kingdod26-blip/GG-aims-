@@ -382,7 +382,13 @@ function updateArrows(dt){
   const t=performance.now();
   for(let i=arrows.length-1;i>=0;i--){
     const a=arrows[i];
-    a.life-=dt; if(a.life<=0){ removeArrow(a); continue; }
+    // out of time mid-air: fizzle onto the ground beneath rather than vanish
+    a.life-=dt;
+    if(a.life<=0){
+      if(a.w.kind==='smoke') spawnSmoke(a.pos.x, 0, a.pos.z, myId);
+      else spawnGroundFire(a.pos.x, 0, a.pos.z);
+      removeArrow(a); continue;
+    }
     a.vel.y -= 9*dt;                                  // slight drop
     const step=a.vel.clone().multiplyScalar(dt);
     const dist=step.length();
@@ -431,8 +437,21 @@ function updateArrows(dt){
       payload(hit.point.x, Math.max(0, hit.point.y), hit.point.z);   // landed on top
       removeArrow(a); continue;
     }
-    if(floorT <= dist){                               // landed on the floor
-      payload(a.pos.x + dir.x*floorT, 0, a.pos.z + dir.z*floorT);
+    if(floorT <= dist){                               // reached the floor
+      const fx = a.pos.x + dir.x*floorT, fz = a.pos.z + dir.z*floorT;
+      // the floor is this test rather than a collider box, so it needs its
+      // own ricochet branch or a banked shot dies on the ground
+      if(a.bounces > 0){
+        a.bounces--;
+        a.pos.set(fx, 0.02, fz);
+        a.vel.y = Math.abs(a.vel.y)*BOUNCE.keep;
+        a.vel.x *= BOUNCE.keep; a.vel.z *= BOUNCE.keep;
+        a.life = Math.min(a.life, BOUNCE.lifeS);
+        a.mesh.position.copy(a.pos); aimArrow(a.mesh,a.vel);
+        Sfx.hit();
+        continue;
+      }
+      payload(fx, 0, fz);
       removeArrow(a); continue;
     }
     a.pos.add(step); a.mesh.position.copy(a.pos); aimArrow(a.mesh,a.vel); flickerArrow(a.mesh,t);
