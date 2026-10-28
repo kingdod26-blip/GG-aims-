@@ -71,7 +71,7 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   by the server and shipped in the snapshot's `match` block so every client
   agrees. Damage handlers all return early unless the phase is `live`.
 - **There is an economy.** You start each match on `ECON.start` ($200) with no
-  guns, take `ECON.win` ($100) for winning a round and `ECON.loss` ($50) for
+  guns, take `ECON.win` ($200) for winning a round and `ECON.loss` ($100) for
   losing. Money resets **per match, never between rounds** — `resetEconomy`
   runs only at match start and match end.
   `PRICES` by slot: rifle 150, sniper 300, shotgun 150, pistols 50.

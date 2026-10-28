@@ -187,7 +187,7 @@ const MATCH = { winsNeeded: 3, intermissionMs: 8000, endMs: 7000, minPlayers: 2,
    cost nothing. Money resets per MATCH, never between rounds.
    Slots match the client's WEAPONS: 0 rifle, 1 sniper, 2 shotgun, 3 pistol,
    4 pistol X. */
-const ECON = { start: 200, win: 100, loss: 50 };
+const ECON = { start: 200, win: 200, loss: 100 };
 const PRICES = [150, 300, 150, 50, 50];
 /* Passive detection. Everyone has it, nobody equips it. When an opponent
    makes a noise — firing a gun, loosing a bolt — it picks them out through
