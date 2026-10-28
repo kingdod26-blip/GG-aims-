@@ -217,6 +217,9 @@ camera through a corner. Suppressed during a roll or slide. Double jump. Sprint 
   `RECTS`.** Bullets and arrows must stop at it, but those two lists also feed
   2D movement (`resolve2D`, `insideWall`, `lineClear`), and a box spanning the
   whole arena there would shove every player sideways out of the map.
+- **An underside is not a landing.** A bolt that hits the roof or the bottom
+  of a crate glances off and falls (`UNDERSIDE`) rather than hanging there
+  with a fire pool stuck to the ceiling. Only tops and walls hold a bolt.
 - **Payloads land at the height the bolt stopped**, not on the floor. `dropFire`
   / `dropSmoke` and `spawnGroundFire` / `spawnSmoke` all take a y, and "am I
   standing in it" is measured relative to the pool's own height — so a pool on

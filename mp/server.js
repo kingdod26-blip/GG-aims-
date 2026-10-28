@@ -208,6 +208,9 @@ const DETECT = { revealMs: 4000, cooldownMs: 30000 };
    than BOUNCE.lifeS to run, so banking one round a corner is a short, close
    shot rather than a second full-length flight. */
 const BOUNCE = { keep: 0.55, lifeS: 1.1 };
+/* Hitting an underside is not a landing: the bolt loses most of its forward
+   speed and falls away from the surface. */
+const UNDERSIDE = { keep: 0.6, drop: 0.25 };
 const MAIN_SLOTS = [0, 1, 2];
 const SIDE_SLOTS = [3, 4];
 const MAX_MAIN = 2, MAX_SIDE = 1;        // what you can carry at once
@@ -568,6 +571,15 @@ setInterval(() => {
         if (wn.axis === 0) a.vx = -a.vx; else if (wn.axis === 1) a.vy = -a.vy; else a.vz = -a.vz;
         a.vx *= BOUNCE.keep; a.vy *= BOUNCE.keep; a.vz *= BOUNCE.keep;
         a.life = Math.min(a.life, BOUNCE.lifeS);        // and it doesn't fly far after
+        continue;
+      }
+      // An arrow that hits the UNDERSIDE of something — the roof, the bottom
+      // of a crate — doesn't hang there. It glances off and drops, and lands
+      // wherever it comes down. Only tops and walls hold a bolt.
+      if (wn.axis === 1 && diry > 0) {
+        a.x += dirx*wallT*0.98; a.y += diry*wallT*0.98; a.z += dirz*wallT*0.98;
+        a.vy = -Math.abs(a.vy) * UNDERSIDE.drop;
+        a.vx *= UNDERSIDE.keep; a.vz *= UNDERSIDE.keep;
         continue;
       }
       drop(a.x + dirx*wallT, Math.max(0, a.y + diry*wallT), a.z + dirz*wallT);
