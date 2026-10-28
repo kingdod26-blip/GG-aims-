@@ -149,6 +149,51 @@ function updateSmoke(dt){
       m.material.opacity = 0.24*fade*near;
     });
   }
+  updateSmokeVeil();      // runs with no clouds too, so it can ease back out
+}
+
+/* ---- Standing inside the smoke ----
+   From the inside the puffs give you nothing: you are inside those spheres,
+   which are front-face only and so cull to nothing, and they are thinned down
+   near the camera anyway to save fill rate. Rather than fight that with more
+   geometry, draw a flat veil across the view — ONE camera-attached quad.
+   Deliberately not a blur: backdrop-filter or a blur pass re-reads the whole
+   framebuffer every frame, which is the exact cost we are avoiding, and a
+   blur hides people worse because movement still reads through it.
+   It sits at z=-1 so your own weapon (at ~0.55) stays in front of it, and at
+   renderOrder 850 so detection silhouettes (900) still show through — your
+   passive keeps working in smoke. */
+let smokeVeil = null;
+function ensureSmokeVeil(){
+  if(smokeVeil) return smokeVeil;
+  smokeVeil = new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+    new THREE.MeshBasicMaterial({ color:0x9aa0a8, transparent:true, opacity:0,
+      depthTest:false, depthWrite:false }));
+  smokeVeil.position.z = -1;
+  smokeVeil.renderOrder = 850;
+  smokeVeil.frustumCulled = false;
+  smokeVeil.visible = false;
+  camera.add(smokeVeil);
+  return smokeVeil;
+}
+function updateSmokeVeil(){
+  const v = ensureSmokeVeil(), mat = v.material;
+  // 0 at the edge of a cloud, 1 dead centre; the deepest cloud wins
+  let depth = 0;
+  if(camera.position.y <= SMOKEFX.top){
+    for(const sm of smokes){
+      const d = Math.hypot(camera.position.x - sm.x, camera.position.z - sm.z);
+      if(d < SMOKEFX.radius) depth = Math.max(depth, 1 - d/SMOKEFX.radius);
+    }
+  }
+  const target = Math.min(1, depth*1.6) * 0.94;   // near-opaque before the centre
+  mat.opacity += (target - mat.opacity) * 0.18;   // ease, so walking in isn't a snap
+  if(mat.opacity < 0.004) mat.opacity = 0;
+  v.visible = mat.opacity > 0;
+  if(!v.visible) return;
+  // fill the frustum at whatever FOV we are on (ADS and sprint both move it)
+  const h = 2 * Math.tan(camera.fov * Math.PI/360);
+  v.scale.set(h * camera.aspect * 1.15, h * 1.15, 1);
 }
 
 /* ---- Marked opponents: drawn through walls, for the thrower only ----

@@ -114,6 +114,16 @@ and the smoke bolt both bank off geometry once. A bounced bolt is spent:
 run, so a bank is a short shot round a corner rather than a second full
 flight. Keep the client and server `BOUNCE` blocks in step.
 `F` blade — 5-hit combo 22/22/28/28/70, resets on miss.
+**Standing inside a cloud is handled by a veil, not by the puffs.** From the
+inside the spheres cull to nothing (front-face only, you're within them) and
+they're thinned near the camera to save fill rate, so the puffs alone leave
+you able to see straight out. `updateSmokeVeil` draws one camera-attached
+quad instead, opacity scaled by how deep you are. Deliberately **not** a
+blur: `backdrop-filter` or a blur pass re-reads the framebuffer every frame,
+which is the cost we're avoiding, and movement still reads through a blur.
+It sits at z=-1 so your weapon stays in front, and renderOrder 850 so
+detection silhouettes (900) still show — the passive works in smoke.
+
 `H` smoke — 2 charges, 30s each, no damage. Lands a cloud (`SMOKEFX.radius`
 5.5, slightly wider than a fire pool) that **tags** anyone standing in it for
 4s; the thrower sees tagged opponents through walls, and the tag renews every
