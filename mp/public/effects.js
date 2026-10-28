@@ -23,7 +23,7 @@
 /* Mirrors the server's BOUNCE: a reflected bolt is spent, keeping little of
    its speed and only a short time to run. */
 const BOUNCE = { keep:0.55, lifeS:1.1 };
-const UNDERSIDE = { keep:0.6, drop:0.25 };   // mirrors the server
+
 const GFIRE = { ms:9000, radius:4.35, baseRadius:1.45, max:14, fadeMs:1200,
                 top:1.0, graceMs:1200, dps:18,     // dps must match the server's FIRE.dps
                 lingerDps:6, lingerMs:5000 };      // still alight after stepping out
@@ -418,17 +418,18 @@ function updateArrows(dt){
         Sfx.hit();
         continue;
       }
-      // underside (roof, bottom of a crate): glance off and fall, don't hang
+      /* Only a TOP face holds a bolt. A wall, the side of a crate or the roof
+         stops it dead and it falls straight down from there — nothing hangs
+         in mid-air. */
       const n2 = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : null;
-      if(n2 && n2.y < -0.5 && a.vel.y > 0){
-        a.pos.copy(hit.point).addScaledVector(n2, 0.06);
-        a.vel.y = -Math.abs(a.vel.y)*UNDERSIDE.drop;
-        a.vel.x *= UNDERSIDE.keep; a.vel.z *= UNDERSIDE.keep;
-        a.mesh.position.copy(a.pos); aimArrow(a.mesh,a.vel);
+      if(!(n2 && n2.y > 0.5)){
+        a.pos.copy(hit.point).addScaledVector(dir, -0.08);
+        a.vel.set(0,0,0);                     // gravity takes it from here
+        a.mesh.position.copy(a.pos); aimArrow(a.mesh, new THREE.Vector3(0,-1,0));
         continue;
       }
-      payload(hit.point.x, Math.max(0, hit.point.y), hit.point.z);   // or on top of a crate
-      removeArrow(a); continue;                       // stick / vanish
+      payload(hit.point.x, Math.max(0, hit.point.y), hit.point.z);   // landed on top
+      removeArrow(a); continue;
     }
     if(floorT <= dist){                               // landed on the floor
       payload(a.pos.x + dir.x*floorT, 0, a.pos.z + dir.z*floorT);

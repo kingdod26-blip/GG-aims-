@@ -208,9 +208,9 @@ const DETECT = { revealMs: 4000, cooldownMs: 30000 };
    than BOUNCE.lifeS to run, so banking one round a corner is a short, close
    shot rather than a second full-length flight. */
 const BOUNCE = { keep: 0.55, lifeS: 1.1 };
-/* Hitting an underside is not a landing: the bolt loses most of its forward
-   speed and falls away from the surface. */
-const UNDERSIDE = { keep: 0.6, drop: 0.25 };
+/* Hitting an underside is not a landing and not a bounce: the bolt stops
+   dead against the surface and drops straight down from the point of
+   contact, rather than skipping along the roof. */
 const MAIN_SLOTS = [0, 1, 2];
 const SIDE_SLOTS = [3, 4];
 const MAX_MAIN = 2, MAX_SIDE = 1;        // what you can carry at once
@@ -573,17 +573,19 @@ setInterval(() => {
         a.life = Math.min(a.life, BOUNCE.lifeS);        // and it doesn't fly far after
         continue;
       }
-      // An arrow that hits the UNDERSIDE of something — the roof, the bottom
-      // of a crate — doesn't hang there. It glances off and drops, and lands
-      // wherever it comes down. Only tops and walls hold a bolt.
-      if (wn.axis === 1 && diry > 0) {
-        a.x += dirx*wallT*0.98; a.y += diry*wallT*0.98; a.z += dirz*wallT*0.98;
-        a.vy = -Math.abs(a.vy) * UNDERSIDE.drop;
-        a.vx *= UNDERSIDE.keep; a.vz *= UNDERSIDE.keep;
+      /* Only a TOP face holds a bolt. Hit a wall, the side of a crate or the
+         roof and it stops dead against the surface and falls straight down
+         from the point of contact — nothing hangs in mid-air on a wall or
+         dangles from the ceiling. It lands, and drops its payload, wherever
+         it comes to rest. */
+      if (!(wn.axis === 1 && diry < 0)) {
+        const back = Math.max(0, wallT - 0.08);   // just shy of the surface
+        a.x += dirx*back; a.y += diry*back; a.z += dirz*back;
+        a.vx = 0; a.vy = 0; a.vz = 0;             // gravity takes it from here
         continue;
       }
       drop(a.x + dirx*wallT, Math.max(0, a.y + diry*wallT), a.z + dirz*wallT);
-      arrows.splice(i, 1); continue;                    // stick in the wall
+      arrows.splice(i, 1); continue;                    // landed on top
     }
     a.x = nx; a.y = ny; a.z = nz;
     if (a.y < 0) { drop(a.x, 0, a.z); arrows.splice(i, 1); }     // hit the ground
