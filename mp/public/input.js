@@ -29,11 +29,12 @@ addEventListener('keydown',e=>{
   if(gameState!=='playing') return;
   if(e.code==='Tab'){ e.preventDefault(); toggleArmory(); return; }
   if(e.code==='KeyR') reload();
-  if(e.code==='Digit1') switchWeapon(0);
-  if(e.code==='Digit2') switchWeapon(1);
-  if(e.code==='Digit3') switchWeapon(2);
-  if(e.code==='Digit4') switchWeapon(3);
-  if(e.code==='Digit5') switchWeapon(4);
+  // Number keys select by POSITION in your list: whatever you bought first is
+  // 1, the next is 2, and the blade sits on the end. They are not tied to a
+  // particular weapon any more.
+  const digit = /^Digit([1-9])$/.exec(e.code);
+  if(digit){ const inv = inventory(), at = +digit[1] - 1;
+             if(at < inv.length) switchWeapon(inv[at]); }
   if(e.code==='Space' && !e.repeat) jumpPressed=true;   // edge, so holding won't spam
   if(e.code==='KeyG') switchWeapon(XBOW);               // equip the crossbow ability
   if(e.code==='KeyH') switchWeapon(SMOKE);              // equip the smoke ability
@@ -93,6 +94,16 @@ addEventListener('mousedown',e=>{
 addEventListener('mouseup',e=>{
   if(e.button===0) wantFire=false;
   if(e.button===2) aiming=false; });
+/* Scroll to change weapon: through your guns and the blade, never onto the
+   crossbow or smoke — landing on an ability mid-fight because you nudged the
+   wheel would be miserable. They stay on G and H. */
+addEventListener('wheel', e=>{
+  if(gameState!=='playing' || !pointerLocked || paused) return;
+  if(Math.abs(e.deltaY) < 1) return;
+  e.preventDefault();
+  cycleWeapon(e.deltaY > 0 ? 1 : -1);
+}, { passive:false });
+
 addEventListener('contextmenu',e=> e.preventDefault());   // right-click = aim, not menu
 document.addEventListener('pointerlockchange',()=>{
   pointerLocked = document.pointerLockElement===canvas;

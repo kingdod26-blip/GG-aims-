@@ -192,27 +192,35 @@ let armoryOpen=false;
 function renderArmory(){
   const shop = (gameMode === 'mp');
   const canBuy = shop && matchState && matchState.phase !== 'live';
+  // nobody to fight yet: the range is a sandbox, take anything
+  const sandbox = shop && matchState && matchState.phase === 'waiting';
   const stale = shop && !econOnline;      // server is older than the economy
   const head = document.querySelector('#armory h2');
   if(head) head.textContent = !shop ? 'ARMORY'
     : stale ? 'ARMORY — shop unavailable'
+    : sandbox ? 'ARMORY — FREE RANGE'
     : `ARMORY — $${myMoney}` + (canBuy ? '' : '  (shop shut during a round)');
 
   const hint = document.querySelector('#armory .armHint');
   if(hint) hint.textContent = !shop
     ? 'Click a weapon or press its number · Tab to close'
     : stale ? 'This server is running an older build with no economy — restart it · Tab to close'
-    : canBuy ? 'Click to buy — one MAIN and one SIDE, abilities are free · Tab to close'
+    : sandbox ? 'No opponent yet — try anything, free. Scroll or 1-9 to switch · Tab to close'
+    : canBuy ? `Click to buy — ${MAX_MAIN} mains and ${MAX_SIDE} side, abilities free · Tab to close`
              : 'Shop opens between rounds · Tab to close';
 
   document.getElementById('armGrid').innerHTML = WEAPONS.map((w,i)=>{
     const free  = w.ability || w.melee;
     const price = free ? 0 : (shopPrices[i] || 0);
     const isMain = MAIN_SLOTS.includes(i), isSide = SIDE_SLOTS.includes(i);
-    const owned = free || !shop || i === myMain || i === mySide;
-    const afford = myMoney >= price;
-    // what buying this would replace, so the card can say so
-    const heldInSlot = isMain ? myMain : isSide ? mySide : null;
+    const owned = free || !shop || myGuns.includes(i);
+    const afford = sandbox || myMoney >= price;
+    // at the cap, buying drops the OLDEST of that kind — say which
+    const sameKind = myGuns.filter(g => MAIN_SLOTS.includes(g) === isMain);
+    const cap = isMain ? MAX_MAIN : MAX_SIDE;
+    const heldInSlot = (!owned && sameKind.length >= cap) ? sameKind[0] : null;
+    // where it sits in your list, which is what the number keys select
+    const invPos = shop ? inventory().indexOf(i) : i;
     const stats = w.ability
       ? `${w.dmg?('DMG '+w.dmg):'NO DAMAGE'}<br>CHARGES ${w.charges} · ${Math.round(w.cooldownMs/1000)}s`
       : w.melee
@@ -223,6 +231,7 @@ function renderArmory(){
     else if(free)  tag = i===currentWeapon ? '<b style="color:#27ff9e">EQUIPPED</b>' : '<span style="opacity:.6">FREE</span>';
     else if(owned) tag = i===currentWeapon ? '<b style="color:#27ff9e">EQUIPPED</b>' : '<b style="color:#27ff9e">OWNED</b>';
     else if(!canBuy) tag = `<span style="opacity:.45">$${price}</span>`;
+    else if(sandbox) tag = '<b style="color:#27ff9e">TAKE IT</b>';
     else {
       const swaps = heldInSlot !== null && heldInSlot !== undefined;
       tag = `<b style="color:${afford?'#ffd15a':'#ff6a6a'}">$${price}</b>` +
@@ -232,7 +241,7 @@ function renderArmory(){
     const slotLbl = !shop ? '' : isMain ? ' · MAIN' : isSide ? ' · SIDE' : '';
     const dim = (shop && !owned && (!canBuy || !afford)) ? 'opacity:.45;' : '';
     return `<div class="wcard ${i===currentWeapon?'equipped':''}" data-i="${i}" style="${dim}">
-      <div class="wkey">[ ${WEAPON_KEY[i]} ]</div>
+      <div class="wkey">[ ${w.ability ? WEAPON_KEY[i] : (invPos >= 0 ? invPos+1 : '–')} ]</div>
       <div class="wname">${w.name}</div>
       <div class="wmode">${w.mode}${slotLbl}${w.scope?' · SCOPE':''}${w.pellets?' · '+w.pellets+' PELLETS':''}</div>
       <div class="wstats">${stats}<br>${tag}</div>
@@ -242,8 +251,8 @@ function renderArmory(){
   [...document.querySelectorAll('.wcard')].forEach(el=> el.onclick=()=>{
     const i = +el.dataset.i, w = WEAPONS[i];
     const free = w.ability || w.melee;
-    if(shop && !free && i !== myMain && i !== mySide){
-      if(!canBuy || myMoney < (shopPrices[i]||0)){ Sfx.empty(); return; }
+    if(shop && !free && !myGuns.includes(i)){
+      if(!canBuy || (!sandbox && myMoney < (shopPrices[i]||0))){ Sfx.empty(); return; }
       socket.emit('buy', { slot:i });     // server confirms with 'bought'
       return;
     }

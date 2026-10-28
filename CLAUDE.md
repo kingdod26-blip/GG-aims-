@@ -75,9 +75,16 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   losing. Money resets **per match, never between rounds** — `resetEconomy`
   runs only at match start and match end.
   `PRICES` by slot: rifle 150, sniper 300, shotgun 150, pistols 50.
-  You carry **one MAIN** (rifle / sniper / shotgun, `MAIN_SLOTS`) **and one
-  SIDE** (either pistol, `SIDE_SLOTS`). Buying replaces whatever you held in
-  *that* category, no refund, so saving up matters. The crossbow, smoke and blade are always yours and
+  You carry `MAX_MAIN` (2) mains and `MAX_SIDE` (1) side, held as an
+  **ordered list** (`p.guns`, purchase order). Buying past the cap drops the
+  **oldest of that category**, no refund. Number keys select by **position in
+  the list**, not by weapon — first bought is 1. The mouse wheel cycles the
+  same list (`cycleWeapon`), which is guns + blade and deliberately **never
+  the abilities**: landing on the crossbow because you nudged the wheel would
+  be miserable, so they stay on G and H.
+  While the phase is `waiting` the range is a **free sandbox** — buying costs
+  nothing so you can try every weapon. The cap still applies, so you cycle
+  through rather than hoarding. The crossbow, smoke and blade are always yours and
   cost nothing. **Tab opens the shop**, which only trades outside a live round. A gun you
   buy arrives loaded (`refillWeapon`). `MATCH.prepMs` (30s) is the prep
   window, the same before round 1 as between rounds.

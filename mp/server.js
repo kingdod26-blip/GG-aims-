@@ -202,6 +202,10 @@ const DETECT = { revealMs: 4000, cooldownMs: 30000 };
 const BOUNCE = { keep: 0.55, lifeS: 1.1 };
 const MAIN_SLOTS = [0, 1, 2];
 const SIDE_SLOTS = [3, 4];
+const MAX_MAIN = 2, MAX_SIDE = 1;        // what you can carry at once
+/* Guns are held as an ORDERED list: the first you buy is position 1, the
+   second position 2, and the number keys pick by position rather than by
+   weapon. Buying past the limit drops the oldest of that category. */
 const match = { phase: 'waiting', round: 0, until: 0, roundWinner: null, matchWinner: null };
 
 function respawnAll() {
@@ -221,7 +225,7 @@ function openBuyWindow(now, ms) {          // intermission doubles as the shop
   clearField(); respawnAll(); resetDetection();
 }
 function resetEconomy() {
-  for (const p of players.values()) { p.wins = 0; p.money = ECON.start; p.main = null; p.side = null; }
+  for (const p of players.values()) { p.wins = 0; p.money = ECON.start; p.guns = []; }
 }
 /* Somebody just made a noise. Anyone whose passive is off cooldown picks them
    out, and their own passive then sleeps for 30s. Called from every handler
@@ -262,7 +266,7 @@ io.on('connection', (socket) => {
   const player = {
     id: socket.id, x: s.x, z: s.z, y: 0, yaw: 0, pitch: 0, st: 0,
     hp: 100, alive: true, kills: 0, deaths: 0, wins: 0,
-    money: ECON.start, main: null, side: null,   // owned WEAPONS slots, or null
+    money: ECON.start, guns: [],       // owned WEAPONS slots, in purchase order
     detectReadyAt: 0, detectUntil: 0, detectTarget: null,
     color: COLORS[players.size % COLORS.length],
     name: 'Player-' + socket.id.slice(0, 4),
@@ -359,13 +363,21 @@ io.on('connection', (socket) => {
     if (match.phase === 'live') return;              // shop shuts during a round
     const slot = d && d.slot | 0;
     if (!(slot >= 0 && slot < PRICES.length)) return;
-    const isMain = MAIN_SLOTS.includes(slot);
-    if ((isMain ? p.main : p.side) === slot) return; // already carrying that one
-    const price = PRICES[slot];
+    if (p.guns.includes(slot)) return;               // already carrying that one
+    // Nobody is here yet, so the range is a sandbox: try anything, free.
+    const sandbox = (match.phase === 'waiting');
+    const price = sandbox ? 0 : PRICES[slot];
     if (p.money < price) return;
-    p.money -= price;                                // replaces that slot, no refund
-    if (isMain) p.main = slot; else p.side = slot;
-    socket.emit('bought', { slot, money: p.money, main: p.main, side: p.side });
+    const isMain = MAIN_SLOTS.includes(slot);
+    const held = p.guns.filter(g => MAIN_SLOTS.includes(g) === isMain);
+    const cap = isMain ? MAX_MAIN : MAX_SIDE;
+    while (held.length >= cap) {                     // drop the oldest of its kind
+      const drop = held.shift();
+      p.guns.splice(p.guns.indexOf(drop), 1);
+    }
+    p.money -= price;
+    p.guns.push(slot);                               // newest goes on the end
+    socket.emit('bought', { slot, money: p.money, guns: p.guns.slice() });
   });
 
   // ---- Blade: five-hit melee combo, validated server-side ----
@@ -625,11 +637,12 @@ setInterval(() => {
   io.emit('snapshot', {
     t: now,
     prices: PRICES, mainSlots: MAIN_SLOTS, sideSlots: SIDE_SLOTS,
+    maxMain: MAX_MAIN, maxSide: MAX_SIDE,
     match: { phase: match.phase, round: match.round, winsNeeded: MATCH.winsNeeded,
              endsIn: match.until ? Math.max(0, match.until - now) : 0,
              roundWinner: match.roundWinner, matchWinner: match.matchWinner },
     players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, wins:p.wins||0, money:p.money,
-      main:p.main, side:p.side,
+      guns:p.guns,
       name:p.name, color:p.color,
       mk: (p.markedUntil > now) ? p.markedBy : null, rl: p.rl || 0,
       dT: p.detectTarget, dU: Math.max(0, p.detectUntil - now),

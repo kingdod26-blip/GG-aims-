@@ -263,23 +263,36 @@ function refillWeapon(i){
 }
 let lastShot=0, reloading=false, reloadTimer=null;
 let aiming=false, ads=0, semiQueued=false;   // ads = smoothed 0..1 aim amount
-/* In multiplayer you carry the free abilities plus the two guns you bought:
-   one MAIN (rifle / sniper / shotgun) and one SIDE (either pistol).
-   Target practice is unrestricted — the economy is a multiplayer thing. */
+/* What you can cycle through: the guns you bought, in the order you bought
+   them, then the blade on the end. The crossbow and smoke are abilities —
+   they live on their own keys and are deliberately NOT in this list, so the
+   scroll wheel never lands on them mid-fight.
+   Target practice has no economy, so everything is yours there. */
+function inventory(){
+  if(gameMode !== 'mp') return [0,1,2,3,4,BLADE];
+  return [...myGuns, BLADE];
+}
 function canEquip(i){
   const w = WEAPONS[i]; if(!w) return false;
+  if(w.ability) return true;                 // crossbow and smoke, always yours
   if(gameMode !== 'mp') return true;
-  if(w.ability || w.melee) return true;      // crossbow, smoke and blade are always yours
-  return i === myMain || i === mySide;
+  return inventory().includes(i);
 }
 /* Called when the loadout changes: if you're holding something you no longer
-   own, fall back to your main, then your side, then the crossbow — never
-   leave a phantom gun in hand. */
+   own, drop to the first thing in the list rather than leaving a phantom gun
+   in hand. */
 function ensureValidWeapon(){
   if(canEquip(currentWeapon)) return;
-  const fallback = (myMain !== null && myMain !== undefined) ? myMain
-                 : (mySide !== null && mySide !== undefined) ? mySide : XBOW;
-  switchWeapon(fallback);
+  const inv = inventory();
+  switchWeapon(inv.length ? inv[0] : XBOW);
+}
+/* Scroll through the list. Starting from an ability (which isn't in it) we
+   enter at the top rather than jumping somewhere arbitrary. */
+function cycleWeapon(dir){
+  const inv = inventory(); if(!inv.length) return;
+  const at = inv.indexOf(currentWeapon);
+  const next = at < 0 ? 0 : (at + dir + inv.length) % inv.length;
+  switchWeapon(inv[next]);
 }
 function switchWeapon(i){
   if(i===currentWeapon || i<0 || i>=WEAPONS.length) return;

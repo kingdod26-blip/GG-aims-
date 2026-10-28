@@ -14,12 +14,13 @@
 let gameState='home', gameMode=null, myId=null, connected=false, localKills=0;
 /* Economy, mirrored from the server — never trusted as the source of truth,
    it only drives what the shop shows and what you're allowed to equip. */
-let myMoney=0, myMain=null, mySide=null, econOnline=false;
+let myMoney=0, myGuns=[], econOnline=false;     // myGuns: owned slots, purchase order
 /* Passive detection, mirrored from the server. detectTarget is who your
    passive has picked out; detectUntil/detectReady are local deadlines so the
    HUD can count down smoothly between snapshots. */
 let detectTarget=null, detectUntil=0, detectReady=0;
 let shopPrices=[150,300,150,50,50], MAIN_SLOTS=[0,1,2], SIDE_SLOTS=[3,4];
+let MAX_MAIN=2, MAX_SIDE=1;
 let socket=null;
 const others = new Map();     // networked players
 const serverBots = new Map(); // networked bots (mp)
@@ -195,7 +196,7 @@ function connectMP(name){
   socket.on('impact', ()=> hitmark());
   socket.on('groundfire', d=> spawnGroundFire(d.x, d.z));
   socket.on('smoke', d=> spawnSmoke(d.x, d.z, d.by));
-  socket.on('bought', d=>{ myMoney=d.money; myMain=d.main; mySide=d.side; Sfx.swap();
+  socket.on('bought', d=>{ myMoney=d.money; myGuns=(d.guns||[]).slice(); Sfx.swap();
     refillWeapon(d.slot);              // you paid for it, it comes loaded
     reloading=false; clearTimeout(reloadTimer);
     switchWeapon(d.slot); updateHUD(); if(armoryOpen) renderArmory(); });
@@ -223,11 +224,13 @@ function onSnapshot(s){
   if(s.prices) shopPrices = s.prices;
   if(s.mainSlots) MAIN_SLOTS = s.mainSlots;
   if(s.sideSlots) SIDE_SLOTS = s.sideSlots;
+  if(s.maxMain)   MAX_MAIN = s.maxMain;
+  if(s.maxSide)   MAX_SIDE = s.maxSide;
   updateMatchUI(s.match, s.players);
   const mine = s.players.find(p=>p.id===myId);
   if (mine){ me.hp=mine.hp;
-    const norm = v => (v===undefined ? null : v);
-    const loadoutChanged = (myMain !== norm(mine.main) || mySide !== norm(mine.side));
+    const incoming = mine.guns || [];
+    const loadoutChanged = (myGuns.join() !== incoming.join());
     // A server from before the economy sends no money at all. Without this the
     // shop just shows $0 and silently refuses every purchase, which looks
     // exactly like a broken shop rather than a stale server.
@@ -235,7 +238,7 @@ function onSnapshot(s){
     detectTarget = mine.dT || null;
     detectUntil  = mine.dU ? performance.now() + mine.dU : 0;
     detectReady  = mine.dR ? performance.now() + mine.dR : 0;
-    myMoney = mine.money||0; myMain = norm(mine.main); mySide = norm(mine.side);
+    myMoney = mine.money||0; myGuns = incoming.slice();
     // unconditional: you join holding the rifle from init, which you do not own
     ensureValidWeapon();
     if(loadoutChanged && armoryOpen) renderArmory();
