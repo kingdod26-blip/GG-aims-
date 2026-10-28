@@ -235,6 +235,15 @@ function noiseMade(byId, now) {
     p.detectReadyAt = now + DETECT.cooldownMs;
   }
 }
+/* Being eliminated moves you to a spawn point rather than leaving your body
+   where it fell. You sit the round out there — same place you'd start a round
+   or a match from. Bots have no spawn to go to, so they stay put. */
+function eliminate(e, isPlayer) {
+  e.alive = false; e.hp = 0;
+  e.burnUntil = 0; e.burnRate = 0; e.inFire = false;
+  e.markedUntil = 0; e.markedBy = null; e.rl = 0;
+  if (isPlayer) { const s = randomSpawn(); e.x = s.x; e.z = s.z; e.y = 0; e.st = 0; }
+}
 function resetDetection() {
   for (const p of players.values()) { p.detectReadyAt = 0; p.detectUntil = 0; p.detectTarget = null; }
 }
@@ -319,7 +328,7 @@ io.on('connection', (socket) => {
       tgt.hp -= dealt;
       io.emit('impact', { x: o.x + dir.x*best.t, y: o.y + dir.y*best.t, z: o.z + dir.z*best.t, head: best.head });
       if (tgt.hp <= 0 && tgt.alive) {
-        tgt.alive = false; tgt.hp = 0;
+        eliminate(tgt, best.target.kind === 'player');
         p.kills++;
         if (best.target.kind === 'player') tgt.deaths++;   // eliminated for this round
         io.emit('kill', { by: p.name, victim: best.target.kind === 'bot' ? 'a bot' : tgt.name, head: best.head });
@@ -389,7 +398,7 @@ io.on('connection', (socket) => {
     p.comboStep = (step + 1) % MELEE.combo.length;
     p.comboUntil = now + MELEE.windowMs;
     if (t.hp <= 0 && t.alive) {
-      t.alive = false; t.hp = 0; t.burnUntil = 0; p.kills++;
+      eliminate(t, isPlayer); p.kills++;
       if (isPlayer) t.deaths++;
       io.emit('kill', { by: p.name, victim: isPlayer ? t.name : 'a bot', head: step === MELEE.combo.length-1 });
     }
@@ -429,7 +438,7 @@ function igniteTarget(hit, byId, now) {
   io.emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false, fire:true });
   io.emit('groundfire', { x:t.x, z:t.z });          // pool at their feet
   if (t.hp <= 0 && t.alive) {
-    t.alive = false; t.hp = 0; t.burnUntil = 0;
+    eliminate(t, isPlayer);
     if (shooter) shooter.kills++;
     if (isPlayer) t.deaths++;
     io.emit('kill', { by: shooter ? shooter.name : 'fire', victim: isPlayer ? t.name : 'a bot', head:false });
@@ -602,7 +611,7 @@ setInterval(() => {
     e.burnNext = now + 1000;
     e.hp -= (e.burnRate || XBOW.burnDps);
     if (e.hp <= 0 && e.alive) {
-      e.alive = false; e.hp = 0; e.burnUntil = 0; e.burnRate = 0; e.inFire = false;
+      eliminate(e, isPlayer);
       const killer = players.get(e.burnBy);
       if (killer) killer.kills++;
       if (isPlayer) e.deaths++;

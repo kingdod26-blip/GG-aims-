@@ -63,8 +63,18 @@
   #feed div.fade { opacity:0; transform:translateX(-12px); }
   #feed .hs { color:#ffd15a; }
   #status { position:fixed; bottom:16px; right:20px; z-index:10; color:#5a6472; font-size:11px; letter-spacing:1px; }
-  #respawn { position:fixed; inset:0; z-index:15; display:none; align-items:center; justify-content:center; flex-direction:column; color:#fff; background:rgba(6,8,11,.55); }
-  #respawn h1 { font-size:42px; font-weight:900; color:#ff6a6a; letter-spacing:2px; }
+  /* Eliminated banner. No full-screen dim on purpose: you sit out the rest of
+     the round watching it, and greying the whole view for 30s is miserable.
+     It announces itself, then shrinks out of the way. */
+  #respawn { position:fixed; left:0; right:0; top:22%; z-index:15; display:none;
+             text-align:center; color:#fff; pointer-events:none;
+             text-shadow:0 2px 18px rgba(0,0,0,.8); }
+  #respawn h1 { margin:0; font-size:40px; font-weight:900; color:#ff6a6a;
+                letter-spacing:5px; transition:font-size .45s ease, opacity .45s ease; }
+  #respawn p  { margin:8px 0 0; font-size:13px; letter-spacing:3px; color:#cfd6e0;
+                opacity:.85; transition:opacity .45s ease; }
+  #respawn.quiet h1 { font-size:15px; letter-spacing:3px; opacity:.7; }
+  #respawn.quiet p  { opacity:0; }
 
   /* Round / match banner, centred above the crosshair so it reads instantly */
   #banner { position:fixed; left:0; right:0; top:14%; z-index:14; display:none;

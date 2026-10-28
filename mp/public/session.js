@@ -115,7 +115,7 @@ function quitToMenu(){
   document.body.classList.remove('playing');
   document.getElementById('crosshair').style.display='none';
   document.getElementById('scope').style.display='none';
-  document.getElementById('respawn').style.display='none';
+  showEliminated(false);
   clearFeed(); clearGroundFires();
   heroGroup.forEach(o=>o.visible=true); gun.visible=false;
   document.getElementById('mode').classList.add('hidden');
@@ -209,6 +209,16 @@ function connectMP(name){
   });
   socket.on('kill', addFeed);
 }
+/* The eliminated banner: loud for a moment, then it gets out of the way so
+   you can actually watch the rest of the round. */
+let eliminatedTimer = 0;
+function showEliminated(on){
+  const el = document.getElementById('respawn');
+  clearTimeout(eliminatedTimer);
+  el.classList.remove('quiet');
+  el.style.display = on ? 'block' : 'none';
+  if(on) eliminatedTimer = setTimeout(()=> el.classList.add('quiet'), 1800);
+}
 function onSnapshot(s){
   if(s.prices) shopPrices = s.prices;
   if(s.mainSlots) MAIN_SLOTS = s.mainSlots;
@@ -229,10 +239,14 @@ function onSnapshot(s){
     // unconditional: you join holding the rifle from init, which you do not own
     ensureValidWeapon();
     if(loadoutChanged && armoryOpen) renderArmory();
-    if (me.alive && !mine.alive) { document.getElementById('respawn').style.display='flex';
-      document.getElementById('respawnMsg').textContent = 'Out for this round — watch it play out';
-      document.exitPointerLock(); }
-    if (!me.alive && mine.alive){ me.x=mine.x; me.z=mine.z; me.feetY=0; document.getElementById('respawn').style.display='none'; }
+    if (me.alive && !mine.alive) {
+      // the server moves you to a spawn point when you go down; follow it
+      // rather than leaving the camera where your body fell
+      me.x=mine.x; me.z=mine.z; me.feetY=mine.y||0; me.vy=0; me.hv.set(0,0,0);
+      showEliminated(true);
+      document.exitPointerLock();
+    }
+    if (!me.alive && mine.alive){ me.x=mine.x; me.z=mine.z; me.feetY=0; showEliminated(false); }
     me.alive=mine.alive;
   }
   const seen=new Set();
