@@ -213,6 +213,14 @@ camera through a corner. Suppressed during a roll or slide. Double jump. Sprint 
   burn loop skips dead bots, so a bot killed mid-burn kept its fx group
   parented to its mesh and `respawnLocalBot` made that mesh visible again —
   it came back permanently alight. Every kill path has to call it.
+- **The ceiling is in `wallMeshes` / `RAY_BOXES`, never in `colliders` or
+  `RECTS`.** Bullets and arrows must stop at it, but those two lists also feed
+  2D movement (`resolve2D`, `insideWall`, `lineClear`), and a box spanning the
+  whole arena there would shove every player sideways out of the map.
+- **Payloads land at the height the bolt stopped**, not on the floor. `dropFire`
+  / `dropSmoke` and `spawnGroundFire` / `spawnSmoke` all take a y, and "am I
+  standing in it" is measured relative to the pool's own height — so a pool on
+  a crate burns people on that crate, not under it.
 - **Don't let the ceiling cast shadows.** A shadow-casting lid between the key
   light and the floor drops the entire room to black.
 - **Server colliders are 3D boxes (`RECTS` carry `miny`/`maxy`), and the ray

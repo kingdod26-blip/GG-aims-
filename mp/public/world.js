@@ -69,6 +69,9 @@ addBox(-ARENA,WH/2,0,2,WH,ARENA*2,0x5a6472); addBox(ARENA,WH/2,0,2,WH,ARENA*2,0x
 const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ARENA*2, ARENA*2),
   pbr('wall', 20, 20, { roughness:0.95, metalness:0.0, color:0x6a7079 }));
 ceiling.rotation.x = Math.PI/2; ceiling.position.y = WH; scene.add(ceiling);
+// arrows and bullets have to stop at the roof like anything else; it is in
+// wallMeshes (3D raycasts only) but NOT in colliders, which is 2D movement
+wallMeshes.push(ceiling);
 /* Ceiling lamps: unlit geometry, not lights. They read as the source of the
    room's light without adding a single real light to the scene — which is the
    point, because with no tone mapping a grid of point lights would burn the

@@ -27,9 +27,9 @@ const GFIRE = { ms:9000, radius:4.35, baseRadius:1.45, max:14, fadeMs:1200,
                 top:1.0, graceMs:1200, dps:18,     // dps must match the server's FIRE.dps
                 lingerDps:6, lingerMs:5000 };      // still alight after stepping out
 const groundFires = [];
-function spawnGroundFire(x, z){
+function spawnGroundFire(x, y, z){
   while(groundFires.length >= GFIRE.max) removeGroundFire(groundFires[0]);
-  const g = new THREE.Group(); g.position.set(x, 0, z);
+  const g = new THREE.Group(); g.position.set(x, y||0, z);   // sits where the bolt stopped
   const flat = (r, color, opacity, y)=>{
     const m = new THREE.Mesh(new THREE.CircleGeometry(r, 24),
       new THREE.MeshBasicMaterial({ color, transparent:true, opacity, depthWrite:false }));
@@ -88,9 +88,9 @@ function updateGroundFires(dt){
    walls, and the timer renews for as long as they stay in the cloud. */
 const SMOKEFX = { ms:10000, radius:5.5, puffs:22, fadeMs:1500, markMs:4000, top:3.4 };
 const smokes = [];
-function spawnSmoke(x, z, byId){
+function spawnSmoke(x, y, z, byId){
   while(smokes.length >= 8) removeSmoke(smokes[0]);
-  const g = new THREE.Group(); g.position.set(x, 0, z);
+  const g = new THREE.Group(); g.position.set(x, y||0, z);   // sits where the bolt stopped
   const puffs = [];
   for(let i=0;i<SMOKEFX.puffs;i++){
     const m = new THREE.Mesh(new THREE.SphereGeometry(1.25+Math.random()*0.75, 8, 8),
@@ -103,7 +103,7 @@ function spawnSmoke(x, z, byId){
     g.add(m); puffs.push(m);
   }
   scene.add(g);
-  const sm = { g, puffs, x, z, by:byId||null, born:performance.now(),
+  const sm = { g, puffs, x, y:y||0, z, by:byId||null, born:performance.now(),
                until:performance.now()+SMOKEFX.ms, t:Math.random()*10 };
   smokes.push(sm);
   return sm;
@@ -119,13 +119,17 @@ function clearSmoke(){ while(smokes.length) removeSmoke(smokes[0]); }
 /* Is this point standing in a fire pool? Mirrors smokeAt, including the
    height check so someone up on a crate is clear of it. */
 function fireAt(x, y, z){
-  if(y > GFIRE.top) return null;
-  for(const f of groundFires) if(Math.hypot(x-f.g.position.x, z-f.g.position.z) <= GFIRE.radius) return f;
+  for(const f of groundFires){
+    const fy = f.g.position.y;                    // a pool can sit on a crate
+    if(y < fy - 0.6 || y > fy + GFIRE.top) continue;
+    if(Math.hypot(x-f.g.position.x, z-f.g.position.z) <= GFIRE.radius) return f;
+  }
   return null;
 }
 function smokeAt(x, y, z){
   for(const sm of smokes){
-    if(y > SMOKEFX.top) continue;
+    const sy = sm.y || 0;                         // a cloud can sit on a crate
+    if(y < sy - 0.6 || y > sy + SMOKEFX.top) continue;
     if(Math.hypot(x-sm.x, z-sm.z) <= SMOKEFX.radius) return sm;
   }
   return null;
@@ -180,11 +184,11 @@ function updateSmokeVeil(){
   const v = ensureSmokeVeil(), mat = v.material;
   // 0 at the edge of a cloud, 1 dead centre; the deepest cloud wins
   let depth = 0;
-  if(camera.position.y <= SMOKEFX.top){
-    for(const sm of smokes){
-      const d = Math.hypot(camera.position.x - sm.x, camera.position.z - sm.z);
-      if(d < SMOKEFX.radius) depth = Math.max(depth, 1 - d/SMOKEFX.radius);
-    }
+  for(const sm of smokes){
+    const sy = sm.y || 0;
+    if(camera.position.y < sy - 0.6 || camera.position.y > sy + SMOKEFX.top) continue;
+    const d = Math.hypot(camera.position.x - sm.x, camera.position.z - sm.z);
+    if(d < SMOKEFX.radius) depth = Math.max(depth, 1 - d/SMOKEFX.radius);
   }
   const target = Math.min(1, depth*1.6) * 0.94;   // near-opaque before the centre
   mat.opacity += (target - mat.opacity) * 0.18;   // ease, so walking in isn't a snap
@@ -396,9 +400,9 @@ function updateArrows(dt){
       let tt=Infinity,hs=false; if(hh<tt){tt=hh;hs=true;} if(body<tt){tt=body;hs=false;}
       if(tt<bestT){bestT=tt;bestBot=b;head=hs;} }
     // what this bolt leaves behind where it lands
-    const payload = (px,pz)=> a.w.kind==='smoke' ? spawnSmoke(px,pz,myId) : spawnGroundFire(px,pz);
+    const payload = (px,py,pz)=> a.w.kind==='smoke' ? spawnSmoke(px,py,pz,myId) : spawnGroundFire(px,py,pz);
     if(bestBot && bestT<=dist && bestT<=floorT && (!hit || bestT<hit.distance)){
-      if(a.w.kind==='smoke') payload(bestBot.x, bestBot.z);   // no damage, just cover
+      if(a.w.kind==='smoke') payload(bestBot.x, 0, bestBot.z);   // no damage, just cover
       else igniteLocalBot(bestBot, a.dmg, a.w);
       removeArrow(a); continue;
     }
@@ -413,11 +417,11 @@ function updateArrows(dt){
         Sfx.hit();
         continue;
       }
-      payload(hit.point.x, hit.point.z);              // lands at the foot of the wall
+      payload(hit.point.x, Math.max(0, hit.point.y), hit.point.z);   // or on top of a crate
       removeArrow(a); continue;                       // stick / vanish
     }
     if(floorT <= dist){                               // landed on the floor
-      payload(a.pos.x + dir.x*floorT, a.pos.z + dir.z*floorT);
+      payload(a.pos.x + dir.x*floorT, 0, a.pos.z + dir.z*floorT);
       removeArrow(a); continue;
     }
     a.pos.add(step); a.mesh.position.copy(a.pos); aimArrow(a.mesh,a.vel); flickerArrow(a.mesh,t);
@@ -453,7 +457,7 @@ function extinguish(b){
 }
 function igniteLocalBot(b,dmg,w){
   b.hp-=dmg; hitmark(); Sfx.hit();
-  spawnGroundFire(b.x, b.z);                          // the pool it leaves underfoot
+  spawnGroundFire(b.x, 0, b.z);                       // the pool it leaves underfoot
   b.burnUntil=performance.now()+w.burnMs; b.burnNext=performance.now()+1000; b.burnDps=w.burnDps;
   if(!b.fire) b.fire = makeBurnFx(b.mesh);            // visible flames on the target
   if(b.hp<=0 && b.alive){ b.alive=false; b.mesh.visible=false; extinguish(b);

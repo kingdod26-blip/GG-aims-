@@ -38,12 +38,20 @@ const LAYOUT = [ // [x, z, w, d, h]
 const RECTS = LAYOUT.map(([x,z,w,d,h]) => ({ minx:x-w/2, minz:z-d/2, maxx:x+w/2, maxz:z+d/2, miny:0, maxy:h }));
 // The perimeter walls are collidable on the client, so the server needs them
 // too — otherwise bullets and ricocheting arrows fly straight through them.
+/* The roof. It is deliberately NOT in RECTS: that list also drives resolve2D,
+   insideWall and lineClear, which are all 2D, so a box covering the whole
+   arena would shove every player sideways out of the map. It belongs only to
+   the 3D ray tests, hence a separate list. */
+const CEILING = { minx:-ARENA-1, minz:-ARENA-1, maxx:ARENA+1, maxz:ARENA+1,
+                  miny:WALL_H, maxy:WALL_H+1 };
 RECTS.push(
   { minx:-ARENA-1, minz:-ARENA-1, maxx: ARENA+1, maxz:-ARENA+1, miny:0, maxy:WALL_H },   // north
   { minx:-ARENA-1, minz: ARENA-1, maxx: ARENA+1, maxz: ARENA+1, miny:0, maxy:WALL_H },   // south
   { minx:-ARENA-1, minz:-ARENA-1, maxx:-ARENA+1, maxz: ARENA+1, miny:0, maxy:WALL_H },   // west
   { minx: ARENA-1, minz:-ARENA-1, maxx: ARENA+1, maxz: ARENA+1, miny:0, maxy:WALL_H },   // east
 );
+// what bullets and arrows collide with: the walls plus the roof
+const RAY_BOXES = RECTS.concat([CEILING]);
 
 /* ------------------------------- Geometry --------------------------------- */
 // 2D segment (from → to) vs axis-aligned rectangle. Returns nearest hit
@@ -248,6 +256,17 @@ function eliminate(e, isPlayer) {
   e.markedUntil = 0; e.markedBy = null; e.rl = 0;
   if (isPlayer) { const s = randomSpawn(); e.x = s.x; e.z = s.z; e.y = 0; e.st = 0; }
 }
+/* Payloads land where the bolt actually stopped, height included. These used
+   to be x/z only, so a bolt that stuck in the top of a crate put its fire on
+   the floor underneath. */
+function dropFire(x, y, z, byId, now) {
+  fires.push({ x, y, z, by: byId, until: now + FIRE.ms });
+  io.emit('groundfire', { x, y, z });
+}
+function dropSmoke(x, y, z, byId, now) {
+  smokes.push({ x, y, z, by: byId, until: now + SMOKE.ms });
+  io.emit('smoke', { x, y, z, by: byId });
+}
 function resetDetection() {
   for (const p of players.values()) { p.detectReadyAt = 0; p.detectUntil = 0; p.detectTarget = null; }
 }
@@ -302,7 +321,7 @@ io.on('connection', (socket) => {
 
     // nearest wall blocks the bullet — in 3D, so shots pass over low cover
     let wall = Infinity;
-    for (const r of RECTS) {
+    for (const r of RAY_BOXES) {
       const h = rayBoxHit(o, dir, r);
       if (h && h.t < wall) wall = h.t;
     }
@@ -448,7 +467,7 @@ function igniteTarget(hit, byId, now) {
   t.burnRate = XBOW.burnDps;
   const shooter = players.get(byId);
   io.emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false, fire:true });
-  io.emit('groundfire', { x:t.x, z:t.z });          // pool at their feet
+  dropFire(t.x, t.y || 0, t.z, byId, now);         // pool at their feet
   if (t.hp <= 0 && t.alive) {
     eliminate(t, isPlayer);
     if (shooter) shooter.kills++;
@@ -529,20 +548,16 @@ setInterval(() => {
 
     // nearest wall along this step, height-aware
     let wallT = Infinity, wn = null;
-    for (const r of RECTS) {
+    for (const r of RAY_BOXES) {
       const h = rayBoxHit(o, dir, r);
       if (h && h.t < wallT && h.t <= stepLen) { wallT = h.t; wn = h; }
     }
 
     // where this bolt's payload lands
-    const drop = (px, pz) => {
-      if (a.smoke) { smokes.push({ x:px, z:pz, by:a.by, until: now + SMOKE.ms });
-                     io.emit('smoke', { x:px, z:pz, by:a.by }); }
-      else { fires.push({ x:px, z:pz, by:a.by, until: now + FIRE.ms });
-             io.emit('groundfire', { x:px, z:pz }); }
-    };
+    const drop = (px, py, pz) => a.smoke ? dropSmoke(px, py, pz, a.by, now)
+                                         : dropFire(px, py, pz, a.by, now);
     if (victim && hitT <= wallT) {                      // hit someone
-      if (a.smoke) drop(victim.ref.x, victim.ref.z);    // cover, not damage
+      if (a.smoke) drop(victim.ref.x, victim.ref.y || 0, victim.ref.z);   // cover, not damage
       else igniteTarget(victim, a.by, now);
       arrows.splice(i, 1); continue;
     }
@@ -555,11 +570,11 @@ setInterval(() => {
         a.life = Math.min(a.life, BOUNCE.lifeS);        // and it doesn't fly far after
         continue;
       }
-      drop(a.x + dirx*wallT, a.z + dirz*wallT);
+      drop(a.x + dirx*wallT, Math.max(0, a.y + diry*wallT), a.z + dirz*wallT);
       arrows.splice(i, 1); continue;                    // stick in the wall
     }
     a.x = nx; a.y = ny; a.z = nz;
-    if (a.y < 0) { drop(a.x, a.z); arrows.splice(i, 1); }        // hit the ground
+    if (a.y < 0) { drop(a.x, 0, a.z); arrows.splice(i, 1); }     // hit the ground
   }
 
   // ---- Smoke clouds: expire, and tag whoever is standing in one ----
@@ -568,7 +583,8 @@ setInterval(() => {
     if (!pl.alive) { pl.markedUntil = 0; pl.markedBy = null; continue; }
     for (const sm of smokes) {
       if (sm.by === pl.id) continue;                    // your own smoke won't tag you
-      if ((pl.y || 0) > SMOKE.top) continue;            // above the cloud, e.g. on a crate
+      const sy = sm.y || 0;                            // clouds can sit on crates now
+      if ((pl.y || 0) < sy - 0.6 || (pl.y || 0) > sy + SMOKE.top) continue;
       if (Math.hypot(pl.x - sm.x, pl.z - sm.z) > SMOKE.radius) continue;
       pl.markedUntil = now + SMOKE.markMs;              // renews while they stay in
       pl.markedBy = sm.by;
@@ -582,7 +598,8 @@ setInterval(() => {
   const standingInFire = (e, id, y) => {
     for (const f of fires) {
       if (f.by === id) continue;                       // your own pool won't burn you
-      if ((y || 0) > FIRE.top) continue;               // stood above it, e.g. on a crate
+      const fy = f.y || 0;                             // pools can sit on crates now
+      if ((y || 0) < fy - 0.6 || (y || 0) > fy + FIRE.top) continue;
       if (Math.hypot(e.x - f.x, e.z - f.z) > FIRE.radius) continue;
       return f;
     }
