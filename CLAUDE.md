@@ -175,6 +175,10 @@ driven by roll progress sent in the state packet.
 **Passive detection** — everyone has it, nothing to equip. When an opponent
 makes a noise (gun, crossbow bolt or smoke bolt) it picks them out through
 walls for `DETECT.revealMs` (4s), then sleeps for `DETECT.cooldownMs` (30s).
+`revealHazards` must be driven from the **main loop**, not from
+`updateMarks`: that stops running the moment you are eliminated or pause, so
+dying mid-detection left fire and smoke showing through walls for the rest of
+the round.
 The same window also reveals **hazards** — `hazardMeshes()` currently returns
 fire pools and smoke clouds as stand-ins for traps; add real traps there and
 detection picks them up with no other change. Silhouettes are amber for

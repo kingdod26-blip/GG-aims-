@@ -249,8 +249,6 @@ function revealHazards(on){
 }
 function updateMarks(){
   const now = performance.now();
-  // the detection window lights up hazards as well as the shooter
-  revealHazards(gameMode === 'mp' && detectUntil > now);
   for(const b of localBots){
     // stationary targets, so a pool landing on one keeps burning it
     if(b.alive && fireAt(b.x, 0, b.z)){
