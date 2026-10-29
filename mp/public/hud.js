@@ -39,7 +39,23 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
     document.getElementById('modeLbl').textContent = w.name+' · '+w.mode;
   }
   document.getElementById('stanceVal').textContent = me.stance.toUpperCase().replace('STAND','STANDING').replace('CROUCH','CROUCHING').replace('PRONE','PRONE'); }
-let hmT; function hitmark(){ const h=document.getElementById('hitmarker'); h.style.opacity=1; clearTimeout(hmT); hmT=setTimeout(()=>h.style.opacity=0,90); }
+/* The hit marker now says WHERE you hit: red and bigger for a head, white
+   for the torso, small and blue for a limb, with the word underneath. Without
+   this the zones only existed in the damage numbers, which you cannot read
+   mid-fight. */
+let hmT, hzT;
+function hitmark(zone){
+  const h=document.getElementById('hitmarker'), z=document.getElementById('hitzone');
+  const kind = zone==='head' ? 'head' : (zone==='arms'||zone==='legs') ? 'limb'
+             : zone==='torso' ? 'torso' : '';
+  h.className = kind;
+  h.style.opacity=1; clearTimeout(hmT); hmT=setTimeout(()=>h.style.opacity=0, kind==='head'?150:90);
+  if(z){
+    if(zone){ z.textContent = zone.toUpperCase(); z.className = kind; z.style.opacity=1;
+              clearTimeout(hzT); hzT=setTimeout(()=>z.style.opacity=0, 500); }
+    else { z.style.opacity=0; }
+  }
+}
 let dmgT; function dmgFlash(){ const d=document.getElementById('dmg'); d.style.opacity=1; clearTimeout(dmgT); dmgT=setTimeout(()=>d.style.opacity=0,120); }
 /* Kill feed: each entry lives briefly, fades out, then removes itself so the
    feed never stays cluttered. */

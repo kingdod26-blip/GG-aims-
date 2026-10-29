@@ -16,6 +16,20 @@
   #hitmarker::before,#hitmarker::after { content:''; position:absolute; background:#fff; }
   #hitmarker::before { width:2px; height:10px; left:-1px; top:-5px; }
   #hitmarker::after  { height:2px; width:10px; top:-1px; left:-5px; }
+  /* Colour the marker by what you hit, so the zones are legible in play
+     rather than only in the damage numbers. */
+  #hitmarker.head::before,  #hitmarker.head::after  { background:#ff5a5a; }
+  #hitmarker.torso::before, #hitmarker.torso::after { background:#fff; }
+  #hitmarker.limb::before,  #hitmarker.limb::after  { background:#7fc4ff; }
+  #hitmarker.head { transform:translate(-50%,-50%) rotate(45deg) scale(1.35); }
+  #hitmarker.limb { transform:translate(-50%,-50%) rotate(45deg) scale(0.75); }
+  /* and a word, just under the crosshair */
+  #hitzone { position:fixed; top:calc(50% + 26px); left:50%; transform:translateX(-50%);
+             z-index:11; opacity:0; pointer-events:none; font-size:11px;
+             letter-spacing:3px; font-weight:700; color:#fff;
+             text-shadow:0 2px 8px rgba(0,0,0,.85); transition:opacity .25s ease; }
+  #hitzone.head { color:#ff5a5a; }
+  #hitzone.limb { color:#7fc4ff; }
   #dmg { position:fixed; inset:0; z-index:9; pointer-events:none; background:radial-gradient(circle,rgba(255,0,0,0) 45%,rgba(200,0,0,.55) 100%); opacity:0; transition:opacity .1s; }
   .hud { display:none; }
   .playing .hud { display:block; }

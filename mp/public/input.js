@@ -205,11 +205,11 @@ function shoot(){
     if(gameMode==='mp'){ socket.emit('fire',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, dmg:w.dmg, range:w.range }); continue; }
     // local hit detection (target practice)
     _ray.set(o,dir); _ray.far=w.range; const wh=_ray.intersectObjects(wallMeshes,false); let bd=Math.min(wh.length?wh[0].distance:Infinity, w.range);
-    let best=null, mult=1;
+    let best=null, mult=1, zone=null;
     for(const b of localBots){ if(!b.alive) continue;
       const z = hitZone(o, dir, b.x, b.z, 0, 0);     // bots always stand
-      if(z && z.t<bd){ bd=z.t; best=b; mult=z.mult; } }
-    if(best){ best.hp-= w.dmg*mult; hitmark(); Sfx.hit();
+      if(z && z.t<bd){ bd=z.t; best=b; mult=z.mult; zone=z.zone; } }
+    if(best){ best.hp-= w.dmg*mult; hitmark(zone); Sfx.hit();
       if(best.hp<=0 && best.alive){ best.alive=false; best.mesh.visible=false; localKills++; updateHUD(); setTimeout(()=>respawnLocalBot(best),2000); } }
   }
   // recoil kicks in AFTER the bullet leaves — shots land where the crosshair was

@@ -193,7 +193,7 @@ function connectMP(name){
   socket.on('welcome', d=>{ myId=d.id; me.x=d.spawn.x; me.z=d.spawn.z; });
   socket.on('snapshot', onSnapshot);
   socket.on('shot', d=> addTracer(new THREE.Vector3(d.ox,d.oy,d.oz), new THREE.Vector3(d.dx,d.dy,d.dz), d.len));
-  socket.on('impact', ()=> hitmark());
+  socket.on('impact', d=> hitmark(d && d.zone));
   socket.on('groundfire', d=> spawnGroundFire(d.x, d.y||0, d.z));
   socket.on('smoke', d=> spawnSmoke(d.x, d.y||0, d.z, d.by));
   socket.on('bought', d=>{ myMoney=d.money; myGuns=(d.guns||[]).slice(); Sfx.swap();

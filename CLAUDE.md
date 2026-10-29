@@ -178,9 +178,14 @@ exactly what the old two-box model did. That boundary matters: a shot at
 y1.40–1.50 clips the head sphere but enters the body first, and has always
 counted as a body hit. Straight priority ordering would quietly promote all
 of those to headshots.
-**Limbs are only consulted when neither head nor torso connected**, so they
-can only ADD hits that used to miss — the wide arms sphere can never steal a
-headshot or a body shot.
+A body hit is then split by **how central it is** — the perpendicular
+distance from the shot line to the target's vertical axis, against `CORE_R`
+(0.26). Inside that it's the torso, outside it's an arm. It is NOT a second
+sphere: a sphere small enough to exclude the arms also excludes the upper
+chest, so central shoulder-height shots would have scored as arm hits. The
+model is only ~0.41 wide (torso to ±0.25, arms 0.27–0.41), which is why an
+"arms" sphere *outside* the 0.55 body sphere never registered at all.
+Legs are only consulted when neither head nor body connected.
 
 Crossbow bolts are still flat damage, zones don't apply to them.
 

@@ -262,34 +262,49 @@ const curAmmo = ()=>weaponAmmo[currentWeapon];
    The arms sphere wraps the torso on purpose, so a shot through the middle
    reads as torso and only the outer edge of the silhouette counts as an arm;
    hitZone drops arms whenever the torso was hit too. */
-const ZONES = [
-  // head and torso are EXACTLY the old two-box model — head 1.70/0.30 and the
-  // former body sphere — so nothing that used to connect now reads differently
-  { name:'head',  mult:2.5,  by:[[1.70,0.30],[1.10,0.30],[0.50,0.30]] },
-  { name:'torso', mult:1.0,  by:[[1.05,0.55],[0.70,0.50],[0.32,0.45]] },
-  // arms wrap the torso and legs sit under it, so limbs only ever ADD hits
-  // that previously missed entirely; the overlap resolves to torso by priority
-  { name:'arms',  mult:0.65, by:[[1.15,0.70],[0.78,0.64],[0.32,0.58]] },
-  { name:'legs',  mult:0.65, by:[[0.32,0.34],[0.18,0.28],[0.20,0.34]] },
-];
+/* [height above the feet, radius] per stance: stand / crouch / prone.
+   head and body are EXACTLY the old two-box model, and the head-vs-body
+   boundary is still decided between those two alone, so nothing that used to
+   connect reads differently.
+   core is the torso proper, sitting INSIDE body. A body hit is then split:
+   inside the core it is a torso hit, in the ring between core and body it is
+   an arm. That ring is where the model's arms actually are — the visible
+   figure is only about 0.41 wide, so a 0.55 "arms" sphere outside body would
+   have sat in empty air and never been hit, which is exactly what happened. */
+const HITBOX = {
+  head: [[1.70,0.30],[1.10,0.30],[0.50,0.30]],
+  body: [[1.05,0.55],[0.70,0.50],[0.32,0.45]],
+  legs: [[0.32,0.34],[0.18,0.28],[0.20,0.34]],
+};
+/* How far off the target's centre line a body hit has to be to count as an
+   arm. Measured as the perpendicular distance from the shot line to their
+   vertical axis, NOT a second sphere: a sphere small enough to exclude the
+   arms also excludes the upper chest, so central shots at shoulder height
+   would have scored as arm hits. The model's torso is 0.5 wide and its arms
+   sit between 0.27 and 0.41 out, so 0.26 separates them cleanly. */
+const CORE_R = [0.26, 0.26, 0.30];
+const MULT = { head:2.5, torso:1.0, arms:0.65, legs:0.65 };
 function hitZone(o, dir, cx, cz, baseY, st){
   const s = Math.max(0, Math.min(2, st | 0));
-  const reach = z => { const [dy, r] = z.by[s]; return raySphere(o, dir, cx, baseY + dy, cz, r); };
-  const [H, T, A, L] = ZONES;
-  /* Head vs torso is settled by NEAREST ENTRY, which is exactly what the old
-     two-box model did — ties to the head. That boundary matters: a shot at
-     1.40-1.50 clips the head sphere but enters the body first, and it has
-     always counted as a body hit. Straight priority ordering would quietly
-     promote all of those to headshots.
-     Limbs are only consulted when neither connected, so they can only ADD
-     hits that used to miss — the wide arms sphere can never steal a headshot
-     or a body shot. */
-  const th = reach(H), tt = reach(T);
-  if (th < Infinity || tt < Infinity)
-    return th <= tt ? { t: th, zone: 'head',  mult: H.mult }
-                    : { t: tt, zone: 'torso', mult: T.mult };
-  const ta = reach(A); if (ta < Infinity) return { t: ta, zone: 'arms', mult: A.mult };
-  const tl = reach(L); if (tl < Infinity) return { t: tl, zone: 'legs', mult: L.mult };
+  const reach = k => { const [dy, r] = HITBOX[k][s]; return raySphere(o, dir, cx, baseY + dy, cz, r); };
+  /* Head vs body by NEAREST ENTRY, ties to the head — exactly the old
+     two-box model. A shot at 1.40-1.50 clips the head sphere but enters the
+     body first and has always counted as a body hit; keep it that way. */
+  const th = reach('head'), tb = reach('body');
+  if (th < Infinity || tb < Infinity) {
+    if (th <= tb) return { t: th, zone: 'head', mult: MULT.head };
+    // A body hit, split by how central it is. The entry point stays the
+    // body's, so the impact marker lands where it always did.
+    const hd = Math.hypot(dir.x, dir.z);
+    const lateral = hd < 1e-6
+      ? Math.hypot(o.x - cx, o.z - cz)                       // straight up or down
+      : Math.abs((cx - o.x) * (dir.z / hd) - (cz - o.z) * (dir.x / hd));
+    const central = lateral <= CORE_R[s];
+    return { t: tb, zone: central ? 'torso' : 'arms',
+             mult: central ? MULT.torso : MULT.arms };
+  }
+  const tl = reach('legs');
+  if (tl < Infinity) return { t: tl, zone: 'legs', mult: MULT.legs };
   return null;
 }
 /* A gun you just paid for arrives loaded — mag and reserve both full.
