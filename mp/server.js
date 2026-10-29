@@ -351,6 +351,17 @@ function clearField() {            // no fire, smoke or arrows carried between r
   arrows.length = 0; smokes.length = 0; fires.length = 0;
   io.emit('fieldclear');
 }
+/* Put every player out. The round ending used to leave the field alight: the
+   award branch set the phase to 'intermission' without clearing anything, and
+   neither scorch() nor burnTick() looks at the phase, so last round's pools
+   kept burning right through the 30s buy window — enough to take the round
+   WINNER from 100 to 46 while they shopped. */
+function douseAll() {
+  for (const p of players.values()) {
+    p.burnUntil = 0; p.burnRate = 0; p.burnNext = 0; p.inFire = false;
+    p.markedUntil = 0; p.markedBy = null;
+  }
+}
 function openBuyWindow(now, ms) {          // intermission doubles as the shop
   match.phase = 'intermission'; match.until = now + ms;
   clearField(); respawnAll(); resetDetection(); resetResupply();
@@ -435,7 +446,11 @@ io.on('connection', (socket) => {
   if (back) parked.delete(tok);
   const player = {
     id: socket.id, tok, x: s.x, z: s.z, y: 0, yaw: 0, pitch: 0, st: 0,
-    hp: 100, alive: true, kills: 0, deaths: 0, wins: back ? back.wins : 0, tp: 0,
+    /* Joining mid-round used to drop you into it alive at full health, so a
+       latecomer could win a round they were not in at the start — and, with
+       three or more in the room, reloading the page was a free heal. Sit the
+       round out instead; respawnAll() brings you in at the next one. */
+    hp: 100, alive: match.phase !== 'live', kills: 0, deaths: 0, wins: back ? back.wins : 0, tp: 0,
     money: back ? back.money : ECON.start,
     guns: back ? back.guns : [],       // owned WEAPONS slots, in purchase order
     detectReadyAt: 0, detectUntil: 0, detectTarget: null,
@@ -450,7 +465,13 @@ io.on('connection', (socket) => {
 
   // Client owns its movement; it streams position/orientation here.
   socket.on('state', (d) => {
-    const p = players.get(socket.id); if (!p || !p.alive) return;
+    const p = players.get(socket.id); if (!p) return;
+    /* Your name is not part of being alive. The whole packet used to be
+       dropped while you were down, so anyone sitting a round out — eliminated,
+       or joining midway — stayed "Player-a1b2" on the scoreboard until they
+       next respawned. */
+    if (typeof d.name === 'string') p.name = d.name.slice(0, 16);
+    if (!p.alive) return;
     /* Ignore position until the client has acknowledged the last forced move.
        Packets already in flight carry the OLD position and would otherwise
        overwrite the spawn we just put them at — which is how a player parked
@@ -467,7 +488,6 @@ io.on('connection', (socket) => {
     if (typeof d.st === 'number') p.st = Math.max(0, Math.min(2, d.st|0));   // 0 stand 1 crouch 2 prone
     // roll progress 0..1, relayed so everyone sees the same somersault
     if (typeof d.rl === 'number') p.rl = Math.max(0, Math.min(1, d.rl));
-    if (typeof d.name === 'string') p.name = d.name.slice(0, 16);
   });
 
   // Authoritative hit detection when a player fires.
@@ -570,6 +590,18 @@ io.on('connection', (socket) => {
       const dist = Math.hypot(vx, vy, vz);
       if (dist > MELEE.reach) return;
       if ((vx*dir.x + vy*dir.y + vz*dir.z)/(dist||1) < MELEE.arc) return;
+      /* The blade used to check distance and angle only, so with 3.4m of
+         reach you could stab someone standing on the far side of a wall.
+         Gunfire has always tested geometry; melee now does the same, in 3D
+         so it still works across low cover you are standing on. The t > 0.1
+         guard keeps a swing from being blocked by the crate you are pressed
+         against, whose box can contain the swing's own origin. */
+      const to = { x: vx/dist, y: vy/dist, z: vz/dist };
+      const from = { x: ox, y: oy, z: oz };
+      for (const r of RAY_BOXES) {
+        const h = rayBoxHit(from, to, r);
+        if (h && h.t > 0.1 && h.t < dist) return;        // wall in the way
+      }
       if (dist < bestD) { bestD = dist; best = ref; }
     };
     for (const pl of players.values())
@@ -698,6 +730,7 @@ setInterval(() => {
          their loadout into the next round, everyone else buys again out of
          the payout. On a genuine draw nobody lost, so nobody is stripped. */
       if (w) for (const p of players.values()) if (p !== w) p.guns = [];
+      clearField(); douseAll();          // the round is over, so is the fire
       match.roundWinner = w ? w.id : null;
       if (w && w.wins >= MATCH.winsNeeded) {
         match.phase = 'over'; match.matchWinner = w.id; match.until = now + MATCH.endMs;
@@ -708,6 +741,10 @@ setInterval(() => {
   } else if (now >= match.until) {
     if (match.phase === 'intermission') startRound(match.round + 1, false);
     else {                                         // match over -> run it again
+      /* Held scores belong to the match that just finished. Without this a
+         player who dropped in its closing seconds rejoined the NEXT match
+         carrying their old money, guns and round wins. */
+      parked.clear();
       resetEconomy();
       match.round = 0; match.roundWinner = null; match.matchWinner = null;
       openBuyWindow(now, MATCH.prepMs);
@@ -727,6 +764,11 @@ setInterval(() => {
       arrows.splice(i, 1); continue;
     }
     a.vy -= 9 * dt;                                     // slight drop
+    if (a.falling) {               // stopped against something: just drop
+      a.y += a.vy*dt;
+      if (a.y <= 0) { (a.smoke ? dropSmoke : dropFire)(a.x, 0, a.z, a.by, now); arrows.splice(i, 1); }
+      continue;
+    }
     const nx = a.x + a.vx*dt, ny = a.y + a.vy*dt, nz = a.z + a.vz*dt;
     // 3D step, not horizontal: raySphere and rayBoxHit both report true 3D
     // distances, so measuring the step in XZ only made every angled shot
@@ -780,6 +822,13 @@ setInterval(() => {
         const back = Math.max(0, wallT - 0.08);   // just shy of the surface
         a.x += dirx*back; a.y += diry*back; a.z += dirz*back;
         a.vx = 0; a.vy = 0; a.vz = 0;             // gravity takes it from here
+        /* ...and from here it only falls. Without this it re-ran the wall
+           test every tick, and a bolt fired point-blank — muzzle inside the
+           crate you are pressed against — collided at t=0 forever: frozen at
+           the launch point for its whole 5s life, then dropping its pool at
+           your feet. Dropping straight down is what a blocked bolt is meant
+           to do anyway, so stop testing geometry once it is stopped. */
+        a.falling = true;
         continue;
       }
       drop(a.x + dirx*wallT, Math.max(0, a.y + diry*wallT), a.z + dirz*wallT);

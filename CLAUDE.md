@@ -115,6 +115,29 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   Phases are `waiting` → `live` → `intermission` → … → `over`, driven entirely
   by the server and shipped in the snapshot's `match` block so every client
   agrees. Damage handlers all return early unless the phase is `live`.
+- **A round ending puts the field out.** The award branch used to set
+  `intermission` without `clearField()`, and neither `scorch()` nor
+  `burnTick()` looks at the phase, so last round's pools burned right through
+  the 30s buy window — enough to take the round WINNER from 100 to 46 while
+  they shopped. It now calls `clearField()` and `douseAll()` at round end.
+- **Melee tests geometry, like gunfire does.** The blade checked distance and
+  cone only, so 3.4m of reach stabbed clean through a wall. It now ray-tests
+  `RAY_BOXES` toward the target, in 3D so it still works over low cover you
+  are standing on; hits closer than 0.1 are ignored so the crate you are
+  pressed against does not block your own swing.
+- **A bolt stopped by geometry falls, and nothing re-tests it.** Zeroing its
+  velocity was not enough: it re-ran the wall test every tick, and a bolt
+  fired point-blank — muzzle inside the crate you are flush against —
+  collided at t=0 forever, hanging at the launch point for its whole 5s life
+  before dropping its pool at your feet. It now sets `a.falling` and only
+  gravity applies.
+- **You join between rounds, never into one.** A mid-round joiner used to
+  arrive alive at full health and could win a round they were not in at the
+  start; with 3+ in the room, reloading was a free heal. They now arrive
+  `alive: false` during a live round and `respawnAll()` brings them in at
+  the next one. Note `state` still applies the `name` field while you are
+  down — it used to drop the whole packet, leaving anyone sitting a round out
+  as "Player-a1b2" on the scoreboard.
 - **A dropped connection PAUSES the match, it does not end it.** The room
   dipping below `minPlayers` used to throw the match away and call
   `resetEconomy`, which zeroes `wins` — so one tab losing its socket wiped
@@ -129,7 +152,10 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   client keeps in `localStorage` (`bs_tok`, sent as socket.io `auth.tok`) —
   not by socket id, which is new on every connection, and not by name, since
   two tabs are both "Player". Rejoining inside the window restores and clears
-  the entry.
+  the entry, and `parked.clear()` runs when a match restarts — held scores
+  belong to the match that produced them, and without it a player who dropped
+  in a match's closing seconds rejoined the NEXT one still carrying their old
+  money, guns and round wins.
 - **There is an economy.** You start each match on `ECON.start` ($200) with no
   guns, take `ECON.win` ($200) for winning a round and `ECON.loss` ($100) for
   losing. Money resets **per match, never between rounds** — `resetEconomy`
