@@ -109,6 +109,33 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   (`#roomCount`, "3/5" against `MATCH.maxPlayers` from the snapshot), green
   until the room is full and red at the cap. Multiplayer only — the practice
   range's "players" are local targets, so it renders blank there.
+- **The server runs many rooms, not one match.** `players`, `match`,
+  `fires`, `smokes` and `arrows` used to be module-level globals, so five
+  people filled the entire game. They live on a room now (`makeRoom`), the
+  tick runs `tickRoom` per room, and every broadcast is `io.to(room.id)`
+  rather than `io.emit` — miss one of those and rooms leak into each other.
+  Handlers take `players`/`match`/`parked` as locals from the room at
+  connection time, which is why most handler bodies read unchanged.
+  `roomFor(code, tok)` picks in priority order: the room holding your parked
+  score (per-room now, so without this a reconnecting player's score would be
+  stranded in a room they no longer rejoin), then the room your `?room=` code
+  names, then any room with people and space, then a new one. It deliberately
+  skips rooms that are empty but still hold parked scores — those belong to
+  someone mid-reload, and a stranger joining one would sit in a stranger's
+  half-finished match. Rooms are retired when empty with nothing parked.
+  Scaling follows from rooms never interacting: cost is driven by
+  players-per-room, so small rooms stay cheap however many run.
+- **The snapshot is the entire bandwidth bill.** It goes to everyone in the
+  room every tick, so anything added to it is paid per player per tick. The
+  static config — `prices`, slot lists, `resupply`, the carry caps, the room
+  cap, `winsNeeded` — is sent once in `welcome`; it used to ride along 30
+  times a second. Positions are rounded to 2dp (centimetres, well under the
+  client's own ~9cm prediction error) because `"x":12.344999999999999` costs
+  20 bytes to say 12.34. With `TICK` at 20Hz instead of 30 — the client
+  predicts remote players, so the longer gap barely shows — a 5-player room
+  went from 249 to 131 KB/s, measured against the previous server.
+  The client still accepts the static fields from a snapshot if an older
+  server sends them.
 - **Multiplayer is round-based.** Kill the opposition to take a round; first to
   `MATCH.winsNeeded` (3) takes the match, then it resets and runs again. Death
   inside a round is **elimination** — no respawn until the next round starts.

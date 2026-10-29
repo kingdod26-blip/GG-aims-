@@ -21,7 +21,9 @@ let lastTp=-1;                                  // last forced-move stamp we obe
    passive has picked out; detectUntil/detectReady are local deadlines so the
    HUD can count down smoothly between snapshots. */
 let detectTarget=null, detectUntil=0, detectReady=0;
-let shopPrices=[150,300,150,50,50], MAIN_SLOTS=[0,1,2], SIDE_SLOTS=[3,4];
+let shopPrices=[150,300,150,50,100], MAIN_SLOTS=[0,1,2], SIDE_SLOTS=[3,4];
+let winsNeeded=3;            // from welcome; the snapshot no longer carries it
+let myRoom=null;             // which room this client landed in
 let MAX_MAIN=2, MAX_SIDE=1;
 let roomMax=5;                 // room cap, so the HUD can show "3/5"
 let socket=null;
@@ -187,6 +189,14 @@ function startPlay(mode){
   lockPointer();
 }
 
+/* Which room to join. Without one the server drops you into the first with a
+   free slot; with one you and your friends land together. Taken from the URL
+   (?room=foo) so a link is all it takes to share. */
+function roomCode(){
+  try { return new URLSearchParams(location.search).get('room') || null; }
+  catch(e){ return null; }
+}
+
 /* Identifies this browser across reconnects so the server can hand back the
    rounds we had already won. The socket id is no good for that — it is new
    every connection — and names are not unique (two tabs are both "Player"). */
@@ -206,7 +216,7 @@ function connectMP(name){
      — one tab, two people in the match. Entering multiplayer twice without
      quitting in between (a double-click on the card will do it) was enough. */
   if(socket){ try{ socket.disconnect(); }catch(e){} socket=null; }
-  socket = io({ auth: { tok: clientToken() } });
+  socket = io({ auth: { tok: clientToken(), room: roomCode() } });
   socket.on('connect', ()=>{ connected=true; document.getElementById('status').textContent='connected'; socket.emit('state',{name}); });
   socket.on('disconnect', ()=>{ connected=false;
     document.getElementById('status').textContent = roomWasFull ? 'room full' : 'disconnected'; });
@@ -222,7 +232,21 @@ function connectMP(name){
 
 Try again when someone leaves.`);
   });
-  socket.on('welcome', d=>{ myId=d.id; me.x=d.spawn.x; me.z=d.spawn.z; });
+  socket.on('welcome', d=>{ myId=d.id; me.x=d.spawn.x; me.z=d.spawn.z;
+    /* Prices, slot lists and the caps used to ride in every snapshot, 30
+       times a second, despite never changing. They come once now. An older
+       server sends none of this, in which case the defaults stand. */
+    myRoom = d.room || null;
+    if(d.prices)     shopPrices = d.prices;
+    if(d.resupply)   RESUPPLY   = d.resupply;
+    if(d.mainSlots)  MAIN_SLOTS = d.mainSlots;
+    if(d.sideSlots)  SIDE_SLOTS = d.sideSlots;
+    if(d.maxPlayers) roomMax    = d.maxPlayers;
+    if(d.maxMain)    MAX_MAIN   = d.maxMain;
+    if(d.maxSide)    MAX_SIDE   = d.maxSide;
+    if(d.winsNeeded) winsNeeded = d.winsNeeded;
+    updateRoomHUD();
+  });
   socket.on('snapshot', onSnapshot);
   socket.on('shot', d=> addTracer(new THREE.Vector3(d.ox,d.oy,d.oz), new THREE.Vector3(d.dx,d.dy,d.dz), d.len));
   socket.on('impact', d=> hitmark(d && d.zone));
@@ -262,6 +286,8 @@ function showEliminated(on){
   if(on) eliminatedTimer = setTimeout(()=> el.classList.add('quiet'), 1800);
 }
 function onSnapshot(s){
+  /* A server from before the trim still puts these in every snapshot; take
+     them if they turn up, otherwise welcome has already set them. */
   if(s.prices) shopPrices = s.prices;
   if(s.resupply) RESUPPLY = s.resupply;
   if(s.mainSlots) MAIN_SLOTS = s.mainSlots;

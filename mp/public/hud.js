@@ -113,15 +113,19 @@ function updateBoard(pl){ document.getElementById('rows').innerHTML=[...pl]
   .sort((a,b)=>(b.wins||0)-(a.wins||0) || b.kills-a.kills).map(p=>
   `<div class="row ${p.id===myId?'me':''}"><span>${esc(p.name)}</span>` +
   `<span class="k">${p.wins||0}</span></div>`).join('');
-  /* How busy the room is, against the cap the server enforces. Only in
-     multiplayer — the practice range's "players" are local targets. */
-  const rc = document.getElementById('roomCount');
-  if(rc){
-    const show = gameMode === 'mp';
-    rc.textContent = show ? pl.length + '/' + roomMax : '';
-    rc.classList.toggle('full', show && pl.length >= roomMax);
-  }
+  renderRoomCount(pl.length);
 }
+/* How busy YOUR room is, against the cap the server enforces — the server
+   runs many rooms now, so this is never the whole player base. Multiplayer
+   only: the practice range's "players" are local targets. */
+function renderRoomCount(n){
+  const rc = document.getElementById('roomCount');
+  if(!rc) return;
+  const show = gameMode === 'mp';
+  rc.textContent = show ? (myRoom ? myRoom + ' · ' : '') + n + '/' + roomMax : '';
+  rc.classList.toggle('full', show && n >= roomMax);
+}
+function updateRoomHUD(){ renderRoomCount(others.size + 1); }
 
 /* The round/match banner. Everything it shows comes from the server's match
    block, so every client agrees on the score and the countdown. */
@@ -135,7 +139,7 @@ function updateMatchUI(m, players){
   let big='', sub='', cls='';
   if(m.phase === 'waiting'){
     big = 'WAITING FOR AN OPPONENT';
-    sub = 'first to ' + m.winsNeeded + ' rounds wins';
+    sub = 'first to ' + (m.winsNeeded || winsNeeded) + ' rounds wins';
   } else if(m.phase === 'paused'){
     big = 'OPPONENT DISCONNECTED';
     sub = 'SCORES HELD · MATCH RESUMES IF THEY RETURN IN ' + secs + 's';

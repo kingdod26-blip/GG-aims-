@@ -153,7 +153,51 @@ function insideWall(x, z) {
 }
 
 /* --------------------------------- State ---------------------------------- */
-const players = new Map(); // socket.id -> player
+/* ---- Rooms ----------------------------------------------------------------
+   This server used to BE one match: players, match, fires, smokes and arrows
+   were module-level globals, so five people filled the whole game. They now
+   live on a room, and the server runs as many rooms as it has players for.
+   Rooms never interact, which is what makes this scale — the per-tick cost is
+   driven by players-per-room (everyone's position goes to everyone in it), so
+   small rooms stay cheap however many you run. */
+const rooms = new Map();          // roomId -> room
+let roomSeq = 0;
+function makeRoom(id) {
+  return { id,
+    players: new Map(),           // socket.id -> player
+    parked: new Map(),            // token -> { wins, money, guns, name, at }
+    smokes: [], fires: [], arrows: [],
+    match: { phase: 'waiting', round: 0, until: 0,
+             roundWinner: null, matchWinner: null, resupplyBy: null } };
+}
+/* Which room a connection belongs in, in priority order:
+
+   1. The room holding your parked score, if you are coming back from a drop.
+      parked is per-room now, so without this a reconnecting player could be
+      dropped into a DIFFERENT room and their held score stranded in the old
+      one until it expired.
+   2. The room your code names — that is how friends land together. Only this
+      case can return null, when that specific room is full, so the client can
+      be told rather than quietly put somewhere else.
+   3. Any room that already has people in it and space for one more, so the
+      population concentrates instead of scattering one-per-room.
+   4. Failing that, a brand new room. Note this skips rooms that are empty but
+      still holding parked scores: those belong to whoever is mid-reload, and
+      a stranger joining one would sit in someone else's half-finished match. */
+function roomFor(code, tok) {
+  if (tok) for (const r of rooms.values())
+    if (r.parked.has(tok) && r.players.size < MATCH.maxPlayers) return r;
+  if (code) {
+    let r = rooms.get(code);
+    if (!r) { r = makeRoom(code); rooms.set(code, r); }
+    return r.players.size < MATCH.maxPlayers ? r : null;
+  }
+  for (const r of rooms.values())
+    if (r.players.size && r.players.size < MATCH.maxPlayers) return r;
+  const r = makeRoom('r' + (++roomSeq));
+  rooms.set(r.id, r);
+  return r;
+}
 /* A match used to be thrown away the moment the room dipped below two, and
    with it everyone's round wins, because resetEconomy() zeroes them. One
    backgrounded browser tab is enough to cause that: Chrome throttles it,
@@ -162,9 +206,8 @@ const players = new Map(); // socket.id -> player
    grace window reclaims their own score from here. Keyed by a token the client
    keeps in localStorage, not by socket id (new on every reconnect) and not by
    name (two tabs are both "Player"). */
-const parked = new Map();  // token -> { wins, money, guns, name, at }
-function sweepParked(now) {
-  for (const [tok, v] of parked) if (now - v.at > MATCH.rejoinMs) parked.delete(tok);
+function sweepParked(room, now) {
+  for (const [tok, v] of room.parked) if (now - v.at > MATCH.rejoinMs) room.parked.delete(tok);
 }
 // Crossbow ability tuning (must match the client's WEAPONS entry)
 // burnMs is how long a PERSON burns. The fire left on the ground is a
@@ -175,7 +218,7 @@ const XBOW = { dmg: 90, burnDps: 12, burnMs: 5000, charges: 2, cooldownMs: 30000
 // SMOKEFX radius/top/markMs or the cloud you see won't match the one that tags.
 const SMOKE = { charges: 2, cooldownMs: 30000, speed: 52, ms: 10000,
                 radius: 5.5, top: 3.4, markMs: 4000 };
-const smokes = [];   // { x, z, by, until }
+
 // Ground fire was a client-only visual; the server now tracks the pools too,
 // because standing in one has to actually hurt. radius/ms MUST match the
 // client's GFIRE or the fire you see won't be the fire that burns you.
@@ -189,10 +232,9 @@ const smokes = [];   // { x, z, by, until }
 // while you are still standing in it.
 const FIRE = { radius: 4.35, ms: 9000, top: 1.0, graceMs: 1200, dps: 18,
                lingerDps: 6, lingerMs: 5000 };
-const fires = [];    // { x, z, by, until }
+
 // Blade melee (must match the client's BLADE entry)
 const MELEE = { combo: [22,22,28,28,70], windowMs: 1600, rateMs: 320, reach: 3.4, arc: 0.5 };
-const arrows = [];
 let arrowSeq = 0;
 /* ----------------------------- Match format ------------------------------
    Multiplayer is round-based and has no bots. Kill the opposition to take a
@@ -306,8 +348,6 @@ function hitZone(o, dir, cx, cz, baseY, st) {
 /* Guns are held as an ORDERED list: the first you buy is position 1, the
    second position 2, and the number keys pick by position rather than by
    weapon. Buying past the limit drops the oldest of that category. */
-const match = { phase: 'waiting', round: 0, until: 0, roundWinner: null, matchWinner: null,
-                resupplyBy: null };      // who took the crate's cash this round
 
 /* Pick n spawns that are far apart and, where the arena allows, out of each
    other's line of sight. Scored rather than rejected outright: with five
@@ -336,7 +376,8 @@ function spreadSpawns(n) {
   }
   return chosen;
 }
-function respawnAll() {
+function respawnAll(room) {
+  const players = room.players;
   const spots = spreadSpawns(players.size);
   let i = 0;
   for (const p of players.values()) {
@@ -347,27 +388,27 @@ function respawnAll() {
     p.markedUntil = 0; p.markedBy = null; p.rl = 0; p.st = 0; p.diedAt = 0;
   }
 }
-function clearField() {            // no fire, smoke or arrows carried between rounds
-  arrows.length = 0; smokes.length = 0; fires.length = 0;
-  io.emit('fieldclear');
+function clearField(room) {        // no fire, smoke or arrows carried between rounds
+  room.arrows.length = 0; room.smokes.length = 0; room.fires.length = 0;
+  io.to(room.id).emit('fieldclear');
 }
 /* Put every player out. The round ending used to leave the field alight: the
    award branch set the phase to 'intermission' without clearing anything, and
    neither scorch() nor burnTick() looks at the phase, so last round's pools
    kept burning right through the 30s buy window — enough to take the round
    WINNER from 100 to 46 while they shopped. */
-function douseAll() {
-  for (const p of players.values()) {
+function douseAll(room) {
+  for (const p of room.players.values()) {
     p.burnUntil = 0; p.burnRate = 0; p.burnNext = 0; p.inFire = false;
     p.markedUntil = 0; p.markedBy = null;
   }
 }
-function openBuyWindow(now, ms) {          // intermission doubles as the shop
-  match.phase = 'intermission'; match.until = now + ms;
-  clearField(); respawnAll(); resetDetection(); resetResupply();
+function openBuyWindow(room, now, ms) {    // intermission doubles as the shop
+  room.match.phase = 'intermission'; room.match.until = now + ms;
+  clearField(room); respawnAll(room); resetDetection(room); resetResupply(room);
 }
-function resetEconomy() {
-  for (const p of players.values()) { p.wins = 0; p.money = ECON.start; p.guns = []; }
+function resetEconomy(room) {
+  for (const p of room.players.values()) { p.wins = 0; p.money = ECON.start; p.guns = []; }
 }
 /* Somebody just made a noise. Anyone close enough whose passive is off
    cooldown picks them out, and their own passive then sleeps for 30s. Called
@@ -375,7 +416,8 @@ function resetEconomy() {
    smoke bolt. It is hearing, so it has a range — the arena is 120x120 and
    map-wide detection meant a shot fired in the far corner lit you up. Out of
    earshot nothing happens at all, cooldown included. */
-function noiseMade(byId, now) {
+function noiseMade(room, byId, now) {
+  const players = room.players;
   const src = players.get(byId); if (!src) return;
   for (const p of players.values()) {
     if (p.id === byId || !p.alive) continue;
@@ -400,46 +442,55 @@ function eliminate(e, isPlayer) {
 /* Payloads land where the bolt actually stopped, height included. These used
    to be x/z only, so a bolt that stuck in the top of a crate put its fire on
    the floor underneath. */
-function dropFire(x, y, z, byId, now) {
-  fires.push({ x, y, z, by: byId, until: now + FIRE.ms });
-  io.emit('groundfire', { x, y, z });
+function dropFire(room, x, y, z, byId, now) {
+  room.fires.push({ x, y, z, by: byId, until: now + FIRE.ms });
+  io.to(room.id).emit('groundfire', { x, y, z });
 }
-function dropSmoke(x, y, z, byId, now) {
-  smokes.push({ x, y, z, by: byId, until: now + SMOKE.ms });
-  io.emit('smoke', { x, y, z, by: byId });
+function dropSmoke(room, x, y, z, byId, now) {
+  room.smokes.push({ x, y, z, by: byId, until: now + SMOKE.ms });
+  io.to(room.id).emit('smoke', { x, y, z, by: byId });
 }
 /* The cash is ONE prize per round, not one each: first player to reach the
    crate takes it and nobody else can that round. Ammo is separate and still
    tops up for everyone, every time they walk in. */
-function resetResupply() {
-  match.resupplyBy = null;
-  for (const p of players.values()) p.inResupply = false;
+function resetResupply(room) {
+  room.match.resupplyBy = null;
+  for (const p of room.players.values()) p.inResupply = false;
 }
-function resetDetection() {
-  for (const p of players.values()) { p.detectReadyAt = 0; p.detectUntil = 0; p.detectTarget = null; }
+function resetDetection(room) {
+  for (const p of room.players.values()) { p.detectReadyAt = 0; p.detectUntil = 0; p.detectTarget = null; }
 }
-function startRound(n, resetWins) {
-  if (resetWins) resetEconomy();
+function startRound(room, n, resetWins) {
+  if (resetWins) resetEconomy(room);
+  const match = room.match;
   match.round = n; match.phase = 'live';
   match.roundWinner = null; match.matchWinner = null; match.until = 0;
-  clearField(); respawnAll(); resetDetection(); resetResupply();   // fresh round, fresh pickup
+  clearField(room); respawnAll(room); resetDetection(room); resetResupply(room);
 }
 
 const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff9a5a];
 
 /* ------------------------------ Networking -------------------------------- */
 io.on('connection', (socket) => {
-  if (players.size >= MATCH.maxPlayers) {       // room is full, turn them away
-    socket.emit('full', { max: MATCH.maxPlayers });
-    console.log(`[!] refused a connection, room full (${players.size}/${MATCH.maxPlayers})`);
+  /* Pick a room first: everything below reads its state through these three
+     locals, so the handlers stay room-scoped without threading it through by
+     hand. A code joins friends; without one you get the first room with
+     space, so the room is only ever "full" when you asked for that one. */
+  const auth = socket.handshake.auth || {};
+  const code = auth.room || null, tok = auth.tok || null;
+  const room = roomFor(code, tok);
+  if (!room) {
+    socket.emit('full', { max: MATCH.maxPlayers, code });
+    console.log(`[!] refused: room "${code}" is full (${MATCH.maxPlayers}/${MATCH.maxPlayers})`);
     setTimeout(() => socket.disconnect(true), 150);   // let the message land first
     return;
   }
+  socket.join(room.id);
+  const players = room.players, match = room.match, parked = room.parked;
   const s = randomSpawn();
   /* Did this browser leave an unfinished match behind a moment ago? Give it
      back rather than starting them at nothing — a reload mid-match should not
      cost you the rounds you already won. */
-  const tok = (socket.handshake.auth && socket.handshake.auth.tok) || null;
   const saved = tok ? parked.get(tok) : null;
   if (saved && Date.now() - saved.at > MATCH.rejoinMs) { parked.delete(tok); }
   const back = (saved && Date.now() - saved.at <= MATCH.rejoinMs) ? saved : null;
@@ -459,9 +510,15 @@ io.on('connection', (socket) => {
   };
   if (back) player.name = back.name;
   players.set(socket.id, player);
-  socket.emit('welcome', { id: socket.id, spawn: s, color: player.color, arena: ARENA });
+  /* Everything that never changes goes out ONCE, here, instead of riding in
+     every snapshot 30 times a second. */
+  socket.emit('welcome', { id: socket.id, spawn: s, color: player.color, arena: ARENA,
+    room: room.id,
+    prices: PRICES, mainSlots: MAIN_SLOTS, sideSlots: SIDE_SLOTS, resupply: RESUPPLY,
+    maxMain: MAX_MAIN, maxSide: MAX_SIDE, maxPlayers: MATCH.maxPlayers,
+    winsNeeded: MATCH.winsNeeded });
   if (back) console.log(`[~] ${player.name} rejoined with ${player.wins} round win(s)`);
-  console.log(`[+] ${player.name} connected (${players.size} online)`);
+  console.log(`[+] ${player.name} joined ${room.id} (${players.size}/${MATCH.maxPlayers}, ${rooms.size} room(s))`);
 
   // Client owns its movement; it streams position/orientation here.
   socket.on('state', (d) => {
@@ -494,12 +551,12 @@ io.on('connection', (socket) => {
   socket.on('fire', (d) => {
     if (match.phase !== 'live') return;      // only during a live round
     const p = players.get(socket.id); if (!p || !p.alive) return;
-    noiseMade(p.id, Date.now());             // a bang: anyone listening picks it up
+    noiseMade(room, p.id, Date.now());       // a bang: anyone listening picks it up
     const o = { x: d.ox, y: d.oy, z: d.oz };
     const dir = normalize(d.dx, d.dy, d.dz);
     const range = d.range || 220, dmg = d.dmg || 25;
     // broadcast a tracer so others see the shot
-    socket.broadcast.emit('shot', { ox:o.x, oy:o.y, oz:o.z, dx:dir.x, dy:dir.y, dz:dir.z, len: range });
+    socket.to(room.id).emit('shot', { ox:o.x, oy:o.y, oz:o.z, dx:dir.x, dy:dir.y, dz:dir.z, len: range });
 
     // nearest wall blocks the bullet — in 3D, so shots pass over low cover
     let wall = Infinity;
@@ -522,13 +579,13 @@ io.on('connection', (socket) => {
       const dealt = dmg * best.mult;
       const tgt = best.target.ref;
       tgt.hp -= dealt;
-      io.emit('impact', { x: o.x + dir.x*best.t, y: o.y + dir.y*best.t, z: o.z + dir.z*best.t,
+      io.to(room.id).emit('impact', { x: o.x + dir.x*best.t, y: o.y + dir.y*best.t, z: o.z + dir.z*best.t,
                           head: best.head, zone: best.zone });
       if (tgt.hp <= 0 && tgt.alive) {
         eliminate(tgt, best.target.kind === 'player');
         p.kills++;
         if (best.target.kind === 'player') tgt.deaths++;   // eliminated for this round
-        io.emit('kill', { by: p.name, victim: best.target.kind === 'bot' ? 'a bot' : tgt.name, head: best.head });
+        io.to(room.id).emit('kill', { by: p.name, victim: best.target.kind === 'bot' ? 'a bot' : tgt.name, head: best.head });
       }
     }
   });
@@ -537,13 +594,13 @@ io.on('connection', (socket) => {
   socket.on('smokebolt', (d) => {
     if (match.phase !== 'live') return;      // only during a live round
     const p = players.get(socket.id); if (!p || !p.alive) return;
-    noiseMade(p.id, Date.now());             // a bang: anyone listening picks it up
+    noiseMade(room, p.id, Date.now());       // a bang: anyone listening picks it up
     const now = Date.now();
     p.smokeShots = (p.smokeShots || []).filter(t => now - t < SMOKE.cooldownMs);
     if (p.smokeShots.length >= SMOKE.charges) return;
     p.smokeShots.push(now);
     const dir = normalize(d.dx, d.dy, d.dz);
-    arrows.push({ id: 'a' + (arrowSeq++), by: socket.id, smoke: true,
+    room.arrows.push({ id: 'a' + (arrowSeq++), by: socket.id, smoke: true,
       x: d.ox, y: d.oy, z: d.oz,
       vx: dir.x*SMOKE.speed, vy: dir.y*SMOKE.speed, vz: dir.z*SMOKE.speed,
       bounces: d.ric ? 1 : 0, life: 5 });     // smoke banks off a wall too
@@ -611,13 +668,13 @@ io.on('connection', (socket) => {
     const step = Math.min(p.comboStep || 0, MELEE.combo.length-1);
     const t = best.ref, isPlayer = best.kind === 'player';
     t.hp -= MELEE.combo[step];
-    io.emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false });
+    io.to(room.id).emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false });
     p.comboStep = (step + 1) % MELEE.combo.length;
     p.comboUntil = now + MELEE.windowMs;
     if (t.hp <= 0 && t.alive) {
       eliminate(t, isPlayer); p.kills++;
       if (isPlayer) t.deaths++;
-      io.emit('kill', { by: p.name, victim: isPlayer ? t.name : 'a bot', head: step === MELEE.combo.length-1 });
+      io.to(room.id).emit('kill', { by: p.name, victim: isPlayer ? t.name : 'a bot', head: step === MELEE.combo.length-1 });
     }
   });
 
@@ -625,14 +682,14 @@ io.on('connection', (socket) => {
   socket.on('arrow', (d) => {
     if (match.phase !== 'live') return;      // only during a live round
     const p = players.get(socket.id); if (!p || !p.alive) return;
-    noiseMade(p.id, Date.now());             // a bang: anyone listening picks it up
+    noiseMade(room, p.id, Date.now());       // a bang: anyone listening picks it up
     // enforce the 2-charge / 30s budget here too, so it can't be spammed
     const now = Date.now();
     p.shots = (p.shots || []).filter(t => now - t < XBOW.cooldownMs);
     if (p.shots.length >= XBOW.charges) return;
     p.shots.push(now);
     const dir = normalize(d.dx, d.dy, d.dz);
-    arrows.push({ id: 'a' + (arrowSeq++), by: socket.id,
+    room.arrows.push({ id: 'a' + (arrowSeq++), by: socket.id,
       x: d.ox, y: d.oy, z: d.oz,
       vx: dir.x*XBOW.speed, vy: dir.y*XBOW.speed, vz: dir.z*XBOW.speed,
       bounces: d.ric ? 1 : 0, life: 5 });
@@ -647,57 +704,75 @@ io.on('connection', (socket) => {
       parked.set(p.tok, { wins: p.wins || 0, money: p.money, guns: p.guns,
                           name: p.name, at: Date.now() });
     players.delete(socket.id);
-    console.log(`[-] ${player.name} left (${players.size} online)`);
+    console.log(`[-] ${player.name} left ${room.id} (${players.size} online)`);
   });
 });
 function normalize(x, y, z) { const l = Math.hypot(x, y, z) || 1; return { x:x/l, y:y/l, z:z/l }; }
 
 /* Arrow impact: big direct hit, then it burns for 9s. */
-function igniteTarget(hit, byId, now) {
+function igniteTarget(room, hit, byId, now) {
+  const players = room.players;
   const t = hit.ref, isPlayer = hit.kind === 'player';
   t.hp -= XBOW.dmg;
   t.burnUntil = now + XBOW.burnMs; t.burnNext = now + 1000; t.burnBy = byId;
   t.burnRate = XBOW.burnDps;
   const shooter = players.get(byId);
-  io.emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false, fire:true });
-  dropFire(t.x, t.y || 0, t.z, byId, now);         // pool at their feet
+  io.to(room.id).emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false, fire:true });
+  dropFire(room, t.x, t.y || 0, t.z, byId, now);   // pool at their feet
   if (t.hp <= 0 && t.alive) {
     eliminate(t, isPlayer);
     if (shooter) shooter.kills++;
     if (isPlayer) t.deaths++;
-    io.emit('kill', { by: shooter ? shooter.name : 'fire', victim: isPlayer ? t.name : 'a bot', head:false });
+    io.to(room.id).emit('kill', { by: shooter ? shooter.name : 'fire', victim: isPlayer ? t.name : 'a bot', head:false });
   }
 }
 
 /* ------------------------------- Game loop -------------------------------- */
-const TICK = 1000 / 30;
+/* 20Hz, not 30. The tick drives hit detection, burn damage and arrow flight,
+   all of which resolve the same at either rate — arrows step 3.1m instead of
+   2.0m, and the ray test is continuous along the step, so nothing tunnels.
+   What it buys is a third off every client's bandwidth. The client predicts
+   remote players from their measured velocity, so the longer gap between
+   updates barely shows; see REMOTE_EASE / REMOTE_PREDICT. */
+const TICK = 1000 / 20;
 let last = Date.now();
 setInterval(() => {
   const now = Date.now();
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
+  for (const room of rooms.values()) tickRoom(room, now, dt);
+  /* Retire a room once it is empty AND holds no parked scores — a player
+     mid-reload still has 60s to come back to theirs. */
+  for (const [id, r] of rooms)
+    if (!r.players.size && !r.parked.size) rooms.delete(id);
+}, TICK);
+
+/* One room's world for one tick. The locals keep the body below reading the
+   way it did when there was only ever one match. */
+function tickRoom(room, now, dt) {
+  const { players, match, fires, smokes, arrows, parked } = room;
 
   /* ---- Match flow: waiting -> live -> intermission -> ... -> over ---- */
   const livePlayers = [...players.values()];
   const standing = livePlayers.filter(p => p.alive);
-  sweepParked(now);
+  sweepParked(room, now);
   if (match.phase === 'waiting') {
     if (livePlayers.length >= MATCH.minPlayers) {
       // straight into a buy window, not into a round — you start with money
       // and no gun, so you need a chance to spend it before round 1
-      resetEconomy();
+      resetEconomy(room);
       match.round = 0; match.roundWinner = null; match.matchWinner = null;
-      openBuyWindow(now, MATCH.prepMs);
+      openBuyWindow(room, now, MATCH.prepMs);
     }
   } else if (match.phase === 'paused') {
     /* Held open for a minute after a drop. Whoever is still here keeps their
        rounds and their money; coming back resumes the SAME match at a buy
        window rather than starting a new one. */
-    if (livePlayers.length >= MATCH.minPlayers) openBuyWindow(now, MATCH.prepMs);
+    if (livePlayers.length >= MATCH.minPlayers) openBuyWindow(room, now, MATCH.prepMs);
     else if (now >= match.until) {                 // nobody came back: let it go
       parked.clear();
       match.phase = 'waiting'; match.round = 0;
       match.roundWinner = null; match.matchWinner = null;
-      respawnAll();
+      respawnAll(room);
     }
   } else if (livePlayers.length < MATCH.minPlayers) {
     /* Don't tear a match down over a dropped connection. A reload, or Chrome
@@ -706,11 +781,11 @@ setInterval(() => {
     if (match.phase === 'over') {                  // already finished: nothing to save
       match.phase = 'waiting'; match.round = 0;
       match.roundWinner = null; match.matchWinner = null;
-      respawnAll();
+      respawnAll(room);
     } else {
       match.phase = 'paused'; match.until = now + MATCH.rejoinMs;
       match.roundWinner = null; match.matchWinner = null;
-      respawnAll();                                // free roam while we wait
+      respawnAll(room);                            // free roam while we wait
     }
   } else if (match.phase === 'live') {
     if (standing.length <= 1) {
@@ -730,7 +805,7 @@ setInterval(() => {
          their loadout into the next round, everyone else buys again out of
          the payout. On a genuine draw nobody lost, so nobody is stripped. */
       if (w) for (const p of players.values()) if (p !== w) p.guns = [];
-      clearField(); douseAll();          // the round is over, so is the fire
+      clearField(room); douseAll(room);  // the round is over, so is the fire
       match.roundWinner = w ? w.id : null;
       if (w && w.wins >= MATCH.winsNeeded) {
         match.phase = 'over'; match.matchWinner = w.id; match.until = now + MATCH.endMs;
@@ -739,15 +814,15 @@ setInterval(() => {
       }
     }
   } else if (now >= match.until) {
-    if (match.phase === 'intermission') startRound(match.round + 1, false);
+    if (match.phase === 'intermission') startRound(room, match.round + 1, false);
     else {                                         // match over -> run it again
       /* Held scores belong to the match that just finished. Without this a
          player who dropped in its closing seconds rejoined the NEXT match
          carrying their old money, guns and round wins. */
       parked.clear();
-      resetEconomy();
+      resetEconomy(room);
       match.round = 0; match.roundWinner = null; match.matchWinner = null;
-      openBuyWindow(now, MATCH.prepMs);
+      openBuyWindow(room, now, MATCH.prepMs);
     }
   }
 
@@ -760,13 +835,13 @@ setInterval(() => {
       // which is where a floor ricochet ended up, since it skips upward and
       // the post-bounce life cap expires before it comes back down. It fizzles
       // onto the ground beneath instead.
-      (a.smoke ? dropSmoke : dropFire)(a.x, 0, a.z, a.by, now);
+      (a.smoke ? dropSmoke : dropFire)(room, a.x, 0, a.z, a.by, now);
       arrows.splice(i, 1); continue;
     }
     a.vy -= 9 * dt;                                     // slight drop
     if (a.falling) {               // stopped against something: just drop
       a.y += a.vy*dt;
-      if (a.y <= 0) { (a.smoke ? dropSmoke : dropFire)(a.x, 0, a.z, a.by, now); arrows.splice(i, 1); }
+      if (a.y <= 0) { (a.smoke ? dropSmoke : dropFire)(room, a.x, 0, a.z, a.by, now); arrows.splice(i, 1); }
       continue;
     }
     const nx = a.x + a.vx*dt, ny = a.y + a.vy*dt, nz = a.z + a.vz*dt;
@@ -797,11 +872,11 @@ setInterval(() => {
     }
 
     // where this bolt's payload lands
-    const drop = (px, py, pz) => a.smoke ? dropSmoke(px, py, pz, a.by, now)
-                                         : dropFire(px, py, pz, a.by, now);
+    const drop = (px, py, pz) => a.smoke ? dropSmoke(room, px, py, pz, a.by, now)
+                                         : dropFire(room, px, py, pz, a.by, now);
     if (victim && hitT <= wallT) {                      // hit someone
       if (a.smoke) drop(victim.ref.x, victim.ref.y || 0, victim.ref.z);   // cover, not damage
-      else igniteTarget(victim, a.by, now);
+      else igniteTarget(room, victim, a.by, now);
       arrows.splice(i, 1); continue;
     }
     if (wn && wallT <= stepLen) {
@@ -915,7 +990,7 @@ setInterval(() => {
     if (match.phase === 'live' && !match.resupplyBy) {
       match.resupplyBy = pl.id;                  // claimed for the round
       paid = RESUPPLY.cash; pl.money += paid;
-      io.emit('claimed', { name: pl.name, cash: paid });   // everyone sees it go
+      io.to(room.id).emit('claimed', { name: pl.name, cash: paid });   // everyone sees it go
     }
     io.to(pl.id).emit('resupply', { cash: paid });   // the client refills its own ammo
   }
@@ -932,33 +1007,44 @@ setInterval(() => {
       const killer = players.get(e.burnBy);
       if (killer) killer.kills++;
       if (isPlayer) e.deaths++;
-      io.emit('kill', { by: killer ? killer.name : 'fire', victim: isPlayer ? e.name : 'a bot', head:false });
+      io.to(room.id).emit('kill', { by: killer ? killer.name : 'fire', victim: isPlayer ? e.name : 'a bot', head:false });
     }
   };
   for (const pl of players.values()) burnTick(pl, true);
 
 
   // broadcast a snapshot of the whole world
-  io.emit('snapshot', {
+  /* The snapshot is the server's whole bandwidth bill: it goes to everyone in
+     the room, 20 times a second, so anything in here is paid for once per
+     player per tick. Two things used to inflate it badly.
+
+     The static config — prices, slot lists, the resupply box, the carry caps,
+     the room cap, winsNeeded — never changes, and rode along every single
+     time. It goes out once now, in 'welcome'.
+
+     Positions were raw doubles: "x":12.344999999999999 is 20 bytes to say
+     12.34. Rounding to centimetres is far below what anyone can see (the
+     client's own prediction error is ~9cm) and roughly halves what is left. */
+  const q = v => Math.round((v || 0) * 100) / 100;      // centimetres is plenty
+  io.to(room.id).emit('snapshot', {
     t: now,
-    prices: PRICES, mainSlots: MAIN_SLOTS, sideSlots: SIDE_SLOTS,
-    resupply: RESUPPLY,
-    maxMain: MAX_MAIN, maxSide: MAX_SIDE, maxPlayers: MATCH.maxPlayers,
-    match: { phase: match.phase, round: match.round, winsNeeded: MATCH.winsNeeded,
+    match: { phase: match.phase, round: match.round,
              endsIn: match.until ? Math.max(0, match.until - now) : 0,
              roundWinner: match.roundWinner, matchWinner: match.matchWinner,
              resupplyTaken: !!match.resupplyBy },
-    players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, wins:p.wins||0, money:p.money,
+    players: [...players.values()].map(p => ({ id:p.id, x:q(p.x), z:q(p.z), y:q(p.y), yaw:q(p.yaw),
+      st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, wins:p.wins||0, money:p.money,
       guns:p.guns,
       name:p.name, color:p.color,
-      mk: (p.markedUntil > now) ? p.markedBy : null, rl: p.rl || 0,
+      mk: (p.markedUntil > now) ? p.markedBy : null, rl: q(p.rl),
       tp: p.tp || 0,
       dT: p.detectTarget, dU: Math.max(0, p.detectUntil - now),
       dR: Math.max(0, p.detectReadyAt - now),
       bn: p.burnUntil > now })),      // on fire, so others can see it
-    arrows: arrows.map(a => ({ id:a.id, x:a.x, y:a.y, z:a.z, vx:a.vx, vy:a.vy, vz:a.vz,
+    arrows: arrows.map(a => ({ id:a.id, x:q(a.x), y:q(a.y), z:q(a.z),
+      vx:q(a.vx), vy:q(a.vy), vz:q(a.vz),
       sm: !!a.smoke })),      // smoke bolts render cold grey, not aflame
   });
-}, TICK);
+}
 
 server.listen(PORT, () => console.log(`Bot Strike MP server on http://localhost:${PORT}`));
