@@ -179,6 +179,41 @@ if (THREE.FBXLoader) try {
   }, undefined, (err)=> console.warn('[BotStrike] spartan FBX failed, keeping box soldiers', err));
 } catch(e){ console.warn('[BotStrike] soldier load error', e); }
 
+/* ---- Health bars over the practice bots ----
+   Two unlit planes above the head. No billboard maths needed: in target
+   practice the bots already turn to face you every frame, and a plane's
+   normal is +Z, so a child with identity rotation points at you for free.
+   Being a child also means it is disposed along with the bot's mesh. */
+const BAR_W = 1.0, BAR_H = 0.12;
+function makeHealthBar(){
+  const g = new THREE.Group();
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(BAR_W, BAR_H),
+    new THREE.MeshBasicMaterial({ color:0x0d1117, transparent:true, opacity:0.8, depthWrite:false }));
+  const fw = BAR_W - 0.06, fh = BAR_H - 0.05;
+  const fillGeo = new THREE.PlaneGeometry(fw, fh);
+  fillGeo.translate(fw/2, 0, 0);                  // pivot on the left, so it drains rightward
+  const fill = new THREE.Mesh(fillGeo,
+    new THREE.MeshBasicMaterial({ color:0x27ff9e, depthWrite:false }));
+  fill.position.set(-fw/2, 0, 0.002);
+  g.add(back); g.add(fill);
+  g.userData = { fill };
+  g.position.y = 2.15;                            // just above a 1.9m bot
+  return g;
+}
+/* Called each frame while in target practice. */
+function updateBotHealthBars(){
+  for(const b of localBots){
+    if(!b.mesh) continue;
+    if(!b.bar){ b.bar = makeHealthBar(); b.mesh.add(b.bar); }
+    const frac = Math.max(0, Math.min(1, (b.hp||0)/100));
+    const fill = b.bar.userData.fill;
+    fill.scale.x = frac;
+    fill.visible = frac > 0;
+    fill.material.color.setHex(frac > 0.5 ? 0x27ff9e : frac > 0.25 ? 0xffb648 : 0xff4d4d);
+    b.bar.visible = !!b.alive;
+  }
+}
+
 /* ---- Home-page character: podium + spotlight showcase ---- */
 let hero = humanoid(0x27ff9e); hero.position.set(0,0.12,32); scene.add(hero);
 const podium = new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.3,0.12,32),

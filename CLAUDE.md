@@ -96,7 +96,10 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   so (`econOnline`) rather than showing $0 and silently refusing everything. Shared gameplay numbers must be kept in
   sync between `WEAPONS` (client) and `XBOW`/`MELEE`/`STANCE_BOX` (server).
 - Bots are **stationary targets** by design — they don't move or shoot. They
-  exist only in Target Practice now; the server has none.
+  exist only in Target Practice now; the server has none. They carry a
+  health bar (`updateBotHealthBars`) that needs **no billboard maths** —
+  the bots already turn to face you every frame and a plane's normal is
+  +Z, so a child with identity rotation points at you for free.
 - The arena is **indoors**: flat dark backdrop, fog on the same value, a
   ceiling at `WH`, and unlit emissive panels standing in for ceiling lamps.
   There is no sky and no sun.
