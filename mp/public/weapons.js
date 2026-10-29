@@ -254,6 +254,33 @@ let currentWeapon = 0;
 let weaponAmmo = WEAPONS.map(w=>({ mag:w.magMax, reserve:w.reserveMax }));
 const curW = ()=>WEAPONS[currentWeapon];
 const curAmmo = ()=>weaponAmmo[currentWeapon];
+
+/* Hit zones — the same table the server uses, and it MUST stay in step with
+   mp/server.js or target practice will teach you the wrong aim. Head hurts
+   most, torso is the baseline, arms and legs hurt less. Each entry is a
+   sphere per stance: [height above the feet, radius], stand / crouch / prone.
+   The arms sphere wraps the torso on purpose, so a shot through the middle
+   reads as torso and only the outer edge of the silhouette counts as an arm;
+   hitZone drops arms whenever the torso was hit too. */
+const ZONES = [
+  { name:'head',  mult:2.5,  by:[[1.70,0.30],[1.10,0.28],[0.50,0.26]] },
+  { name:'torso', mult:1.0,  by:[[1.20,0.40],[0.80,0.38],[0.32,0.40]] },
+  { name:'arms',  mult:0.65, by:[[1.20,0.60],[0.80,0.52],[0.32,0.48]] },
+  { name:'legs',  mult:0.65, by:[[0.55,0.34],[0.35,0.30],[0.25,0.34]] },
+];
+function hitZone(o, dir, cx, cz, baseY, st){
+  const s = Math.max(0, Math.min(2, st|0));
+  /* Anatomical priority, NOT nearest entry. The arms sphere is wide enough
+     that a level head shot clips its shoulder first, so picking by distance
+     scored headshots as arm hits. First zone in the table that the ray
+     enters wins; the table is ordered head, torso, arms, legs. */
+  for(const z of ZONES){
+    const [dy, r] = z.by[s];
+    const t = raySphere(o, dir, cx, baseY + dy, cz, r);
+    if(t < Infinity) return { t, zone:z.name, mult:z.mult };
+  }
+  return null;
+}
 /* A gun you just paid for arrives loaded — mag and reserve both full.
    Without this you could buy a rifle mid-match and get last round's
    leftovers, or three rounds later an empty one. */

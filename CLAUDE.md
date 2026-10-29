@@ -162,6 +162,21 @@ camera through a corner. Suppressed during a roll or slide. Double jump. Sprint 
 `Z` prone — these shrink your server-side hitbox.
 `Tab` armory, `O` graphics settings, `Esc` pause/quit.
 
+## Hit zones
+
+Bullets are zoned: **head ×2.5, torso ×1.0, arms and legs ×0.65**. Each zone
+is a sphere per stance in the `ZONES` table, so crouching and going prone
+still shrink you. The table lives in **both** `mp/server.js` and
+`mp/public/weapons.js` and must stay in step, or target practice teaches the
+wrong aim.
+
+`hitZone` picks by **anatomical priority — first zone in the table the ray
+enters — not by nearest entry point.** The arms sphere is wide enough that a
+level head shot clips its shoulder before reaching the head, so distance
+ordering scored headshots as arm hits. Order is head, torso, arms, legs.
+
+Crossbow bolts are still flat damage, zones don't apply to them.
+
 ## Gotchas discovered the hard way
 
 - **`object.position` is read-only** in this Three.js build —

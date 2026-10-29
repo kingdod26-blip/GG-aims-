@@ -5,6 +5,13 @@
   #crosshair::before,#crosshair::after { content:''; position:absolute; background:rgba(39,255,158,.9); box-shadow:0 0 3px #000; }
   #crosshair::before { width:2px; height:14px; left:-1px; top:-7px; }
   #crosshair::after  { height:2px; width:14px; top:-1px; left:-7px; }
+  /* Shotguns throw a cone, so they get a ring rather than a cross — the
+     circle reads as "anywhere in here" instead of a point of aim. */
+  #crosshair.spread::before, #crosshair.spread::after {
+    width:34px; height:34px; left:-17px; top:-17px; background:none;
+    border:2px solid rgba(39,255,158,.9); border-radius:50%; box-shadow:0 0 3px #000; }
+  #crosshair.spread::after { width:3px; height:3px; left:-1.5px; top:-1.5px;
+    background:rgba(39,255,158,.9); border:none; border-radius:50%; }
   #hitmarker { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) rotate(45deg); z-index:11; opacity:0; pointer-events:none; }
   #hitmarker::before,#hitmarker::after { content:''; position:absolute; background:#fff; }
   #hitmarker::before { width:2px; height:10px; left:-1px; top:-5px; }

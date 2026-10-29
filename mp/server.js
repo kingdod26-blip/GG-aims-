@@ -214,6 +214,35 @@ const BOUNCE = { keep: 0.55, lifeS: 1.1 };
 const MAIN_SLOTS = [0, 1, 2];
 const SIDE_SLOTS = [3, 4];
 const MAX_MAIN = 2, MAX_SIDE = 1;        // what you can carry at once
+/* Hit zones, in the usual shooter convention: the head hurts most, the torso
+   is the baseline, arms and legs hurt less. Each zone is a sphere per stance,
+   [height above the feet, radius]; stance order is stand / crouch / prone, so
+   crouching and going prone still shrink you.
+   The arms sphere deliberately WRAPS the torso — that is how a shot near the
+   edge of the silhouette reads as an arm while one through the middle reads
+   as the torso. hitZone drops arms whenever the torso was also hit.
+   KEEP IN SYNC with the client's copy in weapons.js. */
+const ZONES = [
+  { name:'head',  mult:2.5,  by:[[1.70,0.30],[1.10,0.28],[0.50,0.26]] },
+  { name:'torso', mult:1.0,  by:[[1.20,0.40],[0.80,0.38],[0.32,0.40]] },
+  { name:'arms',  mult:0.65, by:[[1.20,0.60],[0.80,0.52],[0.32,0.48]] },
+  { name:'legs',  mult:0.65, by:[[0.55,0.34],[0.35,0.30],[0.25,0.34]] },
+];
+/* Nearest zone the ray enters, or null. */
+function hitZone(o, dir, cx, cz, baseY, st) {
+  const s = Math.max(0, Math.min(2, st | 0));
+  /* Anatomical priority, NOT nearest entry point. The arms sphere is wide
+     enough that a level head shot clips its shoulder before reaching the
+     head, so picking by distance scored headshots as arm hits. First zone in
+     the table that the ray enters wins, and the table is ordered head, torso,
+     arms, legs. */
+  for (const z of ZONES) {
+    const [dy, r] = z.by[s];
+    const t = raySphere(o, dir, cx, baseY + dy, cz, r);
+    if (t < Infinity) return { t, zone: z.name, mult: z.mult };
+  }
+  return null;
+}
 /* Guns are held as an ORDERED list: the first you buy is position 1, the
    second position 2, and the number keys pick by position rather than by
    weapon. Buying past the limit drops the oldest of that category. */
@@ -329,30 +358,22 @@ io.on('connection', (socket) => {
       if (h && h.t < wall) wall = h.t;
     }
 
-    let best = { t: Math.min(wall, range), target: null, head: false };
-    // Hitboxes shrink with stance, so crouching and going prone genuinely make
-    // you a smaller target. [body height, body radius, head height]
-    const STANCE_BOX = [ [1.05, 0.55, 1.70],    // standing
-                         [0.70, 0.50, 1.10],    // crouched
-                         [0.32, 0.45, 0.50] ];  // prone
+    let best = { t: Math.min(wall, range), target: null, head: false, zone: null, mult: 1 };
     // baseY lets us model targets standing on crates (players send their feet height)
     const consider = (cx, cz, baseY, st, hitApply) => {
-      const [bh, br, hh] = STANCE_BOX[st] || STANCE_BOX[0];
-      const body = raySphere(o, dir, cx, baseY + bh, cz, br);
-      const head = raySphere(o, dir, cx, baseY + hh, cz, 0.30);
-      let t = Infinity, hs = false;
-      if (head < t) { t = head; hs = true; }
-      if (body < t) { t = body; hs = false; }
-      if (t < best.t) best = { t, target: hitApply, head: hs };
+      const z = hitZone(o, dir, cx, cz, baseY, st);
+      if (z && z.t < best.t)
+        best = { t: z.t, target: hitApply, head: z.zone === 'head', zone: z.zone, mult: z.mult };
     };
     for (const other of players.values())
       if (other.alive && other.id !== p.id) consider(other.x, other.z, other.y || 0, other.st || 0, { kind:'player', ref:other });
 
     if (best.target) {
-      const dealt = best.head ? dmg*2.5 : dmg;
+      const dealt = dmg * best.mult;
       const tgt = best.target.ref;
       tgt.hp -= dealt;
-      io.emit('impact', { x: o.x + dir.x*best.t, y: o.y + dir.y*best.t, z: o.z + dir.z*best.t, head: best.head });
+      io.emit('impact', { x: o.x + dir.x*best.t, y: o.y + dir.y*best.t, z: o.z + dir.z*best.t,
+                          head: best.head, zone: best.zone });
       if (tgt.hp <= 0 && tgt.alive) {
         eliminate(tgt, best.target.kind === 'player');
         p.kills++;

@@ -205,12 +205,11 @@ function shoot(){
     if(gameMode==='mp'){ socket.emit('fire',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, dmg:w.dmg, range:w.range }); continue; }
     // local hit detection (target practice)
     _ray.set(o,dir); _ray.far=w.range; const wh=_ray.intersectObjects(wallMeshes,false); let bd=Math.min(wh.length?wh[0].distance:Infinity, w.range);
-    let best=null, head=false;
+    let best=null, mult=1;
     for(const b of localBots){ if(!b.alive) continue;
-      const body=raySphere(o,dir,b.x,1.05,b.z,0.55), hh=raySphere(o,dir,b.x,1.70,b.z,0.30);
-      let t=Infinity,hs=false; if(hh<t){t=hh;hs=true;} if(body<t){t=body;hs=false;}
-      if(t<bd){ bd=t; best=b; head=hs; } }
-    if(best){ best.hp-= head?w.dmg*2.5:w.dmg; hitmark(); Sfx.hit();
+      const z = hitZone(o, dir, b.x, b.z, 0, 0);     // bots always stand
+      if(z && z.t<bd){ bd=z.t; best=b; mult=z.mult; } }
+    if(best){ best.hp-= w.dmg*mult; hitmark(); Sfx.hit();
       if(best.hp<=0 && best.alive){ best.alive=false; best.mesh.visible=false; localKills++; updateHUD(); setTimeout(()=>respawnLocalBot(best),2000); } }
   }
   // recoil kicks in AFTER the bullet leaves — shots land where the crosshair was

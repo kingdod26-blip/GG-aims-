@@ -15,6 +15,7 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
   document.getElementById('hpFill').style.width=Math.max(0,me.hp)+'%';
   document.getElementById('hpFill').style.background = me.hp>50 ? '#fff' : me.hp>25 ? '#ffb648' : '#ff4d4d';
   const w=curW();
+  updateCrosshair();                               // ring for the shotgun, cross otherwise
   if(w.melee){                                     // combo chain, no ammo
     if(performance.now()>comboUntil && comboStep!==0) comboStep=0;
     document.getElementById('magNum').textContent = (comboStep||0)+1;
@@ -75,6 +76,13 @@ function updateDetectHUD(){
       active  ? 'CONTACT ' + Math.ceil((detectUntil-now)/1000) + 's'
     : cooling ? 'DETECT ' + Math.ceil((detectReady-now)/1000) + 's'
     :           'DETECT READY';
+}
+/* The reticle follows the weapon: a ring for the shotgun's cone, a cross for
+   anything that shoots a point. Driven from updateHUD so it changes the
+   instant you switch. */
+function updateCrosshair(){
+  const el = document.getElementById('crosshair');
+  if(el) el.classList.toggle('spread', !!curW().pellets);
 }
 function updateBoard(pl){ document.getElementById('rows').innerHTML=[...pl]
   .sort((a,b)=>(b.wins||0)-(a.wins||0) || b.kills-a.kills).map(p=>
