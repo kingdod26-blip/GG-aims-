@@ -180,11 +180,18 @@ it, meaning limbs only ever ADD hits that previously missed. The table lives in 
 `mp/public/weapons.js` and must stay in step, or target practice teaches the
 wrong aim.
 
-`hitZone` settles **head vs torso by nearest entry, ties to the head** —
-exactly what the old two-box model did. That boundary matters: a shot at
-y1.40–1.50 clips the head sphere but enters the body first, and has always
-counted as a body hit. Straight priority ordering would quietly promote all
-of those to headshots.
+The **head sphere is fitted to the model**: its head box is 0.26×0.28 at 1.68
+with a helmet above, so the head occupies y1.54–1.87 and is 0.15 half-wide,
+and the sphere is r0.19 at 1.70. It used to be r0.30 — reaching 14cm down
+into the chest and 13cm of empty air above the helmet. Because it now hugs
+the head, **a head hit simply wins**; that was unsafe at r0.30, which is why
+the old code had to fall back on nearest-entry against the body.
+An **`upper`** sphere covers the shoulders and upper arms: the torso sphere
+tops out at y1.60 while the arm boxes run to 1.75, so without it the upper
+arms swallowed shots entirely.
+Turn on **HITBOXES** in the settings panel (target practice only) to see all
+of this drawn on the bots. It is generated from the same `HITBOX` table that
+`hitZone` tests, so the picture cannot drift from the behaviour.
 A body hit is then split by **how central it is** — the perpendicular
 distance from the shot line to the target's vertical axis, against `CORE_R`
 (0.26). Inside that it's the torso, outside it's an arm. It is NOT a second
