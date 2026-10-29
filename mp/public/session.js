@@ -216,6 +216,10 @@ Try again when someone leaves.`);
   socket.on('groundfire', d=> spawnGroundFire(d.x, d.y||0, d.z));
   socket.on('smoke', d=> spawnSmoke(d.x, d.y||0, d.z, d.by));
   // the server decides the cash; ammo is ours to refill
+  // somebody took the round's cash — tell everyone, and grey out the ring
+  socket.on('claimed', d=>{
+    if(d && d.name) toast(`${d.name.toUpperCase()} TOOK THE $${d.cash}`);
+  });
   socket.on('resupply', d=>{
     refillAllWeapons(); updateHUD(); Sfx.swap();
     toast(d && d.cash ? `RESUPPLIED  +$${d.cash}` : 'RESUPPLIED');
@@ -252,6 +256,7 @@ function onSnapshot(s){
   if(s.maxMain)   MAX_MAIN = s.maxMain;
   if(s.maxSide)   MAX_SIDE = s.maxSide;
   updateMatchUI(s.match, s.players);
+  setResupplyClaimed(!!(s.match && s.match.resupplyTaken));
   const mine = s.players.find(p=>p.id===myId);
   if (mine){ me.hp=mine.hp;
     const incoming = mine.guns || [];

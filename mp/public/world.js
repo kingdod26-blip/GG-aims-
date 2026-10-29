@@ -63,13 +63,21 @@ floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
 /* Resupply marker: a ring on the floor around the centre crate, so the
    pickup is somewhere you can see rather than a secret radius. Unlit and
    flat, like the fire pools. */
-(function resupplyRing(){
-  const ring = new THREE.Mesh(new THREE.RingGeometry(4.5, 5.0, 48),
+let resupplyRing = null;
+(function makeResupplyRing(){
+  resupplyRing = new THREE.Mesh(new THREE.RingGeometry(4.5, 5.0, 48),
     new THREE.MeshBasicMaterial({ color:0x27ff9e, transparent:true, opacity:0.35,
       side:THREE.DoubleSide, depthWrite:false }));
-  ring.rotation.x = -Math.PI/2; ring.position.set(0, 0.03, 0);
-  scene.add(ring);
+  resupplyRing.rotation.x = -Math.PI/2; resupplyRing.position.set(0, 0.03, 0);
+  scene.add(resupplyRing);
 })();
+/* Green while the round's cash is still there, grey once somebody has taken
+   it — ammo still works, but there is no longer a reason to race for it. */
+function setResupplyClaimed(taken){
+  if(!resupplyRing) return;
+  resupplyRing.material.color.setHex(taken ? 0x5a636e : 0x27ff9e);
+  resupplyRing.material.opacity = taken ? 0.18 : 0.35;
+}
 const WH=8;
 addBox(0,WH/2,-ARENA,ARENA*2,WH,2,0x5a6472); addBox(0,WH/2,ARENA,ARENA*2,WH,2,0x5a6472);
 addBox(-ARENA,WH/2,0,2,WH,ARENA*2,0x5a6472); addBox(ARENA,WH/2,0,2,WH,ARENA*2,0x5a6472);

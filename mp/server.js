@@ -292,7 +292,8 @@ function hitZone(o, dir, cx, cz, baseY, st) {
 /* Guns are held as an ORDERED list: the first you buy is position 1, the
    second position 2, and the number keys pick by position rather than by
    weapon. Buying past the limit drops the oldest of that category. */
-const match = { phase: 'waiting', round: 0, until: 0, roundWinner: null, matchWinner: null };
+const match = { phase: 'waiting', round: 0, until: 0, roundWinner: null, matchWinner: null,
+                resupplyBy: null };      // who took the crate's cash this round
 
 /* Pick n spawns that are far apart and, where the arena allows, out of each
    other's line of sight. Scored rather than rejected outright: with five
@@ -374,8 +375,12 @@ function dropSmoke(x, y, z, byId, now) {
   smokes.push({ x, y, z, by: byId, until: now + SMOKE.ms });
   io.emit('smoke', { x, y, z, by: byId });
 }
+/* The cash is ONE prize per round, not one each: first player to reach the
+   crate takes it and nobody else can that round. Ammo is separate and still
+   tops up for everyone, every time they walk in. */
 function resetResupply() {
-  for (const p of players.values()) p.tookResupply = false;
+  match.resupplyBy = null;
+  for (const p of players.values()) p.inResupply = false;
 }
 function resetDetection() {
   for (const p of players.values()) { p.detectReadyAt = 0; p.detectUntil = 0; p.detectTarget = null; }
@@ -777,8 +782,10 @@ setInterval(() => {
     if (pl.inResupply) continue;                 // already standing in it
     pl.inResupply = true;
     let paid = 0;
-    if (match.phase === 'live' && !pl.tookResupply) {
-      pl.tookResupply = true; paid = RESUPPLY.cash; pl.money += paid;
+    if (match.phase === 'live' && !match.resupplyBy) {
+      match.resupplyBy = pl.id;                  // claimed for the round
+      paid = RESUPPLY.cash; pl.money += paid;
+      io.emit('claimed', { name: pl.name, cash: paid });   // everyone sees it go
     }
     io.to(pl.id).emit('resupply', { cash: paid });   // the client refills its own ammo
   }
@@ -809,7 +816,8 @@ setInterval(() => {
     maxMain: MAX_MAIN, maxSide: MAX_SIDE,
     match: { phase: match.phase, round: match.round, winsNeeded: MATCH.winsNeeded,
              endsIn: match.until ? Math.max(0, match.until - now) : 0,
-             roundWinner: match.roundWinner, matchWinner: match.matchWinner },
+             roundWinner: match.roundWinner, matchWinner: match.matchWinner,
+             resupplyTaken: !!match.resupplyBy },
     players: [...players.values()].map(p => ({ id:p.id, x:p.x, z:p.z, y:p.y, yaw:p.yaw, st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, wins:p.wins||0, money:p.money,
       guns:p.guns,
       name:p.name, color:p.color,

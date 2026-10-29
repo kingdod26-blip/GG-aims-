@@ -221,9 +221,11 @@ Crossbow bolts are still flat damage, zones don't apply to them.
 
 The big crate dead centre of the map is a pickup. Walk inside `RESUPPLY.radius`
 (5m, drawn as a ring on the floor) and your ammo is topped up. In a match it
-also pays `RESUPPLY.cash` ($100) — but **once per player per round**, tracked
-by `tookResupply` and cleared on every round start, or standing on it would be
-an income stream. Ammo refills every time you re-enter; cash does not.
+also pays `RESUPPLY.cash` ($100), but that is **one prize per round for the
+whole room** — the first player to reach the crate takes it (`resupplyBy`)
+and nobody else can until the next round. Everyone else still gets ammo, and
+ammo refills every time anyone re-enters. The claim is broadcast so the ring
+greys out and the room knows it has gone.
 The server owns the money, the client owns ammo and refills its own, so target
 practice does the proximity check itself in `loop.js`.
 
