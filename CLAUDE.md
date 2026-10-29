@@ -165,7 +165,19 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   a bad line is shooting at ghosts. The lead term (45ms, `1/REMOTE_EASE`)
   gives some of the rewind back because the CLIENT already predicts forward.
   RTT comes from our own `ping2`/`pong2` pair — socket.io has a heartbeat but
-  does not hand us the number. Arrows do not rewind: they fly on the server,
+  does not hand us the number — and is the **minimum** of the last 8 samples,
+  never an average. Latency has a floor, the real network time, and
+  everything else only ADDS to it. A backgrounded browser tab is the worst
+  offender: Chrome throttles its timers, the reply comes back up to a second
+  late, an averaged RTT climbs to something absurd, and the rewind then drags
+  every target metres into the past so the shooter hits nothing. Playing in
+  two tabs did exactly that: measured 1/12 shots landing with an average,
+  12/12 with the minimum. The window takes ~10s to follow a genuine latency
+  change, which is the right way to be wrong — under-rewinding costs a little
+  accuracy, over-rewinding costs every shot.
+  **Faking latency in a test by delaying only the pong does not validate the
+  rewind**: the packets still arrive instantly, so it measures pure overshoot.
+  It is good for proving a WRONG latency number hurts, nothing more. Arrows do not rewind: they fly on the server,
   in the present, so there is no stale view to correct.
   When no rewind is wanted the server uses the LIVE position and extrapolates
   it from `p.vx/p.vz` by up to 60ms (and never more than 0.5m), because

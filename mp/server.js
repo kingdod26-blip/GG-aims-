@@ -682,8 +682,18 @@ io.on('connection', (socket) => {
      hand us the number, and lag compensation is only as good as this. */
   socket.on('pong2', t => {
     const rtt = Date.now() - t;
-    if (rtt >= 0 && rtt < 2000)
-      player.rtt = player.rtt ? player.rtt*0.7 + rtt*0.3 : rtt;   // smoothed
+    if (rtt < 0 || rtt > 2000) return;
+    /* The MINIMUM of recent samples, not an average. Latency has a floor —
+       the real network time — and everything else only ever ADDS to it. A
+       backgrounded browser tab is the worst offender: Chrome throttles its
+       timers, so the reply can come back a second late and an averaged RTT
+       would climb to something absurd. Lag compensation rewinds by that
+       number, so an inflated one rewinds every target metres into the past
+       and the shooter stops hitting anything. Playing in two tabs did
+       exactly this. */
+    (player.rttSamples || (player.rttSamples = [])).push(rtt);
+    if (player.rttSamples.length > 8) player.rttSamples.shift();
+    player.rtt = Math.min(...player.rttSamples);
   });
 
   // Client owns its movement; it streams position/orientation here.

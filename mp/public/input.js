@@ -210,7 +210,18 @@ function shoot(){
   for(let p=0;p<pellets;p++){
     const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(me.pitch,me.yaw,0,'YXZ'));
     dir.x+=(Math.random()-0.5)*spread; dir.y+=(Math.random()-0.5)*spread; dir.z+=(Math.random()-0.5)*spread; dir.normalize();
-    addTracer(o,dir,w.range,muzzleWorld());
+    /* End the line where the shot actually stops, not at the weapon's full
+       240m range. A tracer drawn from the muzzle only meets the aim ray at
+       its far END, so running it to maximum range left it passing a quarter
+       of a metre to the RIGHT of whatever you were shooting at — it looked
+       like the bullet was landing nowhere near the crosshair. Ending it on
+       the first wall makes it converge there instead. */
+    const tTargets = wallMeshes.slice();
+    if(gameMode==='mp') for(const ot of others.values()) if(ot.mesh.visible) tTargets.push(ot.mesh);
+    _ray.set(o,dir); _ray.far=w.range;
+    const twh=_ray.intersectObjects(tTargets,true);   // players too, so it meets THEM
+    const tlen=Math.min(twh.length?twh[0].distance:Infinity, w.range);
+    addTracer(o,dir,tlen,muzzleWorld());
     if(gameMode==='mp'){ socket.emit('fire',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, dmg:w.dmg, range:w.range }); continue; }
     // local hit detection (target practice)
     _ray.set(o,dir); _ray.far=w.range; const wh=_ray.intersectObjects(wallMeshes,false); let bd=Math.min(wh.length?wh[0].distance:Infinity, w.range);
