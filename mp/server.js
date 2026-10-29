@@ -14,6 +14,16 @@ const { Server } = require('socket.io');
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
+/* The lobby reads these before joining anything, so they must work without a
+   socket. Listing is the room browser; /rooms/new reserves a fresh code. */
+app.get('/rooms', (_req, res) => res.json({ rooms: roomList(), max: MATCH.maxPlayers }));
+app.get('/rooms/new', (_req, res) => {
+  const code = newRoomCode();
+  if (!code) return res.status(503).json({ error: 'could not allocate a code' });
+  rooms.set(code, makeRoom(code, 60000));     // held for a minute so it survives the trip
+  console.log(`[*] room ${code} created (${rooms.size} room(s))`);
+  res.json({ code });
+});
 const server = http.createServer(app);
 const io = new Server(server);
 
@@ -161,14 +171,34 @@ function insideWall(x, z) {
    driven by players-per-room (everyone's position goes to everyone in it), so
    small rooms stay cheap however many you run. */
 const rooms = new Map();          // roomId -> room
-let roomSeq = 0;
-function makeRoom(id) {
+function makeRoom(id, holdMs) {
   return { id,
     players: new Map(),           // socket.id -> player
     parked: new Map(),            // token -> { wins, money, guns, name, at }
     smokes: [], fires: [], arrows: [],
+    /* A room made by the Create button has nobody in it yet. Without a hold
+       the very next tick would retire it before its creator's socket even
+       connected, and their code would be dead on arrival. */
+    holdUntil: Date.now() + (holdMs || 0),
     match: { phase: 'waiting', round: 0, until: 0,
              roundWinner: null, matchWinner: null, resupplyBy: null } };
+}
+/* Lowest free number, not an ever-climbing counter. With a counter, leaving
+   an empty server and coming back put you in "r2", then "r3" — the room you
+   had just left having been retired behind you. Numbers are a label people
+   read, so they should start at 1 whenever 1 is free. */
+function nextRoomId() {
+  for (let n = 1; ; n++) { const id = 'r' + n; if (!rooms.has(id)) return id; }
+}
+/* Five letters, no digits, and no I or O so nobody mistypes a 1 or a 0. */
+const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+function newRoomCode() {
+  for (let tries = 0; tries < 500; tries++) {
+    let c = '';
+    for (let i = 0; i < 5; i++) c += CODE_LETTERS[Math.floor(Math.random()*CODE_LETTERS.length)];
+    if (!rooms.has(c)) return c;
+  }
+  return null;                    // 24^5 codes, so only if something is very wrong
 }
 /* Which room a connection belongs in, in priority order:
 
@@ -176,9 +206,10 @@ function makeRoom(id) {
       parked is per-room now, so without this a reconnecting player could be
       dropped into a DIFFERENT room and their held score stranded in the old
       one until it expired.
-   2. The room your code names — that is how friends land together. Only this
-      case can return null, when that specific room is full, so the client can
-      be told rather than quietly put somewhere else.
+   2. The room your code names — that is how friends land together. A code
+      for a room that does not exist is a typo or a dead link, so it returns
+      'nosuch' rather than quietly creating an empty room under that name;
+      codes are handed out by /rooms/new, not invented by whoever types one.
    3. Any room that already has people in it and space for one more, so the
       population concentrates instead of scattering one-per-room.
    4. Failing that, a brand new room. Note this skips rooms that are empty but
@@ -188,15 +219,23 @@ function roomFor(code, tok) {
   if (tok) for (const r of rooms.values())
     if (r.parked.has(tok) && r.players.size < MATCH.maxPlayers) return r;
   if (code) {
-    let r = rooms.get(code);
-    if (!r) { r = makeRoom(code); rooms.set(code, r); }
+    const r = rooms.get(code);
+    if (!r) return 'nosuch';
     return r.players.size < MATCH.maxPlayers ? r : null;
   }
   for (const r of rooms.values())
     if (r.players.size && r.players.size < MATCH.maxPlayers) return r;
-  const r = makeRoom('r' + (++roomSeq));
+  const r = makeRoom(nextRoomId());
   rooms.set(r.id, r);
   return r;
+}
+/* What the lobby shows before you commit to joining anything. */
+function roomList() {
+  return [...rooms.values()]
+    .map(r => ({ id: r.id, players: r.players.size, max: MATCH.maxPlayers,
+                 phase: r.match.phase, round: r.match.round,
+                 named: !/^rd+$/.test(r.id) }))
+    .sort((a, b) => b.players - a.players || (a.id < b.id ? -1 : 1));
 }
 /* A match used to be thrown away the moment the room dipped below two, and
    with it everyone's round wins, because resetEconomy() zeroes them. One
@@ -470,6 +509,113 @@ function startRound(room, n, resetWins) {
 
 const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff9a5a];
 
+/* ======================= The snapshot on the wire ==========================
+   The snapshot goes to everyone in the room every tick, so it is the whole
+   bandwidth bill. As JSON it spelled out a field name and a decimal number
+   for every value — "hp":100 is nine characters to carry one byte, and a
+   20-character socket id rode along per player per tick.
+
+   It is two messages now instead of one:
+
+   'meta'     — JSON, sent only when it CHANGES. Socket ids, names, colours,
+                money, wins, kills and owned guns. None of that changes at
+                20Hz, so none of it belongs in the hot path. It also hands the
+                client the slot->id mapping everything below depends on.
+   'snapshot' — a packed binary frame, every tick, carrying only what moves.
+                Players are identified by a one-byte SLOT, not their id.
+
+   Layout (little-endian). Both sides must agree exactly; the version byte is
+   there so a stale client fails loudly instead of misreading every field.
+
+   HEADER  10 bytes
+     u8  version              u8  phase index (PHASES below)
+     u8  round                u16 endsIn ms
+     i8  roundWinner slot     i8  matchWinner slot
+     u8  flags: bit0 resupply taken
+     u8  player count         u8  arrow count
+   PLAYER  20 bytes each
+     u8  slot                 u8  flags: bit0 alive, bit1 burning
+     u8  stance               u8  hp
+     i16 x*100  i16 y*100  i16 z*100      (centimetres; the arena is +-60m)
+     u16 yaw    (0..65535 across a full turn)
+     u8  roll   (0..255 across 0..1)
+     u8  tp     (low byte; the client only tests it for CHANGE)
+     i8  markedBy slot        i8  detectTarget slot
+     u16 detectUntil ms       u16 detectReady ms
+   ARROW   15 bytes each
+     u16 id
+     i16 x,y,z *100           i16 vx,vy,vz *100
+     u8  flags: bit0 smoke
+   ========================================================================= */
+const SNAP_VERSION = 1;
+const PHASES = ['waiting', 'intermission', 'live', 'over', 'paused'];
+const HEAD_B = 10, PLAYER_B = 20, ARROW_B = 15;
+const i16 = v => Math.max(-32768, Math.min(32767, Math.round(v * 100)));
+const u16 = v => Math.max(0, Math.min(65535, Math.round(v)));
+
+function freeSlot(room) {
+  const used = new Set([...room.players.values()].map(p => p.slot));
+  for (let i = 0; ; i++) if (!used.has(i)) return i;
+}
+/* Everything that does NOT change every tick. Emitted only when it differs
+   from last time — in practice on a join, a buy, a kill or a round ending. */
+function metaOf(room) {
+  return { players: [...room.players.values()].map(p => ({
+    slot: p.slot, id: p.id, name: p.name, color: p.color,
+    money: p.money, wins: p.wins || 0, kills: p.kills, guns: p.guns })) };
+}
+function sendMeta(room, force) {
+  const meta = metaOf(room);
+  const sig = JSON.stringify(meta);
+  if (!force && sig === room.metaSig) return;
+  room.metaSig = sig;
+  io.to(room.id).emit('meta', meta);
+}
+function encodeSnapshot(room, now) {
+  const ps = [...room.players.values()], as = room.arrows;
+  const slotOf = id => { const p = room.players.get(id); return p ? p.slot : -1; };
+  const buf = Buffer.allocUnsafe(HEAD_B + ps.length*PLAYER_B + as.length*ARROW_B);
+  const m = room.match;
+  let o = 0;
+  buf.writeUInt8(SNAP_VERSION, o++);
+  buf.writeUInt8(Math.max(0, PHASES.indexOf(m.phase)), o++);
+  buf.writeUInt8(Math.min(255, m.round), o++);
+  buf.writeUInt16LE(u16(m.until ? Math.max(0, m.until - now) : 0), o); o += 2;
+  buf.writeInt8(m.roundWinner ? slotOf(m.roundWinner) : -1, o++);
+  buf.writeInt8(m.matchWinner ? slotOf(m.matchWinner) : -1, o++);
+  buf.writeUInt8(m.resupplyBy ? 1 : 0, o++);
+  buf.writeUInt8(ps.length, o++);
+  buf.writeUInt8(as.length, o++);
+  for (const p of ps) {
+    buf.writeUInt8(p.slot, o++);
+    buf.writeUInt8((p.alive ? 1 : 0) | (p.burnUntil > now ? 2 : 0), o++);
+    buf.writeUInt8(p.st || 0, o++);
+    buf.writeUInt8(Math.max(0, Math.min(255, Math.round(p.hp))), o++);
+    buf.writeInt16LE(i16(p.x), o); o += 2;
+    buf.writeInt16LE(i16(p.y || 0), o); o += 2;
+    buf.writeInt16LE(i16(p.z), o); o += 2;
+    let yaw = (p.yaw || 0) % (Math.PI*2); if (yaw < 0) yaw += Math.PI*2;
+    buf.writeUInt16LE(u16(yaw / (Math.PI*2) * 65535), o); o += 2;
+    buf.writeUInt8(Math.round(Math.max(0, Math.min(1, p.rl || 0)) * 255), o++);
+    buf.writeUInt8((p.tp || 0) & 0xff, o++);
+    buf.writeInt8((p.markedUntil > now && p.markedBy) ? slotOf(p.markedBy) : -1, o++);
+    buf.writeInt8(p.detectTarget ? slotOf(p.detectTarget) : -1, o++);
+    buf.writeUInt16LE(u16(Math.max(0, p.detectUntil - now)), o); o += 2;
+    buf.writeUInt16LE(u16(Math.max(0, p.detectReadyAt - now)), o); o += 2;
+  }
+  for (const a of as) {
+    buf.writeUInt16LE(a.id & 0xffff, o); o += 2;
+    buf.writeInt16LE(i16(a.x), o); o += 2;
+    buf.writeInt16LE(i16(a.y), o); o += 2;
+    buf.writeInt16LE(i16(a.z), o); o += 2;
+    buf.writeInt16LE(i16(a.vx), o); o += 2;
+    buf.writeInt16LE(i16(a.vy), o); o += 2;
+    buf.writeInt16LE(i16(a.vz), o); o += 2;
+    buf.writeUInt8(a.smoke ? 1 : 0, o++);
+  }
+  return buf;
+}
+
 /* ------------------------------ Networking -------------------------------- */
 io.on('connection', (socket) => {
   /* Pick a room first: everything below reads its state through these three
@@ -479,6 +625,12 @@ io.on('connection', (socket) => {
   const auth = socket.handshake.auth || {};
   const code = auth.room || null, tok = auth.tok || null;
   const room = roomFor(code, tok);
+  if (room === 'nosuch') {
+    socket.emit('nosuchroom', { code });
+    console.log(`[!] refused: no room "${code}"`);
+    setTimeout(() => socket.disconnect(true), 150);
+    return;
+  }
   if (!room) {
     socket.emit('full', { max: MATCH.maxPlayers, code });
     console.log(`[!] refused: room "${code}" is full (${MATCH.maxPlayers}/${MATCH.maxPlayers})`);
@@ -509,6 +661,7 @@ io.on('connection', (socket) => {
     name: 'Player-' + socket.id.slice(0, 4),
   };
   if (back) player.name = back.name;
+  player.slot = freeSlot(room);        // one byte stands in for the socket id
   players.set(socket.id, player);
   /* Everything that never changes goes out ONCE, here, instead of riding in
      every snapshot 30 times a second. */
@@ -517,6 +670,7 @@ io.on('connection', (socket) => {
     prices: PRICES, mainSlots: MAIN_SLOTS, sideSlots: SIDE_SLOTS, resupply: RESUPPLY,
     maxMain: MAX_MAIN, maxSide: MAX_SIDE, maxPlayers: MATCH.maxPlayers,
     winsNeeded: MATCH.winsNeeded });
+  sendMeta(room, true);                // the roster, before any frame refers to it
   if (back) console.log(`[~] ${player.name} rejoined with ${player.wins} round win(s)`);
   console.log(`[+] ${player.name} joined ${room.id} (${players.size}/${MATCH.maxPlayers}, ${rooms.size} room(s))`);
 
@@ -600,7 +754,7 @@ io.on('connection', (socket) => {
     if (p.smokeShots.length >= SMOKE.charges) return;
     p.smokeShots.push(now);
     const dir = normalize(d.dx, d.dy, d.dz);
-    room.arrows.push({ id: 'a' + (arrowSeq++), by: socket.id, smoke: true,
+    room.arrows.push({ id: (arrowSeq = (arrowSeq + 1) & 0xffff), by: socket.id, smoke: true,
       x: d.ox, y: d.oy, z: d.oz,
       vx: dir.x*SMOKE.speed, vy: dir.y*SMOKE.speed, vz: dir.z*SMOKE.speed,
       bounces: d.ric ? 1 : 0, life: 5 });     // smoke banks off a wall too
@@ -689,7 +843,7 @@ io.on('connection', (socket) => {
     if (p.shots.length >= XBOW.charges) return;
     p.shots.push(now);
     const dir = normalize(d.dx, d.dy, d.dz);
-    room.arrows.push({ id: 'a' + (arrowSeq++), by: socket.id,
+    room.arrows.push({ id: (arrowSeq = (arrowSeq + 1) & 0xffff), by: socket.id,
       x: d.ox, y: d.oy, z: d.oz,
       vx: dir.x*XBOW.speed, vy: dir.y*XBOW.speed, vz: dir.z*XBOW.speed,
       bounces: d.ric ? 1 : 0, life: 5 });
@@ -743,7 +897,7 @@ setInterval(() => {
   /* Retire a room once it is empty AND holds no parked scores — a player
      mid-reload still has 60s to come back to theirs. */
   for (const [id, r] of rooms)
-    if (!r.players.size && !r.parked.size) rooms.delete(id);
+    if (!r.players.size && !r.parked.size && now > (r.holdUntil || 0)) rooms.delete(id);
 }, TICK);
 
 /* One room's world for one tick. The locals keep the body below reading the
@@ -1014,37 +1168,8 @@ function tickRoom(room, now, dt) {
 
 
   // broadcast a snapshot of the whole world
-  /* The snapshot is the server's whole bandwidth bill: it goes to everyone in
-     the room, 20 times a second, so anything in here is paid for once per
-     player per tick. Two things used to inflate it badly.
-
-     The static config — prices, slot lists, the resupply box, the carry caps,
-     the room cap, winsNeeded — never changes, and rode along every single
-     time. It goes out once now, in 'welcome'.
-
-     Positions were raw doubles: "x":12.344999999999999 is 20 bytes to say
-     12.34. Rounding to centimetres is far below what anyone can see (the
-     client's own prediction error is ~9cm) and roughly halves what is left. */
-  const q = v => Math.round((v || 0) * 100) / 100;      // centimetres is plenty
-  io.to(room.id).emit('snapshot', {
-    t: now,
-    match: { phase: match.phase, round: match.round,
-             endsIn: match.until ? Math.max(0, match.until - now) : 0,
-             roundWinner: match.roundWinner, matchWinner: match.matchWinner,
-             resupplyTaken: !!match.resupplyBy },
-    players: [...players.values()].map(p => ({ id:p.id, x:q(p.x), z:q(p.z), y:q(p.y), yaw:q(p.yaw),
-      st:p.st, hp:p.hp, alive:p.alive, kills:p.kills, deaths:p.deaths, wins:p.wins||0, money:p.money,
-      guns:p.guns,
-      name:p.name, color:p.color,
-      mk: (p.markedUntil > now) ? p.markedBy : null, rl: q(p.rl),
-      tp: p.tp || 0,
-      dT: p.detectTarget, dU: Math.max(0, p.detectUntil - now),
-      dR: Math.max(0, p.detectReadyAt - now),
-      bn: p.burnUntil > now })),      // on fire, so others can see it
-    arrows: arrows.map(a => ({ id:a.id, x:q(a.x), y:q(a.y), z:q(a.z),
-      vx:q(a.vx), vy:q(a.vy), vz:q(a.vz),
-      sm: !!a.smoke })),      // smoke bolts render cold grey, not aflame
-  });
+  sendMeta(room, false);                  // only when names, money or score move
+  io.to(room.id).emit('snapshot', encodeSnapshot(room, now));
 }
 
 server.listen(PORT, () => console.log(`Bot Strike MP server on http://localhost:${PORT}`));

@@ -167,6 +167,33 @@
   </div>
 </div>
 
+<!-- Room browser: which room to drop into, chosen before we connect -->
+<div id="lobby" class="overlay hidden">
+  <div class="orb o1"></div><div class="orb o2"></div>
+  <div class="scanlines"></div>
+  <div class="stage">
+    <div class="hero-l layer">
+      <div class="badge">◆ STEP 3 · ROOMS</div>
+      <h2>PICK A ROOM</h2>
+      <p class="lead">Drop into any room with space, or make one and share the code.</p>
+      <div class="lobbybtns">
+        <button class="btn small" id="quickBtn">QUICK PLAY</button>
+        <button class="btn small ghost" id="createBtn">CREATE ROOM</button>
+      </div>
+      <div class="joinrow">
+        <input id="codeInput" maxlength="5" placeholder="CODE" />
+        <button class="btn small ghost" id="joinBtn">JOIN</button>
+      </div>
+      <div id="lobbyMsg"></div>
+    </div>
+    <div class="layer roomsbox glass">
+      <div class="roomshead"><span>OPEN ROOMS</span><button class="link" id="refreshBtn">↻ REFRESH</button></div>
+      <div id="roomList"></div>
+    </div>
+    <button class="link" id="lobbyBack">← BACK</button>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/curves/NURBSCurve.js"></script>

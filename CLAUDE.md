@@ -125,6 +125,28 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   half-finished match. Rooms are retired when empty with nothing parked.
   Scaling follows from rooms never interacting: cost is driven by
   players-per-room, so small rooms stay cheap however many run.
+- **There is a lobby, and rooms have codes.** Multiplayer no longer connects
+  on click: `openLobby()` shows the room browser, which reads `GET /rooms`
+  over plain HTTP (it must work before any socket exists). `GET /rooms/new`
+  reserves a unique 5-letter code — no digits, and no I or O so nobody
+  mistypes a 1 or a 0 — and holds that room for 60s so it survives the trip
+  before its creator connects. Typing a code does NOT create a room: an
+  unknown code returns `'nosuch'` and the client is bounced back to the
+  browser, because otherwise every typo would strand someone alone in a new
+  room. `?room=CODE` still works as a shareable link.
+- **Auto room ids take the lowest free number, never a counter.** With a
+  counter, leaving an empty server and coming back put you in "r2", then
+  "r3", the room you had just left having been retired behind you. Note a
+  room is NOT retired while it holds parked scores, so returning after a
+  match was running puts you back in the room your score is in — which is
+  the point of the token lookup in `roomFor`.
+- **Tracers are drawn from the muzzle, the shot is still fired from the
+  camera.** `muzzleWorld()` reads the viewmodel group's world matrix, which
+  the bob/sway/recoil code rewrites every frame, so the line leaves the
+  barrel and follows the weapon as it moves. The shot itself still starts at
+  the camera — that is what the crosshair points at and what the server
+  tests — and the tracer is drawn from the muzzle to the far end of that same
+  ray, so it converges on the aim point instead of running parallel to it.
 - **The snapshot is the entire bandwidth bill.** It goes to everyone in the
   room every tick, so anything added to it is paid per player per tick. The
   static config — `prices`, slot lists, `resupply`, the carry caps, the room
@@ -136,6 +158,21 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   went from 249 to 131 KB/s, measured against the previous server.
   The client still accepts the static fields from a snapshot if an older
   server sends them.
+- **The snapshot is binary, and split in two.** JSON spelled out a field name
+  and a decimal for every value — `"hp":100` is nine characters for one byte,
+  and a 20-character socket id rode along per player per tick. Now:
+  `'meta'` is JSON sent only when it CHANGES (ids, names, colours, money,
+  wins, kills, guns — none of which move at 20Hz) and carries the slot->id
+  mapping; `'snapshot'` is a packed frame every tick holding only what moves,
+  with players keyed by a one-byte SLOT. A 5-player frame went from 1337 to
+  110 bytes — 130.6 to 10.7 KB/s per room, 12x less.
+  **The layout comment in `server.js` and the decoder in `session.js` must
+  stay in step**, which is what `SNAP_VERSION` guards: a stale client logs
+  once and stops rather than misreading every field. Nothing downstream
+  changed — `decodeSnapshot` rebuilds exactly the object `onSnapshot` used
+  to be handed. Arrow ids are u16 now rather than `'a'+n` strings.
+  Test probes share `scratchpad/mpclient.js`, which mirrors the decoder;
+  change the layout and that has to change too.
 - **Multiplayer is round-based.** Kill the opposition to take a round; first to
   `MATCH.winsNeeded` (3) takes the match, then it resets and runs again. Death
   inside a round is **elimination** — no respawn until the next round starts.

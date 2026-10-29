@@ -128,8 +128,8 @@ function quitToMenu(){
   showEliminated(false);
   clearFeed(); clearGroundFires();
   heroGroup.forEach(o=>o.visible=true); gun.visible=false;
-  document.getElementById('mode').classList.add('hidden');
-  document.getElementById('home').classList.remove('hidden');
+  pendingRoom = null;
+  showScreen('home');
 }
 document.getElementById('resumeBtn').onclick   = ()=> closePause(true);
 document.getElementById('quitBtn').onclick     = quitToMenu;
@@ -163,11 +163,83 @@ document.getElementById('startBtn').onclick = ()=>{ gameState='mode';
 document.getElementById('backBtn').onclick = ()=>{ gameState='home';
   document.getElementById('mode').classList.add('hidden'); document.getElementById('home').classList.remove('hidden'); };
 document.getElementById('cardBots').onclick = ()=> startPlay('bots');
-document.getElementById('cardMp').onclick   = ()=> startPlay('mp');
+document.getElementById('cardMp').onclick   = ()=> openLobby();
+
+/* ---- Room browser ----
+   Multiplayer no longer connects straight away: you pick a room first. The
+   listing comes over plain HTTP so it works before any socket exists. */
+let pendingRoom = null;              // the room startPlay('mp') should join
+function showScreen(id){
+  for(const s of ['home','mode','lobby']) document.getElementById(s).classList.add('hidden');
+  if(id) document.getElementById(id).classList.remove('hidden');
+}
+function lobbySay(msg, good){
+  const el = document.getElementById('lobbyMsg');
+  el.textContent = msg || ''; el.style.color = good ? '#27ff9e' : '#ff9a5a';
+}
+function openLobby(){
+  gameState = 'lobby'; showScreen('lobby');
+  lobbySay(''); document.getElementById('codeInput').value = '';
+  refreshRooms();
+}
+async function refreshRooms(){
+  const host = document.getElementById('roomList');
+  host.innerHTML = '<div class="empty">Loading…</div>';
+  let data;
+  try { data = await (await fetch('/rooms')).json(); }
+  catch(e){ host.innerHTML = '<div class="empty">Could not reach the server.</div>'; return; }
+  const list = data.rooms || [];
+  if(!list.length){
+    host.innerHTML = '<div class="empty">No rooms yet — Quick Play opens one, '
+                   + 'or create a room and share the code.</div>';
+    return;
+  }
+  host.innerHTML = '';
+  for(const r of list){
+    const full = r.players >= r.max;
+    const row = document.createElement('div');
+    row.className = 'roomrow' + (full ? ' full' : '');
+    const phase = r.phase === 'live' ? 'ROUND ' + r.round
+                : r.phase === 'waiting' ? 'WAITING'
+                : r.phase === 'paused' ? 'PAUSED' : 'BUY WINDOW';
+    row.innerHTML = '<span class="rid' + (r.named ? ' code' : '') + '">' + esc(r.id) + '</span>'
+      + '<span class="rmeta"><span class="rn">' + r.players + '/' + r.max + '</span> · ' + phase + '</span>';
+    if(!full) row.onclick = ()=> joinRoom(r.id);
+    host.appendChild(row);
+  }
+}
+function joinRoom(id){ pendingRoom = id; startPlay('mp'); }
+/* Bounced out of a room: back to the browser with the reason, rather than
+   all the way to the main menu. */
+function backToLobby(msg){
+  pendingRoom = null;
+  gameState = 'lobby'; showScreen('lobby');
+  refreshRooms(); lobbySay(msg);
+}
+document.getElementById('refreshBtn').onclick = refreshRooms;
+document.getElementById('lobbyBack').onclick  = ()=>{ gameState='mode'; showScreen('mode'); };
+document.getElementById('quickBtn').onclick   = ()=>{ pendingRoom = null; startPlay('mp'); };
+document.getElementById('createBtn').onclick  = async ()=>{
+  lobbySay('Creating…', true);
+  try {
+    const d = await (await fetch('/rooms/new')).json();
+    if(!d.code){ lobbySay('The server could not open a room.'); return; }
+    lobbySay('Room ' + d.code + ' — share that code', true);
+    joinRoom(d.code);
+  } catch(e){ lobbySay('Could not reach the server.'); }
+};
+document.getElementById('joinBtn').onclick = ()=>{
+  const code = (document.getElementById('codeInput').value || '').trim().toUpperCase();
+  if(code.length !== 5){ lobbySay('A room code is 5 letters.'); return; }
+  joinRoom(code);
+};
+document.getElementById('codeInput').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') document.getElementById('joinBtn').click();
+});
 
 function startPlay(mode){
   gameMode = mode; gameState='playing';
-  document.getElementById('mode').classList.add('hidden');
+  showScreen(null);
   document.body.classList.add('playing');
   document.getElementById('crosshair').style.display='block';
   document.getElementById('board').style.display = (mode==='mp') ? 'block' : 'none';
@@ -193,6 +265,7 @@ function startPlay(mode){
    free slot; with one you and your friends land together. Taken from the URL
    (?room=foo) so a link is all it takes to share. */
 function roomCode(){
+  if(pendingRoom) return pendingRoom;
   try { return new URLSearchParams(location.search).get('room') || null; }
   catch(e){ return null; }
 }
@@ -228,9 +301,18 @@ function connectMP(name){
     const max = (d && d.max) || 5;
     roomWasFull = true;
     quitToMenu();
-    alert(`The room is full — ${max} players maximum.
-
-Try again when someone leaves.`);
+    backToLobby((d && d.code)
+      ? 'Room ' + d.code + ' is full (' + max + ' max). Pick another.'
+      : 'That room is full (' + max + ' max). Pick another.');
+  });
+  /* A code with no room behind it — a typo, or a link to a room that has
+     since emptied and been retired. Codes come from Create Room; typing one
+     does not conjure a room, or every typo would strand you alone in a
+     brand new one. */
+  socket.on('nosuchroom', d=>{
+    roomWasFull = true;                      // same flag: this is not a dropout
+    quitToMenu();
+    backToLobby('No room "' + ((d && d.code) || '') + '". Check the code.');
   });
   socket.on('welcome', d=>{ myId=d.id; me.x=d.spawn.x; me.z=d.spawn.z;
     /* Prices, slot lists and the caps used to ride in every snapshot, 30
@@ -247,7 +329,19 @@ Try again when someone leaves.`);
     if(d.winsNeeded) winsNeeded = d.winsNeeded;
     updateRoomHUD();
   });
-  socket.on('snapshot', onSnapshot);
+  /* The roster and the slow-moving numbers. Sent only when they change, and
+     always before the first frame that refers to a slot. */
+  socket.on('meta', m=>{ lastMeta = m; });
+  socket.on('snapshot', frame=>{
+    /* socket.io hands binary over as an ArrayBuffer in the browser and as a
+       typed array/Buffer elsewhere; an object means an older JSON server. */
+    const raw = (frame instanceof ArrayBuffer) ? frame
+              : (frame && frame.buffer instanceof ArrayBuffer)
+                ? frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength)
+                : null;
+    const s = raw ? decodeSnapshot(raw) : frame;
+    if(s) onSnapshot(s);                 // null until the roster has landed
+  });
   socket.on('shot', d=> addTracer(new THREE.Vector3(d.ox,d.oy,d.oz), new THREE.Vector3(d.dx,d.dy,d.dz), d.len));
   socket.on('impact', d=> hitmark(d && d.zone));
   socket.on('groundfire', d=> spawnGroundFire(d.x, d.y||0, d.z));
@@ -285,6 +379,77 @@ function showEliminated(on){
   el.style.display = on ? 'block' : 'none';
   if(on) eliminatedTimer = setTimeout(()=> el.classList.add('quiet'), 1800);
 }
+/* ---- Binary snapshot ----
+   The server packs each frame into bytes rather than JSON; see the layout
+   comment in server.js, which this MUST stay in step with. Everything here
+   exists to rebuild exactly the object onSnapshot used to be handed, so the
+   rest of the client never learns the difference.
+
+   Players arrive as a one-byte SLOT instead of a 20-character socket id, so
+   nothing can be read until 'meta' has supplied the slot -> id mapping. */
+const SNAP_VERSION = 1;
+const PHASES = ['waiting', 'intermission', 'live', 'over', 'paused'];
+let lastMeta = null, warnedVersion = false;
+function decodeSnapshot(buf){
+  if(!lastMeta) return null;                    // roster not here yet
+  const d = new DataView(buf);
+  if(d.getUint8(0) !== SNAP_VERSION){
+    if(!warnedVersion){ warnedVersion = true;
+      console.error('Snapshot version mismatch — this page is out of date with the server.'); }
+    return null;
+  }
+  const bySlot = new Map();
+  for(const p of lastMeta.players) bySlot.set(p.slot, p);
+  const idOf = slot => { const p = bySlot.get(slot); return p ? p.id : null; };
+
+  let o = 1;
+  const phase = PHASES[d.getUint8(o++)] || 'waiting';
+  const round = d.getUint8(o++);
+  const endsIn = d.getUint16(o, true); o += 2;
+  const roundWinner = idOf(d.getInt8(o++));
+  const matchWinner = idOf(d.getInt8(o++));
+  const resupplyTaken = !!d.getUint8(o++);
+  const np = d.getUint8(o++), na = d.getUint8(o++);
+
+  const players = [];
+  for(let i=0;i<np;i++){
+    const slot = d.getUint8(o++);
+    const flags = d.getUint8(o++);
+    const st = d.getUint8(o++);
+    const hp = d.getUint8(o++);
+    const x = d.getInt16(o,true)/100; o += 2;
+    const y = d.getInt16(o,true)/100; o += 2;
+    const z = d.getInt16(o,true)/100; o += 2;
+    const yaw = d.getUint16(o,true)/65535*Math.PI*2; o += 2;
+    const rl = d.getUint8(o++)/255;
+    const tp = d.getUint8(o++);
+    const mk = idOf(d.getInt8(o++));
+    const dT = idOf(d.getInt8(o++));
+    const dU = d.getUint16(o,true); o += 2;
+    const dR = d.getUint16(o,true); o += 2;
+    const meta = bySlot.get(slot);
+    if(!meta) continue;                        // a join we have not been told about yet
+    players.push({ id: meta.id, name: meta.name, color: meta.color,
+      money: meta.money, wins: meta.wins, kills: meta.kills, guns: meta.guns,
+      x, y, z, yaw, st, hp, alive: !!(flags & 1), bn: !!(flags & 2),
+      rl, tp, mk, dT, dU, dR });
+  }
+  const arrows = [];
+  for(let i=0;i<na;i++){
+    const id = d.getUint16(o,true); o += 2;
+    const ax = d.getInt16(o,true)/100; o += 2;
+    const ay = d.getInt16(o,true)/100; o += 2;
+    const az = d.getInt16(o,true)/100; o += 2;
+    const vx = d.getInt16(o,true)/100; o += 2;
+    const vy = d.getInt16(o,true)/100; o += 2;
+    const vz = d.getInt16(o,true)/100; o += 2;
+    const sm = !!d.getUint8(o++);
+    arrows.push({ id, x:ax, y:ay, z:az, vx, vy, vz, sm });
+  }
+  return { match:{ phase, round, endsIn, roundWinner, matchWinner, resupplyTaken },
+           players, arrows };
+}
+
 function onSnapshot(s){
   /* A server from before the trim still puts these in every snapshot; take
      them if they turn up, otherwise welcome has already set them. */

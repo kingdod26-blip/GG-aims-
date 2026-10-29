@@ -223,6 +223,37 @@
     background:rgba(255,255,255,.07); color:#fff; font-size:15px; text-align:center; letter-spacing:2px;
     transform:translateZ(30px); backdrop-filter:blur(10px); }
   input:focus { outline:none; border-color:rgba(39,255,158,.6); }
+  /* --- room browser --- */
+  .btn.small { margin-top:0; padding:12px 26px; font-size:14px; letter-spacing:2px; }
+  .btn.ghost { background:rgba(255,255,255,.08); color:#eaf0f5;
+    border:1px solid rgba(255,255,255,.18); box-shadow:none; }
+  .btn.ghost:hover { background:rgba(255,255,255,.14); box-shadow:none; }
+  .lobbybtns { display:flex; gap:12px; margin-top:24px; transform:translateZ(30px); }
+  .joinrow { display:flex; gap:10px; align-items:center; margin-top:14px; transform:translateZ(30px); }
+  .joinrow input { margin-top:0; width:120px; text-transform:uppercase; letter-spacing:5px;
+    font-weight:800; transform:none; }
+  #lobbyMsg { margin-top:14px; min-height:18px; font-size:12.5px; letter-spacing:1px; color:#ff9a5a; }
+  .roomsbox { width:330px; max-height:40vh; overflow-y:auto; padding:18px 20px; border-radius:20px;
+    transform:translateZ(50px); text-align:left; margin-top:26px; }
+  /* The lobby stacks a lot into one screen; keep it breathing and scrollable
+     on short windows rather than letting the panels overlap. */
+  #lobby .stage { justify-content:flex-start; padding:7vh 20px 20px; overflow-y:auto; }
+  #lobby h2 { margin-bottom:2px; }
+  .roomshead { display:flex; justify-content:space-between; align-items:center;
+    font-size:11px; letter-spacing:2px; color:#7f8c9a; margin-bottom:10px; }
+  .roomshead .link { margin-top:0; font-size:11px; letter-spacing:1px; }
+  .roomrow { display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:10px 12px; margin-bottom:7px; border-radius:11px; cursor:pointer;
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+    transition:background .14s, border-color .14s; }
+  .roomrow:hover { background:rgba(39,255,158,.12); border-color:rgba(39,255,158,.45); }
+  .roomrow.full { cursor:not-allowed; opacity:.45; }
+  .roomrow.full:hover { background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.08); }
+  .roomrow .rid { font-weight:800; letter-spacing:2px; font-size:14px; }
+  .roomrow .rid.code { color:#27ff9e; }
+  .roomrow .rmeta { font-size:11px; color:#7f8c9a; letter-spacing:1px; text-align:right; }
+  .roomrow .rn { color:#eaf0f5; font-weight:700; }
+  #roomList .empty { font-size:12px; color:#7f8c9a; padding:12px 2px; line-height:1.6; }
   /* --- graphics settings panel --- */
   #settings { z-index:24; background:rgba(4,6,10,.55); }
   .setpanel { width:min(560px,92vw); padding:30px 34px; border-radius:22px; text-align:left;

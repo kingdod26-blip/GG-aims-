@@ -479,10 +479,26 @@ function igniteLocalBot(b,dmg,w){
 }
 
 const MAX_TRACERS = 48;   // hard cap so a stuck frame can never grow this unbounded
-function addTracer(o,dir,len){ const end=o.clone().add(dir.clone().multiplyScalar(len));
+/* Where the viewmodel's barrel actually is, in world space. The gun group is
+   a child of the camera and the bob/sway/recoil code writes gun.position
+   every frame, so this follows the weapon as it moves — which is the point:
+   a tracer drawn from the camera leaves your face, and worse, stays put while
+   the gun bobs around it. updateMatrixWorld because a shot can land between
+   renders, when the group's world matrix is a frame stale. */
+const _muzzle = new THREE.Vector3();
+function muzzleWorld(){
+  gun.updateMatrixWorld();
+  return _muzzle.set(0, 0, -0.55).applyMatrix4(gun.matrixWorld);
+}
+/* The shot itself still starts at the CAMERA — that is what the crosshair
+   points at and what the server tests — but the line is drawn from the
+   muzzle to the far end of that same ray, so it leaves the barrel and
+   converges on where you are aiming. */
+function addTracer(o,dir,len,from){ const end=o.clone().add(dir.clone().multiplyScalar(len));
   // retire the oldest if we somehow hit the cap (e.g. held trigger + 8-pellet shotgun)
   if(tracers.length >= MAX_TRACERS) disposeTracer(tracers.shift());
-  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([o.clone(),end]), new THREE.LineBasicMaterial({color:0xffee88,transparent:true,opacity:0.9}));
+  const start=(from||o).clone();
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([start,end]), new THREE.LineBasicMaterial({color:0xffee88,transparent:true,opacity:0.9}));
   scene.add(line); tracers.push({line,life:0.06}); }
 // free BOTH the geometry and the material — leaking materials fills GPU memory
 function disposeTracer(t){ if(!t) return; scene.remove(t.line);
