@@ -225,7 +225,25 @@ function loop(){ requestAnimationFrame(loop);
        sinking back down over the following second. */
     if(o.bx===undefined){ o.bx=o.tx; o.by=o.ty||0; o.bz=o.tz; }
     const px=o.bx, pz=o.bz;
-    o.bx += (o.tx-o.bx)*0.2; o.by += ((o.ty||0)-o.by)*0.2; o.bz += (o.tz-o.bz)*0.2;
+    /* Where they are NOW, not where the last snapshot put them. Two separate
+       lags used to stack up here and both are fixed:
+
+       - the ease ran at a flat 0.2 PER FRAME, so it was frame-rate dependent
+         (worse the lower your fps) and left a permanent trailing error;
+       - nothing extrapolated, so the drawn position was always a snapshot or
+         more behind the position the SERVER hit-tests shots against.
+
+       Together they drew a sprinting opponent roughly 0.7m behind their real
+       position at 60fps — nearly two body widths — so you had to lead a
+       strafing player to hit them. We extrapolate by the age of the snapshot
+       PLUS the ease's own time constant (1/REMOTE_EASE), which cancels the
+       trailing error instead of merely shrinking it. Capped so a dropped
+       packet slides the body a little rather than flinging it across the map. */
+    const age  = Math.min((performance.now() - (o.tAt||0))/1000, REMOTE_PREDICT);
+    const lead = Math.min(age + 1/REMOTE_EASE, REMOTE_PREDICT);
+    const gx = o.tx + (o.vx||0)*lead, gz = o.tz + (o.vz||0)*lead;
+    const k = 1 - Math.exp(-REMOTE_EASE*dt);        // frame-rate independent
+    o.bx += (gx-o.bx)*k; o.by += ((o.ty||0)-o.by)*k; o.bz += (gz-o.bz)*k;
     const nx=o.bx, ny=o.by, nz=o.bz;
     const moved=Math.hypot(nx-px,nz-pz)>0.002; m.position.set(nx,ny,nz);
     // stance pose: crouched players squash down, prone players lie flat

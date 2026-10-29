@@ -60,6 +60,23 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
 
 - **Damage is server-authoritative** (hitscan, arrows, melee all resolved in
   `server.js`). Movement is client-authoritative — cheatable, accepted tradeoff.
+- **Remote players are predicted, not just smoothed.** The server hit-tests
+  shots against a player's latest reported position, so whatever the client
+  DRAWS has to match that or you cannot hit a moving target. The old ease was
+  `o.bx += (o.tx-o.bx)*0.2` — per FRAME, so frame-rate dependent, and with no
+  extrapolation at all, which left a permanent trailing error: a sprinting
+  opponent was drawn 0.82m behind their true position at 60fps and 1.47m at
+  30fps, against a model only ~0.41m wide. You had to lead a strafing player
+  by two body widths. `session.js` now measures each remote player's velocity
+  between snapshots (before overwriting `o.tx`) and `animate()` extrapolates
+  by the snapshot's age PLUS `1/REMOTE_EASE` — adding the ease's own time
+  constant is what CANCELS the trailing error rather than just shrinking it —
+  then eases with `1-Math.exp(-REMOTE_EASE*dt)`. Error drops to 0.09m at
+  60fps and 0.16m at 30fps. `REMOTE_PREDICT` (0.22s) caps the guess so a lost
+  packet slides a body slightly instead of flinging it across the map; the
+  cost is ~0.27m of momentary overshoot when someone stops dead, which beats
+  a permanent 0.82m lag. If you change `TICK` or the client's 33ms send rate,
+  re-measure.
 - Client sends `state {x,z,y,yaw,pitch,st}` at ~30Hz; server broadcasts a
   snapshot of players, bots and arrows at 30Hz.
 - Two modes: **Target Practice** (offline, client simulates, stationary bots)

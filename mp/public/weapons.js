@@ -28,6 +28,10 @@ const ROLL = { dur:0.62, speed:20, cdMs:1200, lean:0.22,
 /* Q/E peek. Deliberately shallow — angle is the camera roll in radians
    (0.16 ~= 9 deg), offset is how far the eye slides sideways. Enough to
    clear a corner without the horizon tipping over. */
+/* Remote player smoothing. REMOTE_EASE is the ease rate in units/second (its
+   reciprocal is the time constant, ~45ms); REMOTE_PREDICT caps how far ahead
+   we will ever guess, so a lost packet cannot fling a body across the room. */
+const REMOTE_EASE = 22, REMOTE_PREDICT = 0.22;
 const LEAN = { angle:0.16, offset:0.45, rate:9 };
 // SLIDE IS CURRENTLY DISABLED — flip this to true to bring it back.
 // The full implementation is kept intact below and documented in

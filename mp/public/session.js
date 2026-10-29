@@ -304,6 +304,14 @@ function onSnapshot(s){
   const seen=new Set();
   for (const p of s.players){ if(p.id===myId) continue; seen.add(p.id);
     let o=others.get(p.id); if(!o){ const mesh=newPlayerMesh(p.color); scene.add(mesh); o={mesh,tx:p.x,tz:p.z,ty:p.y||0,tyaw:p.yaw}; others.set(p.id,o); }
+    /* Velocity between snapshots, measured BEFORE the new position lands.
+       animate() extrapolates with it so a moving player is drawn where they
+       are now rather than where they were a snapshot ago. */
+    const tAt = performance.now();
+    const gap = o.tAt ? (tAt - o.tAt)/1000 : 0;
+    if(gap > 0.005 && gap < 0.5){ o.vx = (p.x-o.tx)/gap; o.vz = (p.z-o.tz)/gap; }
+    else if(!o.tAt){ o.vx = 0; o.vz = 0; }
+    o.tAt = tAt;
     // +PI: our character models face +Z, but a player's yaw describes a -Z
     // look direction — without this, remote players appear to run backwards.
     o.tx=p.x; o.tz=p.z; o.ty=p.y||0; o.tyaw=p.yaw+Math.PI; o.tst=p.st||0; o.trl=p.rl||0;
