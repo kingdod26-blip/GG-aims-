@@ -23,6 +23,7 @@ let lastTp=-1;                                  // last forced-move stamp we obe
 let detectTarget=null, detectUntil=0, detectReady=0;
 let shopPrices=[150,300,150,50,50], MAIN_SLOTS=[0,1,2], SIDE_SLOTS=[3,4];
 let MAX_MAIN=2, MAX_SIDE=1;
+let roomMax=5;                 // room cap, so the HUD can show "3/5"
 let socket=null;
 const others = new Map();     // networked players
 const serverBots = new Map(); // networked bots (mp)
@@ -265,6 +266,7 @@ function onSnapshot(s){
   if(s.resupply) RESUPPLY = s.resupply;
   if(s.mainSlots) MAIN_SLOTS = s.mainSlots;
   if(s.sideSlots) SIDE_SLOTS = s.sideSlots;
+  if(s.maxPlayers) roomMax = s.maxPlayers;
   if(s.maxMain)   MAX_MAIN = s.maxMain;
   if(s.maxSide)   MAX_SIDE = s.maxSide;
   updateMatchUI(s.match, s.players);

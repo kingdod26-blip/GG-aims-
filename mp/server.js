@@ -214,13 +214,15 @@ const SPAWN_APART = 22;
    Slots match the client's WEAPONS: 0 rifle, 1 sniper, 2 shotgun, 3 pistol,
    4 pistol X. */
 const ECON = { start: 200, win: 200, loss: 100 };
-const PRICES = [150, 300, 150, 50, 50];
+/* Pistol X out-damages the Pistol (40 vs 30) at the same rate class, so at a
+   matched price there was never a reason to buy the Pistol. It costs double. */
+const PRICES = [150, 300, 150, 50, 100];
 /* Passive detection. Everyone has it, nobody equips it. When an opponent
    makes a noise — firing a gun, loosing a bolt — it picks them out through
    walls for revealMs, then sleeps for cooldownMs. The same window also lights
    up hazards on the client: fire pools and smoke clouds stand in for traps
    until there are real ones. */
-const DETECT = { revealMs: 4000, cooldownMs: 30000 };
+const DETECT = { revealMs: 4000, cooldownMs: 30000, range: 40 };
 /* A bounced bolt is spent: it keeps BOUNCE.keep of its speed and no more
    than BOUNCE.lifeS to run, so banking one round a corner is a short, close
    shot rather than a second full-length flight. */
@@ -356,13 +358,18 @@ function openBuyWindow(now, ms) {          // intermission doubles as the shop
 function resetEconomy() {
   for (const p of players.values()) { p.wins = 0; p.money = ECON.start; p.guns = []; }
 }
-/* Somebody just made a noise. Anyone whose passive is off cooldown picks them
-   out, and their own passive then sleeps for 30s. Called from every handler
-   that represents a bang. */
+/* Somebody just made a noise. Anyone close enough whose passive is off
+   cooldown picks them out, and their own passive then sleeps for 30s. Called
+   from every handler that represents a bang: gunfire, the crossbow and the
+   smoke bolt. It is hearing, so it has a range — the arena is 120x120 and
+   map-wide detection meant a shot fired in the far corner lit you up. Out of
+   earshot nothing happens at all, cooldown included. */
 function noiseMade(byId, now) {
+  const src = players.get(byId); if (!src) return;
   for (const p of players.values()) {
     if (p.id === byId || !p.alive) continue;
     if (now < p.detectReadyAt) continue;             // still recharging
+    if (Math.hypot(p.x - src.x, p.z - src.z) > DETECT.range) continue;   // too far to hear
     p.detectUntil = now + DETECT.revealMs;
     p.detectTarget = byId;
     p.detectReadyAt = now + DETECT.cooldownMs;
@@ -887,7 +894,7 @@ setInterval(() => {
     t: now,
     prices: PRICES, mainSlots: MAIN_SLOTS, sideSlots: SIDE_SLOTS,
     resupply: RESUPPLY,
-    maxMain: MAX_MAIN, maxSide: MAX_SIDE,
+    maxMain: MAX_MAIN, maxSide: MAX_SIDE, maxPlayers: MATCH.maxPlayers,
     match: { phase: match.phase, round: match.round, winsNeeded: MATCH.winsNeeded,
              endsIn: match.until ? Math.max(0, match.until - now) : 0,
              roundWinner: match.roundWinner, matchWinner: match.matchWinner,

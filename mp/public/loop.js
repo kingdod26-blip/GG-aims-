@@ -103,11 +103,6 @@ function loop(){ requestAnimationFrame(loop);
     const b=document.getElementById('fpsTag'); if(b) b.textContent=fpsShown+' FPS'; }
 
   if(gameState==='playing'){
-    /* The detection window reveals hazards through walls, and turning that
-       back OFF has to happen every frame — not inside the alive/paused guard
-       below. It used to live in updateMarks, which stops running the moment
-       you are eliminated, so dying with the passive active left fire and
-       smoke showing through walls for the rest of the round. */
     revealHazards(gameMode === 'mp' && detectUntil > performance.now());
     if(me.alive && !paused){      // frozen while the pause menu is up
       movePlayer(dt);

@@ -84,6 +84,8 @@
   #board h3 { font-size:12px; letter-spacing:2px; color:#7f8c9a; text-transform:uppercase; margin-bottom:6px; }
   #board .row { display:flex; justify-content:space-between; font-size:14px; margin:3px 0; }
   #board .me { color:#27ff9e; font-weight:700; } #board .k { color:#ffd15a; }
+  #board #roomCount { float:right; color:#27ff9e; letter-spacing:1px; }
+  #board #roomCount.full { color:#ff6a6a; }
   #feed { position:fixed; top:16px; left:20px; z-index:10; }
   #feed div { background:rgba(12,15,20,.7); border:1px solid rgba(255,255,255,.07); border-radius:6px; padding:4px 10px; margin-bottom:5px; color:#eaf0f5; font-size:13px; display:inline-block;
     transition:opacity .6s ease, transform .6s ease; }

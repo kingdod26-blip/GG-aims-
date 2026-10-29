@@ -88,7 +88,10 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   it takes the best of a bounded search instead of looping forever.
 - **The scoreboard shows rounds won only.** It used to print `wins · kills`,
   but a kill IS a round win here, so that was the same number twice. Kills
-  still break ties in the sort order.
+  still break ties in the sort order. Its header carries the room count
+  (`#roomCount`, "3/5" against `MATCH.maxPlayers` from the snapshot), green
+  until the room is full and red at the cap. Multiplayer only — the practice
+  range's "players" are local targets, so it renders blank there.
 - **Multiplayer is round-based.** Kill the opposition to take a round; first to
   `MATCH.winsNeeded` (3) takes the match, then it resets and runs again. Death
   inside a round is **elimination** — no respawn until the next round starts.
@@ -120,7 +123,9 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   client needs no special handling: it takes `guns` straight off the snapshot
   and `ensureValidWeapon` drops it back to the crossbow or blade. Note the
   squeeze this creates — lose round 1 and $100 only covers a pistol.
-  `PRICES` by slot: rifle 150, sniper 300, shotgun 150, pistols 50.
+  `PRICES` by slot: rifle 150, sniper 300, shotgun 150, pistol 50, pistol X
+  100 — Pistol X hits for 40 against the Pistol's 30, so matching their
+  prices left no reason to ever buy the Pistol.
   You carry `MAX_MAIN` (2) mains and `MAX_SIDE` (1) side, held as an
   **ordered list** (`p.guns`, purchase order). Buying past the cap drops the
   **oldest of that category**, no refund. Number keys select by **position in
@@ -197,15 +202,17 @@ view** — there was a `ROLL.arc` somersault and Jack had it removed, so don't
 reintroduce camera pitch here. Other players see a full hip-pivoted tumble,
 driven by roll progress sent in the state packet.
 **Passive detection** — everyone has it, nothing to equip. When an opponent
-makes a noise (gun, crossbow bolt or smoke bolt) it picks them out through
-walls for `DETECT.revealMs` (4s), then sleeps for `DETECT.cooldownMs` (30s).
-`revealHazards` must be driven from the **main loop**, not from
-`updateMarks`: that stops running the moment you are eliminated or pause, so
-dying mid-detection left fire and smoke showing through walls for the rest of
-the round.
-The same window also reveals **hazards** — `hazardMeshes()` currently returns
-fire pools and smoke clouds as stand-ins for traps; add real traps there and
-detection picks them up with no other change. Silhouettes are amber for
+makes a noise (gun, crossbow bolt or smoke bolt — all three call
+`noiseMade`) it picks them out through walls for `DETECT.revealMs` (4s),
+then sleeps for `DETECT.cooldownMs` (30s). A blade swing is deliberately
+silent. It is **hearing, so it has a range**: `DETECT.range` (40m). The
+arena is 120x120, so map-wide detection meant a shot from the far corner lit
+you up. Out of earshot nothing happens at all — the listener's cooldown is
+not spent either, so you are not punished for a noise you could not hear.
+It reveals **people only**. It used to also draw fire pools and smoke clouds
+through walls, treating them as stand-ins for traps, but traps do not exist
+yet — that was inventing a feature. `revealHazards` is kept as a no-op so
+the call sites mark where it would go back in. Silhouettes are amber for
 "heard them fire" and green for a smoke tag, and smoke wins if both apply.
 Resets to ready at the start of every round.
 

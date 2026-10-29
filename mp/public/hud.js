@@ -112,7 +112,16 @@ function toast(msg){
 function updateBoard(pl){ document.getElementById('rows').innerHTML=[...pl]
   .sort((a,b)=>(b.wins||0)-(a.wins||0) || b.kills-a.kills).map(p=>
   `<div class="row ${p.id===myId?'me':''}"><span>${esc(p.name)}</span>` +
-  `<span class="k">${p.wins||0}</span></div>`).join(''); }
+  `<span class="k">${p.wins||0}</span></div>`).join('');
+  /* How busy the room is, against the cap the server enforces. Only in
+     multiplayer — the practice range's "players" are local targets. */
+  const rc = document.getElementById('roomCount');
+  if(rc){
+    const show = gameMode === 'mp';
+    rc.textContent = show ? pl.length + '/' + roomMax : '';
+    rc.classList.toggle('full', show && pl.length >= roomMax);
+  }
+}
 
 /* The round/match banner. Everything it shows comes from the server's match
    block, so every client agrees on the score and the countdown. */

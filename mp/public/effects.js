@@ -227,26 +227,12 @@ function clearMark(e){
 }
 /* One place decides who is lit up: local bots are tested against the clouds
    here, networked players arrive already marked by the server. */
-/* Everything the passive counts as a "trap". Fire pools and smoke clouds are
-   standing in until there are real ones — add those here and detection picks
-   them up with no other change. Revealing just means dropping depthTest so
-   they draw through walls; renderOrder stays below the viewmodel (1000), so
-   your own gun still covers them. */
-function hazardMeshes(){
-  const out = [];
-  for(const f of groundFires) f.g.traverse(o=>{ if(o.isMesh) out.push(o); });
-  for(const s of smokes)      s.g.traverse(o=>{ if(o.isMesh) out.push(o); });
-  return out;
-}
-let hazardsRevealed = false;
-function revealHazards(on){
-  if(on === hazardsRevealed && !on) return;     // nothing to do when already off
-  hazardsRevealed = on;
-  for(const m of hazardMeshes()){
-    if(m.material.depthTest === !on) continue;
-    m.material.depthTest = !on; m.material.needsUpdate = true;
-  }
-}
+/* The passive reveals PEOPLE who make a noise, and nothing else. It used to
+   also draw fire pools and smoke clouds through walls, on the reading that
+   those stand in for "traps" — but traps are not in the game yet, so that was
+   inventing a feature. Kept as a no-op rather than deleted so the call sites
+   stay honest about where it would go back in. */
+function revealHazards(on){ /* intentionally does nothing: no traps yet */ }
 function updateMarks(){
   const now = performance.now();
   for(const b of localBots){
