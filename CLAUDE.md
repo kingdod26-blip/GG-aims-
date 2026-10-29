@@ -197,6 +197,12 @@ the old code had to fall back on nearest-entry against the body.
 An **`upper`** sphere covers the shoulders and upper arms: the torso sphere
 tops out at y1.60 while the arm boxes run to 1.75, so without it the upper
 arms swallowed shots entirely.
+**Training aids** in the settings panel, all target-practice only via the
+`training(key)` helper: `showBoxes` draws the hitboxes, `infAmmo` stops the
+mag emptying, `noCooldown` stops ability charges draining and clears the roll
+cooldown. They are gated to practice on purpose — ammo and charges are
+client-side, so honouring them in a match would just be a cheat switch.
+
 Turn on **HITBOXES** in the settings panel (target practice only) to see all
 of this drawn on the bots. It is generated from the same `HITBOX` table that
 `hitZone` tests, so the picture cannot drift from the behaviour.

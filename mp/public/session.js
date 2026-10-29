@@ -61,6 +61,8 @@ const SET_DEFS = [
   { key:'bloom',    label:'BLOOM GLOW', opts:[[0,'OFF'],[1,'ON']] },
   { key:'hitZone',  label:'HIT MARKER', opts:[[0,'PLAIN'],[1,'SHOW ZONE']] },
   { key:'showBoxes',label:'HITBOXES',   opts:[[0,'HIDDEN'],[1,'SHOW']] },   // practice only
+  { key:'infAmmo',   label:'PRACTICE AMMO',     opts:[[0,'NORMAL'],[1,'UNLIMITED']] },
+  { key:'noCooldown',label:'PRACTICE COOLDOWN', opts:[[0,'NORMAL'],[1,'NONE']] },
 ];
 function renderSettingsUI(){
   const host=document.getElementById('setRows'); if(!host) return;

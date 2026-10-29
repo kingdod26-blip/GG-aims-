@@ -59,7 +59,8 @@ function startRoll(){
   const d=new THREE.Vector3();
   if(keys['KeyW'])d.add(fwd); if(keys['KeyS'])d.sub(fwd); if(keys['KeyD'])d.add(rgt); if(keys['KeyA'])d.sub(rgt);
   if(d.lengthSq()===0) d.copy(fwd);
-  rollDir.copy(d.normalize()); rollT=ROLL.dur; rollCdUntil=now+ROLL.cdMs;
+  rollDir.copy(d.normalize()); rollT=ROLL.dur;
+  rollCdUntil = training('noCooldown') ? 0 : now+ROLL.cdMs;
   // lean the camera the way we're rolling, and pitch it the way we're going:
   // sideways rolls lean, forward/back rolls somersault
   rollLean = -rollDir.dot(new THREE.Vector3(Math.cos(me.yaw),0,-Math.sin(me.yaw)));
@@ -176,7 +177,9 @@ function shoot(){
   if(w.ability){
     abilityTick();
     if(abilityCharges[currentWeapon]<=0){ Sfx.empty(); return; }
-    abilityCharges[currentWeapon]--; abilityRecharge[currentWeapon].push(now + w.cooldownMs);
+    if(!training('noCooldown')){                 // practice: charges never run down
+      abilityCharges[currentWeapon]--; abilityRecharge[currentWeapon].push(now + w.cooldownMs);
+    }
     lastShot=now; gunKick=1; Sfx.shoot(w); updateHUD();
     me.pitch=Math.min(me.pitch + w.recoil, Math.PI/2-0.05);
     const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(me.pitch,me.yaw,0,'YXZ'));
@@ -194,7 +197,8 @@ function shoot(){
 
   const a=curAmmo();
   if(a.mag<=0){ Sfx.empty(); reload(); return; }
-  lastShot=now; a.mag--; updateHUD(); gunKick=1; Sfx.shoot(w);
+  lastShot=now; if(!training('infAmmo')) a.mag--;   // practice: the mag never empties
+  updateHUD(); gunKick=1; Sfx.shoot(w);
   const spread = w.spread + (w.adsSpread - w.spread)*ads;   // ADS tightens the cone
   const o=camera.position.clone();
   const pellets = w.pellets || 1;                            // shotgun fires several
