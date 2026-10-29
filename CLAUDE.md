@@ -86,16 +86,40 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   nobody can be shot before they have moved. It scores rather than rejects:
   with five people in one room a perfect no-sightline set may not exist, so
   it takes the best of a bounded search instead of looping forever.
+- **The scoreboard shows rounds won only.** It used to print `wins · kills`,
+  but a kill IS a round win here, so that was the same number twice. Kills
+  still break ties in the sort order.
 - **Multiplayer is round-based.** Kill the opposition to take a round; first to
   `MATCH.winsNeeded` (3) takes the match, then it resets and runs again. Death
   inside a round is **elimination** — no respawn until the next round starts.
   Phases are `waiting` → `live` → `intermission` → … → `over`, driven entirely
   by the server and shipped in the snapshot's `match` block so every client
   agrees. Damage handlers all return early unless the phase is `live`.
+- **A dropped connection PAUSES the match, it does not end it.** The room
+  dipping below `minPlayers` used to throw the match away and call
+  `resetEconomy`, which zeroes `wins` — so one tab losing its socket wiped
+  everybody's score, and the board read 0 wins no matter how many rounds you
+  had taken. Chrome throttling a background tab until socket.io's heartbeat
+  times out is enough to do it, which is exactly what playing in two tabs
+  does. Now the phase goes to `paused` for `MATCH.rejoinMs` (60s) with
+  `round` and every `wins` left alone; enough players returning resumes the
+  SAME match at a buy window, and only the grace running out abandons it.
+- **A player who reconnects in time gets their own score back.** On
+  disconnect their wins/money/guns are held in `parked`, keyed by a token the
+  client keeps in `localStorage` (`bs_tok`, sent as socket.io `auth.tok`) —
+  not by socket id, which is new on every connection, and not by name, since
+  two tabs are both "Player". Rejoining inside the window restores and clears
+  the entry.
 - **There is an economy.** You start each match on `ECON.start` ($200) with no
   guns, take `ECON.win` ($200) for winning a round and `ECON.loss` ($100) for
   losing. Money resets **per match, never between rounds** — `resetEconomy`
   runs only at match start and match end.
+- **Losing a round costs you your guns.** The round winner carries their
+  loadout into the next round; everyone else has `p.guns` cleared and buys
+  again out of the payout. A genuine draw strips nobody — nobody lost. The
+  client needs no special handling: it takes `guns` straight off the snapshot
+  and `ensureValidWeapon` drops it back to the crossbow or blade. Note the
+  squeeze this creates — lose round 1 and $100 only covers a pistol.
   `PRICES` by slot: rifle 150, sniper 300, shotgun 150, pistols 50.
   You carry `MAX_MAIN` (2) mains and `MAX_SIDE` (1) side, held as an
   **ordered list** (`p.guns`, purchase order). Buying past the cap drops the

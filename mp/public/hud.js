@@ -78,7 +78,8 @@ function clearFeed(){
   [...host.children].forEach(el=>{ clearTimeout(el._fadeT); clearTimeout(el._killT); });
   host.innerHTML='';
 }
-/* Rounds won is what decides the match, so it leads; kills are the tiebreak. */
+/* Rounds won is all the board shows. A kill IS a round win here, so printing
+   both was the same number twice over. Kills still break ties in the order. */
 /* Passive detection readout. Three states: listening, something heard (and
    for how much longer), or recharging. Multiplayer only — there is nothing to
    hear in target practice. */
@@ -111,7 +112,7 @@ function toast(msg){
 function updateBoard(pl){ document.getElementById('rows').innerHTML=[...pl]
   .sort((a,b)=>(b.wins||0)-(a.wins||0) || b.kills-a.kills).map(p=>
   `<div class="row ${p.id===myId?'me':''}"><span>${esc(p.name)}</span>` +
-  `<span class="k">${p.wins||0} · ${p.kills}</span></div>`).join(''); }
+  `<span class="k">${p.wins||0}</span></div>`).join(''); }
 
 /* The round/match banner. Everything it shows comes from the server's match
    block, so every client agrees on the score and the countdown. */
@@ -126,6 +127,9 @@ function updateMatchUI(m, players){
   if(m.phase === 'waiting'){
     big = 'WAITING FOR AN OPPONENT';
     sub = 'first to ' + m.winsNeeded + ' rounds wins';
+  } else if(m.phase === 'paused'){
+    big = 'OPPONENT DISCONNECTED';
+    sub = 'SCORES HELD · MATCH RESUMES IF THEY RETURN IN ' + secs + 's';
   } else if(m.phase === 'live'){
     big = ''; sub = 'ROUND ' + m.round;
   } else if(m.phase === 'intermission'){

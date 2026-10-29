@@ -154,6 +154,18 @@ function insideWall(x, z) {
 
 /* --------------------------------- State ---------------------------------- */
 const players = new Map(); // socket.id -> player
+/* A match used to be thrown away the moment the room dipped below two, and
+   with it everyone's round wins, because resetEconomy() zeroes them. One
+   backgrounded browser tab is enough to cause that: Chrome throttles it,
+   socket.io times the heartbeat out, and the score you just earned is gone.
+   A drop now PAUSES the match instead, and a player who comes back inside the
+   grace window reclaims their own score from here. Keyed by a token the client
+   keeps in localStorage, not by socket id (new on every reconnect) and not by
+   name (two tabs are both "Player"). */
+const parked = new Map();  // token -> { wins, money, guns, name, at }
+function sweepParked(now) {
+  for (const [tok, v] of parked) if (now - v.at > MATCH.rejoinMs) parked.delete(tok);
+}
 // Crossbow ability tuning (must match the client's WEAPONS entry)
 // burnMs is how long a PERSON burns. The fire left on the ground is a
 // client-side visual with its own (longer) lifetime — see GFIRE in the client.
@@ -189,7 +201,7 @@ let arrowSeq = 0;
    out until the next one, which is what makes a round worth winning. */
 /* prepMs is the buy window, and it is the same before round 1 as it is
    between rounds — it is all "prep" to the player, so one number. */
-const MATCH = { winsNeeded: 3, prepMs: 30000, endMs: 7000, minPlayers: 2,
+const MATCH = { winsNeeded: 3, prepMs: 30000, endMs: 7000, minPlayers: 2, rejoinMs: 60000,
                 maxPlayers: 5 };
 /* Round starts must not drop two people in sight of each other. SPAWN_APART
    is the minimum separation; the picker also prefers spawns with geometry
@@ -406,16 +418,27 @@ io.on('connection', (socket) => {
     return;
   }
   const s = randomSpawn();
+  /* Did this browser leave an unfinished match behind a moment ago? Give it
+     back rather than starting them at nothing — a reload mid-match should not
+     cost you the rounds you already won. */
+  const tok = (socket.handshake.auth && socket.handshake.auth.tok) || null;
+  const saved = tok ? parked.get(tok) : null;
+  if (saved && Date.now() - saved.at > MATCH.rejoinMs) { parked.delete(tok); }
+  const back = (saved && Date.now() - saved.at <= MATCH.rejoinMs) ? saved : null;
+  if (back) parked.delete(tok);
   const player = {
-    id: socket.id, x: s.x, z: s.z, y: 0, yaw: 0, pitch: 0, st: 0,
-    hp: 100, alive: true, kills: 0, deaths: 0, wins: 0, tp: 0,
-    money: ECON.start, guns: [],       // owned WEAPONS slots, in purchase order
+    id: socket.id, tok, x: s.x, z: s.z, y: 0, yaw: 0, pitch: 0, st: 0,
+    hp: 100, alive: true, kills: 0, deaths: 0, wins: back ? back.wins : 0, tp: 0,
+    money: back ? back.money : ECON.start,
+    guns: back ? back.guns : [],       // owned WEAPONS slots, in purchase order
     detectReadyAt: 0, detectUntil: 0, detectTarget: null,
     color: COLORS[players.size % COLORS.length],
     name: 'Player-' + socket.id.slice(0, 4),
   };
+  if (back) player.name = back.name;
   players.set(socket.id, player);
   socket.emit('welcome', { id: socket.id, spawn: s, color: player.color, arena: ARENA });
+  if (back) console.log(`[~] ${player.name} rejoined with ${player.wins} round win(s)`);
   console.log(`[+] ${player.name} connected (${players.size} online)`);
 
   // Client owns its movement; it streams position/orientation here.
@@ -577,6 +600,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    const p = players.get(socket.id);
+    /* Hold their score for a minute in case this was a reload or a throttled
+       background tab rather than someone actually leaving. Nothing is held
+       once the match itself is over or has not started. */
+    if (p && p.tok && match.phase !== 'waiting')
+      parked.set(p.tok, { wins: p.wins || 0, money: p.money, guns: p.guns,
+                          name: p.name, at: Date.now() });
     players.delete(socket.id);
     console.log(`[-] ${player.name} left (${players.size} online)`);
   });
@@ -610,6 +640,7 @@ setInterval(() => {
   /* ---- Match flow: waiting -> live -> intermission -> ... -> over ---- */
   const livePlayers = [...players.values()];
   const standing = livePlayers.filter(p => p.alive);
+  sweepParked(now);
   if (match.phase === 'waiting') {
     if (livePlayers.length >= MATCH.minPlayers) {
       // straight into a buy window, not into a round — you start with money
@@ -618,10 +649,30 @@ setInterval(() => {
       match.round = 0; match.roundWinner = null; match.matchWinner = null;
       openBuyWindow(now, MATCH.prepMs);
     }
+  } else if (match.phase === 'paused') {
+    /* Held open for a minute after a drop. Whoever is still here keeps their
+       rounds and their money; coming back resumes the SAME match at a buy
+       window rather than starting a new one. */
+    if (livePlayers.length >= MATCH.minPlayers) openBuyWindow(now, MATCH.prepMs);
+    else if (now >= match.until) {                 // nobody came back: let it go
+      parked.clear();
+      match.phase = 'waiting'; match.round = 0;
+      match.roundWinner = null; match.matchWinner = null;
+      respawnAll();
+    }
   } else if (livePlayers.length < MATCH.minPlayers) {
-    match.phase = 'waiting'; match.round = 0;
-    match.roundWinner = null; match.matchWinner = null;
-    respawnAll();                                  // free roam until someone joins
+    /* Don't tear a match down over a dropped connection. A reload, or Chrome
+       throttling a background tab until its heartbeat times out, used to be
+       enough to wipe every player's round wins. */
+    if (match.phase === 'over') {                  // already finished: nothing to save
+      match.phase = 'waiting'; match.round = 0;
+      match.roundWinner = null; match.matchWinner = null;
+      respawnAll();
+    } else {
+      match.phase = 'paused'; match.until = now + MATCH.rejoinMs;
+      match.roundWinner = null; match.matchWinner = null;
+      respawnAll();                                // free roam while we wait
+    }
   } else if (match.phase === 'live') {
     if (standing.length <= 1) {
       /* Normally the one left standing. If NOBODY is standing it is a mutual
@@ -636,6 +687,10 @@ setInterval(() => {
       if (w) w.wins = (w.wins || 0) + 1;
       // payday: the round winner banks more, but losing still pays
       for (const p of players.values()) p.money += (p === w ? ECON.win : ECON.loss);
+      /* Losing costs you the guns as well as the round: the winner carries
+         their loadout into the next round, everyone else buys again out of
+         the payout. On a genuine draw nobody lost, so nobody is stripped. */
+      if (w) for (const p of players.values()) if (p !== w) p.guns = [];
       match.roundWinner = w ? w.id : null;
       if (w && w.wins >= MATCH.winsNeeded) {
         match.phase = 'over'; match.matchWinner = w.id; match.until = now + MATCH.endMs;

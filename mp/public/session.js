@@ -186,6 +186,17 @@ function startPlay(mode){
   lockPointer();
 }
 
+/* Identifies this browser across reconnects so the server can hand back the
+   rounds we had already won. The socket id is no good for that — it is new
+   every connection — and names are not unique (two tabs are both "Player"). */
+function clientToken(){
+  let t = null;
+  try { t = localStorage.getItem('bs_tok'); } catch(e){}
+  if(!t){ t = 'c' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+          try { localStorage.setItem('bs_tok', t); } catch(e){} }
+  return t;
+}
+
 /* ---- Multiplayer networking ---- */
 function connectMP(name){
   roomWasFull = false; lastTp = -1;
@@ -194,7 +205,7 @@ function connectMP(name){
      — one tab, two people in the match. Entering multiplayer twice without
      quitting in between (a double-click on the card will do it) was enough. */
   if(socket){ try{ socket.disconnect(); }catch(e){} socket=null; }
-  socket = io();
+  socket = io({ auth: { tok: clientToken() } });
   socket.on('connect', ()=>{ connected=true; document.getElementById('status').textContent='connected'; socket.emit('state',{name}); });
   socket.on('disconnect', ()=>{ connected=false;
     document.getElementById('status').textContent = roomWasFull ? 'room full' : 'disconnected'; });
