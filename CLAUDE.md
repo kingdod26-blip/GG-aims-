@@ -64,6 +64,14 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   snapshot of players, bots and arrows at 30Hz.
 - Two modes: **Target Practice** (offline, client simulates, stationary bots)
   and **Multiplayer** (server simulates, **no bots** — round-based duelling).
+- **The room holds `MATCH.maxPlayers` (5).** A sixth connection is refused
+  with a `full` event before it is ever added to `players`, and the client
+  says so and returns to the menu rather than sitting in an empty arena.
+- **Round starts use `spreadSpawns`**, which picks spots at least
+  `SPAWN_APART` (22m) apart and prefers ones with geometry between them, so
+  nobody can be shot before they have moved. It scores rather than rejects:
+  with five people in one room a perfect no-sightline set may not exist, so
+  it takes the best of a bounded search instead of looping forever.
 - **Multiplayer is round-based.** Kill the opposition to take a round; first to
   `MATCH.winsNeeded` (3) takes the match, then it resets and runs again. Death
   inside a round is **elimination** — no respawn until the next round starts.

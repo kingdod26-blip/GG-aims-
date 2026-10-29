@@ -15,6 +15,7 @@ let gameState='home', gameMode=null, myId=null, connected=false, localKills=0;
 /* Economy, mirrored from the server — never trusted as the source of truth,
    it only drives what the shop shows and what you're allowed to equip. */
 let myMoney=0, myGuns=[], econOnline=false;     // myGuns: owned slots, purchase order
+let roomWasFull=false;                          // so the kick doesn't read as a dropout
 /* Passive detection, mirrored from the server. detectTarget is who your
    passive has picked out; detectUntil/detectReady are local deadlines so the
    HUD can count down smoothly between snapshots. */
@@ -184,6 +185,7 @@ function startPlay(mode){
 
 /* ---- Multiplayer networking ---- */
 function connectMP(name){
+  roomWasFull = false;
   /* Never stack connections. io() happily opens a second socket, and the
      server counts it as a whole extra player that nothing will ever clean up
      — one tab, two people in the match. Entering multiplayer twice without
@@ -191,7 +193,20 @@ function connectMP(name){
   if(socket){ try{ socket.disconnect(); }catch(e){} socket=null; }
   socket = io();
   socket.on('connect', ()=>{ connected=true; document.getElementById('status').textContent='connected'; socket.emit('state',{name}); });
-  socket.on('disconnect', ()=>{ connected=false; document.getElementById('status').textContent='disconnected'; });
+  socket.on('disconnect', ()=>{ connected=false;
+    document.getElementById('status').textContent = roomWasFull ? 'room full' : 'disconnected'; });
+  /* The room is capped. The server turns the extra player away rather than
+     letting them join an invisible sixth slot, so say so plainly and put
+     them back on the menu instead of leaving them staring at an empty
+     arena. The disconnect that follows must not look like a dropout. */
+  socket.on('full', d=>{
+    const max = (d && d.max) || 5;
+    roomWasFull = true;
+    quitToMenu();
+    alert(`The room is full — ${max} players maximum.
+
+Try again when someone leaves.`);
+  });
   socket.on('welcome', d=>{ myId=d.id; me.x=d.spawn.x; me.z=d.spawn.z; });
   socket.on('snapshot', onSnapshot);
   socket.on('shot', d=> addTracer(new THREE.Vector3(d.ox,d.oy,d.oz), new THREE.Vector3(d.dx,d.dy,d.dz), d.len));

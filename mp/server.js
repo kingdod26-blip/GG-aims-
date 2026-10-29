@@ -189,7 +189,12 @@ let arrowSeq = 0;
    out until the next one, which is what makes a round worth winning. */
 /* prepMs is the buy window, and it is the same before round 1 as it is
    between rounds — it is all "prep" to the player, so one number. */
-const MATCH = { winsNeeded: 3, prepMs: 30000, endMs: 7000, minPlayers: 2 };
+const MATCH = { winsNeeded: 3, prepMs: 30000, endMs: 7000, minPlayers: 2,
+                maxPlayers: 5 };
+/* Round starts must not drop two people in sight of each other. SPAWN_APART
+   is the minimum separation; the picker also prefers spawns with geometry
+   between them, so nobody can be shot before they have moved. */
+const SPAWN_APART = 22;
 /* Economy. You carry one MAIN (rifle / sniper / shotgun) and one SIDE (either
    pistol) — buying within a category replaces what you had there, no refund,
    so money is worth saving. The crossbow, smoke and blade are always yours and
@@ -289,9 +294,38 @@ function hitZone(o, dir, cx, cz, baseY, st) {
    weapon. Buying past the limit drops the oldest of that category. */
 const match = { phase: 'waiting', round: 0, until: 0, roundWinner: null, matchWinner: null };
 
+/* Pick n spawns that are far apart and, where the arena allows, out of each
+   other's line of sight. Scored rather than rejected outright: with five
+   players in one room a perfect no-sightline set may not exist, so we take
+   the best of a bounded search instead of looping forever. */
+function spreadSpawns(n) {
+  const chosen = [];
+  for (let i = 0; i < n; i++) {
+    let best = null, bestScore = -Infinity;
+    for (let tries = 0; tries < 120; tries++) {
+      const c = randomSpawn();
+      if (!chosen.length) { best = c; break; }
+      let nearest = Infinity, blocked = 0;
+      for (const o of chosen) {
+        const d = Math.hypot(c.x - o.x, c.z - o.z);
+        if (d < nearest) nearest = d;
+        if (!lineClear(c.x, c.z, o.x, o.z)) blocked++;   // something in the way
+      }
+      if (nearest < SPAWN_APART) continue;               // never spawn on top of someone
+      const hidden = blocked === chosen.length;
+      const score = (hidden ? 1000 : 0) + Math.min(nearest, 70);
+      if (score > bestScore) { bestScore = score; best = c; }
+      if (hidden && nearest > 30) break;                 // good enough
+    }
+    chosen.push(best || randomSpawn());
+  }
+  return chosen;
+}
 function respawnAll() {
+  const spots = spreadSpawns(players.size);
+  let i = 0;
   for (const p of players.values()) {
-    const s = randomSpawn();
+    const s = spots[i++] || randomSpawn();
     p.x = s.x; p.z = s.z; p.y = 0; p.hp = 100; p.alive = true;
     p.burnUntil = 0; p.burnRate = 0; p.inFire = false;
     p.markedUntil = 0; p.markedBy = null; p.rl = 0; p.st = 0;
@@ -357,6 +391,12 @@ const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff
 
 /* ------------------------------ Networking -------------------------------- */
 io.on('connection', (socket) => {
+  if (players.size >= MATCH.maxPlayers) {       // room is full, turn them away
+    socket.emit('full', { max: MATCH.maxPlayers });
+    console.log(`[!] refused a connection, room full (${players.size}/${MATCH.maxPlayers})`);
+    setTimeout(() => socket.disconnect(true), 150);   // let the message land first
+    return;
+  }
   const s = randomSpawn();
   const player = {
     id: socket.id, x: s.x, z: s.z, y: 0, yaw: 0, pitch: 0, st: 0,
