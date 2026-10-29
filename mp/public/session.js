@@ -332,6 +332,9 @@ function connectMP(name){
   /* The roster and the slow-moving numbers. Sent only when they change, and
      always before the first frame that refers to a slot. */
   socket.on('meta', m=>{ lastMeta = m; });
+  /* Bounce the server's clock back so it can measure our round trip — that
+     number is what lag compensation rewinds shots by. */
+  socket.on('ping2', t=> socket.emit('pong2', t));
   socket.on('snapshot', frame=>{
     /* socket.io hands binary over as an ArrayBuffer in the browser and as a
        typed array/Buffer elsewhere; an object means an older JSON server. */
@@ -387,7 +390,7 @@ function showEliminated(on){
 
    Players arrive as a one-byte SLOT instead of a 20-character socket id, so
    nothing can be read until 'meta' has supplied the slot -> id mapping. */
-const SNAP_VERSION = 1;
+const SNAP_VERSION = 2;          // 2 added the lean byte
 const PHASES = ['waiting', 'intermission', 'live', 'over', 'paused'];
 let lastMeta = null, warnedVersion = false;
 function decodeSnapshot(buf){
@@ -423,6 +426,7 @@ function decodeSnapshot(buf){
     const yaw = d.getUint16(o,true)/65535*Math.PI*2; o += 2;
     const rl = d.getUint8(o++)/255;
     const tp = d.getUint8(o++);
+    const lo = d.getInt8(o++)/100;
     const mk = idOf(d.getInt8(o++));
     const dT = idOf(d.getInt8(o++));
     const dU = d.getUint16(o,true); o += 2;
@@ -432,7 +436,7 @@ function decodeSnapshot(buf){
     players.push({ id: meta.id, name: meta.name, color: meta.color,
       money: meta.money, wins: meta.wins, kills: meta.kills, guns: meta.guns,
       x, y, z, yaw, st, hp, alive: !!(flags & 1), bn: !!(flags & 2),
-      rl, tp, mk, dT, dU, dR });
+      rl, tp, lo, mk, dT, dU, dR });
   }
   const arrows = [];
   for(let i=0;i<na;i++){
@@ -512,6 +516,7 @@ function onSnapshot(s){
     // +PI: our character models face +Z, but a player's yaw describes a -Z
     // look direction — without this, remote players appear to run backwards.
     o.tx=p.x; o.tz=p.z; o.ty=p.y||0; o.tyaw=p.yaw+Math.PI; o.tst=p.st||0; o.trl=p.rl||0;
+    o.tlo=p.lo||0;                    // how far they are peeking out of cover
     o.tburn=!!p.bn; o.mesh.visible=p.alive;
     o.wins=p.wins||0;
     o.markedBy = p.mk || null; }       // set only while the tag is live

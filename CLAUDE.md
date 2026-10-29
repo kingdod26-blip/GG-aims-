@@ -147,6 +147,35 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   the camera — that is what the crosshair points at and what the server
   tests — and the tracer is drawn from the muzzle to the far end of that same
   ray, so it converges on the aim point instead of running parallel to it.
+- **Leaning moves your body, not just your camera.** Q/E slid the camera up
+  to `LEAN.offset` (0.45m) sideways but the client never told anyone, so your
+  hitbox and your model stayed in cover: you could shoot from around a corner
+  and nothing could shoot back. The client now sends `lo`, the offset
+  `clearLean` actually allowed (already clamped against walls), and every aim
+  test goes through `aimX()`/`aimZ()`, which apply it along the player's
+  right vector `(cos yaw, -sin yaw)`. The remote renderer applies the same
+  offset, so what you see is what you can hit — the two formulas are checked
+  against each other, not just written to look alike.
+- **Shots are lag-compensated.** The server tested where a player had LAST
+  REPORTED being, while the shooter was aiming at what their own screen drew,
+  and against a sprinting target those differ by half a metre or more — which
+  is why perfectly-aimed shots passed through people. Each player's recent
+  positions are kept in `p.hist` (`LAGCOMP.historyMs`, 500ms) and hitscan and
+  melee rewind to `now - (rtt - LAGCOMP.lead)`, capped at 200ms so nobody on
+  a bad line is shooting at ghosts. The lead term (45ms, `1/REMOTE_EASE`)
+  gives some of the rewind back because the CLIENT already predicts forward.
+  RTT comes from our own `ping2`/`pong2` pair — socket.io has a heartbeat but
+  does not hand us the number. Arrows do not rewind: they fly on the server,
+  in the present, so there is no stale view to correct.
+  When no rewind is wanted the server uses the LIVE position and extrapolates
+  it from `p.vx/p.vz` by up to 60ms (and never more than 0.5m), because
+  history is only sampled once a tick and a 50ms-old sample is over half a
+  metre at a hard strafe — which made a fast connection aim WORSE than a slow
+  one. **That velocity must reject jumps**: a step implying over 30 m/s is a
+  respawn or a late packet, not travel, and trusting it threw the hitbox tens
+  of metres. Measured: on a fast link, 1/10 perfect shots landed before, 10/10
+  after; at a simulated 150ms, 8/10 land where the shooter saw the target and
+  1/10 where the server last heard it.
 - **The snapshot is the entire bandwidth bill.** It goes to everyone in the
   room every tick, so anything added to it is paid per player per tick. The
   static config — `prices`, slot lists, `resupply`, the carry caps, the room

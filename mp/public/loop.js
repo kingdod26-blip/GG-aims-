@@ -125,6 +125,7 @@ function loop(){ requestAnimationFrame(loop);
       }
       if(gameMode==='mp' && socket){ sendAcc+=dt; if(sendAcc>0.033){ sendAcc=0; socket.emit('state',{x:me.x,z:me.z,y:me.feetY,yaw:me.yaw,pitch:me.pitch,st:STANCE_ID[me.stance],
           tp: lastTp,          // the forced move we've accepted; stale ones are ignored
+          lo: +(me.lean||0).toFixed(2),   // lean offset in metres, already wall-clamped
           rl: rollT>0 ? +(1-rollT/ROLL.dur).toFixed(3) : 0});   // roll progress, so others see the tumble
       } }
     }
@@ -154,7 +155,13 @@ function loop(){ requestAnimationFrame(loop);
     if(Math.abs(leanAmt) < 0.001) leanAmt = 0;
     const eyeY = me.feetY+me.eyeH-camDip;
     const rgtX = Math.cos(me.yaw), rgtZ = -Math.sin(me.yaw);
+    /* clearLean has already pulled this in if a wall is in the way, so it is
+       the real offset — which is exactly what the server needs. Leaning used
+       to be camera-only: your view slid up to 0.45m out from cover while your
+       hitbox and your model stayed put, so you could shoot from around a
+       corner and nobody could shoot back. */
     const off = leanAmt ? clearLean(me.x, me.z, eyeY, rgtX, rgtZ, leanAmt*LEAN.offset) : 0;
+    me.lean = off;
     camera.position.set(me.x + rgtX*off, eyeY, me.z + rgtZ*off);
     // right lean rolls negative, matching the sign the dodge roll already uses
     camera.rotation.order='YXZ'; camera.rotation.set(me.pitch,me.yaw,camRoll - leanAmt*LEAN.angle);
@@ -245,7 +252,11 @@ function loop(){ requestAnimationFrame(loop);
     const k = 1 - Math.exp(-REMOTE_EASE*dt);        // frame-rate independent
     o.bx += (gx-o.bx)*k; o.by += ((o.ty||0)-o.by)*k; o.bz += (gz-o.bz)*k;
     const nx=o.bx, ny=o.by, nz=o.bz;
-    const moved=Math.hypot(nx-px,nz-pz)>0.002; m.position.set(nx,ny,nz);
+    /* Peeking slides the body sideways, the same offset the server now uses
+       for hit tests — so what you see is what you can shoot. */
+    o.lo = (o.lo||0) + (((o.tlo||0) - (o.lo||0)) * Math.min(1, dt*LEAN.rate));
+    const lx = Math.cos(o.tyaw - Math.PI) * o.lo, lz = -Math.sin(o.tyaw - Math.PI) * o.lo;
+    const moved=Math.hypot(nx-px,nz-pz)>0.002; m.position.set(nx+lx,ny,nz+lz);
     // stance pose: crouched players squash down, prone players lie flat
     // YXZ so yaw is applied first: x then tips relative to the way they face,
     // instead of about the world axis (which cartwheeled anyone facing east)

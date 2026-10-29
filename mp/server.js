@@ -234,7 +234,7 @@ function roomList() {
   return [...rooms.values()]
     .map(r => ({ id: r.id, players: r.players.size, max: MATCH.maxPlayers,
                  phase: r.match.phase, round: r.match.round,
-                 named: !/^rd+$/.test(r.id) }))
+                 named: !/^r[0-9]+$/.test(r.id) }))
     .sort((a, b) => b.players - a.players || (a.id < b.id ? -1 : 1));
 }
 /* A match used to be thrown away the moment the room dipped below two, and
@@ -425,6 +425,8 @@ function respawnAll(room) {
     p.tp = (p.tp || 0) + 1;        // force the client to accept this position
     p.burnUntil = 0; p.burnRate = 0; p.inFire = false;
     p.markedUntil = 0; p.markedBy = null; p.rl = 0; p.st = 0; p.diedAt = 0;
+    p.lo = 0; p.vx = 0; p.vz = 0; p.stateAt = 0;    // a teleport is not travel
+    if (p.hist) p.hist.length = 0;                  // and nothing to rewind onto
   }
 }
 function clearField(room) {        // no fire, smoke or arrows carried between rounds
@@ -533,13 +535,14 @@ const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff
      i8  roundWinner slot     i8  matchWinner slot
      u8  flags: bit0 resupply taken
      u8  player count         u8  arrow count
-   PLAYER  20 bytes each
+   PLAYER  21 bytes each
      u8  slot                 u8  flags: bit0 alive, bit1 burning
      u8  stance               u8  hp
      i16 x*100  i16 y*100  i16 z*100      (centimetres; the arena is +-60m)
      u16 yaw    (0..65535 across a full turn)
      u8  roll   (0..255 across 0..1)
      u8  tp     (low byte; the client only tests it for CHANGE)
+     i8  lean   (centimetres out of cover, -60..60)
      i8  markedBy slot        i8  detectTarget slot
      u16 detectUntil ms       u16 detectReady ms
    ARROW   15 bytes each
@@ -547,9 +550,9 @@ const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff
      i16 x,y,z *100           i16 vx,vy,vz *100
      u8  flags: bit0 smoke
    ========================================================================= */
-const SNAP_VERSION = 1;
+const SNAP_VERSION = 2;          // 2 added the lean byte
 const PHASES = ['waiting', 'intermission', 'live', 'over', 'paused'];
-const HEAD_B = 10, PLAYER_B = 20, ARROW_B = 15;
+const HEAD_B = 10, PLAYER_B = 21, ARROW_B = 15;
 const i16 = v => Math.max(-32768, Math.min(32767, Math.round(v * 100)));
 const u16 = v => Math.max(0, Math.min(65535, Math.round(v)));
 
@@ -598,6 +601,7 @@ function encodeSnapshot(room, now) {
     buf.writeUInt16LE(u16(yaw / (Math.PI*2) * 65535), o); o += 2;
     buf.writeUInt8(Math.round(Math.max(0, Math.min(1, p.rl || 0)) * 255), o++);
     buf.writeUInt8((p.tp || 0) & 0xff, o++);
+    buf.writeInt8(Math.max(-60, Math.min(60, Math.round((p.lo || 0) * 100))), o++);
     buf.writeInt8((p.markedUntil > now && p.markedBy) ? slotOf(p.markedBy) : -1, o++);
     buf.writeInt8(p.detectTarget ? slotOf(p.detectTarget) : -1, o++);
     buf.writeUInt16LE(u16(Math.max(0, p.detectUntil - now)), o); o += 2;
@@ -674,6 +678,14 @@ io.on('connection', (socket) => {
   if (back) console.log(`[~] ${player.name} rejoined with ${player.wins} round win(s)`);
   console.log(`[+] ${player.name} joined ${room.id} (${players.size}/${MATCH.maxPlayers}, ${rooms.size} room(s))`);
 
+  /* Our own round-trip measurement. socket.io has a heartbeat but does not
+     hand us the number, and lag compensation is only as good as this. */
+  socket.on('pong2', t => {
+    const rtt = Date.now() - t;
+    if (rtt >= 0 && rtt < 2000)
+      player.rtt = player.rtt ? player.rtt*0.7 + rtt*0.3 : rtt;   // smoothed
+  });
+
   // Client owns its movement; it streams position/orientation here.
   socket.on('state', (d) => {
     const p = players.get(socket.id); if (!p) return;
@@ -690,6 +702,22 @@ io.on('connection', (socket) => {
        after the round started and teleported them away. */
     const settled = (d.tp === undefined) || (d.tp === p.tp);
     if (settled) {
+      /* Velocity between packets. Positions arrive every ~33ms, so by the
+         time a shot is tested the newest one is already up to a frame old —
+         at a sprint that is a third of a metre. The client covers the same
+         gap by extrapolating; this lets the server do the same, so the two
+         agree about where someone is RIGHT NOW. */
+      const at = Date.now(), gap = (at - (p.stateAt || 0)) / 1000;
+      if (p.stateAt && gap > 0.005 && gap < 0.5 && typeof d.x === 'number') {
+        const vx = (d.x - p.x) / gap, vz = (d.z - p.z) / gap;
+        /* Anything faster than a dodge roll is not travel, it is a jump: a
+           respawn, a forced move, or a packet arriving late after a stall.
+           Trusting it would fling the hitbox tens of metres on the next
+           extrapolated shot, so treat it as a standing start instead. */
+        p.vx = Math.hypot(vx, vz) > 30 ? 0 : vx;
+        p.vz = Math.hypot(vx, vz) > 30 ? 0 : vz;
+      } else if (!p.stateAt) { p.vx = 0; p.vz = 0; }
+      p.stateAt = at;
       if (typeof d.x === 'number') p.x = d.x;
       if (typeof d.z === 'number') p.z = d.z;
       if (typeof d.y === 'number') p.y = d.y;
@@ -699,6 +727,9 @@ io.on('connection', (socket) => {
     if (typeof d.st === 'number') p.st = Math.max(0, Math.min(2, d.st|0));   // 0 stand 1 crouch 2 prone
     // roll progress 0..1, relayed so everyone sees the same somersault
     if (typeof d.rl === 'number') p.rl = Math.max(0, Math.min(1, d.rl));
+    // How far they are leaning out of cover; the client has already clamped
+    // it against walls, we only guard the range.
+    if (typeof d.lo === 'number') p.lo = Math.max(-0.6, Math.min(0.6, d.lo));
   });
 
   // Authoritative hit detection when a player fires.
@@ -726,8 +757,12 @@ io.on('connection', (socket) => {
       if (z && z.t < best.t)
         best = { t: z.t, target: hitApply, head: z.zone === 'head', zone: z.zone, mult: z.mult };
     };
-    for (const other of players.values())
-      if (other.alive && other.id !== p.id) consider(other.x, other.z, other.y || 0, other.st || 0, { kind:'player', ref:other });
+    const when = Date.now() - rewindFor(p);
+    for (const other of players.values()) {
+      if (!other.alive || other.id === p.id) continue;
+      const h = stateAt(other, when);          // where the shooter SAW them
+      consider(h.x, h.z, h.y, h.st, { kind:'player', ref:other });
+    }
 
     if (best.target) {
       const dealt = dmg * best.mult;
@@ -815,8 +850,12 @@ io.on('connection', (socket) => {
       }
       if (dist < bestD) { bestD = dist; best = ref; }
     };
-    for (const pl of players.values())
-      if (pl.alive && pl.id !== p.id) tryT(pl.x, (pl.y||0)+1.1, pl.z, { kind:'player', ref:pl });
+    const mWhen = now - rewindFor(p);
+    for (const pl of players.values()) {
+      if (!pl.alive || pl.id === p.id) continue;
+      const h = stateAt(pl, mWhen);
+      tryT(h.x, h.y + 1.1, h.z, { kind:'player', ref:pl });
+    }
 
     if (!best) { p.comboStep = 0; return; }                   // a miss breaks the chain
     const step = Math.min(p.comboStep || 0, MELEE.combo.length-1);
@@ -862,6 +901,75 @@ io.on('connection', (socket) => {
   });
 });
 function normalize(x, y, z) { const l = Math.hypot(x, y, z) || 1; return { x:x/l, y:y/l, z:z/l }; }
+/* Where a player's BODY is, which is not always where their feet are: leaning
+   slides them up to 0.45m sideways. Every aim test goes through these, so a
+   peeking player can be shot at where they actually appear. The right vector
+   matches the client's: rgt = (cos yaw, -sin yaw). */
+function aimX(p) { return p.x + Math.cos(p.yaw || 0) * (p.lo || 0); }
+function aimZ(p) { return p.z - Math.sin(p.yaw || 0) * (p.lo || 0); }
+
+/* ---------------------------- Lag compensation ----------------------------
+   Shots were tested against where each player had LAST REPORTED being, but
+   the shooter was aiming at where their own screen drew them, and those are
+   not the same place. The client predicts a remote player forward from their
+   measured velocity, while the server's copy is already one packet plus one
+   network trip old — so against a sprinting target the two disagreed by
+   half a metre or more and perfectly-aimed shots passed straight through.
+
+   So each player's recent positions are kept, and a shot is tested against
+   where everyone WAS at the moment the shooter saw them. Working that moment
+   out: the client draws a target extrapolated to (its last snapshot + age +
+   1/REMOTE_EASE), the shot then takes one trip to reach us, so what they saw
+   sits REWIND_LEAD ms after a full round trip ago. The client's forward
+   prediction is why we give some of the rewind back rather than rewinding by
+   the whole round trip.
+
+   Capped at 200ms: beyond that someone on a bad line would be shooting at
+   ghosts, and their victims would die behind cover they reached ages ago. */
+const LAGCOMP = { historyMs: 500, maxRewindMs: 200, lead: 45 };
+function recordHistory(room, now) {
+  for (const p of room.players.values()) {
+    (p.hist || (p.hist = [])).push({ t: now, x: p.x, y: p.y || 0, z: p.z,
+                                     yaw: p.yaw || 0, lo: p.lo || 0, st: p.st || 0 });
+    while (p.hist.length > 1 && now - p.hist[0].t > LAGCOMP.historyMs) p.hist.shift();
+  }
+}
+/* How far back this shooter's view of the world is. */
+function rewindFor(p) {
+  return Math.max(0, Math.min(LAGCOMP.maxRewindMs, (p.rtt || 0) - LAGCOMP.lead));
+}
+/* Where a player was at time t, interpolated between the two samples either
+   side of it. Falls back to the present when we have nothing that old. */
+function stateAt(p, t) {
+  const h = p.hist;
+  if (!h || !h.length) return { x: aimX(p), z: aimZ(p), y: p.y || 0, st: p.st || 0 };
+  /* Asking for "now" or later means no rewind is wanted, so use the LIVE
+     position rather than the newest sample. History is only written once a
+     tick, so that sample can be 50ms stale — at a hard strafe that is over
+     half a metre, and it would make a fast connection aim worse than a slow
+     one, which is exactly backwards. */
+  if (t >= h[h.length-1].t) {
+    /* No rewind wanted, so carry the last packet forward to the instant
+       asked for, capped so a dropped packet cannot fling a hitbox across the
+       room. This is the mirror of the client's own prediction. */
+    const ahead = Math.min(Math.max(0, (t - (p.stateAt || t)) / 1000), 0.06);
+    let ex = (p.vx || 0) * ahead, ez = (p.vz || 0) * ahead;
+    const far = Math.hypot(ex, ez);          // never guess further than half a metre
+    if (far > 0.5) { ex *= 0.5/far; ez *= 0.5/far; }
+    return { x: aimX(p) + ex, z: aimZ(p) + ez, y: p.y || 0, st: p.st || 0 };
+  }
+  for (let i = h.length - 1; i > 0; i--) {
+    const b = h[i], a = h[i-1];
+    if (t >= a.t && t <= b.t) {
+      const k = (b.t - a.t) ? (t - a.t) / (b.t - a.t) : 0;
+      const x = a.x + (b.x - a.x)*k, z = a.z + (b.z - a.z)*k, y = a.y + (b.y - a.y)*k;
+      const yaw = a.yaw, lo = a.lo + (b.lo - a.lo)*k;
+      return { x: x + Math.cos(yaw)*lo, z: z - Math.sin(yaw)*lo, y, st: a.st };
+    }
+  }
+  const o = h[0];
+  return { x: o.x + Math.cos(o.yaw)*o.lo, z: o.z - Math.sin(o.yaw)*o.lo, y: o.y, st: o.st };
+}
 
 /* Arrow impact: big direct hit, then it burns for 9s. */
 function igniteTarget(room, hit, byId, now) {
@@ -889,11 +997,13 @@ function igniteTarget(room, hit, byId, now) {
    remote players from their measured velocity, so the longer gap between
    updates barely shows; see REMOTE_EASE / REMOTE_PREDICT. */
 const TICK = 1000 / 20;
+let lastPing = 0;
 let last = Date.now();
 setInterval(() => {
   const now = Date.now();
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
   for (const room of rooms.values()) tickRoom(room, now, dt);
+  if (now - lastPing > 1000) { lastPing = now; io.emit('ping2', now); }
   /* Retire a room once it is empty AND holds no parked scores — a player
      mid-reload still has 60s to come back to theirs. */
   for (const [id, r] of rooms)
@@ -1016,7 +1126,7 @@ function tickRoom(room, now, dt) {
       if (t < hitT && t <= stepLen) { hitT = t; victim = ref; }
     };
     for (const pl of players.values())
-      if (pl.alive && pl.id !== a.by) tryHit(pl.x, pl.z, pl.y||0, pl.st||0, { kind:'player', ref:pl });
+      if (pl.alive && pl.id !== a.by) tryHit(aimX(pl), aimZ(pl), pl.y||0, pl.st||0, { kind:'player', ref:pl });
 
     // nearest wall along this step, height-aware
     let wallT = Infinity, wn = null;
@@ -1168,6 +1278,7 @@ function tickRoom(room, now, dt) {
 
 
   // broadcast a snapshot of the whole world
+  recordHistory(room, now);               // for rewinding shots onto past positions
   sendMeta(room, false);                  // only when names, money or score move
   io.to(room.id).emit('snapshot', encodeSnapshot(room, now));
 }

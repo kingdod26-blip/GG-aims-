@@ -185,7 +185,12 @@ function shoot(){
     const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(me.pitch,me.yaw,0,'YXZ'));
     dir.x+=(Math.random()-0.5)*w.spread; dir.y+=(Math.random()-0.5)*w.spread; dir.z+=(Math.random()-0.5)*w.spread;
     dir.normalize();
-    const o=camera.position.clone().addScaledVector(dir,0.6);
+    /* Out of the crossbow, not out of your face. This used to start 0.6m
+       in front of the CAMERA, so the bolt appeared to come from the bridge
+       of your nose. The muzzle is offset right and down from the eye, so a
+       bolt now flies parallel to where you are aiming rather than from it —
+       which is how it looks in the hand, and barely shows past a few metres. */
+    const o=muzzleWorld().clone().addScaledVector(dir,0.15);
     if(w.kind==='smoke'){
       if(gameMode==='mp' && socket) socket.emit('smokebolt',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, ric:ricochet?1:0 });
       else spawnLocalArrow(o,dir,w,ricochet);
