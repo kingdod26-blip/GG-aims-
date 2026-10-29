@@ -223,24 +223,34 @@ const MAX_MAIN = 2, MAX_SIDE = 1;        // what you can carry at once
    as the torso. hitZone drops arms whenever the torso was also hit.
    KEEP IN SYNC with the client's copy in weapons.js. */
 const ZONES = [
-  { name:'head',  mult:2.5,  by:[[1.70,0.30],[1.10,0.28],[0.50,0.26]] },
-  { name:'torso', mult:1.0,  by:[[1.20,0.40],[0.80,0.38],[0.32,0.40]] },
-  { name:'arms',  mult:0.65, by:[[1.20,0.60],[0.80,0.52],[0.32,0.48]] },
-  { name:'legs',  mult:0.65, by:[[0.55,0.34],[0.35,0.30],[0.25,0.34]] },
+  // head and torso are EXACTLY the old two-box model — head 1.70/0.30 and the
+  // former body sphere — so nothing that used to connect now reads differently
+  { name:'head',  mult:2.5,  by:[[1.70,0.30],[1.10,0.30],[0.50,0.30]] },
+  { name:'torso', mult:1.0,  by:[[1.05,0.55],[0.70,0.50],[0.32,0.45]] },
+  // arms wrap the torso and legs sit under it, so limbs only ever ADD hits
+  // that previously missed entirely; the overlap resolves to torso by priority
+  { name:'arms',  mult:0.65, by:[[1.15,0.70],[0.78,0.64],[0.32,0.58]] },
+  { name:'legs',  mult:0.65, by:[[0.32,0.34],[0.18,0.28],[0.20,0.34]] },
 ];
 /* Nearest zone the ray enters, or null. */
 function hitZone(o, dir, cx, cz, baseY, st) {
   const s = Math.max(0, Math.min(2, st | 0));
-  /* Anatomical priority, NOT nearest entry point. The arms sphere is wide
-     enough that a level head shot clips its shoulder before reaching the
-     head, so picking by distance scored headshots as arm hits. First zone in
-     the table that the ray enters wins, and the table is ordered head, torso,
-     arms, legs. */
-  for (const z of ZONES) {
-    const [dy, r] = z.by[s];
-    const t = raySphere(o, dir, cx, baseY + dy, cz, r);
-    if (t < Infinity) return { t, zone: z.name, mult: z.mult };
-  }
+  const reach = z => { const [dy, r] = z.by[s]; return raySphere(o, dir, cx, baseY + dy, cz, r); };
+  const [H, T, A, L] = ZONES;
+  /* Head vs torso is settled by NEAREST ENTRY, which is exactly what the old
+     two-box model did — ties to the head. That boundary matters: a shot at
+     1.40-1.50 clips the head sphere but enters the body first, and it has
+     always counted as a body hit. Straight priority ordering would quietly
+     promote all of those to headshots.
+     Limbs are only consulted when neither connected, so they can only ADD
+     hits that used to miss — the wide arms sphere can never steal a headshot
+     or a body shot. */
+  const th = reach(H), tt = reach(T);
+  if (th < Infinity || tt < Infinity)
+    return th <= tt ? { t: th, zone: 'head',  mult: H.mult }
+                    : { t: tt, zone: 'torso', mult: T.mult };
+  const ta = reach(A); if (ta < Infinity) return { t: ta, zone: 'arms', mult: A.mult };
+  const tl = reach(L); if (tl < Infinity) return { t: tl, zone: 'legs', mult: L.mult };
   return null;
 }
 /* Guns are held as an ORDERED list: the first you buy is position 1, the

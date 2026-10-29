@@ -166,14 +166,21 @@ camera through a corner. Suppressed during a roll or slide. Double jump. Sprint 
 
 Bullets are zoned: **head ×2.5, torso ×1.0, arms and legs ×0.65**. Each zone
 is a sphere per stance in the `ZONES` table, so crouching and going prone
-still shrink you. The table lives in **both** `mp/server.js` and
+still shrink you. **Head and torso are exactly the old two-box model** —
+head 1.70/0.30, torso the former body sphere 1.05/0.55 — so nothing that
+used to connect reads differently. Arms wrap the torso and legs sit under
+it, meaning limbs only ever ADD hits that previously missed. The table lives in **both** `mp/server.js` and
 `mp/public/weapons.js` and must stay in step, or target practice teaches the
 wrong aim.
 
-`hitZone` picks by **anatomical priority — first zone in the table the ray
-enters — not by nearest entry point.** The arms sphere is wide enough that a
-level head shot clips its shoulder before reaching the head, so distance
-ordering scored headshots as arm hits. Order is head, torso, arms, legs.
+`hitZone` settles **head vs torso by nearest entry, ties to the head** —
+exactly what the old two-box model did. That boundary matters: a shot at
+y1.40–1.50 clips the head sphere but enters the body first, and has always
+counted as a body hit. Straight priority ordering would quietly promote all
+of those to headshots.
+**Limbs are only consulted when neither head nor torso connected**, so they
+can only ADD hits that used to miss — the wide arms sphere can never steal a
+headshot or a body shot.
 
 Crossbow bolts are still flat damage, zones don't apply to them.
 
