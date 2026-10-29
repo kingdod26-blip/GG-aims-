@@ -67,6 +67,16 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
 - **The room holds `MATCH.maxPlayers` (5).** A sixth connection is refused
   with a `full` event before it is ever added to `players`, and the client
   says so and returns to the menu rather than sitting in an empty arena.
+- **Moving a player server-side does nothing on its own.** Movement is
+  client-authoritative, so the client just keeps broadcasting its old
+  position over the top. Every forced move bumps `p.tp`; the client adopts
+  the server's position whenever that stamp changes. Without it the round
+  WINNER never moved between rounds — they were alive throughout, so nothing
+  made them take the new spawn, and they stayed face to face with whoever
+  respawned nearby.
+- A round with **nobody left standing** goes to whoever died last (`diedAt`),
+  not to a draw. Killing someone while you are on fire can finish you in the
+  same tick, and throwing that round away felt wrong — you did outlive them.
 - **Round starts use `spreadSpawns`**, which picks spots at least
   `SPAWN_APART` (22m) apart and prefers ones with geometry between them, so
   nobody can be shot before they have moved. It scores rather than rejects:

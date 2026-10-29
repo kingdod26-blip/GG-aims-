@@ -93,7 +93,9 @@
   /* Eliminated banner. No full-screen dim on purpose: you sit out the rest of
      the round watching it, and greying the whole view for 30s is miserable.
      It announces itself, then shrinks out of the way. */
-  #respawn { position:fixed; left:0; right:0; top:22%; z-index:15; display:none;
+  /* Clear of the round banner above (14% plus its two lines) — at 22% the
+     ELIMINATED line sat straight on top of the banner's subtitle. */
+  #respawn { position:fixed; left:0; right:0; top:34%; z-index:15; display:none;
              text-align:center; color:#fff; pointer-events:none;
              text-shadow:0 2px 18px rgba(0,0,0,.8); }
   #respawn h1 { margin:0; font-size:40px; font-weight:900; color:#ff6a6a;

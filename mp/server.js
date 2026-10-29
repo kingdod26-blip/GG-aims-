@@ -328,8 +328,9 @@ function respawnAll() {
   for (const p of players.values()) {
     const s = spots[i++] || randomSpawn();
     p.x = s.x; p.z = s.z; p.y = 0; p.hp = 100; p.alive = true;
+    p.tp = (p.tp || 0) + 1;        // force the client to accept this position
     p.burnUntil = 0; p.burnRate = 0; p.inFire = false;
-    p.markedUntil = 0; p.markedBy = null; p.rl = 0; p.st = 0;
+    p.markedUntil = 0; p.markedBy = null; p.rl = 0; p.st = 0; p.diedAt = 0;
   }
 }
 function clearField() {            // no fire, smoke or arrows carried between rounds
@@ -360,9 +361,11 @@ function noiseMade(byId, now) {
    or a match from. Bots have no spawn to go to, so they stay put. */
 function eliminate(e, isPlayer) {
   e.alive = false; e.hp = 0;
+  e.diedAt = Date.now();        // who went down last decides a mutual kill
   e.burnUntil = 0; e.burnRate = 0; e.inFire = false;
   e.markedUntil = 0; e.markedBy = null; e.rl = 0;
-  if (isPlayer) { const s = randomSpawn(); e.x = s.x; e.z = s.z; e.y = 0; e.st = 0; }
+  if (isPlayer) { const s = randomSpawn(); e.x = s.x; e.z = s.z; e.y = 0; e.st = 0;
+                  e.tp = (e.tp || 0) + 1; }
 }
 /* Payloads land where the bolt actually stopped, height included. These used
    to be x/z only, so a bolt that stuck in the top of a crate put its fire on
@@ -613,7 +616,15 @@ setInterval(() => {
     respawnAll();                                  // free roam until someone joins
   } else if (match.phase === 'live') {
     if (standing.length <= 1) {
-      const w = standing[0] || null;               // nobody standing = a draw
+      /* Normally the one left standing. If NOBODY is standing it is a mutual
+         kill — you shot them while on fire and the burn finished you in the
+         same tick — and the round goes to whoever went down last rather than
+         being thrown away as a draw. They did outlive the other. */
+      let w = standing[0] || null;
+      if (!w && livePlayers.length) {
+        w = livePlayers.reduce((a, b) => (b.diedAt || 0) > (a.diedAt || 0) ? b : a);
+        if (!w.diedAt) w = null;                   // nobody actually died: a real draw
+      }
       if (w) w.wins = (w.wins || 0) + 1;
       // payday: the round winner banks more, but losing still pays
       for (const p of players.values()) p.money += (p === w ? ECON.win : ECON.loss);
@@ -822,6 +833,7 @@ setInterval(() => {
       guns:p.guns,
       name:p.name, color:p.color,
       mk: (p.markedUntil > now) ? p.markedBy : null, rl: p.rl || 0,
+      tp: p.tp || 0,
       dT: p.detectTarget, dU: Math.max(0, p.detectUntil - now),
       dR: Math.max(0, p.detectReadyAt - now),
       bn: p.burnUntil > now })),      // on fire, so others can see it

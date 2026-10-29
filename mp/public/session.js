@@ -16,6 +16,7 @@ let gameState='home', gameMode=null, myId=null, connected=false, localKills=0;
    it only drives what the shop shows and what you're allowed to equip. */
 let myMoney=0, myGuns=[], econOnline=false;     // myGuns: owned slots, purchase order
 let roomWasFull=false;                          // so the kick doesn't read as a dropout
+let lastTp=-1;                                  // last forced-move stamp we obeyed
 /* Passive detection, mirrored from the server. detectTarget is who your
    passive has picked out; detectUntil/detectReady are local deadlines so the
    HUD can count down smoothly between snapshots. */
@@ -187,7 +188,7 @@ function startPlay(mode){
 
 /* ---- Multiplayer networking ---- */
 function connectMP(name){
-  roomWasFull = false;
+  roomWasFull = false; lastTp = -1;
   /* Never stack connections. io() happily opens a second socket, and the
      server counts it as a whole extra player that nothing will ever clean up
      — one tab, two people in the match. Entering multiplayer twice without
@@ -272,14 +273,19 @@ function onSnapshot(s){
     // unconditional: you join holding the rifle from init, which you do not own
     ensureValidWeapon();
     if(loadoutChanged && armoryOpen) renderArmory();
-    if (me.alive && !mine.alive) {
-      // the server moves you to a spawn point when you go down; follow it
-      // rather than leaving the camera where your body fell
+    /* Movement is client-authoritative, so the server moving you does
+       nothing on its own — we would just keep broadcasting the old position
+       over it. That is why the round WINNER never moved at the start of the
+       next round: they were alive throughout, so nothing made them accept
+       the new spawn, and they stayed face to face with whoever respawned
+       near them. tp is bumped by the server every time it forces a move;
+       when it changes, we take the position it gives us. */
+    if (mine.tp !== undefined && mine.tp !== lastTp){
+      lastTp = mine.tp;
       me.x=mine.x; me.z=mine.z; me.feetY=mine.y||0; me.vy=0; me.hv.set(0,0,0);
-      showEliminated(true);
-      document.exitPointerLock();
     }
-    if (!me.alive && mine.alive){ me.x=mine.x; me.z=mine.z; me.feetY=0; showEliminated(false); }
+    if (me.alive && !mine.alive){ showEliminated(true); document.exitPointerLock(); }
+    if (!me.alive && mine.alive) showEliminated(false);
     me.alive=mine.alive;
   }
   const seen=new Set();
