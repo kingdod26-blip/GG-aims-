@@ -70,7 +70,11 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
 - **Moving a player server-side does nothing on its own.** Movement is
   client-authoritative, so the client just keeps broadcasting its old
   position over the top. Every forced move bumps `p.tp`; the client adopts
-  the server's position whenever that stamp changes. Without it the round
+  the server's position whenever that stamp changes **and echoes `tp` back in
+  its state packets**, so the server can ignore position from packets already
+  in flight. Both halves are needed: without the echo the teleport is undone
+  for a few frames, which was long enough for someone parked on the resupply
+  circle during prep to collect the cash the instant the round went live. Without it the round
   WINNER never moved between rounds — they were alive throughout, so nothing
   made them take the new spawn, and they stayed face to face with whoever
   respawned nearby.

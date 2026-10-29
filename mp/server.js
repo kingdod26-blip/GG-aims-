@@ -408,7 +408,7 @@ io.on('connection', (socket) => {
   const s = randomSpawn();
   const player = {
     id: socket.id, x: s.x, z: s.z, y: 0, yaw: 0, pitch: 0, st: 0,
-    hp: 100, alive: true, kills: 0, deaths: 0, wins: 0,
+    hp: 100, alive: true, kills: 0, deaths: 0, wins: 0, tp: 0,
     money: ECON.start, guns: [],       // owned WEAPONS slots, in purchase order
     detectReadyAt: 0, detectUntil: 0, detectTarget: null,
     color: COLORS[players.size % COLORS.length],
@@ -421,9 +421,17 @@ io.on('connection', (socket) => {
   // Client owns its movement; it streams position/orientation here.
   socket.on('state', (d) => {
     const p = players.get(socket.id); if (!p || !p.alive) return;
-    if (typeof d.x === 'number') p.x = d.x;
-    if (typeof d.z === 'number') p.z = d.z;
-    if (typeof d.y === 'number') p.y = d.y;
+    /* Ignore position until the client has acknowledged the last forced move.
+       Packets already in flight carry the OLD position and would otherwise
+       overwrite the spawn we just put them at — which is how a player parked
+       on the resupply circle during prep still collected the cash a moment
+       after the round started and teleported them away. */
+    const settled = (d.tp === undefined) || (d.tp === p.tp);
+    if (settled) {
+      if (typeof d.x === 'number') p.x = d.x;
+      if (typeof d.z === 'number') p.z = d.z;
+      if (typeof d.y === 'number') p.y = d.y;
+    }
     if (typeof d.yaw === 'number') p.yaw = d.yaw;
     if (typeof d.pitch === 'number') p.pitch = d.pitch;
     if (typeof d.st === 'number') p.st = Math.max(0, Math.min(2, d.st|0));   // 0 stand 1 crouch 2 prone

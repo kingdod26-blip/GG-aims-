@@ -123,6 +123,7 @@ function loop(){ requestAnimationFrame(loop);
         else if(semiQueued){ shoot(); semiQueued=false; }   // bolt/semi: one shot per click
       }
       if(gameMode==='mp' && socket){ sendAcc+=dt; if(sendAcc>0.033){ sendAcc=0; socket.emit('state',{x:me.x,z:me.z,y:me.feetY,yaw:me.yaw,pitch:me.pitch,st:STANCE_ID[me.stance],
+          tp: lastTp,          // the forced move we've accepted; stale ones are ignored
           rl: rollT>0 ? +(1-rollT/ROLL.dur).toFixed(3) : 0});   // roll progress, so others see the tumble
       } }
     }
