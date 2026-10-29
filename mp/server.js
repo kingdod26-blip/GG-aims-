@@ -243,6 +243,12 @@ const HITBOX = {
    would have scored as arm hits. The model's torso is 0.5 wide and its arms
    sit between 0.27 and 0.41 out, so 0.26 separates them cleanly. */
 const CORE_R = [0.26, 0.26, 0.30];
+/* Resupply point: the big crate dead centre of the map. Walk into it and
+   your ammo is topped up (the client owns ammo, so it does that bit); in a
+   match it also pays cash, but only ONCE per player per round, or standing
+   on it would be an income stream. radius covers standing against the crate
+   or on top of it — the crate itself is 6x6. */
+const RESUPPLY = { x: 0, z: 0, radius: 5.0, cash: 100 };
 const MULT = { head:2.5, torso:1.0, arms:0.65, legs:0.65 };
 /* Nearest zone the ray enters, or null. */
 function hitZone(o, dir, cx, cz, baseY, st) {
@@ -287,7 +293,7 @@ function clearField() {            // no fire, smoke or arrows carried between r
 }
 function openBuyWindow(now, ms) {          // intermission doubles as the shop
   match.phase = 'intermission'; match.until = now + ms;
-  clearField(); respawnAll(); resetDetection();
+  clearField(); respawnAll(); resetDetection(); resetResupply();
 }
 function resetEconomy() {
   for (const p of players.values()) { p.wins = 0; p.money = ECON.start; p.guns = []; }
@@ -324,6 +330,9 @@ function dropSmoke(x, y, z, byId, now) {
   smokes.push({ x, y, z, by: byId, until: now + SMOKE.ms });
   io.emit('smoke', { x, y, z, by: byId });
 }
+function resetResupply() {
+  for (const p of players.values()) p.tookResupply = false;
+}
 function resetDetection() {
   for (const p of players.values()) { p.detectReadyAt = 0; p.detectUntil = 0; p.detectTarget = null; }
 }
@@ -331,7 +340,7 @@ function startRound(n, resetWins) {
   if (resetWins) resetEconomy();
   match.round = n; match.phase = 'live';
   match.roundWinner = null; match.matchWinner = null; match.until = 0;
-  clearField(); respawnAll(); resetDetection();     // everyone starts a round with it ready
+  clearField(); respawnAll(); resetDetection(); resetResupply();   // fresh round, fresh pickup
 }
 
 const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff9a5a];
@@ -710,6 +719,20 @@ setInterval(() => {
     if (p.detectUntil && now >= p.detectUntil) { p.detectUntil = 0; p.detectTarget = null; }
   }
 
+  // ---- Resupply crate: top up ammo, and pay out once a round ----
+  for (const pl of players.values()) {
+    if (!pl.alive) continue;
+    const near = Math.hypot(pl.x - RESUPPLY.x, pl.z - RESUPPLY.z) <= RESUPPLY.radius;
+    if (!near) { pl.inResupply = false; continue; }
+    if (pl.inResupply) continue;                 // already standing in it
+    pl.inResupply = true;
+    let paid = 0;
+    if (match.phase === 'live' && !pl.tookResupply) {
+      pl.tookResupply = true; paid = RESUPPLY.cash; pl.money += paid;
+    }
+    io.to(pl.id).emit('resupply', { cash: paid });   // the client refills its own ammo
+  }
+
   // ---- Burn damage over time ----
   const burnTick = (e, isPlayer) => {
     if (!e.burnUntil || !e.alive) return;
@@ -732,6 +755,7 @@ setInterval(() => {
   io.emit('snapshot', {
     t: now,
     prices: PRICES, mainSlots: MAIN_SLOTS, sideSlots: SIDE_SLOTS,
+    resupply: RESUPPLY,
     maxMain: MAX_MAIN, maxSide: MAX_SIDE,
     match: { phase: match.phase, round: match.round, winsNeeded: MATCH.winsNeeded,
              endsIn: match.until ? Math.max(0, match.until - now) : 0,

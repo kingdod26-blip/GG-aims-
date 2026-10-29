@@ -189,6 +189,16 @@ Legs are only consulted when neither head nor body connected.
 
 Crossbow bolts are still flat damage, zones don't apply to them.
 
+## Resupply crate
+
+The big crate dead centre of the map is a pickup. Walk inside `RESUPPLY.radius`
+(5m, drawn as a ring on the floor) and your ammo is topped up. In a match it
+also pays `RESUPPLY.cash` ($100) — but **once per player per round**, tracked
+by `tookResupply` and cleared on every round start, or standing on it would be
+an income stream. Ammo refills every time you re-enter; cash does not.
+The server owns the money, the client owns ammo and refills its own, so target
+practice does the proximity check itself in `loop.js`.
+
 ## Gotchas discovered the hard way
 
 - **`object.position` is read-only** in this Three.js build —

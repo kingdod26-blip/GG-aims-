@@ -60,6 +60,16 @@ function addBox(x,y,z,w,h,d,color){
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(ARENA*2,ARENA*2),
   pbr('floor', 16, 16, { roughness:0.9, metalness:0.0 }));
 floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+/* Resupply marker: a ring on the floor around the centre crate, so the
+   pickup is somewhere you can see rather than a secret radius. Unlit and
+   flat, like the fire pools. */
+(function resupplyRing(){
+  const ring = new THREE.Mesh(new THREE.RingGeometry(4.5, 5.0, 48),
+    new THREE.MeshBasicMaterial({ color:0x27ff9e, transparent:true, opacity:0.35,
+      side:THREE.DoubleSide, depthWrite:false }));
+  ring.rotation.x = -Math.PI/2; ring.position.set(0, 0.03, 0);
+  scene.add(ring);
+})();
 const WH=8;
 addBox(0,WH/2,-ARENA,ARENA*2,WH,2,0x5a6472); addBox(0,WH/2,ARENA,ARENA*2,WH,2,0x5a6472);
 addBox(-ARENA,WH/2,0,2,WH,ARENA*2,0x5a6472); addBox(ARENA,WH/2,0,2,WH,ARENA*2,0x5a6472);

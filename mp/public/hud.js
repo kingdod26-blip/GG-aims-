@@ -100,6 +100,12 @@ function updateCrosshair(){
   const el = document.getElementById('crosshair');
   if(el) el.classList.toggle('spread', !!curW().pellets);
 }
+let toastT;
+function toast(msg){
+  const el=document.getElementById('toast'); if(!el) return;
+  el.textContent=msg; el.style.opacity=1;
+  clearTimeout(toastT); toastT=setTimeout(()=>el.style.opacity=0, 1400);
+}
 function updateBoard(pl){ document.getElementById('rows').innerHTML=[...pl]
   .sort((a,b)=>(b.wins||0)-(a.wins||0) || b.kills-a.kills).map(p=>
   `<div class="row ${p.id===myId?'me':''}"><span>${esc(p.name)}</span>` +

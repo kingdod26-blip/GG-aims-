@@ -109,6 +109,13 @@ function loop(){ requestAnimationFrame(loop);
       if(gameMode==='bots') for(const b of localBots){
         if(b.alive) b.mesh.rotation.y = Math.atan2(me.x-b.x, me.z-b.z); }
       updateArrows(dt);                      // flaming arrows + burn ticks
+      // Resupply crate. In a match the server drives this (it also pays out);
+      // in target practice there is nobody to tell us, so check it here.
+      if(gameMode !== 'mp'){
+        const near = Math.hypot(me.x-RESUPPLY.x, me.z-RESUPPLY.z) <= RESUPPLY.radius;
+        if(near && !inResupply){ inResupply=true; refillAllWeapons(); updateHUD(); Sfx.swap(); toast('RESUPPLIED'); }
+        else if(!near) inResupply=false;
+      }
       abilityTick();
       if(pointerLocked){
         if(curW().auto){ if(wantFire) shoot(); }

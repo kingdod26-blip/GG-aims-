@@ -196,6 +196,11 @@ function connectMP(name){
   socket.on('impact', d=> hitmark(d && d.zone));
   socket.on('groundfire', d=> spawnGroundFire(d.x, d.y||0, d.z));
   socket.on('smoke', d=> spawnSmoke(d.x, d.y||0, d.z, d.by));
+  // the server decides the cash; ammo is ours to refill
+  socket.on('resupply', d=>{
+    refillAllWeapons(); updateHUD(); Sfx.swap();
+    toast(d && d.cash ? `RESUPPLIED  +$${d.cash}` : 'RESUPPLIED');
+  });
   socket.on('bought', d=>{ myMoney=d.money; myGuns=(d.guns||[]).slice(); Sfx.swap();
     refillWeapon(d.slot);              // you paid for it, it comes loaded
     reloading=false; clearTimeout(reloadTimer);
@@ -222,6 +227,7 @@ function showEliminated(on){
 }
 function onSnapshot(s){
   if(s.prices) shopPrices = s.prices;
+  if(s.resupply) RESUPPLY = s.resupply;
   if(s.mainSlots) MAIN_SLOTS = s.mainSlots;
   if(s.sideSlots) SIDE_SLOTS = s.sideSlots;
   if(s.maxMain)   MAX_MAIN = s.maxMain;

@@ -30,6 +30,12 @@
              text-shadow:0 2px 8px rgba(0,0,0,.85); transition:opacity .25s ease; }
   #hitzone.head { color:#ff5a5a; }
   #hitzone.limb { color:#7fc4ff; }
+
+  /* Short-lived notice, e.g. the resupply crate */
+  #toast { position:fixed; left:50%; top:62%; transform:translateX(-50%); z-index:12;
+           opacity:0; pointer-events:none; font-size:14px; letter-spacing:3px;
+           font-weight:700; color:#27ff9e; text-shadow:0 2px 10px rgba(0,0,0,.85);
+           transition:opacity .3s ease; }
   #dmg { position:fixed; inset:0; z-index:9; pointer-events:none; background:radial-gradient(circle,rgba(255,0,0,0) 45%,rgba(200,0,0,.55) 100%); opacity:0; transition:opacity .1s; }
   .hud { display:none; }
   .playing .hud { display:block; }
