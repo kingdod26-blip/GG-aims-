@@ -232,9 +232,17 @@ const MAX_MAIN = 2, MAX_SIDE = 1;        // what you can carry at once
    figure is only about 0.41 wide, so a 0.55 "arms" sphere outside body would
    have sat in empty air and never been hit, which is exactly what happened. */
 const HITBOX = {
-  head: [[1.70,0.30],[1.10,0.30],[0.50,0.30]],
-  body: [[1.05,0.55],[0.70,0.50],[0.32,0.45]],
-  legs: [[0.32,0.34],[0.18,0.28],[0.20,0.34]],
+  /* head now matches the model: its head box is 0.26x0.28 at 1.68 with a
+     helmet on top, so the head occupies y1.54-1.87 and is 0.15 half-wide.
+     The old sphere was r0.30 at 1.70 — reaching 14cm down into the chest,
+     13cm of empty air above the helmet, and twice as wide as the head. */
+  head:  [[1.70,0.19],[1.22,0.18],[0.55,0.22]],
+  body:  [[1.05,0.55],[0.70,0.50],[0.32,0.45]],
+  /* shoulders and upper arms: the torso sphere stops at y1.60, but the arm
+     boxes run to 1.75, so without this the upper arms were a dead zone that
+     swallowed shots entirely. */
+  upper: [[1.45,0.45],[1.00,0.40],[0.32,0.45]],
+  legs:  [[0.32,0.34],[0.18,0.28],[0.20,0.34]],
 };
 /* How far off the target's centre line a body hit has to be to count as an
    arm. Measured as the perpendicular distance from the shot line to their
@@ -254,12 +262,14 @@ const MULT = { head:2.5, torso:1.0, arms:0.65, legs:0.65 };
 function hitZone(o, dir, cx, cz, baseY, st) {
   const s = Math.max(0, Math.min(2, st | 0));
   const reach = k => { const [dy, r] = HITBOX[k][s]; return raySphere(o, dir, cx, baseY + dy, cz, r); };
-  /* Head vs body by NEAREST ENTRY, ties to the head — exactly the old
-     two-box model. A shot at 1.40-1.50 clips the head sphere but enters the
-     body first and has always counted as a body hit; keep it that way. */
-  const th = reach('head'), tb = reach('body');
-  if (th < Infinity || tb < Infinity) {
-    if (th <= tb) return { t: th, zone: 'head', mult: MULT.head };
+  /* The head sphere now hugs the model, so a hit on it really is a hit on
+     the head and it simply wins. That was not safe when the sphere was r0.30
+     and reached down into the chest — back then it had to lose to a nearer
+     body entry, or every upper-chest shot became a headshot. */
+  const th = reach('head');
+  if (th < Infinity) return { t: th, zone: 'head', mult: MULT.head };
+  const tb = Math.min(reach('body'), reach('upper'));
+  if (tb < Infinity) {
     // A body hit, split by how central it is. The entry point stays the
     // body's, so the impact marker lands where it always did.
     const hd = Math.hypot(dir.x, dir.z);

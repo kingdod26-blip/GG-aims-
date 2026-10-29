@@ -108,7 +108,7 @@ function loop(){ requestAnimationFrame(loop);
       // stationary targets turn to look at you (our models face +Z)
       if(gameMode==='bots') for(const b of localBots){
         if(b.alive) b.mesh.rotation.y = Math.atan2(me.x-b.x, me.z-b.z); }
-      if(gameMode==='bots') updateBotHealthBars();
+      if(gameMode==='bots'){ updateBotHealthBars(); updateHitboxOverlay(); }
       updateArrows(dt);                      // flaming arrows + burn ticks
       // Resupply crate. In a match the server drives this (it also pays out);
       // in target practice there is nobody to tell us, so check it here.

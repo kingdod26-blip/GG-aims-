@@ -214,6 +214,39 @@ function updateBotHealthBars(){
   }
 }
 
+/* ---- Hitbox overlay (target practice only) ----
+   Draws the actual spheres hitZone tests against, so you can see where the
+   head ends and the torso begins rather than inferring it from damage
+   numbers. Colours match the hit marker: red head, white torso, blue limbs,
+   plus an amber cylinder at CORE_R showing where a body hit stops being the
+   torso and becomes an arm. Built from the same HITBOX table, so it cannot
+   drift away from what actually gets tested. */
+const BOX_COLOR = { head:0xff5a5a, body:0xffffff, upper:0xffffff, legs:0x7fc4ff };
+function makeHitboxOverlay(){
+  const g = new THREE.Group();
+  const wire = c => new THREE.MeshBasicMaterial({ color:c, wireframe:true,
+    transparent:true, opacity:0.35, depthWrite:false });
+  for(const key of ['head','body','upper','legs']){
+    const [dy, r] = HITBOX[key][0];                 // standing
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), wire(BOX_COLOR[key]));
+    m.position.y = dy; g.add(m);
+  }
+  // the torso / arm split is a distance from the spine, not a sphere
+  const core = new THREE.Mesh(new THREE.CylinderGeometry(CORE_R[0], CORE_R[0], 1.6, 16, 1, true),
+    wire(0xffb648));
+  core.position.y = 1.05; g.add(core);
+  g.traverse(o=>{ o.renderOrder = 870; });
+  return g;
+}
+function updateHitboxOverlay(){
+  const on = !!SETTINGS.showBoxes && gameMode !== 'mp';
+  for(const b of localBots){
+    if(!b.mesh) continue;
+    if(on && !b.boxes){ b.boxes = makeHitboxOverlay(); b.mesh.add(b.boxes); }
+    if(b.boxes) b.boxes.visible = on && !!b.alive;
+  }
+}
+
 /* ---- Home-page character: podium + spotlight showcase ---- */
 let hero = humanoid(0x27ff9e); hero.position.set(0,0.12,32); scene.add(hero);
 const podium = new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.3,0.12,32),

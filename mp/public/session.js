@@ -59,6 +59,7 @@ const SET_DEFS = [
   { key:'shadows',  label:'SHADOWS',    opts:[[0,'OFF'],[1024,'MEDIUM'],[2048,'HIGH']] },
   { key:'bloom',    label:'BLOOM GLOW', opts:[[0,'OFF'],[1,'ON']] },
   { key:'hitZone',  label:'HIT MARKER', opts:[[0,'PLAIN'],[1,'SHOW ZONE']] },
+  { key:'showBoxes',label:'HITBOXES',   opts:[[0,'HIDDEN'],[1,'SHOW']] },   // practice only
 ];
 function renderSettingsUI(){
   const host=document.getElementById('setRows'); if(!host) return;
