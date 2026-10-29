@@ -58,6 +58,7 @@ const SET_DEFS = [
   { key:'resScale', label:'RESOLUTION', opts:[[0.75,'75%'],[1,'100%'],[1.5,'150%'],[2,'200%']] },
   { key:'shadows',  label:'SHADOWS',    opts:[[0,'OFF'],[1024,'MEDIUM'],[2048,'HIGH']] },
   { key:'bloom',    label:'BLOOM GLOW', opts:[[0,'OFF'],[1,'ON']] },
+  { key:'hitZone',  label:'HIT MARKER', opts:[[0,'PLAIN'],[1,'SHOW ZONE']] },
 ];
 function renderSettingsUI(){
   const host=document.getElementById('setRows'); if(!host) return;

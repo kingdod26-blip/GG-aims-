@@ -46,6 +46,8 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
 let hmT, hzT;
 function hitmark(zone){
   const h=document.getElementById('hitmarker'), z=document.getElementById('hitzone');
+  // SETTINGS.hitZone off = the old plain white marker, no colour and no word
+  if(!SETTINGS.hitZone) zone = null;
   const kind = zone==='head' ? 'head' : (zone==='arms'||zone==='legs') ? 'limb'
              : zone==='torso' ? 'torso' : '';
   h.className = kind;

@@ -163,7 +163,11 @@ Resets to ready at the start of every round.
 0.45m sideways shift of the eye, clamped by `clearLean` so you can't put your
 camera through a corner. Suppressed during a roll or slide. Double jump. Sprint (Shift). Stances: `C` crouch,
 `Z` prone — these shrink your server-side hitbox.
-`Tab` armory, `O` graphics settings, `Esc` pause/quit.
+`Tab` armory, `O` graphics & HUD settings, `Esc` pause/quit.
+`SETTINGS.hitZone` toggles the zone-coloured hit marker and its label back
+to the plain white one. It lives in the settings panel with the graphics
+options and saves with them, but the presets deliberately leave it alone —
+picking PERFORMANCE shouldn't rearrange your HUD.
 
 ## Hit zones
 

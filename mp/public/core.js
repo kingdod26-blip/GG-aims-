@@ -55,7 +55,10 @@ try {
 /* ===================== GRAPHICS SETTINGS =====================
    Everything that costs GPU heat is adjustable here. Defaults to
    "Balanced" so the game is cool and quiet out of the box. */
-const SET_DEFAULTS = { fpsCap:60, resScale:1, bloom:1, shadows:1024 };
+// hitZone is a HUD preference rather than a graphics one, but this is the
+// only settings panel, and it saves with the rest. The presets below leave
+// it alone on purpose — picking PERFORMANCE shouldn't change your HUD.
+const SET_DEFAULTS = { fpsCap:60, resScale:1, bloom:1, shadows:1024, hitZone:1 };
 const SET_PRESETS = {
   performance: { fpsCap:30, resScale:0.75, bloom:0, shadows:0    },
   balanced:    { fpsCap:60, resScale:1,    bloom:1, shadows:1024 },
