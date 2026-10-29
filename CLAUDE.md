@@ -226,6 +226,13 @@ silent. It is **hearing, so it has a range**: `DETECT.range` (40m). The
 arena is 120x120, so map-wide detection meant a shot from the far corner lit
 you up. Out of earshot nothing happens at all — the listener's cooldown is
 not spent either, so you are not punished for a noise you could not hear.
+Entries in `others` must carry `o.id`. `updateMarks` walks
+`others.values()`, so the id has to live on the entry, not just the Map key —
+it did not, so `detectTarget === o.id` tested against `undefined` and the
+heard-them-shoot silhouette **never drew once**. The smoke tag hid the bug by
+still working: it tests `o.markedBy`, which comes straight off the snapshot.
+The server side was fine throughout, which is why it looked like a render
+problem and not a detection one.
 It reveals **people only**. It used to also draw fire pools and smoke clouds
 through walls, treating them as stand-ins for traps, but traps do not exist
 yet — that was inventing a feature. `revealHazards` is kept as a no-op so

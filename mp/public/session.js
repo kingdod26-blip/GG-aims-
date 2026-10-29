@@ -303,7 +303,13 @@ function onSnapshot(s){
   }
   const seen=new Set();
   for (const p of s.players){ if(p.id===myId) continue; seen.add(p.id);
-    let o=others.get(p.id); if(!o){ const mesh=newPlayerMesh(p.color); scene.add(mesh); o={mesh,tx:p.x,tz:p.z,ty:p.y||0,tyaw:p.yaw}; others.set(p.id,o); }
+    /* o.id matters: updateMarks walks others.values(), so without the id on
+       the entry itself the passive's `detectTarget === o.id` compared against
+       undefined and the heard-them-shoot silhouette never drew once. The smoke
+       tag was unaffected because it tests o.markedBy, which comes off the
+       snapshot. */
+    let o=others.get(p.id); if(!o){ const mesh=newPlayerMesh(p.color); scene.add(mesh); o={mesh,id:p.id,tx:p.x,tz:p.z,ty:p.y||0,tyaw:p.yaw}; others.set(p.id,o); }
+    o.id = p.id;
     /* Velocity between snapshots, measured BEFORE the new position lands.
        animate() extrapolates with it so a moving player is drawn where they
        are now rather than where they were a snapshot ago. */
