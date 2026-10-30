@@ -32,20 +32,6 @@ const ROLL = { dur:0.62, speed:20, cdMs:1200, lean:0.22,
    reciprocal is the time constant, ~45ms); REMOTE_PREDICT caps how far ahead
    we will ever guess, so a lost packet cannot fling a body across the room. */
 const REMOTE_EASE = 22, REMOTE_PREDICT = 0.22;
-/* ---- Spread: OFF ----------------------------------------------------------
-   Every weapon keeps its spread and adsSpread in the roster above, untouched.
-   This one flag is the only thing switching them off, so putting the cone
-   back is a one-word change: SPREAD_ON = true.
-
-   What it does when on: each shot nudges its direction by a random amount
-   inside a cone. Because that is an ANGLE, the miss grows with distance — a
-   rifle hip-fired lands a headshot 88% of the time at 25m but 36% at 40m,
-   and a sniper hip-fired is 7% at 25m. Off, every shot goes exactly through
-   the crosshair at any range, and aiming down sights no longer changes
-   accuracy (it still zooms).
-   --------------------------------------------------------------------------- */
-const SPREAD_ON = false;
-
 const LEAN = { angle:0.16, offset:0.45, rate:9 };
 // SLIDE IS CURRENTLY DISABLED — flip this to true to bring it back.
 // The full implementation is kept intact below and documented in

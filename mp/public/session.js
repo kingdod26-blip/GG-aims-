@@ -64,13 +64,19 @@ const SET_DEFS = [
   { key:'shadows',  label:'SHADOWS',    opts:[[0,'OFF'],[1024,'MEDIUM'],[2048,'HIGH']] },
   { key:'bloom',    label:'BLOOM GLOW', opts:[[0,'OFF'],[1,'ON']] },
   { key:'hitZone',  label:'HIT MARKER', opts:[[0,'PLAIN'],[1,'SHOW ZONE']] },
-  { key:'showBoxes',label:'HITBOXES',   opts:[[0,'HIDDEN'],[1,'SHOW']] },   // practice only
-  { key:'infAmmo',   label:'PRACTICE AMMO',     opts:[[0,'NORMAL'],[1,'UNLIMITED']] },
-  { key:'noCooldown',label:'PRACTICE COOLDOWN', opts:[[0,'NORMAL'],[1,'NONE']] },
+  /* practice:true rows never appear in multiplayer. training() already
+     refuses to honour them there, so showing them would only advertise
+     options that quietly do nothing — and read as cheats to everyone else
+     in the room. */
+  { key:'showBoxes',label:'HITBOXES',   opts:[[0,'HIDDEN'],[1,'SHOW']], practice:true },
+  { key:'infAmmo',   label:'PRACTICE AMMO',     opts:[[0,'NORMAL'],[1,'UNLIMITED']], practice:true },
+  { key:'noCooldown',label:'PRACTICE COOLDOWN', opts:[[0,'NORMAL'],[1,'NONE']], practice:true },
+  { key:'noSpread',  label:'PRACTICE SPREAD',   opts:[[0,'NORMAL'],[1,'NONE']], practice:true },
 ];
 function renderSettingsUI(){
   const host=document.getElementById('setRows'); if(!host) return;
-  host.innerHTML = SET_DEFS.map(d=>`<div class="srow"><label>${d.label}</label><div class="seg" data-key="${d.key}">`+
+  const rows = SET_DEFS.filter(d => !(d.practice && gameMode === 'mp'));
+  host.innerHTML = rows.map(d=>`<div class="srow"><label>${d.label}</label><div class="seg" data-key="${d.key}">`+
     d.opts.map(([v,l])=>`<button data-v="${v}" class="${Number(SETTINGS[d.key])===Number(v)?'on':''}">${l}</button>`).join('')+
     `</div></div>`).join('');
   host.querySelectorAll('.seg button').forEach(btn=>{

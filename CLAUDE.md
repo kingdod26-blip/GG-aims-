@@ -153,13 +153,18 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   a 1024-wide screen, which read as the shot going nowhere near where you
   aimed. The shot itself was always exact — verified by projecting the fired
   ray back to screen space, hip and scoped, where it lands at (0,0).
-- **Spread is currently OFF**, behind `SPREAD_ON` in `weapons.js`. Every
-  weapon keeps its `spread`/`adsSpread` in the roster; that one flag is the
-  only thing disabling them, so putting the cone back is a one-word change.
-  Off, every shot goes exactly through the crosshair at any range and aiming
-  no longer changes accuracy, only zoom. **Watch the shotgun**: with no cone
-  its 8 pellets all land on the same point, so it deals 8x12 = 96 at any
-  range (240 to a head) rather than being a close-quarters weapon.
+- **Spread can be switched off in the practice range only**, via the
+  `noSpread` setting and `training()`, which already refuses practice flags
+  in multiplayer. Multiplayer always has the cone. Off, every shot goes
+  exactly through the crosshair at any range and aiming only zooms. Note the
+  shotgun becomes a rifle with it off — all 8 pellets land on one point, 96
+  damage at any range — which is fine on a range and is the reason it is not
+  a global switch.
+- **Practice-only settings are hidden in multiplayer.** Rows marked
+  `practice:true` in `SET_DEFS` are filtered out when `gameMode === 'mp'`,
+  and `renderSettingsUI()` re-runs on every open so the panel is right for
+  the mode you are in. `training()` already refused to honour them there, so
+  showing them only advertised options that quietly did nothing.
 - **The canvas must match the viewport, every frame.** Shots go through the
   centre of the CANVAS; `#crosshair` and `#scope` are `position:fixed`, so
   they sit at the centre of the VIEWPORT. If those drift apart your aim is
