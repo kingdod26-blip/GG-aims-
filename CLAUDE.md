@@ -140,13 +140,26 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   room is NOT retired while it holds parked scores, so returning after a
   match was running puts you back in the room your score is in — which is
   the point of the token lookup in `roomFor`.
-- **Tracers are drawn from the muzzle, the shot is still fired from the
-  camera.** `muzzleWorld()` reads the viewmodel group's world matrix, which
+- **Tracers run from the muzzle when hip-firing and down the SIGHT LINE
+  when aiming.** `muzzleWorld()` reads the viewmodel group's world matrix, which
   the bob/sway/recoil code rewrites every frame, so the line leaves the
   barrel and follows the weapon as it moves. The shot itself still starts at
   the camera — that is what the crosshair points at and what the server
   tests — and the tracer is drawn from the muzzle to the far end of that same
   ray, so it converges on the aim point instead of running parallel to it.
+  The start blends toward the sight line as `ads` rises, because zoom
+  magnifies the muzzle offset: at the sniper's 20-degree ADS FOV the same
+  0.3m put the tracer ~590px right and ~550px below a dead-centre reticle on
+  a 1024-wide screen, which read as the shot going nowhere near where you
+  aimed. The shot itself was always exact — verified by projecting the fired
+  ray back to screen space, hip and scoped, where it lands at (0,0).
+- **ADS accuracy arrives when the scope does.** The spread blended linearly
+  with `ads`, but the scope overlay appears at `ads > 0.85`, where the sniper
+  was still at 0.0088 — six times its aimed cone. Scoped HEADSHOTS were 59%
+  at 50m and 30% at 70m while the scope said otherwise. The blend now uses
+  `min(1, ads/0.85)`, so seeing the scope means having scope accuracy: 100%
+  at both. Hip-firing a sniper remains deliberately awful (15% body, 2% head
+  at 50m) — that is what the scope is for.
 - **Leaning moves your body, not just your camera.** Q/E slid the camera up
   to `LEAN.offset` (0.45m) sideways but the client never told anyone, so your
   hitbox and your model stayed in cover: you could shoot from around a corner

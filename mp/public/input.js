@@ -204,7 +204,13 @@ function shoot(){
   if(a.mag<=0){ Sfx.empty(); reload(); return; }
   lastShot=now; if(!training('infAmmo')) a.mag--;   // practice: the mag never empties
   updateHUD(); gunKick=1; Sfx.shoot(w);
-  const spread = w.spread + (w.adsSpread - w.spread)*ads;   // ADS tightens the cone
+  /* Tighten to the full ADS cone by the time you are actually AIMING, not
+     at the very end of the zoom. The scope overlay appears at ads 0.85, and
+     at that point the old linear blend still left the sniper at 0.0088 — six
+     times its aimed spread — so the first shot after the scope came up was
+     far less accurate than the scope implied. */
+  const aimK = Math.min(1, ads / 0.85);
+  const spread = w.spread + (w.adsSpread - w.spread)*aimK;
   const o=camera.position.clone();
   const pellets = w.pellets || 1;                            // shotgun fires several
   for(let p=0;p<pellets;p++){
@@ -221,7 +227,14 @@ function shoot(){
     _ray.set(o,dir); _ray.far=w.range;
     const twh=_ray.intersectObjects(tTargets,true);   // players too, so it meets THEM
     const tlen=Math.min(twh.length?twh[0].distance:Infinity, w.range);
-    addTracer(o,dir,tlen,muzzleWorld());
+    /* Down the sight line once you are aiming. Hip-fired, starting at the
+       barrel looks right. Aiming, the gun is tucked under your eye (and on
+       the sniper it is hidden entirely), and the zoom magnifies the offset:
+       at the sniper's 20 degree FOV that same 0.3m muzzle offset lands the
+       tracer ~590px right and ~550px below a centred reticle on a 1024-wide
+       screen. It read as the shot going nowhere near where you aimed. */
+    const sight = o.clone().addScaledVector(dir, 0.4);   // just ahead of the eye
+    addTracer(o,dir,tlen,muzzleWorld().clone().lerp(sight,ads));
     if(gameMode==='mp'){ socket.emit('fire',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, dmg:w.dmg, range:w.range }); continue; }
     // local hit detection (target practice)
     _ray.set(o,dir); _ray.far=w.range; const wh=_ray.intersectObjects(wallMeshes,false); let bd=Math.min(wh.length?wh[0].distance:Infinity, w.range);
