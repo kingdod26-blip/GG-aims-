@@ -355,8 +355,17 @@ function connectMP(name){
     if(d && d.name) toast(`${d.name.toUpperCase()} TOOK THE $${d.cash}`);
   });
   socket.on('resupply', d=>{
-    refillAllWeapons(); updateHUD(); Sfx.swap();
-    toast(d && d.cash ? `RESUPPLIED  +$${d.cash}` : 'RESUPPLIED');
+    /* The ammo is one player every 30s now, so walking in does not always
+       give you any — say so rather than playing the sound and changing
+       nothing. The cash is separate and still one per round. */
+    const gotAmmo = !d || d.ammo !== false;
+    if(gotAmmo){ refillAllWeapons(); updateHUD(); Sfx.swap(); }
+    if(d && d.cash) toast(gotAmmo ? `RESUPPLIED  +${d.cash}` : `+${d.cash}  ·  AMMO IN ${d.in}s`);
+    else toast(gotAmmo ? 'RESUPPLIED' : `AMMO IN ${d.in}s`);
+  });
+  socket.on('ammotaken', d=>{
+    if(d && d.name && d.name !== (document.getElementById('nameInput').value.trim()||'Player'))
+      toast(`${d.name.toUpperCase()} TOOK THE AMMO`);
   });
   socket.on('bought', d=>{ myMoney=d.money; myGuns=(d.guns||[]).slice(); Sfx.swap();
     refillWeapon(d.slot);              // you paid for it, it comes loaded
@@ -390,7 +399,7 @@ function showEliminated(on){
 
    Players arrive as a one-byte SLOT instead of a 20-character socket id, so
    nothing can be read until 'meta' has supplied the slot -> id mapping. */
-const SNAP_VERSION = 2;          // 2 added the lean byte
+const SNAP_VERSION = 3;          // 2 added the lean byte, 3 the ammo timer
 const PHASES = ['waiting', 'intermission', 'live', 'over', 'paused'];
 let lastMeta = null, warnedVersion = false;
 function decodeSnapshot(buf){
@@ -412,6 +421,7 @@ function decodeSnapshot(buf){
   const roundWinner = idOf(d.getInt8(o++));
   const matchWinner = idOf(d.getInt8(o++));
   const resupplyTaken = !!d.getUint8(o++);
+  const ammoIn = d.getUint8(o++);               // seconds until the crate has ammo again
   const np = d.getUint8(o++), na = d.getUint8(o++);
 
   const players = [];
@@ -450,7 +460,7 @@ function decodeSnapshot(buf){
     const sm = !!d.getUint8(o++);
     arrows.push({ id, x:ax, y:ay, z:az, vx, vy, vz, sm });
   }
-  return { match:{ phase, round, endsIn, roundWinner, matchWinner, resupplyTaken },
+  return { match:{ phase, round, endsIn, roundWinner, matchWinner, resupplyTaken, ammoIn },
            players, arrows };
 }
 
@@ -465,7 +475,7 @@ function onSnapshot(s){
   if(s.maxMain)   MAX_MAIN = s.maxMain;
   if(s.maxSide)   MAX_SIDE = s.maxSide;
   updateMatchUI(s.match, s.players);
-  setResupplyClaimed(!!(s.match && s.match.resupplyTaken));
+  setResupplyState(!!(s.match && s.match.resupplyTaken), (s.match && s.match.ammoIn) || 0);
   const mine = s.players.find(p=>p.id===myId);
   if (mine){ me.hp=mine.hp;
     const incoming = mine.guns || [];

@@ -356,7 +356,12 @@ const CORE_R = [0.26, 0.26, 0.30];
    match it also pays cash, but only ONCE per player per round, or standing
    on it would be an income stream. radius covers standing against the crate
    or on top of it — the crate itself is 6x6. */
-const RESUPPLY = { x: 0, z: 0, radius: 5.0, cash: 100 };
+/* The crate holds two separate prizes. The cash is ONE per round for the
+   whole room. The ammo used to top anyone up, any time they walked in, which
+   made the middle of the map a free refill station — it is now one player
+   every ammoMs, shared, and only while a round is live. Outside a live round
+   it is free: the buy window already hands you a full magazine with a gun. */
+const RESUPPLY = { x: 0, z: 0, radius: 5.0, cash: 100, ammoMs: 30000 };
 const MULT = { head:2.5, torso:1.0, arms:0.65, legs:0.65 };
 /* Nearest zone the ray enters, or null. */
 function hitZone(o, dir, cx, cz, baseY, st) {
@@ -496,6 +501,7 @@ function dropSmoke(room, x, y, z, byId, now) {
    tops up for everyone, every time they walk in. */
 function resetResupply(room) {
   room.match.resupplyBy = null;
+  room.match.ammoAt = 0;                  // the ammo is there again next round
   for (const p of room.players.values()) p.inResupply = false;
 }
 function resetDetection(room) {
@@ -529,11 +535,12 @@ const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff
    Layout (little-endian). Both sides must agree exactly; the version byte is
    there so a stale client fails loudly instead of misreading every field.
 
-   HEADER  10 bytes
+   HEADER  11 bytes
      u8  version              u8  phase index (PHASES below)
      u8  round                u16 endsIn ms
      i8  roundWinner slot     i8  matchWinner slot
-     u8  flags: bit0 resupply taken
+     u8  flags: bit0 the round's cash is gone
+     u8  ammo cooldown, whole seconds left (0 = ready)
      u8  player count         u8  arrow count
    PLAYER  21 bytes each
      u8  slot                 u8  flags: bit0 alive, bit1 burning
@@ -550,9 +557,9 @@ const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff
      i16 x,y,z *100           i16 vx,vy,vz *100
      u8  flags: bit0 smoke
    ========================================================================= */
-const SNAP_VERSION = 2;          // 2 added the lean byte
+const SNAP_VERSION = 3;          // 2 added the lean byte, 3 the ammo timer
 const PHASES = ['waiting', 'intermission', 'live', 'over', 'paused'];
-const HEAD_B = 10, PLAYER_B = 21, ARROW_B = 15;
+const HEAD_B = 11, PLAYER_B = 21, ARROW_B = 15;
 const i16 = v => Math.max(-32768, Math.min(32767, Math.round(v * 100)));
 const u16 = v => Math.max(0, Math.min(65535, Math.round(v)));
 
@@ -587,6 +594,7 @@ function encodeSnapshot(room, now) {
   buf.writeInt8(m.roundWinner ? slotOf(m.roundWinner) : -1, o++);
   buf.writeInt8(m.matchWinner ? slotOf(m.matchWinner) : -1, o++);
   buf.writeUInt8(m.resupplyBy ? 1 : 0, o++);
+  buf.writeUInt8(Math.max(0, Math.min(255, Math.ceil(((m.ammoAt || 0) - now) / 1000))), o++);
   buf.writeUInt8(ps.length, o++);
   buf.writeUInt8(as.length, o++);
   for (const p of ps) {
@@ -1260,13 +1268,19 @@ function tickRoom(room, now, dt) {
     if (!near) { pl.inResupply = false; continue; }
     if (pl.inResupply) continue;                 // already standing in it
     pl.inResupply = true;
-    let paid = 0;
-    if (match.phase === 'live' && !match.resupplyBy) {
-      match.resupplyBy = pl.id;                  // claimed for the round
-      paid = RESUPPLY.cash; pl.money += paid;
-      io.to(room.id).emit('claimed', { name: pl.name, cash: paid });   // everyone sees it go
+    let paid = 0, ammo = true, waitS = 0;
+    if (match.phase === 'live') {
+      if (!match.resupplyBy) {
+        match.resupplyBy = pl.id;                // the cash is one per round
+        paid = RESUPPLY.cash; pl.money += paid;
+        io.to(room.id).emit('claimed', { name: pl.name, cash: paid });
+      }
+      if (now >= (match.ammoAt || 0)) {          // and the ammo one per 30s
+        match.ammoAt = now + RESUPPLY.ammoMs;
+        io.to(room.id).emit('ammotaken', { name: pl.name, secs: RESUPPLY.ammoMs/1000 });
+      } else { ammo = false; waitS = Math.ceil((match.ammoAt - now) / 1000); }
     }
-    io.to(pl.id).emit('resupply', { cash: paid });   // the client refills its own ammo
+    io.to(pl.id).emit('resupply', { cash: paid, ammo, in: waitS });
   }
 
   // ---- Burn damage over time ----

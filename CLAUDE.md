@@ -317,6 +317,17 @@ you keep burning at 6/s for 5s.
 Burning players show flames in multiplayer: the snapshot carries `bn` and the
 client attaches the same `makeBurnFx` used on local bots.
 Two separate fire lifetimes: a **person** burns for `burnMs` (5s), while the
+- **The resupply crate holds two prizes on different timers.** The cash is
+  one per round for the whole room (`match.resupplyBy`). The ammo used to top
+  anyone up every time they walked in, which made the middle of the map a
+  free refill station; it is now one player every `RESUPPLY.ammoMs` (30s),
+  shared, and only while a round is LIVE — outside one it is free, since the
+  buy window already hands you a loaded gun. `match.ammoAt` holds when it is
+  next available and resets with the round. The seconds remaining ride in the
+  snapshot header so the ring can grey out, and the client only plays the
+  refill when the server actually gave it: walking in on cooldown says when
+  it is back instead of pretending.
+
 **pool the arrow leaves on the ground** lasts `GFIRE.ms` (9s). A pool is
 dropped wherever the arrow ends up — floor, foot of a wall, or under whoever
 it hit. Right-click toggles ricochet on **either** ability — the crossbow

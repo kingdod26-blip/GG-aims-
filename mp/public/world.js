@@ -71,13 +71,17 @@ let resupplyRing = null;
   resupplyRing.rotation.x = -Math.PI/2; resupplyRing.position.set(0, 0.03, 0);
   scene.add(resupplyRing);
 })();
-/* Green while the round's cash is still there, grey once somebody has taken
-   it — ammo still works, but there is no longer a reason to race for it. */
-function setResupplyClaimed(taken){
+/* Three states, because the crate holds two prizes on different timers.
+   Bright green: cash still there. Dimmer green: cash gone but the ammo is
+   up. Grey: the ammo is on its 30s cooldown and there is nothing to come
+   for. */
+function setResupplyState(cashTaken, ammoIn){
   if(!resupplyRing) return;
-  resupplyRing.material.color.setHex(taken ? 0x5a636e : 0x27ff9e);
-  resupplyRing.material.opacity = taken ? 0.18 : 0.35;
+  const ready = !ammoIn;
+  resupplyRing.material.color.setHex(ready ? 0x27ff9e : 0x5a636e);
+  resupplyRing.material.opacity = !ready ? 0.14 : (cashTaken ? 0.26 : 0.4);
 }
+function setResupplyClaimed(taken){ setResupplyState(taken, 0); }   // older callers
 const WH=8;
 addBox(0,WH/2,-ARENA,ARENA*2,WH,2,0x5a6472); addBox(0,WH/2,ARENA,ARENA*2,WH,2,0x5a6472);
 addBox(-ARENA,WH/2,0,2,WH,ARENA*2,0x5a6472); addBox(ARENA,WH/2,0,2,WH,ARENA*2,0x5a6472);
