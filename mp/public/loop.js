@@ -89,6 +89,20 @@ function loop(){ requestAnimationFrame(loop);
   const nowMs = performance.now();
   // Don't burn GPU on a hidden tab.
   if(document.hidden) { last = nowMs; return; }
+  /* The canvas MUST match the viewport, every frame. Shots go through the
+     centre of the CANVAS; the crosshair and the scope are position:fixed, so
+     they sit at the centre of the VIEWPORT. Let those two drift apart and
+     your aim is silently wrong — at 1514x1123 with a stale 1024x768 canvas
+     the reticle sat 245px right and 177px below where the bullet actually
+     went, which reads as "it lands above where I am aiming". There is a
+     resize listener, but it cannot catch every case (a resize while the tab
+     is hidden, a zoom change, a device-pixel-ratio switch), so this checks
+     and self-heals rather than trusting the event. */
+  const cvs = renderer.domElement;
+  if(cvs.clientWidth !== innerWidth || cvs.clientHeight !== innerHeight){
+    camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+    applySettings();
+  }
   // Frame cap: menus idle at 30fps, gameplay uses the chosen cap (0 = uncapped).
   const cap = (gameState==='playing') ? (SETTINGS.fpsCap|0) : Math.min(SETTINGS.fpsCap|0 || 30, 30);
   if(cap > 0){

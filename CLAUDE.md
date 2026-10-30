@@ -153,6 +153,19 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   a 1024-wide screen, which read as the shot going nowhere near where you
   aimed. The shot itself was always exact — verified by projecting the fired
   ray back to screen space, hip and scoped, where it lands at (0,0).
+- **The canvas must match the viewport, every frame.** Shots go through the
+  centre of the CANVAS; `#crosshair` and `#scope` are `position:fixed`, so
+  they sit at the centre of the VIEWPORT. If those drift apart your aim is
+  silently wrong and nothing looks broken — at 1514x1123 with a stale
+  1024x768 canvas the reticle sat 245px right and 177px BELOW where the
+  bullet went, which reads as "it lands above where I am aiming", and the
+  error grows with how far the two sizes differ. There is a `resize`
+  listener, but it cannot catch everything (a resize the page never hears
+  about, a zoom change, a device-pixel-ratio switch), so `loop()` compares
+  `renderer.domElement.clientWidth/Height` against `innerWidth/Height` each
+  frame and re-runs `applySettings()` when they differ. Do not assume the
+  listener is enough. Note the check sits after the `document.hidden` early
+  return, so a hidden tab heals on its first visible frame.
 - **ADS accuracy arrives when the scope does.** The spread blended linearly
   with `ads`, but the scope overlay appears at `ads > 0.85`, where the sniper
   was still at 0.0088 — six times its aimed cone. Scoped HEADSHOTS were 59%
