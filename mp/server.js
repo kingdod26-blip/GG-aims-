@@ -17,7 +17,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 /* The lobby reads these before joining anything, so they must work without a
    socket. Listing is the room browser; /rooms/new reserves a fresh code. */
 app.get('/rooms', (_req, res) => res.json({ rooms: roomList(), max: MATCH.maxPlayers }));
-app.get('/rooms/new', (_req, res) => {
+app.get('/rooms/new', (req, res) => {
+  if (rooms.size >= MAX_ROOMS)
+    return res.status(503).json({ error: 'the server is full, try again shortly' });
+  const ip = req.ip || (req.socket && req.socket.remoteAddress) || '?';
+  if (!mayCreateRoom(ip))
+    return res.status(429).json({ error: 'too many rooms too quickly' });
   const code = newRoomCode();
   if (!code) return res.status(503).json({ error: 'could not allocate a code' });
   rooms.set(code, makeRoom(code, 60000));     // held for a minute so it survives the trip
@@ -171,6 +176,20 @@ function insideWall(x, z) {
    driven by players-per-room (everyone's position goes to everyone in it), so
    small rooms stay cheap however many you run. */
 const rooms = new Map();          // roomId -> room
+/* /rooms/new is unauthenticated and every reserved room sits in memory for a
+   minute, so without a ceiling a loop against that endpoint allocates rooms
+   as fast as the network allows. Both limits are needed: the cap bounds the
+   damage, the per-IP throttle stops one visitor reaching it. */
+const MAX_ROOMS = 200;
+const NEWROOM = { perMinute: 6, seen: new Map() };   // ip -> { n, resetAt }
+function mayCreateRoom(ip) {
+  const now = Date.now();
+  let e = NEWROOM.seen.get(ip);
+  if (!e || now >= e.resetAt) { e = { n: 0, resetAt: now + 60000 }; NEWROOM.seen.set(ip, e); }
+  if (NEWROOM.seen.size > 5000)                      // never let the ledger itself grow
+    for (const [k, v] of NEWROOM.seen) if (now >= v.resetAt) NEWROOM.seen.delete(k);
+  return ++e.n <= NEWROOM.perMinute;
+}
 function makeRoom(id, holdMs) {
   return { id,
     players: new Map(),           // socket.id -> player
@@ -225,6 +244,7 @@ function roomFor(code, tok) {
   }
   for (const r of rooms.values())
     if (r.players.size && r.players.size < MATCH.maxPlayers) return r;
+  if (rooms.size >= MAX_ROOMS) return null;          // at capacity: turned away
   const r = makeRoom(nextRoomId());
   rooms.set(r.id, r);
   return r;
@@ -298,6 +318,28 @@ const ECON = { start: 200, win: 200, loss: 100 };
 /* Pistol X out-damages the Pistol (40 vs 30) at the same rate class, so at a
    matched price there was never a reason to buy the Pistol. It costs double. */
 const PRICES = [150, 300, 150, 50, 100];
+/* What each gun actually does. This used to come from the CLIENT — the fire
+   handler read d.dmg and d.range off the packet — so three lines in a browser
+   console bought you a 99999-damage rifle with 400m of reach that shot
+   through the map. The client now says only WHICH weapon it fired; every
+   number comes from here.
+
+   Must stay in step with WEAPONS in public/weapons.js. Index is the shop
+   slot, the same one PRICES uses.
+   pellets is how many 'fire' events one trigger pull is allowed to send
+   (the shotgun sends one per pellet), and fireRate is the gap between pulls
+   in ms — together they are the rate limit, because nothing stopped a
+   patched client firing a sniper a hundred times a second. */
+const GUNS = [
+  { name:'RIFLE',    dmg:26,  range:240, fireRate:95,   pellets:1 },
+  { name:'SNIPER',   dmg:110, range:400, fireRate:1200, pellets:1 },
+  { name:'SHOTGUN',  dmg:12,  range:60,  fireRate:900,  pellets:8 },
+  { name:'PISTOL',   dmg:30,  range:180, fireRate:200,  pellets:1 },
+  { name:'PISTOL X', dmg:40,  range:180, fireRate:170,  pellets:1 },
+];
+/* Network jitter means a burst never arrives on an exact cadence, so allow a
+   shot a little early rather than eating legitimate ones. */
+const RATE_SLACK = 0.75;
 /* Passive detection. Everyone has it, nobody equips it. When an opponent
    makes a noise — firing a gun, loosing a bolt — it picks them out through
    walls for revealMs, then sleeps for cooldownMs. The same window also lights
@@ -754,10 +796,24 @@ io.on('connection', (socket) => {
   socket.on('fire', (d) => {
     if (match.phase !== 'live') return;      // only during a live round
     const p = players.get(socket.id); if (!p || !p.alive) return;
+    /* Which gun — and nothing else about it — comes from the client. They
+       must actually own it: p.guns is server-side, set by the buy handler. */
+    const slot = d && (d.w | 0);
+    const gun = GUNS[slot];
+    if (!gun || !p.guns.includes(slot)) return;      // not a gun, or not theirs
+
+    /* Rate limit. A trigger pull may send up to gun.pellets packets; the next
+       pull cannot start until fireRate has passed. */
+    const nowMs = Date.now();
+    if (p.volleySlot !== slot || nowMs - (p.volleyAt || 0) >= gun.fireRate * RATE_SLACK) {
+      p.volleyAt = nowMs; p.volleySlot = slot; p.volleyShots = 0;
+    }
+    if (++p.volleyShots > gun.pellets) return;       // firing faster than the gun can
+
     noiseMade(room, p.id, Date.now());       // a bang: anyone listening picks it up
     const o = { x: d.ox, y: d.oy, z: d.oz };
     const dir = normalize(d.dx, d.dy, d.dz);
-    const range = d.range || 220, dmg = d.dmg || 25;
+    const range = gun.range, dmg = gun.dmg;
     // broadcast a tracer so others see the shot
     socket.to(room.id).emit('shot', { ox:o.x, oy:o.y, oz:o.z, dx:dir.x, dy:dir.y, dz:dir.z, len: range });
 

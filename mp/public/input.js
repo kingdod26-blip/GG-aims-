@@ -239,7 +239,8 @@ function shoot(){
        screen. It read as the shot going nowhere near where you aimed. */
     const sight = o.clone().addScaledVector(dir, 0.4);   // just ahead of the eye
     addTracer(o,dir,tlen,muzzleWorld().clone().lerp(sight,ads));
-    if(gameMode==='mp'){ socket.emit('fire',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, dmg:w.dmg, range:w.range }); continue; }
+    // damage and range are the SERVER's to decide; we only say which gun
+    if(gameMode==='mp'){ socket.emit('fire',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, w:currentWeapon }); continue; }
     // local hit detection (target practice)
     _ray.set(o,dir); _ray.far=w.range; const wh=_ray.intersectObjects(wallMeshes,false); let bd=Math.min(wh.length?wh[0].distance:Infinity, w.range);
     let best=null, mult=1, zone=null;

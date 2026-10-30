@@ -58,6 +58,31 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
 
 ## Architecture
 
+- **A shot names its gun; the server supplies every number.** The fire
+  handler used to read `d.dmg` and `d.range` straight off the packet, so
+  three lines in a browser console bought a 99999-damage rifle with 400m of
+  reach. The client now sends only `w`, the shop slot, and must actually own
+  it (`p.guns`, which the buy handler owns). Damage, range, fire rate and
+  pellet count all come from `GUNS` in `server.js`, **which must stay in step
+  with `WEAPONS` in `public/weapons.js`**.
+  Shots are also rate-limited server-side, which they never were: a trigger
+  pull may send up to `pellets` packets (the shotgun sends one per pellet)
+  and the next pull waits `fireRate * RATE_SLACK` (0.75, for jitter).
+  Measured: a spoofed `dmg:99999` deals 26, a gun you do not own deals
+  nothing, 20 packets at once land one shot, and three properly spaced
+  rounds all land.
+  **Test probes must buy a gun before they can shoot** — `arm()` and
+  `shoot()` in `scratchpad/mpclient.js`. Probes still sending `dmg` are
+  silently ignored, which looks exactly like a broken game.
+- **Room creation is capped and throttled.** `/rooms/new` is unauthenticated
+  and holds each reserved room for 60s, so a loop against it allocated rooms
+  as fast as the network allowed. `MAX_ROOMS` (200) bounds it and
+  `NEWROOM.perMinute` (6 per IP) stops one visitor reaching the cap; the
+  auto-create path in `roomFor` returns null at the cap and the joiner is
+  told the server is full.
+- **Still open, by design:** movement is client-authoritative with no speed
+  clamp, and ammo is client-side, so a patched client can still teleport and
+  never reload. Closing those means simulating movement server-side.
 - **Damage is server-authoritative** (hitscan, arrows, melee all resolved in
   `server.js`). Movement is client-authoritative — cheatable, accepted tradeoff.
 - **Remote players are predicted, not just smoothed.** The server hit-tests
