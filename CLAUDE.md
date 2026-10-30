@@ -80,9 +80,31 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   `NEWROOM.perMinute` (6 per IP) stops one visitor reaching the cap; the
   auto-create path in `roomFor` returns null at the cap and the joiner is
   told the server is full.
-- **Still open, by design:** movement is client-authoritative with no speed
-  clamp, and ammo is client-side, so a patched client can still teleport and
-  never reload. Closing those means simulating movement server-side.
+- **Movement is still simulated on the client, but no longer believed on
+  faith.** The server stored whatever x/y/z arrived, so a modified client
+  could teleport, run at any speed, walk through walls or hover. `vetMove`
+  now checks every state packet: a **token bucket** (`MOVE.maxSpeed` 20, the
+  roll speed, with `MOVE.burst` 2m of unspent credit) so a stalled client can
+  catch up while the SUSTAINED rate can never exceed what the game allows — a
+  flat per-packet allowance with slack in it permits the slack forever, which
+  is the mistake to avoid; a vertical cap and a floor/ceiling clamp; and
+  `resolveBody`, which pushes you out of any box your body intersects.
+  `resolveBody` is height-aware on purpose: plain `resolve2D` is 2D and would
+  shove a player off the crate they are standing on, so it skips boxes under
+  your feet exactly as the client does. Over-reach is CLAMPED along its own
+  direction rather than rejected, so a laggy player slides instead of
+  freezing. `moveAt` resets on every forced move, or the teleport itself
+  looks like a speed hack.
+  Measured: a 91m teleport moves you 9.8m at 19.2 m/s and never arrives, a
+  5m-per-packet speed hack holds at 19.5 m/s, walking into the centre crate
+  pushes you out, and a normal 7 m/s run is delivered in full.
+  **Probes must walk** — `goTo()` in `mpclient.js`, which owns its intended
+  position and steps that forward. Stepping from the server-reported position
+  does not work: that updates at 20Hz, so it re-asks for the same spot and
+  barely moves. It also strafes when it stops making progress, or it jams
+  against a crate forever.
+- **Still open, by design:** ammo is counted on the client, so a patched
+  client never reloads.
 - **Damage is server-authoritative** (hitscan, arrows, melee all resolved in
   `server.js`). Movement is client-authoritative — cheatable, accepted tradeoff.
 - **Remote players are predicted, not just smoothed.** The server hit-tests

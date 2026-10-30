@@ -93,6 +93,84 @@ function lineClear(fx, fz, tx, tz) {
   return true;
 }
 // Push a circle (radius) out of any rectangle it overlaps, then clamp to arena.
+/* ------------------------- Movement validation ----------------------------
+   The server used to store whatever x/y/z a client sent. Nothing asked
+   whether you could have travelled that far in that time, whether a wall was
+   in the way, or whether you were inside the geometry — so a modified client
+   could teleport across the map, run at any speed, walk through walls or
+   hover. Movement is still simulated on the client (that has not changed),
+   but what it reports is now checked before it is believed.
+
+   Three checks, in order:
+     1. Speed. The fastest legitimate movement is a dodge roll, ROLL_SPEED.
+        SLACK is for network jitter and batched packets after a stall; a step
+        longer than that is clamped back along its own direction rather than
+        rejected, so a laggy player slides to where they claim instead of
+        rubber-banding to a stop.
+     2. Height. Feet stay between the floor and head-room under the ceiling,
+        and cannot climb faster than a jump.
+     3. Geometry. Pushed out of any box their body actually intersects.
+        This MIRRORS the client's own pass, including the rule that skips a
+        box you are standing on top of (maxy <= feet + 0.05) — get that wrong
+        and anyone on a crate is shoved off it every tick. */
+const MOVE = {
+  maxSpeed: 20,        // ROLL.speed, the fastest the client can legitimately go
+  burst: 2.0,          // metres of unspent credit, for jitter and batched packets
+  maxRise: 16,         // vertical, a jump plus slack
+  radius: 0.4,         // me.radius on the client
+};
+const BODY_H = [1.8, 1.15, 0.7];        // stand / crouch / prone, matching STANCE
+
+/* Push out of boxes the body is actually inside. Height-aware on purpose:
+   resolve2D below is 2D and would shove a player off the crate they are
+   standing on. */
+function resolveBody(pos, feetY, st) {
+  const top = feetY + (BODY_H[st] || BODY_H[0]), r = MOVE.radius;
+  for (const c of RECTS) {
+    if (c.miny > top || c.maxy <= feetY + 0.05) continue;    // above us, or underfoot
+    const cx = Math.max(c.minx, Math.min(pos.x, c.maxx));
+    const cz = Math.max(c.minz, Math.min(pos.z, c.maxz));
+    const dx = pos.x - cx, dz = pos.z - cz, d = Math.hypot(dx, dz);
+    if (d < r && d > 1e-4) { const p = r - d; pos.x += dx/d*p; pos.z += dz/d*p; }
+    else if (d === 0) pos.x += r;
+  }
+  const b = ARENA - 1.2;
+  pos.x = Math.max(-b, Math.min(b, pos.x));
+  pos.z = Math.max(-b, Math.min(b, pos.z));
+}
+
+/* Returns the position the server is willing to believe. */
+function vetMove(p, nx, ny, nz, now) {
+  const dt = Math.min(Math.max((now - (p.moveAt || now)) / 1000, 0.016), 0.5);
+  p.moveAt = now;
+
+  /* A budget, not a per-packet limit. Distance accrues at the top legal
+     speed and a little goes unspent, so a client whose packets batch up
+     after a stall can catch up — but the SUSTAINED rate can never exceed
+     maxSpeed, which a flat per-packet allowance with slack in it would
+     happily permit forever. */
+  p.moveBudget = Math.min((p.moveBudget || 0) + MOVE.maxSpeed * dt, MOVE.burst);
+  let dx = nx - p.x, dz = nz - p.z;
+  const step = Math.hypot(dx, dz);
+  if (step > p.moveBudget && step > 1e-6) {     // too far: slide, don't jump
+    const k = p.moveBudget / step;
+    dx *= k; dz *= k;
+    p.moveBudget = 0;
+    p.warps = (p.warps || 0) + 1;               // for anyone watching the logs
+  } else {
+    p.moveBudget -= step;
+  }
+  const pos = { x: p.x + dx, z: p.z + dz };
+
+  let y = typeof ny === 'number' ? ny : (p.y || 0);
+  const rise = y - (p.y || 0), maxRise = MOVE.maxRise * dt;
+  if (Math.abs(rise) > maxRise) y = (p.y || 0) + Math.sign(rise) * maxRise;
+  y = Math.max(0, Math.min(y, WALL_H - 1.9));
+
+  resolveBody(pos, y, p.st || 0);
+  return { x: pos.x, y, z: pos.z };
+}
+
 function resolve2D(pos, radius) {
   for (const r of RECTS) {
     const cx = Math.max(r.minx, Math.min(pos.x, r.maxx));
@@ -472,7 +550,7 @@ function respawnAll(room) {
     p.tp = (p.tp || 0) + 1;        // force the client to accept this position
     p.burnUntil = 0; p.burnRate = 0; p.inFire = false;
     p.markedUntil = 0; p.markedBy = null; p.rl = 0; p.st = 0; p.diedAt = 0;
-    p.lo = 0; p.vx = 0; p.vz = 0; p.stateAt = 0;    // a teleport is not travel
+    p.lo = 0; p.vx = 0; p.vz = 0; p.stateAt = 0; p.moveAt = 0;   // a teleport is not travel
     if (p.hist) p.hist.length = 0;                  // and nothing to rewind onto
   }
 }
@@ -525,7 +603,7 @@ function eliminate(e, isPlayer) {
   e.burnUntil = 0; e.burnRate = 0; e.inFire = false;
   e.markedUntil = 0; e.markedBy = null; e.rl = 0;
   if (isPlayer) { const s = randomSpawn(); e.x = s.x; e.z = s.z; e.y = 0; e.st = 0;
-                  e.tp = (e.tp || 0) + 1; }
+                  e.tp = (e.tp || 0) + 1; e.moveAt = 0; }
 }
 /* Payloads land where the bolt actually stopped, height included. These used
    to be x/z only, so a bolt that stuck in the top of a crate put its fire on
@@ -778,9 +856,12 @@ io.on('connection', (socket) => {
         p.vz = Math.hypot(vx, vz) > 30 ? 0 : vz;
       } else if (!p.stateAt) { p.vx = 0; p.vz = 0; }
       p.stateAt = at;
-      if (typeof d.x === 'number') p.x = d.x;
-      if (typeof d.z === 'number') p.z = d.z;
-      if (typeof d.y === 'number') p.y = d.y;
+      /* What they claim, checked before it is believed. vetMove does the
+         height and the geometry too, so x/y/z all come back from it. */
+      if (typeof d.x === 'number' && typeof d.z === 'number') {
+        const v = vetMove(p, d.x, typeof d.y === 'number' ? d.y : (p.y || 0), d.z, at);
+        p.x = v.x; p.y = v.y; p.z = v.z;
+      }
     }
     if (typeof d.yaw === 'number') p.yaw = d.yaw;
     if (typeof d.pitch === 'number') p.pitch = d.pitch;
