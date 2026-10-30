@@ -134,6 +134,7 @@ function quitToMenu(){
   showEliminated(false);
   clearFeed(); clearGroundFires();
   heroGroup.forEach(o=>o.visible=true); gun.visible=false;
+  setPotions([]);
   pendingRoom = null;
   showScreen('home');
 }
@@ -338,6 +339,14 @@ function connectMP(name){
   /* The roster and the slow-moving numbers. Sent only when they change, and
      always before the first frame that refers to a slot. */
   socket.on('meta', m=>{ lastMeta = m; });
+  /* Where the potions are. Sent on a round start and on join, not every
+     tick — only whether each is still there changes, and that rides in the
+     snapshot as a single byte. */
+  socket.on('potions', d=> setPotions((d && d.at) || []));
+  socket.on('healed', d=>{
+    me.hp = d.hp; updateHUD(); Sfx.swap();
+    toast('+' + d.heal + ' HEALTH' + (d.nth > 1 ? '  \u00b7  POTION ' + d.nth : ''));
+  });
   /* Bounce the server's clock back so it can measure our round trip — that
      number is what lag compensation rewinds shots by. */
   socket.on('ping2', t=> socket.emit('pong2', t));
@@ -405,7 +414,7 @@ function showEliminated(on){
 
    Players arrive as a one-byte SLOT instead of a 20-character socket id, so
    nothing can be read until 'meta' has supplied the slot -> id mapping. */
-const SNAP_VERSION = 3;          // 2 added the lean byte, 3 the ammo timer
+const SNAP_VERSION = 4;          // 2 lean, 3 ammo timer, 4 potions
 const PHASES = ['waiting', 'intermission', 'live', 'over', 'paused'];
 let lastMeta = null, warnedVersion = false;
 function decodeSnapshot(buf){
@@ -428,6 +437,7 @@ function decodeSnapshot(buf){
   const matchWinner = idOf(d.getInt8(o++));
   const resupplyTaken = !!d.getUint8(o++);
   const ammoIn = d.getUint8(o++);               // seconds until the crate has ammo again
+  const potions = d.getUint8(o++);              // one bit per potion still on the map
   const np = d.getUint8(o++), na = d.getUint8(o++);
 
   const players = [];
@@ -466,7 +476,7 @@ function decodeSnapshot(buf){
     const sm = !!d.getUint8(o++);
     arrows.push({ id, x:ax, y:ay, z:az, vx, vy, vz, sm });
   }
-  return { match:{ phase, round, endsIn, roundWinner, matchWinner, resupplyTaken, ammoIn },
+  return { match:{ phase, round, endsIn, roundWinner, matchWinner, resupplyTaken, ammoIn, potions },
            players, arrows };
 }
 
@@ -482,6 +492,7 @@ function onSnapshot(s){
   if(s.maxSide)   MAX_SIDE = s.maxSide;
   updateMatchUI(s.match, s.players);
   setResupplyState(!!(s.match && s.match.resupplyTaken), (s.match && s.match.ammoIn) || 0);
+  updatePotions(s.match ? (s.match.potions || 0) : 0);
   const mine = s.players.find(p=>p.id===myId);
   if (mine){ me.hp=mine.hp;
     const incoming = mine.guns || [];

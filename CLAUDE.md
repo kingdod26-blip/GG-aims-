@@ -402,6 +402,26 @@ you keep burning at 6/s for 5s.
 Burning players show flames in multiplayer: the snapshot carries `bn` and the
 client attaches the same `makeBurnFx` used on local bots.
 Two separate fire lifetimes: a **person** burns for `burnMs` (5s), while the
+- **Health potions: five a round, scattered, one use each.** `placePotions`
+  scatters `POTION.n` (5) at least `POTION.apart` (20m) from each other and
+  `clearOfCrate` (12m) from the resupply ring, so the middle of the map is
+  not the answer to everything. Each is gone for the round once anybody
+  takes it.
+  The falloff is **per player, not per room**: your first potion of the round
+  gives 40, then 30, 20, 15, 10. Room-wide falloff would punish the second
+  player for the first one’s pickup; per-player is what stops one person
+  hoovering all five and topping back to full each time. Picking up requires
+  `hp < 100` and a live round.
+  **Anything that belongs to the start of a round has to be done in BOTH
+  `openBuyWindow` AND the round-award branch**, because that branch sets the
+  phase to `intermission` inline rather than calling `openBuyWindow` — miss
+  it and potions never come back after round 1. They are deliberately NOT
+  re-placed in `startRound`: doing that moved every potion at the bell, so
+  the positions clients had been shown were already stale.
+  Positions ride in their own `potions` event (round start, and on join)
+  while the snapshot header carries a one-byte mask of which are still
+  there — the positions only change once a round, so they do not belong in
+  the tick.
 - **The resupply crate holds two prizes on different timers.** The cash is
   one per round for the whole room (`match.resupplyBy`). The ammo used to top
   anyone up every time they walked in, which made the middle of the map a

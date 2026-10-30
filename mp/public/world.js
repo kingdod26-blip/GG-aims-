@@ -71,6 +71,57 @@ let resupplyRing = null;
   resupplyRing.rotation.x = -Math.PI/2; resupplyRing.position.set(0, 0.03, 0);
   scene.add(resupplyRing);
 })();
+/* ---- Health potions ----
+   Five a round, scattered, each gone once anybody takes it. The server owns
+   where they are and whether they are still there; this only draws them.
+   A floor ring like the resupply marker so it reads at a distance, plus a
+   small bobbing vial so it is obvious what it is. Unlit and depthWrite off,
+   matching the other pickups. */
+const potionFX = [];
+function makePotion(){
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.1, 1.45, 28),
+    new THREE.MeshBasicMaterial({ color:0xff5a7a, transparent:true, opacity:0.45,
+      side:THREE.DoubleSide, depthWrite:false }));
+  ring.rotation.x = -Math.PI/2; ring.position.y = 0.03; g.add(ring);
+  const vial = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.42, 10),
+    new THREE.MeshBasicMaterial({ color:0xff3d63, transparent:true, opacity:0.92 }));
+  vial.position.y = 0.75; g.add(vial);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.12, 8),
+    new THREE.MeshBasicMaterial({ color:0xeaf0f5 }));
+  cap.position.y = 1.02; g.add(cap);
+  const cross = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.07, 0.01),
+    new THREE.MeshBasicMaterial({ color:0xffffff }));
+  cross.position.set(0, 0.76, 0.2); g.add(cross);
+  const cross2 = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.26, 0.01),
+    new THREE.MeshBasicMaterial({ color:0xffffff }));
+  cross2.position.set(0, 0.76, 0.2); g.add(cross2);
+  g.traverse(o => { o.renderOrder = 860; });
+  g.visible = false; scene.add(g);
+  return g;
+}
+/* Server says where. Reuses the meshes rather than rebuilding each round. */
+function setPotions(at){
+  while (potionFX.length < at.length) potionFX.push(makePotion());
+  potionFX.forEach((g, i) => {
+    if (i < at.length) { g.position.set(at[i].x, 0, at[i].z); g.userData.live = true; }
+    else { g.visible = false; g.userData.live = false; }
+  });
+  if (!at.length) potionFX.forEach(g => { g.visible = false; g.userData.live = false; });
+}
+/* One bit per potion: still there, or taken for the round. */
+function updatePotions(mask){
+  potionFX.forEach((g, i) => { g.visible = !!g.userData.live && !!(mask & (1 << i)); });
+}
+/* A slow bob and spin, so they catch the eye across the arena. */
+function animatePotions(t){
+  for (const g of potionFX) {
+    if (!g.visible) continue;
+    g.rotation.y = t * 0.8;
+    g.children[1].position.y = 0.75 + Math.sin(t * 2 + g.position.x) * 0.07;
+  }
+}
+
 /* Three states, because the crate holds two prizes on different timers.
    Bright green: cash still there. Dimmer green: cash gone but the ammo is
    up. Grey: the ammo is on its 30s cooldown and there is nothing to come

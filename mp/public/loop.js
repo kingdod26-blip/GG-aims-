@@ -118,6 +118,7 @@ function loop(){ requestAnimationFrame(loop);
 
   if(gameState==='playing'){
     revealHazards(gameMode === 'mp' && detectUntil > performance.now());
+    animatePotions(nowMs / 1000);        // bob and spin the health pickups
     if(me.alive && !paused){      // frozen while the pause menu is up
       movePlayer(dt);
       // stationary targets turn to look at you (our models face +Z)

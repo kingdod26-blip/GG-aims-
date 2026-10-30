@@ -482,6 +482,43 @@ const CORE_R = [0.26, 0.26, 0.30];
    every ammoMs, shared, and only while a round is live. Outside a live round
    it is free: the buy window already hands you a full magazine with a gun. */
 const RESUPPLY = { x: 0, z: 0, radius: 5.0, cash: 100, ammoMs: 30000 };
+/* Health potions. Five scattered each round, each one gone for the round
+   once anybody takes it.
+
+   heals is PER PLAYER, not per room: your first potion of the round gives
+   40, your second 30, and so on. Room-wide falloff would punish the second
+   player for the first one's pickup; per-player is what stops one person
+   hoovering up all five and topping back to full each time. The last value
+   repeats if somehow all five go to one player.
+
+   apart keeps them from clustering, and they stay clear of the resupply
+   crate so the middle of the map isn't the answer to everything. */
+const POTION = { n: 5, radius: 1.7, apart: 20, clearOfCrate: 12,
+                 heals: [40, 30, 20, 15, 10] };
+function placePotions(room) {
+  const out = [];
+  for (let i = 0; i < POTION.n; i++) {
+    let best = null, bestNearest = -1;
+    for (let tries = 0; tries < 160; tries++) {
+      const c = randomSpawn();
+      if (Math.hypot(c.x - RESUPPLY.x, c.z - RESUPPLY.z) < POTION.clearOfCrate) continue;
+      let nearest = Infinity;
+      for (const o of out) nearest = Math.min(nearest, Math.hypot(c.x - o.x, c.z - o.z));
+      if (nearest >= POTION.apart) { best = c; break; }      // good enough, take it
+      if (nearest > bestNearest) { bestNearest = nearest; best = c; }
+    }
+    out.push({ x: best.x, z: best.z, taken: false });
+  }
+  room.potions = out;
+  io.to(room.id).emit('potions', { at: out.map(p => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2) })) });
+}
+/* Which are still there, as one byte — the positions only change at the
+   start of a round, so they ride in their own event rather than the tick. */
+function potionMask(room) {
+  let m = 0;
+  (room.potions || []).forEach((p, i) => { if (!p.taken) m |= (1 << i); });
+  return m;
+}
 const MULT = { head:2.5, torso:1.0, arms:0.65, legs:0.65 };
 /* Nearest zone the ray enters, or null. */
 function hitZone(o, dir, cx, cz, baseY, st) {
@@ -572,6 +609,8 @@ function douseAll(room) {
 function openBuyWindow(room, now, ms) {    // intermission doubles as the shop
   room.match.phase = 'intermission'; room.match.until = now + ms;
   clearField(room); respawnAll(room); resetDetection(room); resetResupply(room);
+  for (const p of room.players.values()) p.potions = 0;
+  placePotions(room);                      // visible while you shop, live at the bell
 }
 function resetEconomy(room) {
   for (const p of room.players.values()) { p.wins = 0; p.money = ECON.start; p.guns = []; }
@@ -633,6 +672,11 @@ function startRound(room, n, resetWins) {
   match.round = n; match.phase = 'live';
   match.roundWinner = null; match.matchWinner = null; match.until = 0;
   clearField(room); respawnAll(room); resetDetection(room); resetResupply(room);
+  for (const p of room.players.values()) p.potions = 0;   // falloff is per round
+  /* No placePotions here: openBuyWindow always runs first and has already
+     put the set out. Doing it again at the bell MOVED every potion the
+     instant the round went live, so the positions clients had been shown
+     were stale. */
 }
 
 const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff9a5a];
@@ -655,12 +699,13 @@ const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff
    Layout (little-endian). Both sides must agree exactly; the version byte is
    there so a stale client fails loudly instead of misreading every field.
 
-   HEADER  11 bytes
+   HEADER  12 bytes
      u8  version              u8  phase index (PHASES below)
      u8  round                u16 endsIn ms
      i8  roundWinner slot     i8  matchWinner slot
      u8  flags: bit0 the round's cash is gone
      u8  ammo cooldown, whole seconds left (0 = ready)
+     u8  potions still on the map, one bit each (positions come in 'potions')
      u8  player count         u8  arrow count
    PLAYER  21 bytes each
      u8  slot                 u8  flags: bit0 alive, bit1 burning
@@ -677,9 +722,9 @@ const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff
      i16 x,y,z *100           i16 vx,vy,vz *100
      u8  flags: bit0 smoke
    ========================================================================= */
-const SNAP_VERSION = 3;          // 2 added the lean byte, 3 the ammo timer
+const SNAP_VERSION = 4;          // 2 lean, 3 ammo timer, 4 potions
 const PHASES = ['waiting', 'intermission', 'live', 'over', 'paused'];
-const HEAD_B = 11, PLAYER_B = 21, ARROW_B = 15;
+const HEAD_B = 12, PLAYER_B = 21, ARROW_B = 15;
 const i16 = v => Math.max(-32768, Math.min(32767, Math.round(v * 100)));
 const u16 = v => Math.max(0, Math.min(65535, Math.round(v)));
 
@@ -715,6 +760,7 @@ function encodeSnapshot(room, now) {
   buf.writeInt8(m.matchWinner ? slotOf(m.matchWinner) : -1, o++);
   buf.writeUInt8(m.resupplyBy ? 1 : 0, o++);
   buf.writeUInt8(Math.max(0, Math.min(255, Math.ceil(((m.ammoAt || 0) - now) / 1000))), o++);
+  buf.writeUInt8(potionMask(room), o++);
   buf.writeUInt8(ps.length, o++);
   buf.writeUInt8(as.length, o++);
   for (const p of ps) {
@@ -803,6 +849,8 @@ io.on('connection', (socket) => {
     maxMain: MAX_MAIN, maxSide: MAX_SIDE, maxPlayers: MATCH.maxPlayers,
     winsNeeded: MATCH.winsNeeded });
   sendMeta(room, true);                // the roster, before any frame refers to it
+  if (room.potions) socket.emit('potions',
+    { at: room.potions.map(p => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2) })) });
   if (back) console.log(`[~] ${player.name} rejoined with ${player.wins} round win(s)`);
   console.log(`[+] ${player.name} joined ${room.id} (${players.size}/${MATCH.maxPlayers}, ${rooms.size} room(s))`);
 
@@ -1225,6 +1273,11 @@ function tickRoom(room, now, dt) {
          the payout. On a genuine draw nobody lost, so nobody is stripped. */
       if (w) for (const p of players.values()) if (p !== w) p.guns = [];
       clearField(room); douseAll(room);  // the round is over, so is the fire
+      /* A new buy window begins here — this branch sets the phase inline
+         rather than going through openBuyWindow, so anything that belongs
+         to the start of a round has to be done in BOTH places. */
+      for (const q of players.values()) q.potions = 0;
+      placePotions(room);
       match.roundWinner = w ? w.id : null;
       if (w && w.wins >= MATCH.winsNeeded) {
         match.phase = 'over'; match.matchWinner = w.id; match.until = now + MATCH.endMs;
@@ -1418,6 +1471,23 @@ function tickRoom(room, now, dt) {
       } else { ammo = false; waitS = Math.ceil((match.ammoAt - now) / 1000); }
     }
     io.to(pl.id).emit('resupply', { cash: paid, ammo, in: waitS });
+  }
+
+  /* ---- Health potions: one use each, and your own falloff ---- */
+  if (match.phase === 'live') for (const pl of players.values()) {
+    if (!pl.alive || pl.hp >= 100) continue;          // no point walking over one at full
+    for (const pot of (room.potions || [])) {
+      if (pot.taken) continue;
+      if (Math.hypot(pl.x - pot.x, pl.z - pot.z) > POTION.radius) continue;
+      const nth = Math.min(pl.potions || 0, POTION.heals.length - 1);
+      const heal = POTION.heals[nth];
+      pot.taken = true;
+      pl.potions = (pl.potions || 0) + 1;
+      pl.hp = Math.min(100, pl.hp + heal);
+      io.to(pl.id).emit('healed', { heal, hp: pl.hp, nth: pl.potions, left: potionMask(room) });
+      io.to(room.id).emit('potiongone', { name: pl.name });
+      break;                                           // one per tick, not the whole set
+    }
   }
 
   // ---- Burn damage over time ----
