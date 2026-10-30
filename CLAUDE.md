@@ -153,6 +153,13 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   a 1024-wide screen, which read as the shot going nowhere near where you
   aimed. The shot itself was always exact — verified by projecting the fired
   ray back to screen space, hip and scoped, where it lands at (0,0).
+- **Spread is currently OFF**, behind `SPREAD_ON` in `weapons.js`. Every
+  weapon keeps its `spread`/`adsSpread` in the roster; that one flag is the
+  only thing disabling them, so putting the cone back is a one-word change.
+  Off, every shot goes exactly through the crosshair at any range and aiming
+  no longer changes accuracy, only zoom. **Watch the shotgun**: with no cone
+  its 8 pellets all land on the same point, so it deals 8x12 = 96 at any
+  range (240 to a head) rather than being a close-quarters weapon.
 - **The canvas must match the viewport, every frame.** Shots go through the
   centre of the CANVAS; `#crosshair` and `#scope` are `position:fixed`, so
   they sit at the centre of the VIEWPORT. If those drift apart your aim is

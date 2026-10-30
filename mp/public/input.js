@@ -183,7 +183,7 @@ function shoot(){
     lastShot=now; gunKick=1; Sfx.shoot(w); updateHUD();
     me.pitch=Math.min(me.pitch + w.recoil, Math.PI/2-0.05);
     const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(me.pitch,me.yaw,0,'YXZ'));
-    dir.x+=(Math.random()-0.5)*w.spread; dir.y+=(Math.random()-0.5)*w.spread; dir.z+=(Math.random()-0.5)*w.spread;
+    if(SPREAD_ON){ dir.x+=(Math.random()-0.5)*w.spread; dir.y+=(Math.random()-0.5)*w.spread; dir.z+=(Math.random()-0.5)*w.spread; }
     dir.normalize();
     /* Out of the crossbow, not out of your face. This used to start 0.6m
        in front of the CAMERA, so the bolt appeared to come from the bridge
@@ -210,7 +210,7 @@ function shoot(){
      times its aimed spread — so the first shot after the scope came up was
      far less accurate than the scope implied. */
   const aimK = Math.min(1, ads / 0.85);
-  const spread = w.spread + (w.adsSpread - w.spread)*aimK;
+  const spread = SPREAD_ON ? w.spread + (w.adsSpread - w.spread)*aimK : 0;
   const o=camera.position.clone();
   const pellets = w.pellets || 1;                            // shotgun fires several
   for(let p=0;p<pellets;p++){
