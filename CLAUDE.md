@@ -240,6 +240,11 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   along the post-recoil angle: 0.6m high at 30m on the crossbow. Combined
   with the parallel-offset bug above, the crossbow was 0.74m out at 30m and
   smoke 1.11m. Both are now ~0.12m, which is just the 0.004 spread cone.
+- **Both pistols have no spread at all** (`spread`/`adsSpread` are 0), so a
+  side-arm lands exactly on the crosshair at any range, aimed or not. Every
+  other weapon keeps its cone. Note this makes Pistol X — 40 damage every
+  170ms, pinpoint — a strong pick for $100; it is the number to watch if
+  side-arms start outclassing the rifle.
 - **Spread can be switched off in the practice range only**, via the
   `noSpread` setting and `training()`, which already refuses practice flags
   in multiplayer. Multiplayer always has the cone. Off, every shot goes

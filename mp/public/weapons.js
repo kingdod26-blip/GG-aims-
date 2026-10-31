@@ -76,8 +76,8 @@ const WEAPONS = [
   { name:'RIFLE',    mode:'AUTO', auto:true,  fireRate:95,   dmg:26,  recoil:0.011, spread:0.014, adsSpread:0.006,  range:240, magMax:30, reserveMax:120, reloadMs:1600, adsFov:62, scope:false },
   { name:'SNIPER',   mode:'BOLT', auto:false, fireRate:1200, dmg:110, recoil:0.045, spread:0.05,  adsSpread:0.0015, range:400, magMax:5,  reserveMax:25,  reloadMs:2400, adsFov:20, scope:true  },
   { name:'SHOTGUN',  mode:'PUMP', auto:false, fireRate:900,  dmg:12,  pellets:8, recoil:0.03,  spread:0.09, adsSpread:0.06, range:60,  magMax:6,  reserveMax:36,  reloadMs:2200, adsFov:68, scope:false },
-  { name:'PISTOL',   mode:'SEMI', auto:false, fireRate:200,  dmg:30,  recoil:0.013, spread:0.010, adsSpread:0.004,  range:180, magMax:12, reserveMax:60,  reloadMs:1200, adsFov:66, scope:false },
-  { name:'PISTOL X', mode:'SEMI', auto:false, fireRate:170,  dmg:40,  recoil:0.012, spread:0.012, adsSpread:0.005,  range:180, magMax:10, reserveMax:50,  reloadMs:1100, adsFov:66, scope:false },
+  { name:'PISTOL',   mode:'SEMI', auto:false, fireRate:200,  dmg:30,  recoil:0.013, spread:0, adsSpread:0,  range:180, magMax:12, reserveMax:60,  reloadMs:1200, adsFov:66, scope:false },
+  { name:'PISTOL X', mode:'SEMI', auto:false, fireRate:170,  dmg:40,  recoil:0.012, spread:0, adsSpread:0,  range:180, magMax:10, reserveMax:50,  reloadMs:1100, adsFov:66, scope:false },
   // ABILITY: charge-based, no magazine/reload. Each shot burns one charge that
   // regenerates on its own 30s timer. Right-click toggles RICOCHET.
   { name:'CROSSBOW', mode:'ABILITY', ability:true, kind:'xbow', auto:false, fireRate:700, dmg:90,
