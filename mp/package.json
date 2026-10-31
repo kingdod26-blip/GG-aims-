@@ -1,5 +1,5 @@
 {
-  "name": "bot-strike-mp",
+  "name": "crimson-x-mp",
   "version": "1.0.0",
   "description": "Multiplayer deathmatch (players + shared bots) with an authoritative Node/Socket.IO server.",
   "type": "commonjs",

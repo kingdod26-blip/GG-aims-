@@ -1,5 +1,5 @@
 /* ============================================================================
-   BOT STRIKE — Multiplayer server (authoritative-ish).
+   CRIMSON X — Multiplayer server (authoritative-ish).
    - Serves the client from /public
    - Holds ONE shared world of connected players. No bots: multiplayer is
      round-based duelling, and target practice is simulated on the client.
@@ -1571,4 +1571,4 @@ function tickRoom(room, now, dt) {
   io.to(room.id).emit('snapshot', encodeSnapshot(room, now));
 }
 
-server.listen(PORT, () => console.log(`Bot Strike MP server on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Crimson X MP server on http://localhost:${PORT}`));

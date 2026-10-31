@@ -3,7 +3,7 @@
 #
 #  Rebuilds each model's PBR material from its texture PNGs (FBX imports often
 #  arrive with broken/missing material links) and exports clean .glb files
-#  straight into your Bot Strike game's model folder.
+#  straight into your Crimson X game's model folder.
 #
 #  HOW TO RUN (from a normal terminal / PowerShell):
 #    "<path to blender.exe>" --background --python "C:\Self\CJ\guns_explosives_batch_convert.py"

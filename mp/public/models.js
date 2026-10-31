@@ -1,5 +1,5 @@
 /* =============================================================
-   Bot Strike — models.js  (3 of 9 in load order)
+   Crimson X — models.js  (3 of 9 in load order)
 
    Everything with a body: box humanoid, weapon-model loading, the Spartan, podium hero.
 
@@ -89,9 +89,9 @@ WEAPON_MODELS.forEach((wm,i)=>{
     const { holder, size } = fitWeaponModel(model, wm);
     while(weaponHolders[i].children.length) weaponHolders[i].remove(weaponHolders[i].children[0]);
     weaponHolders[i].add(holder);
-    console.log(`[BotStrike] weapon ${i+1} loaded (${wm.url}), raw size`, size.toArray().map(n=>+n.toFixed(1)));
+    console.log(`[CrimsonX] weapon ${i+1} loaded (${wm.url}), raw size`, size.toArray().map(n=>+n.toFixed(1)));
   };
-  const onErr = (err)=> console.warn(`[BotStrike] weapon model failed: ${wm.url}`, err);
+  const onErr = (err)=> console.warn(`[CrimsonX] weapon model failed: ${wm.url}`, err);
   try {
     if (wm.type==='glb' && THREE.GLTFLoader) new THREE.GLTFLoader(fbxTexMgr).load(wm.url, g=>onLoad(g.scene), undefined, onErr);
     else if (wm.type==='fbx' && THREE.FBXLoader) new THREE.FBXLoader(fbxTexMgr).load(wm.url, onLoad, undefined, onErr);
@@ -153,7 +153,7 @@ if (THREE.FBXLoader) try {
       swapped.forEach(m=>{ if(m){ m.skinning = !!o.isSkinnedMesh; m.needsUpdate = true; } });
       o.material=Array.isArray(o.material)?swapped:swapped[0];
     } });
-    console.log('[BotStrike] spartan materials:', [...new Set(matNames)].join(', '));
+    console.log('[CrimsonX] spartan materials:', [...new Set(matNames)].join(', '));
     // This model's "front" points the opposite way to Three.js's convention,
     // so we'd see his back. A pivot between the holder and the model corrects
     // the facing WITHOUT disturbing the centering below, and leaves the
@@ -175,9 +175,9 @@ if (THREE.FBXLoader) try {
       scene.remove(hero); hero=makeSpartan(); hero.position.set(0,0.12,32); scene.add(hero);
       heroGroup[0]=hero; spot.target=hero; scene.add(spot.target);
     }
-    console.log('[BotStrike] spartan model loaded, raw size', size.toArray().map(n=>+n.toFixed(1)));
-  }, undefined, (err)=> console.warn('[BotStrike] spartan FBX failed, keeping box soldiers', err));
-} catch(e){ console.warn('[BotStrike] soldier load error', e); }
+    console.log('[CrimsonX] spartan model loaded, raw size', size.toArray().map(n=>+n.toFixed(1)));
+  }, undefined, (err)=> console.warn('[CrimsonX] spartan FBX failed, keeping box soldiers', err));
+} catch(e){ console.warn('[CrimsonX] soldier load error', e); }
 
 /* ---- Health bars over the practice bots ----
    Two unlit planes above the head. No billboard maths needed: in target

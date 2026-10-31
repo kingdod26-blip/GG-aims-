@@ -1,5 +1,5 @@
 /* =============================================================
-   Bot Strike — loop.js  (9 of 9 in load order)
+   Crimson X — loop.js  (9 of 9 in load order)
 
    Movement with vertical collision, and the main loop.
 

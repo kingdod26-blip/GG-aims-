@@ -1,4 +1,4 @@
-# Bot Strike — project context
+# Crimson X — project context
 
 Browser FPS built with Three.js. No game engine: the browser is the runtime,
 Three.js does rendering, and physics/collision/netcode are hand-written.

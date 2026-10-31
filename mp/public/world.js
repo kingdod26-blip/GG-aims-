@@ -1,5 +1,5 @@
 /* =============================================================
-   Bot Strike — world.js  (2 of 9 in load order)
+   Crimson X — world.js  (2 of 9 in load order)
 
    The arena: procedural + photoscanned materials, floor, walls, ceiling, signage.
 

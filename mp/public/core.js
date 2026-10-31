@@ -1,5 +1,5 @@
 /* =============================================================
-   Bot Strike — core.js  (1 of 9 in load order)
+   Crimson X — core.js  (1 of 9 in load order)
 
    Boot: scene, backdrop, camera, lights, post-processing, graphics settings.
 
@@ -10,7 +10,7 @@
    hoist and are safe anywhere; a top-level const is not.
    ============================================================= */
 
-/* ==================== Bot Strike — unified client ====================
+/* ==================== Crimson X — unified client ====================
    States: 'home' → 'mode' → 'playing'. Modes: 'bots' (local, stationary
    targets, offline) or 'mp' (networked, shared world). New movement:
    jump onto crates, crouch (C), prone (Z). */
@@ -50,7 +50,7 @@ try {
   composer.addPass(new THREE.RenderPass(scene, camera));
   const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.32, 0.55, 0.82);
   composer.addPass(bloom);
-} catch(e){ console.warn('[BotStrike] post-processing unavailable, falling back to direct render', e); composer = null; }
+} catch(e){ console.warn('[CrimsonX] post-processing unavailable, falling back to direct render', e); composer = null; }
 
 /* ===================== GRAPHICS SETTINGS =====================
    Everything that costs GPU heat is adjustable here. Defaults to

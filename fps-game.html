@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bot Strike — CS-style FPS vs Bots</title>
+<title>Crimson X — CS-style FPS vs Bots</title>
+<link rel="icon" href="mp/public/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" href="mp/public/icon.png">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0d11; font-family: 'Segoe UI', 'Rajdhani', Arial, sans-serif; }
@@ -119,7 +121,7 @@
 </div>
 
 <div id="start" class="overlay">
-  <h1>BOT STRIKE</h1>
+  <h1>CRIMSON X</h1>
   <p>A CS-style deathmatch against AI bots. Survive rounds, switch weapons, and rack up kills. Each round throws more enemies at you.</p>
   <div class="keys">
     <b>WASD</b> move &nbsp;·&nbsp; <b>Mouse</b> look &nbsp;·&nbsp; <b>Left click</b> shoot &nbsp;·&nbsp; <b>R</b> reload<br>
@@ -138,7 +140,7 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 /* ================================================================
-   BOT STRIKE — CS-style FPS vs bots.
+   CRIMSON X — CS-style FPS vs bots.
    The viewmodel (gun) renders in a SECOND pass with its own scene +
    camera, so it never clips walls and can use glossy metallic
    materials that reflect a studio environment.
@@ -329,7 +331,7 @@ function setViewmodel(i){ vmModels.forEach((m,idx)=> m.visible = idx===i);
    procedural pistol automatically if the file or loader is unavailable. */
 const GUN_TUNE = { ry:Math.PI, rx:0, rz:0, px:0.02, py:-0.05, pz:0.02, len:0.62 };
 function loadGunModel(){
-  if (typeof THREE.GLTFLoader === 'undefined'){ console.warn('[BotStrike] GLTFLoader missing — using procedural gun'); return; }
+  if (typeof THREE.GLTFLoader === 'undefined'){ console.warn('[CrimsonX] GLTFLoader missing — using procedural gun'); return; }
   new THREE.GLTFLoader().load('models/scifi-pistol.glb', (gltf) => {
     const model = gltf.scene;
     model.traverse(o => { if (o.isMesh){ o.castShadow=false;
@@ -352,8 +354,8 @@ function loadGunModel(){
     holder.visible = (currentWeapon === 0);
     vmGroup.remove(vmModels[0]); vmModels[0] = holder; vmGroup.add(holder);
     if (currentWeapon === 0) setViewmodel(0);
-    console.log('[BotStrike] real gun model loaded, size=', size.toArray().map(n=>+n.toFixed(2)));
-  }, undefined, (err) => console.warn('[BotStrike] gun model failed to load, using procedural gun', err));
+    console.log('[CrimsonX] real gun model loaded, size=', size.toArray().map(n=>+n.toFixed(2)));
+  }, undefined, (err) => console.warn('[CrimsonX] gun model failed to load, using procedural gun', err));
 }
 loadGunModel();
 

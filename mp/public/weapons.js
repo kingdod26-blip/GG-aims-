@@ -1,5 +1,5 @@
 /* =============================================================
-   Bot Strike — weapons.js  (4 of 9 in load order)
+   Crimson X — weapons.js  (4 of 9 in load order)
 
    Player state, ability charges, peek/roll tuning, the weapon roster and its viewmodels.
 
@@ -236,7 +236,7 @@ function disposeTree(obj){
   });
 }
 if (THREE.FBXLoader) ABILITY_MODELS.forEach(am=>{
-  const onErr=(err)=> console.warn(`[BotStrike] ${am.url} failed, keeping procedural`, err);
+  const onErr=(err)=> console.warn(`[CrimsonX] ${am.url} failed, keeping procedural`, err);
   try {
     new THREE.FBXLoader(fbxTexMgr).load(am.url, (model)=>{
       model.traverse(o=>{
@@ -257,7 +257,7 @@ if (THREE.FBXLoader) ABILITY_MODELS.forEach(am=>{
         while(h.children.length){ const c=h.children[0]; h.remove(c); disposeTree(c); }
         h.add(n === 0 ? holder : holder.clone());
       });
-      console.log(`[BotStrike] ${am.url} loaded, raw size`, size.toArray().map(n=>+n.toFixed(2)));
+      console.log(`[CrimsonX] ${am.url} loaded, raw size`, size.toArray().map(n=>+n.toFixed(2)));
     }, undefined, onErr);
   } catch(e){ onErr(e); }
 });

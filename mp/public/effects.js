@@ -1,5 +1,5 @@
 /* =============================================================
-   Bot Strike — effects.js  (7 of 9 in load order)
+   Crimson X — effects.js  (7 of 9 in load order)
 
    Fire pools, smoke clouds, through-wall marks, arrows and burn FX.
 

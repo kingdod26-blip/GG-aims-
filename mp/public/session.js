@@ -1,5 +1,5 @@
 /* =============================================================
-   Bot Strike — session.js  (5 of 9 in load order)
+   Crimson X — session.js  (5 of 9 in load order)
 
    Game state and flow: menus, settings panel, pause, networking, local bots.
 

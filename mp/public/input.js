@@ -1,5 +1,5 @@
 /* =============================================================
-   Bot Strike — input.js  (6 of 9 in load order)
+   Crimson X — input.js  (6 of 9 in load order)
 
    Keyboard and mouse, and firing every weapon.
 
