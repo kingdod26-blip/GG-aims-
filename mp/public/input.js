@@ -181,22 +181,45 @@ function shoot(){
       abilityCharges[currentWeapon]--; abilityRecharge[currentWeapon].push(now + w.cooldownMs);
     }
     lastShot=now; gunKick=1; Sfx.shoot(w); updateHUD();
-    me.pitch=Math.min(me.pitch + w.recoil, Math.PI/2-0.05);
+    /* Aim FIRST, kick after. This kicked the view up before working out
+       where the bolt was going, so every bolt left along the post-recoil
+       angle rather than the one you aimed — 0.6m high at 30m on the
+       crossbow. The gun path has done it in this order for ages; the
+       abilities were simply never given the same treatment. */
     const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(me.pitch,me.yaw,0,'YXZ'));
     if(!training('noSpread')){ dir.x+=(Math.random()-0.5)*w.spread; dir.y+=(Math.random()-0.5)*w.spread; dir.z+=(Math.random()-0.5)*w.spread; }
     dir.normalize();
-    /* Out of the crossbow, not out of your face. This used to start 0.6m
-       in front of the CAMERA, so the bolt appeared to come from the bridge
-       of your nose. The muzzle is offset right and down from the eye, so a
-       bolt now flies parallel to where you are aiming rather than from it —
-       which is how it looks in the hand, and barely shows past a few metres. */
-    const o=muzzleWorld().clone().addScaledVector(dir,0.15);
+    /* Out of the crossbow, and AT the crosshair.
+
+       Leaving the muzzle was the easy half: it used to start 0.6m in front
+       of the camera, so the bolt appeared to come from the bridge of your
+       nose. But the muzzle sits ~0.3m right and ~0.28m below the eye, so
+       firing it along the camera's direction sent it on a line PARALLEL to
+       where you were aiming — permanently off to one side, never crossing
+       the crosshair at any range. Same mistake the sniper tracer made.
+
+       So: find where the aim ray actually lands, and point the bolt at that
+       instead of merely copying the camera's heading. Distance is clamped —
+       too near and a bolt fired against a wall would set off sideways, too
+       far and the convergence stops mattering. The drop from gravity is
+       unchanged; the crossbow is still an arcing weapon. */
+    const sight = camera.position.clone().addScaledVector(dir, 0.4);
+    const o = muzzleWorld().clone().lerp(sight, ads).addScaledVector(dir, 0.15);
+
+    const aimTargets = wallMeshes.slice();
+    if(gameMode==='mp') for(const ot of others.values()) if(ot.mesh.visible) aimTargets.push(ot.mesh);
+    _ray.set(camera.position, dir); _ray.far = w.range;
+    const ah = _ray.intersectObjects(aimTargets, true);
+    const aimAt = Math.max(3, Math.min(ah.length ? ah[0].distance : 45, 80));
+    const bdir = camera.position.clone().addScaledVector(dir, aimAt).sub(o).normalize();
+
     if(w.kind==='smoke'){
-      if(gameMode==='mp' && socket) socket.emit('smokebolt',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, ric:ricochet?1:0 });
-      else spawnLocalArrow(o,dir,w,ricochet);
+      if(gameMode==='mp' && socket) socket.emit('smokebolt',{ ox:o.x,oy:o.y,oz:o.z, dx:bdir.x,dy:bdir.y,dz:bdir.z, ric:ricochet?1:0 });
+      else spawnLocalArrow(o,bdir,w,ricochet);
     } else if(gameMode==='mp' && socket)
-      socket.emit('arrow',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, ric:ricochet?1:0 });
-    else spawnLocalArrow(o,dir,w,ricochet);
+      socket.emit('arrow',{ ox:o.x,oy:o.y,oz:o.z, dx:bdir.x,dy:bdir.y,dz:bdir.z, ric:ricochet?1:0 });
+    else spawnLocalArrow(o,bdir,w,ricochet);
+    me.pitch=Math.min(me.pitch + w.recoil, Math.PI/2-0.05);   // kick, now it has left
     return;
   }
 
