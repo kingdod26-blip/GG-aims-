@@ -276,11 +276,11 @@ function renderArmory(){
       ? `COMBO ${w.combo.join('/')}<br>REACH ${w.reach}m`
       : `DMG ${w.dmg}${w.pellets?'×'+w.pellets:''}<br>MAG ${w.magMax} / ${w.reserveMax}`;
     let tag;
-    if(!shop)      tag = i===currentWeapon ? '<b style="color:#27ff9e">EQUIPPED</b>' : '&nbsp;';
-    else if(free)  tag = i===currentWeapon ? '<b style="color:#27ff9e">EQUIPPED</b>' : '<span style="opacity:.6">FREE</span>';
-    else if(owned) tag = i===currentWeapon ? '<b style="color:#27ff9e">EQUIPPED</b>' : '<b style="color:#27ff9e">OWNED</b>';
+    if(!shop)      tag = i===currentWeapon ? '<b style="color:var(--ac-soft)">EQUIPPED</b>' : '&nbsp;';
+    else if(free)  tag = i===currentWeapon ? '<b style="color:var(--ac-soft)">EQUIPPED</b>' : '<span style="opacity:.6">FREE</span>';
+    else if(owned) tag = i===currentWeapon ? '<b style="color:var(--ac-soft)">EQUIPPED</b>' : '<b style="color:var(--ac-soft)">OWNED</b>';
     else if(!canBuy) tag = `<span style="opacity:.45">$${price}</span>`;
-    else if(sandbox) tag = '<b style="color:#27ff9e">TAKE IT</b>';
+    else if(sandbox) tag = '<b style="color:var(--ac-soft)">TAKE IT</b>';
     else {
       const swaps = heldInSlot !== null && heldInSlot !== undefined;
       tag = `<b style="color:${afford?'#ffd15a':'#ff6a6a'}">$${price}</b>` +

@@ -248,11 +248,12 @@ function updateHitboxOverlay(){
 }
 
 /* ---- Home-page character: podium + spotlight showcase ---- */
-let hero = humanoid(0x27ff9e); hero.position.set(0,0.12,32); scene.add(hero);
+const BRAND = 0xff2d4a;                 // matches --ac in style.css
+let hero = humanoid(BRAND); hero.position.set(0,0.12,32); scene.add(hero);
 const podium = new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.3,0.12,32),
-  new THREE.MeshLambertMaterial({ color:0x1c222c })); podium.position.set(0,0.06,32); podium.receiveShadow=true; scene.add(podium);
+  new THREE.MeshLambertMaterial({ color:0x1a1013 })); podium.position.set(0,0.06,32); podium.receiveShadow=true; scene.add(podium);
 const podiumRing = new THREE.Mesh(new THREE.TorusGeometry(1.12,0.03,8,40),
-  new THREE.MeshBasicMaterial({ color:0x27ff9e })); podiumRing.rotation.x=Math.PI/2; podiumRing.position.set(0,0.13,32); scene.add(podiumRing);
+  new THREE.MeshBasicMaterial({ color:BRAND })); podiumRing.rotation.x=Math.PI/2; podiumRing.position.set(0,0.13,32); scene.add(podiumRing);
 const spot = new THREE.SpotLight(0xffffff, 1.6, 30, 0.5, 0.5); spot.position.set(2,7,36); spot.castShadow=true;
 spot.target = hero; scene.add(spot); scene.add(spot.target);
 const heroGroup = [hero, podium, podiumRing, spot];   // hidden when the match starts

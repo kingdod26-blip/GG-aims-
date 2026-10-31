@@ -262,6 +262,26 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   shotgun becomes a rifle with it off — all 8 pellets land on one point, 96
   damage at any range — which is fine on a range and is the reason it is not
   a global switch.
+- **The menu palette lives in four tokens at the top of `style.css`.** The
+  name and the icon are crimson on near-black, so the chrome is: `--ac`
+  (#ff2d4a) for borders, glows and fills, `--ac-soft` (#ff6274) for small
+  accent TEXT because the saturated crimson is only ~4:1 on the background,
+  `--ac2` (ember) as the far end of every gradient and `--ac-deep` so white
+  on a filled button clears 4.5:1. Text is three tiers, `--t1/--t2/--t3`,
+  and the dimmest is still 74% white: the old slate greys (#7f8c9a, #9aa6b2,
+  #5a6472) were set against a flat mock, not against the LIVE 3D arena that
+  shows through the glass panels, and OPEN ROOMS / REFRESH / BACK were close
+  to invisible over a lit wall.
+  **Colours that signal state are deliberately NOT themed**: the win banner's
+  green reads against the lose banner's red, `#detect`'s dot is a
+  green/amber/grey traffic light, the bot health bar is green/amber/red, the
+  hit marker is red/white/blue by zone, and the room count flips green to red
+  at the cap. Recolour any of those to crimson and a pair collapses into one
+  colour. The crosshair stays green for the same reason — it has to read
+  against fire pools, which are crimson and orange.
+  `#lobby` was missing from the `::before` readability veil that `#home` and
+  `#mode` have, so PICK A ROOM was white text on a white wall; all three
+  share the rule now.
 - **Practice-only settings are hidden in multiplayer.** Rows marked
   `practice:true` in `SET_DEFS` are filtered out when `gameMode === 'mp'`,
   and `renderSettingsUI()` re-runs on every open so the panel is right for
