@@ -52,9 +52,15 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
 ## Deployment
 
 - GitHub: https://github.com/kingdod26-blip/GG-aims- (private)
-- Live: https://bot-strike.onrender.com
+- Live: https://crimson-x.onrender.com
 - `render.yaml` is a Render blueprint; **`git push` auto-deploys**.
 - Free tier sleeps after ~15 min idle (first load ~30–60s).
+- **The service name in `render.yaml` is what the URL is built from, and
+  changing it here does not rename the service Render is already running** —
+  Render matches blueprint entries by name, so a new name reads as a new
+  service and the old one keeps serving the old URL. Rename it in the Render
+  dashboard (service > Settings > Name) and keep `render.yaml` in step; the
+  old address stops resolving the moment it changes.
 
 ## Architecture
 

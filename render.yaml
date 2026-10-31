@@ -6,7 +6,7 @@
 # "web service" and not a static site or serverless function.
 services:
   - type: web
-    name: bot-strike
+    name: crimson-x
     runtime: node
     plan: free
     rootDir: mp               # server.js + package.json live in mp/
