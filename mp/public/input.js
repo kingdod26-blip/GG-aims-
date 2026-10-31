@@ -243,7 +243,15 @@ function shoot(){
      grows with range: a rifle hip-fired lands a headshot 88% of the time at
      25m but 36% at 40m. The practice range can switch it off to see exactly
      where a shot goes; multiplayer always has it. */
-  const spread = training('noSpread') ? 0 : w.spread + (w.adsSpread - w.spread)*aimK;
+  /* A `steady` weapon is pinpoint while you are PLANTED and keeps its cone
+     the moment you move. Planted means stopped, on the ground, and not
+     mid-roll or slide. Peeking with Q/E still counts as planted — leaning
+     shifts the body sideways but never touches me.hv, so that falls out
+     for free rather than needing a special case. */
+  const planted = me.hv.length() < STEADY_SPEED && me.onGround && rollT <= 0 && slideT <= 0;
+  const cone    = (w.steady && planted) ? 0 : w.spread;
+  const adsCone = (w.steady && planted) ? 0 : w.adsSpread;
+  const spread = training('noSpread') ? 0 : cone + (adsCone - cone)*aimK;
   const o=camera.position.clone();
   const pellets = w.pellets || 1;                            // shotgun fires several
   for(let p=0;p<pellets;p++){
