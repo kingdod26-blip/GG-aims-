@@ -200,14 +200,21 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   a 1024-wide screen, which read as the shot going nowhere near where you
   aimed. The shot itself was always exact — verified by projecting the fired
   ray back to screen space, hip and scoped, where it lands at (0,0).
-- **Bolts are aimed AT the crosshair, not merely fired from the muzzle.**
-  Moving the crossbow and smoke launch point to the barrel fixed them coming
-  out of your face, but the direction was still a copy of the camera’s, so
-  the bolt flew on a line PARALLEL to the aim ray — a constant 0.41m to one
-  side, never crossing the crosshair at any range. The launch direction is
-  now `aimPoint - muzzle`, where the aim point is the first thing the camera
-  ray meets (clamped to 3–80m, so a bolt fired against a wall does not set
-  off sideways). Gravity still makes it arc; that part is the weapon.
+- **A bolt FLIES along the aim line; only its look starts at the barrel.**
+  There is no single launch direction from an offset muzzle that meets the
+  crosshair at every range — aim at a convergence point and the bolt sits on
+  one side of the aim line before it and the other side after. Choosing that
+  point from “whatever the aim ray hits” was worse still: it jumped between
+  23m, 36m and 45m depending on what happened to be BEHIND the target, so
+  the bolt drifted left or right unpredictably. Before that, copying the
+  camera direction from an offset muzzle sent it parallel to the aim line,
+  a constant 0.41m to one side forever.
+  So the simulated bolt spawns ON the camera axis and flies straight down
+  it — measured within 0.1° of the aim at every pitch. The muzzle offset is
+  applied to the RENDERED arrow instead and decays over `BOLT_SHOW` (0.18s,
+  `effects.js`), so it still leaves the crossbow to look at. Only your own
+  bolts get it; everyone else’s already look right from a distance. Gravity
+  is untouched — the crossbow still arcs.
 - **Ability recoil must be applied AFTER the bolt leaves.** The gun path has
   always done this — there is a comment saying so — but the ability branch
   kicked `me.pitch` up BEFORE computing the direction, so every bolt left

@@ -189,36 +189,30 @@ function shoot(){
     const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(me.pitch,me.yaw,0,'YXZ'));
     if(!training('noSpread')){ dir.x+=(Math.random()-0.5)*w.spread; dir.y+=(Math.random()-0.5)*w.spread; dir.z+=(Math.random()-0.5)*w.spread; }
     dir.normalize();
-    /* Out of the crossbow, and AT the crosshair.
+    /* The bolt FLIES along the aim line; only its appearance starts at the
+       barrel.
 
-       Leaving the muzzle was the easy half: it used to start 0.6m in front
-       of the camera, so the bolt appeared to come from the bridge of your
-       nose. But the muzzle sits ~0.3m right and ~0.28m below the eye, so
-       firing it along the camera's direction sent it on a line PARALLEL to
-       where you were aiming — permanently off to one side, never crossing
-       the crosshair at any range. Same mistake the sniper tracer made.
+       There is no single launch direction from an offset muzzle that meets
+       the crosshair at every range: aim it at a convergence point and the
+       bolt is on one side before that point and the other side after it.
+       Worse, picking that point from "whatever the aim ray hits" made it
+       jump between 23m, 36m and 45m depending on what happened to be behind
+       the target, so the bolt drifted left or right unpredictably.
 
-       So: find where the aim ray actually lands, and point the bolt at that
-       instead of merely copying the camera's heading. Distance is clamped —
-       too near and a bolt fired against a wall would set off sideways, too
-       far and the convergence stops mattering. The drop from gravity is
-       unchanged; the crossbow is still an arcing weapon. */
-    const sight = camera.position.clone().addScaledVector(dir, 0.4);
-    const o = muzzleWorld().clone().lerp(sight, ads).addScaledVector(dir, 0.15);
-
-    const aimTargets = wallMeshes.slice();
-    if(gameMode==='mp') for(const ot of others.values()) if(ot.mesh.visible) aimTargets.push(ot.mesh);
-    _ray.set(camera.position, dir); _ray.far = w.range;
-    const ah = _ray.intersectObjects(aimTargets, true);
-    const aimAt = Math.max(3, Math.min(ah.length ? ah[0].distance : 45, 80));
-    const bdir = camera.position.clone().addScaledVector(dir, aimAt).sub(o).normalize();
+       So the simulated bolt is spawned ON the camera axis and fired straight
+       down it — it goes exactly where the crosshair points, at any range.
+       The muzzle offset is applied to the RENDERED arrow instead and decays
+       over BOLT_SHOW (see effects.js), so it still looks like it leaves the
+       crossbow. Gravity is untouched; the crossbow still arcs. */
+    const o = camera.position.clone().addScaledVector(dir, 0.6);
+    noteOwnBolt(muzzleWorld().clone().sub(o));      // the visual offset to decay
 
     if(w.kind==='smoke'){
-      if(gameMode==='mp' && socket) socket.emit('smokebolt',{ ox:o.x,oy:o.y,oz:o.z, dx:bdir.x,dy:bdir.y,dz:bdir.z, ric:ricochet?1:0 });
-      else spawnLocalArrow(o,bdir,w,ricochet);
+      if(gameMode==='mp' && socket) socket.emit('smokebolt',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, ric:ricochet?1:0 });
+      else spawnLocalArrow(o,dir,w,ricochet);
     } else if(gameMode==='mp' && socket)
-      socket.emit('arrow',{ ox:o.x,oy:o.y,oz:o.z, dx:bdir.x,dy:bdir.y,dz:bdir.z, ric:ricochet?1:0 });
-    else spawnLocalArrow(o,bdir,w,ricochet);
+      socket.emit('arrow',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, ric:ricochet?1:0 });
+    else spawnLocalArrow(o,dir,w,ricochet);
     me.pitch=Math.min(me.pitch + w.recoil, Math.PI/2-0.05);   // kick, now it has left
     return;
   }

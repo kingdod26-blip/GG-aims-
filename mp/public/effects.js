@@ -278,6 +278,30 @@ function updateMarks(){
    them; in multiplayer the server does, and we just render what it sends. */
 const arrows = [];                 // locally simulated (target practice)
 const arrowGfx = new Map();        // id -> mesh, for server-driven arrows
+/* A bolt is simulated on the camera axis so it lands on the crosshair, but
+   that is not where a crossbow is. The next bolt WE fire is drawn starting
+   at the barrel and slides onto its true path over BOLT_SHOW seconds — long
+   enough to read as leaving the weapon, short enough that by the time the
+   bolt matters it is exactly where the server says. Only our own bolts need
+   this: everyone else's already look right from across the arena. */
+const BOLT_SHOW = 0.18;
+const arrowOwn = new Map();        // arrow id -> its launch offset, if ours
+let ownBolt = null;                // { off: Vector3, at: ms } awaiting its arrow
+function noteOwnBolt(off){ ownBolt = { off, at: performance.now() }; }
+/* Claim the first unseen arrow that appears right after we fired. */
+function boltVisualOffset(id, pos){
+  let e = arrowOwn.get(id);
+  if(!e){
+    if(ownBolt && performance.now() - ownBolt.at < 400 && pos.distanceTo(
+         camera.position) < 12){
+      e = { off: ownBolt.off, at: ownBolt.at }; ownBolt = null;
+    } else { e = { off: null }; }
+    arrowOwn.set(id, e);
+  }
+  if(!e.off) return null;
+  const k = 1 - (performance.now() - e.at) / 1000 / BOLT_SHOW;
+  return k > 0 ? e.off.clone().multiplyScalar(k) : null;
+}
 function makeArrowMesh(){
   const g=new THREE.Group();
   const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.75,6),

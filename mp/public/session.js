@@ -560,10 +560,12 @@ function onSnapshot(s){
     let m=arrowGfx.get(ar.id);
     if(!m){ m=makeArrowMesh(); if(ar.sm) tintSmokeBolt(m); scene.add(m); arrowGfx.set(ar.id,m); }
     m.position.set(ar.x,ar.y,ar.z);
+    const voff = boltVisualOffset(ar.id, m.position);
+    if(voff) m.position.add(voff);          // leaves the barrel, then catches up
     m.lookAt(ar.x+ar.vx, ar.y+ar.vy, ar.z+ar.vz);
     flickerArrow(m, performance.now());
   }
-  for(const [id,m] of arrowGfx){ if(!aseen.has(id)){ scene.remove(m); arrowGfx.delete(id); } }
+  for(const [id,m] of arrowGfx){ if(!aseen.has(id)){ scene.remove(m); arrowGfx.delete(id); arrowOwn.delete(id); } }
   updateBoard(s.players);
 }
 
