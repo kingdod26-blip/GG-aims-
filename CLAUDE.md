@@ -209,8 +209,15 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   the bolt drifted left or right unpredictably. Before that, copying the
   camera direction from an offset muzzle sent it parallel to the aim line,
   a constant 0.41m to one side forever.
-  So the simulated bolt spawns ON the camera axis and flies straight down
-  it — measured within 0.1° of the aim at every pitch. The muzzle offset is
+  So the simulated bolt flies straight down the aim line — measured within
+  0.1° at every pitch, with zero sideways offset. It leaves from 0.9m
+  forward and `BOLT_DROP` (0.3m, `weapons.js`) BELOW the crosshair, along
+  the camera up vector so it stays under the reticle whatever your pitch:
+  dead on the axis it spawned in the middle of your view and read as coming
+  out of your face, and in target practice there is no decaying offset to
+  hide that, because the mesh is created at the spawn point itself. Only the
+  position is lowered, never the DIRECTION, so horizontal aim stays exact
+  and the constant 0.3m drop is small against the ~1m gravity arc at 30m. The muzzle offset is
   applied to the RENDERED arrow instead and decays over `BOLT_SHOW` (0.18s,
   `effects.js`), so it still leaves the crossbow to look at. Only your own
   bolts get it; everyone else’s already look right from a distance. Gravity

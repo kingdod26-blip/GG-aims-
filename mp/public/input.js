@@ -204,7 +204,17 @@ function shoot(){
        The muzzle offset is applied to the RENDERED arrow instead and decays
        over BOLT_SHOW (see effects.js), so it still looks like it leaves the
        crossbow. Gravity is untouched; the crossbow still arcs. */
-    const o = camera.position.clone().addScaledVector(dir, 0.6);
+    /* Below the crosshair, not through it. Dead on the camera axis the bolt
+       spawns in the middle of your view and reads as coming out of your
+       face — and in target practice there is no decaying muzzle offset to
+       hide it, because the mesh is created at the spawn point itself.
+       Dropping it along the camera UP vector (not world down) keeps it
+       under the crosshair whatever your pitch. The DIRECTION is untouched,
+       so horizontal aim stays exact; the bolt simply flies on a line
+       BOLT_DROP below the aim line, which is small against the ~1m gravity
+       arc you already compensate for at 30m. */
+    const camUp = new THREE.Vector3(0,1,0).applyEuler(new THREE.Euler(me.pitch, me.yaw, 0, 'YXZ'));
+    const o = camera.position.clone().addScaledVector(dir, 0.9).addScaledVector(camUp, -BOLT_DROP);
     noteOwnBolt(muzzleWorld().clone().sub(o));      // the visual offset to decay
 
     if(w.kind==='smoke'){
