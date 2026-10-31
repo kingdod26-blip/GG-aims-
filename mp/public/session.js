@@ -339,6 +339,14 @@ function connectMP(name){
   /* The roster and the slow-moving numbers. Sent only when they change, and
      always before the first frame that refers to a slot. */
   socket.on('meta', m=>{ lastMeta = m; });
+  /* Ammunition is the server's. We keep a local copy purely so the HUD can
+     tick down the instant you fire, and take the server's word whenever it
+     speaks — which is after every shot, buy and resupply. */
+  socket.on('ammo', d=>{
+    if(!weaponAmmo[d.slot]) return;
+    weaponAmmo[d.slot].mag = d.mag; weaponAmmo[d.slot].reserve = d.reserve;
+    updateHUD();
+  });
   /* Where the potions are. Sent on a round start and on join, not every
      tick — only whether each is still there changes, and that rides in the
      snapshot as a single byte. */
@@ -374,7 +382,13 @@ function connectMP(name){
        give you any — say so rather than playing the sound and changing
        nothing. The cash is separate and still one per round. */
     const gotAmmo = !d || d.ammo !== false;
-    if(gotAmmo){ refillAllWeapons(); updateHUD(); Sfx.swap(); }
+    if(gotAmmo){
+      refillAllWeapons();
+      /* the server refilled only the guns you OWN, so mirror exactly that */
+      for(const a of (d && d.ammoNow) || [])
+        if(weaponAmmo[a.slot]){ weaponAmmo[a.slot].mag = a.mag; weaponAmmo[a.slot].reserve = a.reserve; }
+      updateHUD(); Sfx.swap();
+    }
     if(d && d.cash) toast(gotAmmo ? `RESUPPLIED  +${d.cash}` : `+${d.cash}  ·  AMMO IN ${d.in}s`);
     else toast(gotAmmo ? 'RESUPPLIED' : `AMMO IN ${d.in}s`);
   });
@@ -384,6 +398,8 @@ function connectMP(name){
   });
   socket.on('bought', d=>{ myMoney=d.money; myGuns=(d.guns||[]).slice(); Sfx.swap();
     refillWeapon(d.slot);              // you paid for it, it comes loaded
+    if(d.mag !== undefined && weaponAmmo[d.slot])
+      { weaponAmmo[d.slot].mag = d.mag; weaponAmmo[d.slot].reserve = d.reserve; }
     reloading=false; clearTimeout(reloadTimer);
     switchWeapon(d.slot); updateHUD(); if(armoryOpen) renderArmory(); });
   // the server wipes fire, smoke and arrows between rounds — follow it, or

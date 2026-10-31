@@ -409,12 +409,39 @@ const PRICES = [150, 300, 150, 50, 100];
    in ms — together they are the rate limit, because nothing stopped a
    patched client firing a sniper a hundred times a second. */
 const GUNS = [
-  { name:'RIFLE',    dmg:26,  range:240, fireRate:95,   pellets:1 },
-  { name:'SNIPER',   dmg:110, range:400, fireRate:1200, pellets:1 },
-  { name:'SHOTGUN',  dmg:12,  range:60,  fireRate:900,  pellets:8 },
-  { name:'PISTOL',   dmg:30,  range:180, fireRate:200,  pellets:1 },
-  { name:'PISTOL X', dmg:40,  range:180, fireRate:170,  pellets:1 },
+  { name:'RIFLE',    dmg:26,  range:240, fireRate:95,   pellets:1, magMax:30, reserveMax:120, reloadMs:1600 },
+  { name:'SNIPER',   dmg:110, range:400, fireRate:1200, pellets:1, magMax:5,  reserveMax:25,  reloadMs:2400 },
+  { name:'SHOTGUN',  dmg:12,  range:60,  fireRate:900,  pellets:8, magMax:6,  reserveMax:36,  reloadMs:2200 },
+  { name:'PISTOL',   dmg:30,  range:180, fireRate:200,  pellets:1, magMax:12, reserveMax:60,  reloadMs:1200 },
+  { name:'PISTOL X', dmg:40,  range:180, fireRate:170,  pellets:1, magMax:10, reserveMax:50,  reloadMs:1100 },
 ];
+/* Ammunition was counted only in the browser, so a patched client simply
+   never ran out. The server keeps the real magazines; the client keeps its
+   own copy for the HUD and is corrected after every shot it fires. */
+function ammoOf(p, slot) {
+  if (!p.ammo) p.ammo = {};
+  if (!p.ammo[slot]) p.ammo[slot] = { mag: GUNS[slot].magMax, reserve: GUNS[slot].reserveMax };
+  return p.ammo[slot];
+}
+function fillAmmo(p, slot) {
+  if (!p.ammo) p.ammo = {};
+  p.ammo[slot] = { mag: GUNS[slot].magMax, reserve: GUNS[slot].reserveMax };
+}
+/* A reload started earlier may have finished by now. Resolved lazily so
+   there is nothing to tick. */
+function settleReload(p, now) {
+  if (!p.reloadAt || now < p.reloadAt) return;
+  const slot = p.reloadSlot, g = GUNS[slot];
+  p.reloadAt = 0;
+  if (!g) return;
+  const a = ammoOf(p, slot);
+  const take = Math.min(g.magMax - a.mag, a.reserve);
+  a.mag += take; a.reserve -= take;
+}
+function sendAmmo(p, slot) {
+  const a = ammoOf(p, slot);
+  io.to(p.id).emit('ammo', { slot, mag: a.mag, reserve: a.reserve });
+}
 /* Network jitter means a burst never arrives on an exact cadence, so allow a
    shot a little early rather than eating legitimate ones. */
 const RATE_SLACK = 0.75;
@@ -613,7 +640,9 @@ function openBuyWindow(room, now, ms) {    // intermission doubles as the shop
   placePotions(room);                      // visible while you shop, live at the bell
 }
 function resetEconomy(room) {
-  for (const p of room.players.values()) { p.wins = 0; p.money = ECON.start; p.guns = []; }
+  for (const p of room.players.values()) {
+    p.wins = 0; p.money = ECON.start; p.guns = []; p.ammo = {}; p.reloadAt = 0;
+  }
 }
 /* Somebody just made a noise. Anyone close enough whose passive is off
    cooldown picks them out, and their own passive then sleeps for 30s. Called
@@ -939,6 +968,15 @@ io.on('connection', (socket) => {
     }
     if (++p.volleyShots > gun.pellets) return;       // firing faster than the gun can
 
+    /* One trigger pull costs one round, however many pellets it throws. */
+    settleReload(p, nowMs);
+    const clip = ammoOf(p, slot);
+    if (p.volleyShots === 1) {
+      if (p.reloadAt || clip.mag <= 0) { sendAmmo(p, slot); return; }   // empty, or mid-reload
+      clip.mag--;
+      sendAmmo(p, slot);
+    }
+
     noiseMade(room, p.id, Date.now());       // a bang: anyone listening picks it up
     const o = { x: d.ox, y: d.oy, z: d.oz };
     const dir = normalize(d.dx, d.dy, d.dz);
@@ -1019,7 +1057,10 @@ io.on('connection', (socket) => {
     }
     p.money -= price;
     p.guns.push(slot);                               // newest goes on the end
-    socket.emit('bought', { slot, money: p.money, guns: p.guns.slice() });
+    fillAmmo(p, slot);                               // you paid for it, it comes loaded
+    const bag = ammoOf(p, slot);
+    socket.emit('bought', { slot, money: p.money, guns: p.guns.slice(),
+                            mag: bag.mag, reserve: bag.reserve });
   });
 
   // ---- Blade: five-hit melee combo, validated server-side ----
@@ -1089,6 +1130,19 @@ io.on('connection', (socket) => {
       x: d.ox, y: d.oy, z: d.oz,
       vx: dir.x*XBOW.speed, vy: dir.y*XBOW.speed, vz: dir.z*XBOW.speed,
       bounces: d.ric ? 1 : 0, life: 5 });
+  });
+
+  /* The client asks; the server decides when it finishes. */
+  socket.on('reload', (d) => {
+    const p = players.get(socket.id); if (!p || !p.alive) return;
+    const slot = d && (d.w | 0), g = GUNS[slot];
+    if (!g || !p.guns.includes(slot)) return;
+    const now = Date.now();
+    settleReload(p, now);
+    if (p.reloadAt) return;                       // already reloading
+    const a = ammoOf(p, slot);
+    if (a.mag >= g.magMax || a.reserve <= 0) return;
+    p.reloadAt = now + g.reloadMs; p.reloadSlot = slot;
   });
 
   socket.on('disconnect', () => {
@@ -1271,7 +1325,7 @@ function tickRoom(room, now, dt) {
       /* Losing costs you the guns as well as the round: the winner carries
          their loadout into the next round, everyone else buys again out of
          the payout. On a genuine draw nobody lost, so nobody is stripped. */
-      if (w) for (const p of players.values()) if (p !== w) p.guns = [];
+      if (w) for (const p of players.values()) if (p !== w) { p.guns = []; p.ammo = {}; p.reloadAt = 0; }
       clearField(room); douseAll(room);  // the round is over, so is the fire
       /* A new buy window begins here — this branch sets the phase inline
          rather than going through openBuyWindow, so anything that belongs
@@ -1470,7 +1524,10 @@ function tickRoom(room, now, dt) {
         io.to(room.id).emit('ammotaken', { name: pl.name, secs: RESUPPLY.ammoMs/1000 });
       } else { ammo = false; waitS = Math.ceil((match.ammoAt - now) / 1000); }
     }
-    io.to(pl.id).emit('resupply', { cash: paid, ammo, in: waitS });
+    if (ammo) for (const g of pl.guns) fillAmmo(pl, g);     // the server's copy too
+    io.to(pl.id).emit('resupply', { cash: paid, ammo, in: waitS,
+      ammoNow: ammo ? pl.guns.map(g => ({ slot: g, mag: ammoOf(pl, g).mag,
+                                          reserve: ammoOf(pl, g).reserve })) : [] });
   }
 
   /* ---- Health potions: one use each, and your own falloff ---- */

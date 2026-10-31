@@ -103,8 +103,20 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   does not work: that updates at 20Hz, so it re-asks for the same spot and
   barely moves. It also strafes when it stops making progress, or it jams
   against a crate forever.
-- **Still open, by design:** ammo is counted on the client, so a patched
-  client never reloads.
+- **Ammunition is the server’s too.** It used to be counted only in the
+  browser, so a patched client simply never ran out. `GUNS` now carries
+  `magMax`/`reserveMax`/`reloadMs` and the server keeps `p.ammo[slot]`. One
+  trigger pull costs one round however many pellets it throws — the shotgun
+  sends eight `fire` packets, so the magazine is only decremented on the
+  FIRST packet of a volley, reusing the rate limiter’s grouping.
+  Reloads are requested by the client and timed by the server (`p.reloadAt`,
+  resolved lazily in `settleReload`, so there is nothing to tick); firing is
+  refused while one is in flight, and spamming the request cannot shorten
+  it. The client keeps its own copy purely so the HUD ticks down instantly,
+  and is corrected by an `ammo` event after every shot, buy and resupply.
+  Measured: a pistol arrives with 12, twelve shots empty it, eight more
+  change nothing, firing 300ms into a 1200ms reload is refused, and the
+  reload lands 12 rounds taking 12 off the reserve.
 - **Damage is server-authoritative** (hitscan, arrows, melee all resolved in
   `server.js`). Movement is client-authoritative — cheatable, accepted tradeoff.
 - **Remote players are predicted, not just smoothed.** The server hit-tests

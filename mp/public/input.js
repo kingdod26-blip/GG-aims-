@@ -126,6 +126,8 @@ function reload(){ const w=curW();
   if(w.ability) return;                       // the crossbow recharges, it doesn't reload
   const a=curAmmo();
   if(reloading||a.mag===w.magMax||a.reserve<=0) return; reloading=true;
+  // the magazine is the server's; it runs its own timer and corrects us
+  if(gameMode==='mp' && socket) socket.emit('reload', { w: currentWeapon });
   reloadStart=performance.now(); updateHUD();
   // voice call-out + timed magazine sounds across the reload
   Voice.say(RELOAD_LINES[Math.floor(Math.random()*RELOAD_LINES.length)]);
