@@ -16,7 +16,7 @@ const keys={}; let pointerLocked=false, wantFire=false;
    'o' was the visible one — it sits above the gameState guard below, so
    typing it opened the graphics panel AND preventDefault ate the character,
    making it impossible to put an o in your callsign. Every other bound
-   letter (r, g, h, f, v, c, z) was being swallowed the same way, and Tab
+   letter (r, g, x, f, v, c, z) was being swallowed the same way, and Tab
    jumped to the armory instead of the next field. */
 function typingInField(t){
   return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
@@ -37,7 +37,7 @@ addEventListener('keydown',e=>{
              if(at < inv.length) switchWeapon(inv[at]); }
   if(e.code==='Space' && !e.repeat) jumpPressed=true;   // edge, so holding won't spam
   if(e.code==='KeyG') switchWeapon(XBOW);               // equip the crossbow ability
-  if(e.code==='KeyH') switchWeapon(SMOKE);              // equip the smoke ability
+  if(e.code==='KeyX') switchWeapon(SMOKE);              // equip the smoke ability
   if(e.code==='KeyF') switchWeapon(BLADE);              // equip the blade
   if(e.code==='KeyV' && !e.repeat) startRoll();
   if(e.code==='KeyC'){

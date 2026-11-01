@@ -111,7 +111,7 @@ const ABILITY_SLOTS = WEAPONS.map((w,i)=>w.ability?i:-1).filter(i=>i>=0);
    and the blade have their own keys, and printing i+1 told you to press 7
    for smoke — a key that isn't bound to anything. */
 const WEAPON_KEY = WEAPONS.map((w,i)=> String(i+1));
-WEAPON_KEY[XBOW]='G'; WEAPON_KEY[SMOKE]='H'; WEAPON_KEY[BLADE]='F';
+WEAPON_KEY[XBOW]='G'; WEAPON_KEY[SMOKE]='X'; WEAPON_KEY[BLADE]='F';
 resetAbilities();
 
 // One holder per WEAPONS entry (the ability/melee slots have no file model,

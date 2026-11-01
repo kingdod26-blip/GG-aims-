@@ -440,7 +440,7 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   the list**, not by weapon — first bought is 1. The mouse wheel cycles the
   same list (`cycleWeapon`), which is guns + blade and deliberately **never
   the abilities**: landing on the crossbow because you nudged the wheel would
-  be miserable, so they stay on G and H.
+  be miserable, so they stay on G and X.
   While the phase is `waiting` the range is a **free sandbox** — buying costs
   nothing so you can try every weapon. The cap still applies, so you cycle
   through rather than hoarding. The crossbow, smoke and blade are always yours and
@@ -526,7 +526,7 @@ which is the cost we're avoiding, and movement still reads through a blur.
 It sits at z=-1 so your weapon stays in front, and renderOrder 850 so
 detection silhouettes (900) still show — the passive works in smoke.
 
-`H` smoke — 2 charges, 30s each, no damage. Lands a cloud (`SMOKEFX.radius`
+`X` smoke — 2 charges, 30s each, no damage. Lands a cloud (`SMOKEFX.radius`
 5.5, slightly wider than a fire pool) that **tags** anyone standing in it for
 4s; the thrower sees tagged opponents through walls, and the tag renews every
 tick they stay in the cloud. Your own smoke can't tag you.
@@ -567,6 +567,8 @@ Resets to ready at the start of every round.
 camera through a corner. Suppressed during a roll or slide. Double jump. Sprint (Shift). Stances: `C` crouch,
 `Z` prone — these shrink your server-side hitbox.
 `Tab` armory, `O` graphics & HUD settings, `Esc` pause/quit.
+The home page's top nav had three dead words (RANGE / ARMORY /
+MULTIPLAYER) that were never links — removed, along with `.navlinks`.
 `SETTINGS.hitZone` toggles the zone-coloured hit marker and its label back
 to the plain white one. It lives in the settings panel with the graphics
 options and saves with them, but the presets deliberately leave it alone —

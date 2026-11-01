@@ -182,7 +182,6 @@
   .logomark { width:26px; height:26px; border-radius:7px; display:block;
     box-shadow:0 0 14px rgba(255,45,74,.45); }
   .logo span { background:linear-gradient(90deg,var(--ac),var(--ac2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
-  .navlinks { display:flex; gap:26px; font-size:12px; letter-spacing:2px; color:var(--t3); }
   .vtag { font-size:11px; letter-spacing:2px; color:var(--ac-soft); }
 
   /* --- hero block --- */
@@ -321,6 +320,6 @@
   #exitHud:hover { color:#fff; border-color:rgba(255,80,80,.6); background:rgba(40,14,14,.75); }
   .hidden { display:none !important; }
   @media (max-width:820px){
-    .panel, .navlinks { display:none; }
+    .panel { display:none; }
     .pb { display:flex; }
   }
