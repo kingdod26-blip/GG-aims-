@@ -24,8 +24,12 @@ services:
   # service above is asleep, so a new visitor gets the menu and a playable
   # practice range instead of a blank tab, while the game server comes up
   # behind them. Nothing is built - the files ARE the site.
-  - type: static
+  #
+  # Render spells a static site `type: web` with `runtime: static`, NOT
+  # `type: static` — that is rejected outright with `unknown type "static"`
+  # and the whole sync fails, so neither service updates.
+  - type: web
+    runtime: static
     name: crimson-x-play
-    buildCommand: "echo nothing to build"
     staticPublishPath: ./mp/public
     autoDeploy: true
