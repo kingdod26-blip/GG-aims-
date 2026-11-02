@@ -18,9 +18,16 @@
 
    MP_SERVER is where the sockets and /rooms live, '' meaning same-origin:
      - localhost          -> same-origin, so `npm start` is unchanged
-     - *.onrender.com     -> same-origin, because the Node box IS serving
-                             this page; works whatever the service is named
+     - served BY the game server (the page's host IS SERVER_URL's host)
+                          -> same-origin, so the Node box on its own is
+                             unchanged
      - anywhere else      -> SERVER_URL below, the static-host case
+
+   That middle test matches the HOST exactly rather than the domain. It used
+   to be /\.onrender\.com$/, which was true while Render only ran the Node
+   box — but a Render STATIC SITE is also *.onrender.com, so the client would
+   look at its own address, decide the server was right there, and try to
+   open a socket against a host that only serves files.
 
    >>> SERVER_URL is the one line to edit if the Render service is renamed.
    ============================================================= */
@@ -38,7 +45,7 @@ const MP_SERVER = (() => {
     const q = new URLSearchParams(location.search).get('server');
     return q ? q.replace(/\/$/, '') : '';
   }
-  if (/\.onrender\.com$/.test(h)) return '';
+  try { if (new URL(SERVER_URL).host === location.host) return ''; } catch (e) {}
   return SERVER_URL;
 })();
 

@@ -1,9 +1,13 @@
-# Render Blueprint — deploys the multiplayer game server.
+# Render Blueprint — two services, deployed together from this repo.
 # Render reads this automatically: New → Blueprint → pick this repo.
 #
-# The game needs ONE long-lived Node process (Socket.IO holds persistent
-# connections and the shared world lives in memory), which is why this is a
-# "web service" and not a static site or serverless function.
+# 1. the game SERVER, a web service: Socket.IO holds persistent connections
+#    and the shared world lives in memory, so it needs ONE long-lived Node
+#    process — not a static site and not a serverless function.
+# 2. the CLIENT, a static site. It is split off deliberately: while the two
+#    were one service, the free tier idling meant a new visitor got a BLANK
+#    page for 30-60s, because the thing serving the page was the thing
+#    asleep. See public/config.js.
 services:
   - type: web
     name: crimson-x
@@ -14,3 +18,14 @@ services:
     startCommand: npm start
     healthCheckPath: /
     autoDeploy: true          # redeploy on every push to main
+
+  # The CLIENT, served as plain files from a CDN that has nothing to wake.
+  # This is the link to share: it loads in about a second even when the web
+  # service above is asleep, so a new visitor gets the menu and a playable
+  # practice range instead of a blank tab, while the game server comes up
+  # behind them. Nothing is built - the files ARE the site.
+  - type: static
+    name: crimson-x-play
+    buildCommand: "echo nothing to build"
+    staticPublishPath: ./mp/public
+    autoDeploy: true

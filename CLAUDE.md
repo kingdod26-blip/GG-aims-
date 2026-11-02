@@ -64,15 +64,26 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   minutes nearly every new visitor got that, and a blank tab for 30-60s with
   no spinner reads as a dead link.
   `public/config.js` now owns the server address. `MP_SERVER` is `''`
-  (same-origin) on localhost and on any `*.onrender.com` host, so `npm start`
-  and the Node box serving the client on its own are both unchanged whatever
-  the Render service is called; anywhere else it is `SERVER_URL`, the one
-  line to edit. Every call goes through `mpUrl()`, socket.io comes from a CDN
+  (same-origin) on localhost and when the page's HOST equals `SERVER_URL`'s
+  host, so `npm start` and the Node box serving the client on its own are
+  both unchanged; anywhere else it is `SERVER_URL`, the one line to edit.
+  **That test matches the host exactly, never the domain.** It was
+  `/\.onrender\.com$/`, which held while Render ran only the Node box — but a
+  Render STATIC SITE is also `*.onrender.com`, so the client would read its
+  own address, decide the server was right there, and open a socket against
+  a host that only serves files. The flip side is that `SERVER_URL` must be
+  right: rename the service and the live client points at an address that no
+  longer answers. `scratchpad/configcases.js` runs the resolver against a
+  stubbed `location` for all seven cases, including the two Render ones that
+  cannot be reached from a dev machine. Every call goes through `mpUrl()`, socket.io comes from a CDN
   pinned to the server's version, and `?server=` overrides the address on a
   LOCAL page only — on a real one a crafted link could aim a player's client,
   and the reconnect token it sends, at someone else's server.
-  **To deploy**: upload `mp/public` to Cloudflare Pages, GitHub Pages or a
-  Render static site; leave `mp/` on Render as the game server. The menu is
+  **`render.yaml` now declares both**: the `crimson-x` web service (the
+  server, `rootDir: mp`) and a `crimson-x-play` static site publishing
+  `./mp/public`. One blueprint, both deploy on push. A Render static site
+  suits this repo because it is PRIVATE — GitHub Pages wants a paid plan for
+  that — and Render is already connected. Cloudflare Pages works too. The menu is
   then up in about a second and target practice — which is entirely
   client-side — is playable while the server wakes behind it.
   The server allows any origin by default (`ALLOW_ORIGINS`, comma-separated,
