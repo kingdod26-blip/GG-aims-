@@ -564,11 +564,19 @@ Resets to ready at the start of every round.
 
 **Roll, crossbow and smoke each have a cooldown tile** in the ammo corner
 (`#cdRow`, above the magazine). A tile is READY (bright glyph, charge count)
-or SPENT (dimmed, glyph replaced by the seconds left, a conic wipe draining
-round it); an ability holding one charge while the second regenerates is
+or SPENT (greyed and darkened, the seconds left over the top, a conic wipe
+draining round it - darkened rather than blanked, because a full-bleed card
+hidden outright reads as a broken tile instead of a busy ability); an ability holding one charge while the second regenerates is
 READY with a thin bar for the one coming back, because dimming something you
 can still throw reads as "no". Short cooldowns show a decimal — the roll is
 1.2s, and in whole seconds it reads "2" for most of its life.
+The glyphs are Jack's artwork (`assets/cd-roll.png`, `cd-fire.png`,
+`cd-smoke.png`), painted cards rather than pictograms, so they FILL the tile
+via `object-fit:cover` and round with it through `border-radius:inherit` -
+`overflow:hidden` is not an option, since the key and charge badges hang
+outside the edge on purpose. The source art is framed in a grey border on a
+near-black card (#15170e-ish); that frame is cropped off and the card black
+is what the tiles are padded with, so the three sit on one background.
 `updateCooldowns()` is called from `loop()`, **not** `updateHUD()`: that one
 is event-driven and a countdown hung off it sits frozen between shots. It
 therefore runs every frame, so every write is guarded on the value actually
