@@ -534,7 +534,8 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
 ## Features
 
 Weapons (`1`–`5`): rifle, sniper (4× scope), shotgun (8 pellets), 2 pistols.
-`G` crossbow ability — 2 charges, 30s each, flaming arrow, 90 dmg then
+`G` crossbow ability — 2 charges, 30s each, flaming arrow, 90 to the head /
+50 to the body, then
 **12/s for 5s** on the victim. The pool it leaves burns anyone standing in it
 at **18/s** — higher on purpose, because a direct hit already lands 90 up
 front while a pool only hurts you for as long as you stay in it. Walk out and
@@ -708,7 +709,30 @@ model is only ~0.41 wide (torso to ±0.25, arms 0.27–0.41), which is why an
 "arms" sphere *outside* the 0.55 body sphere never registered at all.
 Legs are only consulted when neither head nor body connected.
 
-Crossbow bolts are still flat damage, zones don't apply to them.
+**Crossbow bolts are zoned now, with their own two numbers.** `XBOW.headDmg`
+90 and `XBOW.bodyDmg` 50, not the gun multipliers: ×2.5/×1.0/×0.65 off a 90
+head gives 36 on the torso and 23 on a limb, which guts a 30s cooldown. The
+bolt only has two hitboxes anyway, body and head - no arms or legs. The burn
+rides on top of either, so a head hit is effectively 150 and a body hit 110.
+Two things this needed beyond the numbers. The arrow loop already fired both
+`raySphere` tests and threw the answer away with `Math.min`, so it just had
+to keep which one it met. And **a head hit WINS, it is not the nearest
+entry**: the body sphere runs to 1.65 while the head starts at 1.51, and
+nearest-entry hands that 14cm band to the bigger sphere - a bolt straight
+through the head scored 50 unless it cleared 1.65. Same rule `hitZone` uses,
+and safe for the same reason: the bolt's head sphere is now `HITBOX.head`
+(r0.19 fitted) rather than the old r0.34, which reached 14cm into the chest
+and would have paid out for centre mass. The `impact` and `kill` events
+carried a hardcoded `head:false`; they report it properly now, so the marker
+and the kill feed agree with the damage.
+Measured on the server at 4m: head 100->10, body 100->50, and a shot at 1.58
+in the overlap band 100->10. On the range the boundary sits exactly on the
+sphere - 1.55 gives 90, 1.50 gives 50.
+**One shot per round when probing this**: 90 plus the burn kills, and a
+second reading off a corpse, or off hp clamped at 0, says nothing. Note too
+that (0,0) is the resupply crate, so a target sent there is pushed onto it
+and bolts bury themselves in its side - the 18 damage you see is the pool
+burning, not a hit (`scratchpad/bolthead.js`).
 
 ## Resupply crate
 

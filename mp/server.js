@@ -377,7 +377,15 @@ function sweepParked(room, now) {
 // Crossbow ability tuning (must match the client's WEAPONS entry)
 // burnMs is how long a PERSON burns. The fire left on the ground is a
 // client-side visual with its own (longer) lifetime — see GFIRE in the client.
-const XBOW = { dmg: 90, burnDps: 12, burnMs: 5000, charges: 2, cooldownMs: 30000, speed: 62 };
+/* A bolt is worth 90 to the head and 50 to the body. It was a flat 90
+   wherever it landed, which made a two-charge ability a guaranteed near-kill
+   for pointing it at someone. The gun multipliers are deliberately NOT
+   reused: ×2.5/×1.0/×0.65 off a 90 head gives 36 on the torso and 23 on a
+   limb, which guts a 30s cooldown. The bolt has two hitboxes anyway, body
+   and head — no arms or legs — so it carries its own two numbers.
+   The burn rides on top of either, so head is effectively 150 and body 110.
+   Keep in step with the client's CROSSBOW entry in public/weapons.js. */
+const XBOW = { headDmg: 90, bodyDmg: 50, burnDps: 12, burnMs: 5000, charges: 2, cooldownMs: 30000, speed: 62 };
 // Smoke bolt: no damage. Anyone standing in the cloud is tagged for markMs,
 // and the tag renews every tick they stay in it. Must match the client's
 // SMOKEFX radius/top/markMs or the cloud you see won't match the one that tags.
@@ -389,7 +397,7 @@ const SMOKE = { charges: 2, cooldownMs: 30000, speed: 52, ms: 10000,
 // client's GFIRE or the fire you see won't be the fire that burns you.
 // top: feet height above which you are clear of it (on a crate, say).
 // graceMs: how long the burn lingers after you step out.
-// dps is deliberately higher than XBOW.burnDps: a direct hit already lands 90
+// dps is deliberately higher than XBOW.burnDps: a direct hit already lands 50-90
 // up front, whereas a pool only hurts you for as long as you choose to stand
 // in it. Keep in step with the client's GFIRE.dps.
 // lingerDps/lingerMs: you walk out of a pool still alight, but burning at a
@@ -1260,17 +1268,18 @@ function stateAt(p, t) {
 function igniteTarget(room, hit, byId, now) {
   const players = room.players;
   const t = hit.ref, isPlayer = hit.kind === 'player';
-  t.hp -= XBOW.dmg;
+  const head = !!hit.head;
+  t.hp -= head ? XBOW.headDmg : XBOW.bodyDmg;
   t.burnUntil = now + XBOW.burnMs; t.burnNext = now + 1000; t.burnBy = byId;
   t.burnRate = XBOW.burnDps;
   const shooter = players.get(byId);
-  io.to(room.id).emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false, fire:true });
+  io.to(room.id).emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head, fire:true });
   dropFire(room, t.x, t.y || 0, t.z, byId, now);   // pool at their feet
   if (t.hp <= 0 && t.alive) {
     eliminate(t, isPlayer);
     if (shooter) shooter.kills++;
     if (isPlayer) t.deaths++;
-    io.to(room.id).emit('kill', { by: shooter ? shooter.name : 'fire', victim: isPlayer ? t.name : 'a bot', head:false });
+    io.to(room.id).emit('kill', { by: shooter ? shooter.name : 'fire', victim: isPlayer ? t.name : 'a bot', head });
   }
 }
 
@@ -1408,12 +1417,19 @@ function tickRoom(room, now, dt) {
     const dirx = (nx-a.x)/stepLen, diry = (ny-a.y)/stepLen, dirz = (nz-a.z)/stepLen;
     const o = { x:a.x, y:a.y, z:a.z }, dir = { x:dirx, y:diry, z:dirz };
     let hitT = Infinity, victim = null;
+    /* Which sphere the bolt met is now kept rather than collapsed away — the
+       two tests were always here, `Math.min` just threw the answer out.
+       The head comes from HITBOX, the same one the guns use. It used to be
+       r0.34, nearly double the fitted r0.19, reaching 14cm into the chest and
+       well above the helmet; harmless while damage was flat, but the moment a
+       head is worth 40 more it would pay out for centre-mass hits. */
     const tryHit = (cx, cz, baseY, st, ref) => {
       const box = [[1.05,0.60,1.70],[0.70,0.55,1.10],[0.32,0.50,0.50]][st] || [1.05,0.60,1.70];
+      const hd = HITBOX.head[st] || HITBOX.head[0];
       const b1 = raySphere(o, dir, cx, baseY+box[0], cz, box[1]);
-      const h1 = raySphere(o, dir, cx, baseY+box[2], cz, 0.34);
+      const h1 = raySphere(o, dir, cx, baseY+hd[0], cz, hd[1]);
       const t = Math.min(b1, h1);
-      if (t < hitT && t <= stepLen) { hitT = t; victim = ref; }
+      if (t < hitT && t <= stepLen) { hitT = t; ref.head = h1 < Infinity; victim = ref; }
     };
     for (const pl of players.values())
       if (pl.alive && pl.id !== a.by) tryHit(aimX(pl), aimZ(pl), pl.y||0, pl.st||0, { kind:'player', ref:pl });

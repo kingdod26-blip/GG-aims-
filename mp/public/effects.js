@@ -380,7 +380,7 @@ function spawnLocalArrow(origin,dir,w,ric){
   const mesh=makeArrowMesh(); mesh.position.copy(origin); scene.add(mesh);
   if(w.kind==='smoke') tintSmokeBolt(mesh);
   const a={ mesh, pos:origin.clone(), vel:dir.clone().multiplyScalar(w.speed),
-            bounces: ric?1:0, life:5, dmg:w.dmg, w };
+            bounces: ric?1:0, life:5, w };     // damage is picked at impact, by zone
   aimArrow(mesh,a.vel); arrows.push(a); return a;
 }
 function removeArrow(a){ scene.remove(a.mesh); const i=arrows.indexOf(a); if(i>=0) arrows.splice(i,1); }
@@ -411,14 +411,20 @@ function updateArrows(dt){
     // targets (local bots)
     let bestT=Infinity, bestBot=null, head=false;
     for(const b of localBots){ if(!b.alive) continue;
-      const body=raySphere(a.pos,dir,b.x,1.05,b.z,0.6), hh=raySphere(a.pos,dir,b.x,1.70,b.z,0.34);
-      let tt=Infinity,hs=false; if(hh<tt){tt=hh;hs=true;} if(body<tt){tt=body;hs=false;}
+      // bots stand, so stance 0; the head matches HITBOX, as the guns' does —
+      // it was r0.34 here against the fitted r0.19 and would have handed out
+      // head hits for centre mass now that the head is worth more
+      const hd=HITBOX.head[0];
+      const body=raySphere(a.pos,dir,b.x,1.05,b.z,0.6), hh=raySphere(a.pos,dir,b.x,hd[0],b.z,hd[1]);
+      // a head hit wins outright; it overlaps the body sphere by 14cm and
+      // nearest-entry would give that band to the bigger one
+      const tt=Math.min(hh,body), hs=hh<Infinity;
       if(tt<bestT){bestT=tt;bestBot=b;head=hs;} }
     // what this bolt leaves behind where it lands
     const payload = (px,py,pz)=> a.w.kind==='smoke' ? spawnSmoke(px,py,pz,myId) : spawnGroundFire(px,py,pz);
     if(bestBot && bestT<=dist && bestT<=floorT && (!hit || bestT<hit.distance)){
       if(a.w.kind==='smoke') payload(bestBot.x, 0, bestBot.z);   // no damage, just cover
-      else igniteLocalBot(bestBot, a.dmg, a.w);
+      else igniteLocalBot(bestBot, head ? a.w.headDmg : a.w.bodyDmg, a.w, head);
       removeArrow(a); continue;
     }
     if(hit && hit.distance<=floorT){
@@ -493,8 +499,8 @@ function extinguish(b){
   clearBurnFx(b);
   b.burnDps = 0; b.burnUntil = 0; b.inFire = false;
 }
-function igniteLocalBot(b,dmg,w){
-  b.hp-=dmg; hitmark(); Sfx.hit();
+function igniteLocalBot(b,dmg,w,head){
+  b.hp-=dmg; hitmark(head ? 'head' : 'torso'); Sfx.hit();
   spawnGroundFire(b.x, 0, b.z);                       // the pool it leaves underfoot
   b.burnUntil=performance.now()+w.burnMs; b.burnNext=performance.now()+1000; b.burnDps=w.burnDps;
   if(!b.fire) b.fire = makeBurnFx(b.mesh);            // visible flames on the target

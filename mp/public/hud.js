@@ -381,7 +381,8 @@ function renderArmory(){
     // where it sits in your list, which is what the number keys select
     const invPos = shop ? inventory().indexOf(i) : i;
     const stats = w.ability
-      ? `${w.dmg?('DMG '+w.dmg):'NO DAMAGE'}<br>CHARGES ${w.charges} · ${Math.round(w.cooldownMs/1000)}s`
+      ? `${w.headDmg ? ('DMG '+w.headDmg+' HEAD · '+w.bodyDmg+' BODY')
+                     : (w.dmg?('DMG '+w.dmg):'NO DAMAGE')}<br>CHARGES ${w.charges} · ${Math.round(w.cooldownMs/1000)}s`
       : w.melee
       ? `COMBO ${w.combo.join('/')}<br>REACH ${w.reach}m`
       : `DMG ${w.dmg}${w.pellets?'×'+w.pellets:''}<br>MAG ${w.magMax} / ${w.reserveMax}`;

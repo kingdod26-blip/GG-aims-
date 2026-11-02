@@ -86,7 +86,9 @@ const WEAPONS = [
   { name:'PISTOL X', mode:'SEMI', auto:false, fireRate:170,  dmg:40,  recoil:0.012, spread:0.012, adsSpread:0.005, steady:true,  range:180, magMax:10, reserveMax:50,  reloadMs:1100, adsFov:66, scope:false },
   // ABILITY: charge-based, no magazine/reload. Each shot burns one charge that
   // regenerates on its own 30s timer. Right-click toggles RICOCHET.
-  { name:'CROSSBOW', mode:'ABILITY', ability:true, kind:'xbow', auto:false, fireRate:700, dmg:90,
+  // 90 to the head, 50 to the body — see the XBOW block in server.js.
+  { name:'CROSSBOW', mode:'ABILITY', ability:true, kind:'xbow', auto:false, fireRate:700,
+    headDmg:90, bodyDmg:50,
     // burnMs is how long a PERSON burns; the fire left on the ground is a
     // separate, longer-lived thing (GFIRE.ms).
     burnDps:12, burnMs:5000, charges:2, cooldownMs:30000, speed:62,
