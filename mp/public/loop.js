@@ -111,7 +111,7 @@ function loop(){ requestAnimationFrame(loop);
   }
   let dt=(performance.now()-last)/1000; last=performance.now(); dt=Math.min(dt,0.05);
   // the cooldown tiles tick down between events, so they are a frame job
-  if(gameState==='playing') updateCooldowns();
+  if(gameState==='playing'){ updateCooldowns(); sizeReticle(); }
   // fps readout
   fpsAcc+=dt; fpsFrames++;
   if(fpsAcc>=0.5){ fpsShown=Math.round(fpsFrames/fpsAcc); fpsAcc=0; fpsFrames=0;

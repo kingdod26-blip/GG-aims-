@@ -20,9 +20,13 @@
   #crosshair::before { width:1px; height:14px; left:-0.5px; top:-7px; }
   #crosshair::after  { height:1px; width:14px; top:-0.5px; left:-7px; }
   /* Shotguns throw a cone, so they get a ring rather than a cross — the
-     circle reads as "anywhere in here" instead of a point of aim. */
+     circle reads as "anywhere in here" instead of a point of aim. Its size
+     comes from JS (`sizeReticle`), because the cone is an ANGLE: how wide it
+     lands on screen depends on the FOV and the window height, neither of
+     which a constant can know. The fallback is the old fixed value. */
   #crosshair.spread::before, #crosshair.spread::after {
-    width:34px; height:34px; left:-17px; top:-17px; background:none;
+    width:var(--ring,34px); height:var(--ring,34px);
+    left:calc(var(--ring,34px) / -2); top:calc(var(--ring,34px) / -2); background:none;
     border:2px solid rgba(39,255,158,.9); border-radius:50%; box-shadow:0 0 3px #000; }
   #crosshair.spread::after { width:3px; height:3px; left:-1.5px; top:-1.5px;
     background:rgba(39,255,158,.9); border:none; border-radius:50%; }

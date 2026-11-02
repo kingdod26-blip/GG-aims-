@@ -300,6 +300,22 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   frame and re-runs `applySettings()` when they differ. Do not assume the
   listener is enough. Note the check sits after the `document.hidden` early
   return, so a hidden tab heals on its first visible frame.
+- **The shotgun ring IS the cone, measured, not a constant.** It was a flat
+  34px. Spread is an ANGLE, so how wide it lands on screen scales with the
+  window height and shrinks as the FOV narrows — 34px was tuned while ADS at
+  768p and is right nowhere else: hip-firing it understates the cone by 17%
+  at 768p, 41% at 1080p and 56% at 1440p, so pellets land outside a ring
+  that says they shouldn't and the gun reads as missing. `sizeReticle()`
+  (hud.js, called from `loop()`) projects it the same way the shots are:
+  half-angle over tan(fov/2) against half the viewport, reading `camera.fov`
+  live so ADS and the sprint widening are both already in it, and blending
+  the cone with `ads` exactly as `shoot()` does, `/0.85` included. It is the
+  circle INSIDE the pattern, not around it: each axis is nudged
+  independently so the pellets form a SQUARE, and the inscribed circle holds
+  about 79% of them while the circumscribed one is 41% wider and mostly
+  empty. Measured by wrapping `addTracer` and projecting 3200 real shots:
+  76-79% land inside at hip, sprint-FOV and full ADS, max radius exactly the
+  square's corner. The CSS keeps 34px as the `var(--ring)` fallback.
 - **ADS accuracy arrives when the scope does.** The spread blended linearly
   with `ads`, but the scope overlay appears at `ads > 0.85`, where the sniper
   was still at 0.0088 — six times its aimed cone. Scoped HEADSHOTS were 59%

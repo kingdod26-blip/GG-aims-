@@ -171,6 +171,36 @@ function updateCrosshair(){
   const el = document.getElementById('crosshair');
   if(el) el.classList.toggle('spread', !!curW().pellets);
 }
+/* The shotgun ring has to BE the cone, not a guess at it.
+
+   It was a flat 34px, which is only honest at one FOV and one window
+   height: spread is an ANGLE, so how wide it lands on screen scales with
+   the window and shrinks as the FOV narrows. 34px was tuned while ADS at
+   768p and is right nowhere else — hip-firing at 768p it understates the
+   cone by 17%, at 1080p by 41%, at 1440p by 56%. You aim with a ring that
+   says the pellets are tighter than they are, and the ones that land
+   outside it read as the gun missing.
+
+   Same projection the shots use: half-angle over tan(fov/2), against half
+   the viewport. `camera.fov` is read live, so ADS and the sprint widening
+   are both already in it, and the cone blends with `ads` exactly as
+   `shoot()` blends it — including the /0.85, so the ring tightens when the
+   accuracy does rather than a moment later. Drawn at the spread's half
+   width: the pellet pattern is a SQUARE (each axis is nudged
+   independently), and this is the circle inside it, which holds about 79%
+   of them. The circle round the outside would be 41% wider and mostly
+   empty. */
+let ringPx = -1;
+function sizeReticle(){
+  const w = curW(); if(!w.pellets) return;      // only a pellet gun draws a ring
+  const aimK = Math.min(1, ads / 0.85);
+  const cone = training('noSpread') ? 0 : w.spread + (w.adsSpread - w.spread) * aimK;
+  const r = (innerHeight / 2) * (cone / 2) / Math.tan(camera.fov * Math.PI / 360);
+  const px = Math.max(6, Math.round(r * 2));
+  if(px === ringPx) return;                     // runs every frame; don't thrash layout
+  ringPx = px;
+  document.getElementById('crosshair').style.setProperty('--ring', px + 'px');
+}
 let toastT;
 function toast(msg){
   const el=document.getElementById('toast'); if(!el) return;
