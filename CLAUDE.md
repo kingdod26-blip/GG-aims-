@@ -574,9 +574,11 @@ The glyphs are Jack's artwork (`assets/cd-roll.png`, `cd-fire.png`,
 `cd-smoke.png`), painted cards rather than pictograms, so they FILL the tile
 via `object-fit:cover` and round with it through `border-radius:inherit` -
 `overflow:hidden` is not an option, since the key and charge badges hang
-outside the edge on purpose. The source art is framed in a grey border on a
-near-black card (#15170e-ish); that frame is cropped off and the card black
-is what the tiles are padded with, so the three sit on one background.
+outside the edge on purpose. The fire and smoke sources are framed in a grey
+border on a near-black card; that frame is cropped off and the card black
+is what every tile is padded with, so the three sit on one background. The
+roll art is a bare glyph with no card, so it is keyed off its own
+background by luminance and recomposited on that same black.
 `updateCooldowns()` is called from `loop()`, **not** `updateHUD()`: that one
 is event-driven and a countdown hung off it sits frozen between shots. It
 therefore runs every frame, so every write is guarded on the value actually
