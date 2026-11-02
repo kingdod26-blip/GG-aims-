@@ -167,10 +167,14 @@ function updateDetectHUD(){
 /* The reticle follows the weapon: a ring for the shotgun's cone, a cross for
    anything that shoots a point. Driven from updateHUD so it changes the
    instant you switch. */
-function updateCrosshair(){
-  const el = document.getElementById('crosshair');
-  if(el) el.classList.toggle('spread', !!curW().pellets);
-}
+/* The ring belongs to a weapon that HAS a cone. Switch spread off in the
+   practice range and the shotgun is pinpoint, so there is none to draw —
+   and sizing a zero cone just pinned the ring to its lower bound, a ~6px
+   circle that reads as a broken reticle rather than as "this gun has no
+   spread". It falls back to the ordinary cross, which is what every other
+   pinpoint weapon already shows. `sizeReticle` owns the class for that
+   reason; `updateCrosshair` only forces a re-test after a weapon change. */
+function updateCrosshair(){ ringOn = null; sizeReticle(); }
 /* The shotgun ring has to BE the cone, not a guess at it.
 
    It was a flat 34px, which is only honest at one FOV and one window
@@ -190,16 +194,24 @@ function updateCrosshair(){
    independently), and this is the circle inside it, which holds about 79%
    of them. The circle round the outside would be 41% wider and mostly
    empty. */
-let ringPx = -1;
+let ringPx = -1, ringOn = null;
+/* The cone this weapon is throwing right now, in radians, or 0 for none. */
+function reticleCone(){
+  const w = curW();
+  if(!w.pellets || training('noSpread')) return 0;
+  return w.spread + (w.adsSpread - w.spread) * Math.min(1, ads / 0.85);
+}
 function sizeReticle(){
-  const w = curW(); if(!w.pellets) return;      // only a pellet gun draws a ring
-  const aimK = Math.min(1, ads / 0.85);
-  const cone = training('noSpread') ? 0 : w.spread + (w.adsSpread - w.spread) * aimK;
+  const el = document.getElementById('crosshair'); if(!el) return;
+  const cone = reticleCone(), on = cone > 0;
+  if(on !== ringOn){ el.classList.toggle('spread', on); ringOn = on; }
+  if(!on) return;                               // cross, not ring
   const r = (innerHeight / 2) * (cone / 2) / Math.tan(camera.fov * Math.PI / 360);
-  const px = Math.max(6, Math.round(r * 2));
+  // a real but tight cone is still a ring; below this it stops reading as one
+  const px = Math.max(14, Math.round(r * 2));
   if(px === ringPx) return;                     // runs every frame; don't thrash layout
   ringPx = px;
-  document.getElementById('crosshair').style.setProperty('--ring', px + 'px');
+  el.style.setProperty('--ring', px + 'px');
 }
 let toastT;
 function toast(msg){

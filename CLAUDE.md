@@ -356,6 +356,15 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   empty. Measured by wrapping `addTracer` and projecting 3200 real shots:
   76-79% land inside at hip, sprint-FOV and full ADS, max radius exactly the
   square's corner. The CSS keeps 34px as the `var(--ring)` fallback.
+  **No cone means no ring.** Spread switched off in the practice range
+  makes the shotgun pinpoint, and sizing a zero cone pinned the ring to
+  its lower bound — a ~6px circle that reads as a broken reticle, not as
+  "this gun has no spread". `reticleCone()` returns 0 for that (and for
+  any weapon without `pellets`), and `sizeReticle` then drops the `spread`
+  class so you get the ordinary cross, which is what every other pinpoint
+  weapon shows. It owns that class for this reason; `updateCrosshair` only
+  clears `ringOn` to force a re-test after a weapon change. The floor is
+  14px, so a real but tight cone still reads as a ring.
 - **ADS accuracy arrives when the scope does.** The spread blended linearly
   with `ads`, but the scope overlay appears at `ads > 0.85`, where the sniper
   was still at 0.0088 — six times its aimed cone. Scoped HEADSHOTS were 59%
