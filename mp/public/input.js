@@ -206,25 +206,31 @@ function shoot(){
        The muzzle offset is applied to the RENDERED arrow instead and decays
        over BOLT_SHOW (see effects.js), so it still looks like it leaves the
        crossbow. Gravity is untouched; the crossbow still arcs. */
-    /* Below the crosshair, not through it. Dead on the camera axis the bolt
-       spawns in the middle of your view and reads as coming out of your
-       face — and in target practice there is no decaying muzzle offset to
-       hide it, because the mesh is created at the spawn point itself.
-       Dropping it along the camera UP vector (not world down) keeps it
-       under the crosshair whatever your pitch. The DIRECTION is untouched,
-       so horizontal aim stays exact; the bolt simply flies on a line
-       BOLT_DROP below the aim line, which is small against the ~1m gravity
-       arc you already compensate for at 30m. */
-    const camUp = new THREE.Vector3(0,1,0).applyEuler(new THREE.Euler(me.pitch, me.yaw, 0, 'YXZ'));
-    const o = camera.position.clone().addScaledVector(dir, 0.9).addScaledVector(camUp, -BOLT_DROP);
-    noteOwnBolt(muzzleWorld().clone().sub(o));      // the visual offset to decay
+    /* ON the aim line, and only the LOOK starts at the barrel.
+
+       This used to spawn BOLT_DROP (0.3m) below the crosshair along the
+       camera up vector, so the bolt flew parallel to the aim line but a
+       constant 30cm under it. That was invisible while bolt damage was flat
+       and the bolt's head sphere was a fat r0.34 — 0.34 > 0.30, so a bolt
+       aimed at the head still clipped the bottom of it. Fitting that sphere
+       to the model (r0.19) made the 30cm fatal: aiming dead at a head put
+       the bolt 11cm outside it, EVERY time, so the head became unhittable
+       and every shot read as a torso hit.
+
+       So the simulated bolt spawns on the axis, and the muzzle offset is
+       handed to the renderer to decay over BOLT_SHOW — which is what
+       multiplayer already did for server-driven arrows, and now what the
+       practice range does for its own. Gravity is untouched; it still arcs. */
+    const o = camera.position.clone().addScaledVector(dir, 0.9);
+    const vis = muzzleWorld().clone().sub(o);       // the visual offset to decay
+    noteOwnBolt(vis);
 
     if(w.kind==='smoke'){
       if(gameMode==='mp' && socket) socket.emit('smokebolt',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, ric:ricochet?1:0 });
-      else spawnLocalArrow(o,dir,w,ricochet);
+      else spawnLocalArrow(o,dir,w,ricochet,vis);
     } else if(gameMode==='mp' && socket)
       socket.emit('arrow',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, ric:ricochet?1:0 });
-    else spawnLocalArrow(o,dir,w,ricochet);
+    else spawnLocalArrow(o,dir,w,ricochet,vis);
     me.pitch=Math.min(me.pitch + w.recoil, Math.PI/2-0.05);   // kick, now it has left
     dropSpentAbility();          // that was the last charge - back to a real weapon
     return;

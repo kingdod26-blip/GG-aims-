@@ -268,18 +268,27 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   camera direction from an offset muzzle sent it parallel to the aim line,
   a constant 0.41m to one side forever.
   So the simulated bolt flies straight down the aim line — measured within
-  0.1° at every pitch, with zero sideways offset. It leaves from 0.9m
-  forward and `BOLT_DROP` (0.3m, `weapons.js`) BELOW the crosshair, along
-  the camera up vector so it stays under the reticle whatever your pitch:
-  dead on the axis it spawned in the middle of your view and read as coming
-  out of your face, and in target practice there is no decaying offset to
-  hide that, because the mesh is created at the spawn point itself. Only the
-  position is lowered, never the DIRECTION, so horizontal aim stays exact
-  and the constant 0.3m drop is small against the ~1m gravity arc at 30m. The muzzle offset is
-  applied to the RENDERED arrow instead and decays over `BOLT_SHOW` (0.18s,
-  `effects.js`), so it still leaves the crossbow to look at. Only your own
-  bolts get it; everyone else’s already look right from a distance. Gravity
-  is untouched — the crossbow still arcs.
+  0.1° at every pitch, with zero sideways offset — and spawns ON it, 0.9m
+  forward. It used to spawn `BOLT_DROP` (0.3m) below the crosshair along the
+  camera up vector, because dead on the axis it appeared in the middle of
+  your view and read as coming out of your face. **That cost 30cm of
+  vertical aim on every shot**, which was invisible while bolt damage was
+  flat and the bolt's head sphere was a fat r0.34 (0.34 > 0.30, so a bolt
+  aimed at a head still clipped the bottom of it). Fitting that sphere to
+  the model at r0.19 made it fatal: aiming dead at a head put the bolt 11cm
+  outside it EVERY time, so the head became unhittable and every shot read
+  as a torso hit. `BOLT_DROP` is gone.
+  The muzzle offset is applied to the RENDERED arrow instead and decays over
+  `BOLT_SHOW` (0.18s, `effects.js`), so it still leaves the crossbow to look
+  at — server-driven arrows get that in `session.js`, and local ones through
+  `placeArrow` / `a.vis` in `effects.js`, which is the half that did NOT
+  exist and was the whole reason the drop was there. Only your own bolts get
+  it; everyone else’s already look right from a distance.
+  Gravity is untouched — the crossbow still arcs, and that arc is why aiming
+  DEAD at a head only scores a head hit inside ~13m: the drop is
+  ½·9·(d/62)², which reaches the 0.19 sphere radius at 12.7m. Measured on
+  the range: head at 5m and 10m scores 90, at 15m and 20m it scores 50. Past
+  that you aim above the head, as you would for any arcing shot.
 - **Ability recoil must be applied AFTER the bolt leaves.** The gun path has
   always done this — there is a comment saying so — but the ability branch
   kicked `me.pitch` up BEFORE computing the direction, so every bolt left

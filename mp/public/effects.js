@@ -376,12 +376,24 @@ function tintSmokeBolt(mesh){
   u.trail.forEach(t=>t.material.color.set(0x7c828a));
   if(u.light) u.light.intensity = 0;
 }
-function spawnLocalArrow(origin,dir,w,ric){
-  const mesh=makeArrowMesh(); mesh.position.copy(origin); scene.add(mesh);
+/* `vis` is where the barrel is relative to the bolt's true path. The bolt
+   is SIMULATED on the aim line so it goes where the crosshair points; the
+   mesh starts at the muzzle and slides onto that line over BOLT_SHOW, so it
+   still looks like it leaves the crossbow. Server-driven arrows get the same
+   treatment in session.js; this is the practice range's copy. */
+function placeArrow(a){
+  a.mesh.position.copy(a.pos);
+  if(!a.vis) return;
+  const k = 1 - (performance.now() - a.visAt) / 1000 / BOLT_SHOW;
+  if(k > 0) a.mesh.position.addScaledVector(a.vis, k); else a.vis = null;
+}
+function spawnLocalArrow(origin,dir,w,ric,vis){
+  const mesh=makeArrowMesh(); scene.add(mesh);
   if(w.kind==='smoke') tintSmokeBolt(mesh);
   const a={ mesh, pos:origin.clone(), vel:dir.clone().multiplyScalar(w.speed),
-            bounces: ric?1:0, life:5, w };     // damage is picked at impact, by zone
-  aimArrow(mesh,a.vel); arrows.push(a); return a;
+            bounces: ric?1:0, life:5, w,       // damage is picked at impact, by zone
+            vis: vis ? vis.clone() : null, visAt: performance.now() };
+  placeArrow(a); aimArrow(mesh,a.vel); arrows.push(a); return a;
 }
 function removeArrow(a){ scene.remove(a.mesh); const i=arrows.indexOf(a); if(i>=0) arrows.splice(i,1); }
 /* Step locally-simulated arrows: gravity, wall bounce, target hits. */
@@ -434,7 +446,7 @@ function updateArrows(dt){
         a.vel.reflect(n).multiplyScalar(BOUNCE.keep);
         a.life = Math.min(a.life, BOUNCE.lifeS);      // spent after the bank
         a.pos.copy(hit.point).addScaledVector(n,0.06);
-        a.mesh.position.copy(a.pos); aimArrow(a.mesh,a.vel);
+        placeArrow(a); aimArrow(a.mesh,a.vel);
         Sfx.hit();
         continue;
       }
@@ -445,7 +457,7 @@ function updateArrows(dt){
       if(!(n2 && n2.y > 0.5)){
         a.pos.copy(hit.point).addScaledVector(dir, -0.08);
         a.vel.set(0,0,0);                     // gravity takes it from here
-        a.mesh.position.copy(a.pos); aimArrow(a.mesh, new THREE.Vector3(0,-1,0));
+        placeArrow(a); aimArrow(a.mesh, new THREE.Vector3(0,-1,0));
         continue;
       }
       payload(hit.point.x, Math.max(0, hit.point.y), hit.point.z);   // landed on top
@@ -461,14 +473,14 @@ function updateArrows(dt){
         a.vel.y = Math.abs(a.vel.y)*BOUNCE.keep;
         a.vel.x *= BOUNCE.keep; a.vel.z *= BOUNCE.keep;
         a.life = Math.min(a.life, BOUNCE.lifeS);
-        a.mesh.position.copy(a.pos); aimArrow(a.mesh,a.vel);
+        placeArrow(a); aimArrow(a.mesh,a.vel);
         Sfx.hit();
         continue;
       }
       payload(fx, 0, fz);
       removeArrow(a); continue;
     }
-    a.pos.add(step); a.mesh.position.copy(a.pos); aimArrow(a.mesh,a.vel); flickerArrow(a.mesh,t);
+    a.pos.add(step); placeArrow(a); aimArrow(a.mesh,a.vel); flickerArrow(a.mesh,t);
   }
   // burn damage on local targets
   for(const b of localBots){
