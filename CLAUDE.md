@@ -562,6 +562,27 @@ the call sites mark where it would go back in. Silhouettes are amber for
 "heard them fire" and green for a smoke tag, and smoke wins if both apply.
 Resets to ready at the start of every round.
 
+**Roll, crossbow and smoke each have a cooldown tile** in the ammo corner
+(`#cdRow`, above the magazine). A tile is READY (bright glyph, charge count)
+or SPENT (dimmed, glyph replaced by the seconds left, a conic wipe draining
+round it); an ability holding one charge while the second regenerates is
+READY with a thin bar for the one coming back, because dimming something you
+can still throw reads as "no". Short cooldowns show a decimal — the roll is
+1.2s, and in whole seconds it reads "2" for most of its life.
+`updateCooldowns()` is called from `loop()`, **not** `updateHUD()`: that one
+is event-driven and a countdown hung off it sits frozen between shots. It
+therefore runs every frame, so every write is guarded on the value actually
+changing, or it dirties layout 60 times a second for text that changes once.
+
+**You are never left holding a spent ability.** `abilitySpent` is an ability
+at zero charges (never true in practice with `noCooldown`, where charges do
+not run down). Firing the last charge calls `dropSpentAbility()`, and
+`switchWeapon` refuses to equip a spent one — otherwise the fire button just
+beeps and you find out mid-fight. `fallbackWeapon()` is the first GUN in
+`inventory()`, which is purchase order, so it is the one you bought first;
+the blade is the floor, since a lost round strips your guns and it is the
+one thing you always have.
+
 `Q`/`E` peek left/right — hold to lean. `LEAN.angle` 0.16 rad (~9°) plus a
 0.45m sideways shift of the eye, clamped by `clearLean` so you can't put your
 camera through a corner. Suppressed during a roll or slide. Double jump. Sprint (Shift). Stances: `C` crouch,

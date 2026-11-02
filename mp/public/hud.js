@@ -39,6 +39,74 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
     document.getElementById('modeLbl').textContent = w.name+' · '+w.mode;
   }
   document.getElementById('stanceVal').textContent = me.stance.toUpperCase().replace('STAND','STANDING').replace('CROUCH','CROUCHING').replace('PRONE','PRONE'); }
+/* The three ability tiles beside the ammo.
+
+   Driven from loop() rather than updateHUD(), which only runs on events -
+   a countdown hung off it would sit frozen between shots. That means this
+   runs every frame, so every write is guarded on the value actually
+   changing; setting .textContent unconditionally would dirty layout 60
+   times a second for text that changes once a second.
+
+   "Spent" is nothing left to use: the roll past its cooldown, an ability at
+   zero charges. An ability holding one charge while the second regenerates
+   is usable, so it stays bright and shows the thin bar instead. */
+const CD_TILES = [
+  { id:'cdRoll',  kind:'roll'  },
+  { id:'cdXbow',  kind:'xbow'  },
+  { id:'cdSmoke', kind:'smoke' },
+];
+let cdEls = null;
+function cdCache(){
+  if(cdEls) return cdEls;
+  cdEls = CD_TILES.map(t => {
+    const box = document.getElementById(t.id);
+    return { ...t, box, sweep:box.querySelector('.cdsweep'), time:box.querySelector('.cdtime'),
+             bar:box.querySelector('.cdbar i'), n:box.querySelector('.cdn'),
+             last:{} };
+  });
+  return cdEls;
+}
+/* remain/total in ms for one tile, plus how many uses are in hand. */
+function cdState(kind, now){
+  if(kind === 'roll'){
+    const remain = Math.max(0, rollCdUntil - now);
+    return { remain, total:ROLL.cdMs, have:remain > 0 ? 0 : 1, max:1 };
+  }
+  const slot = kind === 'xbow' ? XBOW : SMOKE, w = WEAPONS[slot];
+  const q = abilityRecharge[slot] || [];
+  return { remain: q.length ? Math.max(0, q[0] - now) : 0, total:w.cooldownMs,
+           have: abilityCharges[slot] | 0, max:w.charges };
+}
+function updateCooldowns(){
+  const now = performance.now();
+  abilityTick();
+  for(const t of cdCache()){
+    const st = cdState(t.kind, now), L = t.last;
+    const cool = st.have <= 0, regen = !cool && st.remain > 0;
+    if(L.cool !== cool){ t.box.classList.toggle('cool', cool); L.cool = cool; }
+    if(L.regen !== regen){ t.box.classList.toggle('regen', regen); L.regen = regen; }
+    if(cool){
+      /* A 1.2s roll counted in whole seconds reads "2" for most of its life
+         and never shows 1 for long, which looks broken. Short cooldowns get
+         a decimal; a 30s ability does not need one. */
+      const secs = st.total < 3000 ? (Math.ceil(st.remain / 100) / 10).toFixed(1)
+                                   : String(Math.ceil(st.remain / 1000));
+      if(L.secs !== secs){ t.time.textContent = st.remain > 0 ? secs : ''; L.secs = secs; }
+      // the dark wedge covers what is LEFT, so it drains anticlockwise to nothing
+      const deg = Math.round(360 * Math.min(1, st.remain / st.total));
+      if(L.deg !== deg){
+        t.sweep.style.background =
+          'conic-gradient(rgba(0,0,0,.78) ' + deg + 'deg, rgba(0,0,0,.1) 0)';
+        L.deg = deg;
+      }
+    } else if(regen){
+      const pct = Math.round(100 * (1 - st.remain / st.total));
+      if(L.pct !== pct){ t.bar.style.width = pct + '%'; L.pct = pct; }
+    }
+    if(t.n && L.have !== st.have){ t.n.textContent = st.have; L.have = st.have; }
+  }
+}
+
 /* The hit marker now says WHERE you hit: red and bigger for a head, white
    for the torso, small and blue for a limb, with the word underneath. Without
    this the zones only existed in the damage numbers, which you cannot read

@@ -374,6 +374,36 @@ function ensureValidWeapon(){
   const inv = inventory();
   switchWeapon(inv.length ? inv[0] : XBOW);
 }
+/* You are never left holding a spent ability.
+
+   An ability at zero charges does nothing but make the fire button beep, and
+   the old behaviour was to leave it in your hands until you noticed and
+   switched yourself - which, mid-fight, is exactly when you don't. Firing
+   the last charge now drops you straight back to a real weapon, and trying
+   to equip a spent one is refused rather than honoured.
+
+   "Main weapon" is the first GUN in your list: that list is purchase order,
+   so it is the one you bought first. The blade is the floor, because it is
+   the one thing you always have - in multiplayer a lost round strips your
+   guns and leaves nothing else.
+
+   Practice with noCooldown on never counts as spent; charges don't run down
+   there, so there is nothing to drop out of. */
+function abilitySpent(i){
+  const w = WEAPONS[i];
+  if(!w || !w.ability || training('noCooldown')) return false;
+  return (abilityCharges[i] | 0) <= 0;
+}
+function fallbackWeapon(){
+  const gun = inventory().find(i => i !== BLADE && !WEAPONS[i].ability);
+  return gun === undefined ? BLADE : gun;
+}
+function dropSpentAbility(){
+  if(!abilitySpent(currentWeapon)) return false;
+  switchWeapon(fallbackWeapon());
+  return true;
+}
+
 /* Scroll through the list. Starting from an ability (which isn't in it) we
    enter at the top rather than jumping somewhere arbitrary. */
 function cycleWeapon(dir){
@@ -385,6 +415,7 @@ function cycleWeapon(dir){
 function switchWeapon(i){
   if(i===currentWeapon || i<0 || i>=WEAPONS.length) return;
   if(!canEquip(i)){ Sfx.empty(); return; }   // you don't own that one
+  if(abilitySpent(i)){ Sfx.empty(); return; }  // nothing left in it to throw
   currentWeapon=i; reloading=false; clearTimeout(reloadTimer); reloadSfxTimers.forEach(clearTimeout); semiQueued=false;
   weaponHolders.forEach((h,idx)=> h.visible = idx===i);
   // marks draw with depthTest off at renderOrder 900; the viewmodel has to

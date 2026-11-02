@@ -178,7 +178,7 @@ function shoot(){
   // --- CROSSBOW ability: spends a charge, launches a real flaming arrow ---
   if(w.ability){
     abilityTick();
-    if(abilityCharges[currentWeapon]<=0){ Sfx.empty(); return; }
+    if(abilityCharges[currentWeapon]<=0){ Sfx.empty(); dropSpentAbility(); return; }
     if(!training('noCooldown')){                 // practice: charges never run down
       abilityCharges[currentWeapon]--; abilityRecharge[currentWeapon].push(now + w.cooldownMs);
     }
@@ -226,6 +226,7 @@ function shoot(){
       socket.emit('arrow',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, ric:ricochet?1:0 });
     else spawnLocalArrow(o,dir,w,ricochet);
     me.pitch=Math.min(me.pitch + w.recoil, Math.PI/2-0.05);   // kick, now it has left
+    dropSpentAbility();          // that was the last charge - back to a real weapon
     return;
   }
 

@@ -69,6 +69,40 @@
   #reserveNum { font-size:20px; color:rgba(255,255,255,.6); font-weight:600; }
   #fireMode { font-size:11px; letter-spacing:4px; color:rgba(255,255,255,.7); font-weight:600; margin-top:3px; }
   #fireMode .pips { letter-spacing:1px; color:#fff; }
+  /* Ability cooldowns, in the ammo corner.
+
+     A tile is READY (bright glyph, charge count) or SPENT (dimmed, glyph
+     replaced by the seconds left, with a clock wipe draining round it).
+     An ability that still has a charge in hand while another regenerates is
+     READY - it just carries a thin bar along the bottom for the one coming
+     back, because dimming a tile you can still use would read as "no". The
+     roll has no charges, so it gets no count badge. */
+  #cdRow { display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px; }
+  .cd { position:relative; width:40px; height:40px; border-radius:10px; flex:none;
+        background:rgba(10,7,9,.6); border:1px solid rgba(255,255,255,.2); color:#fff;
+        display:flex; align-items:center; justify-content:center;
+        box-shadow:0 2px 10px rgba(0,0,0,.5); transition:opacity .12s, border-color .12s; }
+  .cd > svg { width:21px; height:21px; display:block; filter:drop-shadow(0 1px 2px rgba(0,0,0,.8)); }
+  .cd.cool { opacity:.5; border-color:rgba(255,255,255,.1); }
+  .cd.cool > svg { visibility:hidden; }       /* the number takes the tile instead */
+  .cdsweep { position:absolute; inset:0; border-radius:inherit; pointer-events:none; display:none; }
+  .cd.cool .cdsweep { display:block; }
+  .cdtime { position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+            font-size:13px; font-weight:800; letter-spacing:-.3px;
+            text-shadow:0 1px 3px rgba(0,0,0,.95); }
+  .cd.cool .cdtime { display:flex; }
+  .cdbar { position:absolute; left:5px; right:5px; bottom:4px; height:2px; border-radius:2px;
+           background:rgba(255,255,255,.18); display:none; overflow:hidden; }
+  .cd.regen .cdbar { display:block; }
+  .cdbar i { display:block; height:100%; border-radius:2px; background:var(--ac); }
+  .cdkey { position:absolute; top:-6px; left:-5px; min-width:15px; height:15px; padding:0 3px;
+           border-radius:5px; background:rgba(16,12,14,.95); border:1px solid rgba(255,255,255,.26);
+           font-size:9px; font-weight:800; line-height:13px; text-align:center; letter-spacing:0; }
+  .cdn { position:absolute; bottom:-5px; right:-5px; min-width:16px; height:16px;
+         border-radius:5px; background:var(--ac-deep); color:#fff;
+         font-size:10px; font-weight:800; line-height:16px; text-align:center;
+         box-shadow:0 1px 5px rgba(0,0,0,.7); }
+  .cd.cool .cdn { background:rgba(70,70,76,.95); }
   #compass { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:10; opacity:.85; }
   #stance { position:fixed; bottom:64px; left:50%; transform:translateX(-50%); z-index:10; color:rgba(255,255,255,.75); font-size:11px; letter-spacing:4px; font-weight:600; text-shadow:0 1px 4px rgba(0,0,0,.8); }
   #stance b { color:#fff; }
