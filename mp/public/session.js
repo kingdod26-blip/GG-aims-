@@ -189,12 +189,46 @@ function openLobby(){
   lobbySay(''); document.getElementById('codeInput').value = '';
   refreshRooms();
 }
+/* The game server sleeps when nobody is playing, and the first request can
+   take the best part of a minute to come back. Two things follow.
+
+   One: start knocking as soon as the page loads, not when they click
+   Multiplayer. Reading the menu and picking a mode is free time the wake-up
+   can happen in, and often it is awake before they ask.
+
+   Two: say which it is. "No rooms yet" during a cold start describes a game
+   nobody plays; "Waking the server — 12s" describes a wait that ends. The
+   in-flight request is shared rather than re-fired, or hitting REFRESH
+   queues another 60-second wait behind the first. */
+const warm = { state:'cold', since:0, p:null };
+function warmServer(again){
+  if(warm.p && !again && warm.state !== 'cold') return warm.p;
+  warm.state = 'waking'; warm.since = performance.now();
+  warm.p = fetch(mpUrl('/rooms'), { cache:'no-store' })
+    .then(r => r.json())
+    .then(d => { warm.state = 'up'; return d; })
+    .catch(e => { warm.state = 'cold'; throw e; });
+  return warm.p;
+}
+addEventListener('load', ()=>{ warmServer().catch(()=>{}); });
+
 async function refreshRooms(){
   const host = document.getElementById('roomList');
-  host.innerHTML = '<div class="empty">Loading…</div>';
+  const cold = warm.state !== 'up';
+  const p = warmServer(!cold);          // awake: ask again. cold: join the knock already going
+  let tick = null;
+  if(cold){
+    const t0 = warm.since;
+    const say = ()=>{ host.innerHTML = '<div class="empty">Waking the server — '
+      + Math.round((performance.now() - t0)/1000) + 's.<br>'
+      + 'It sleeps when nobody is playing. The practice range is ready now.</div>'; };
+    say(); tick = setInterval(say, 1000);
+  } else host.innerHTML = '<div class="empty">Loading…</div>';
   let data;
-  try { data = await (await fetch('/rooms')).json(); }
-  catch(e){ host.innerHTML = '<div class="empty">Could not reach the server.</div>'; return; }
+  try { data = await p; }
+  catch(e){ clearInterval(tick);
+            host.innerHTML = '<div class="empty">Could not reach the server.</div>'; return; }
+  clearInterval(tick);
   const list = data.rooms || [];
   if(!list.length){
     host.innerHTML = '<div class="empty">No rooms yet — Quick Play opens one, '
@@ -229,7 +263,7 @@ document.getElementById('quickBtn').onclick   = ()=>{ pendingRoom = null; startP
 document.getElementById('createBtn').onclick  = async ()=>{
   lobbySay('Creating…', true);
   try {
-    const d = await (await fetch('/rooms/new')).json();
+    const d = await (await fetch(mpUrl('/rooms/new'))).json();
     if(!d.code){ lobbySay('The server could not open a room.'); return; }
     lobbySay('Room ' + d.code + ' — share that code', true);
     joinRoom(d.code);
@@ -296,7 +330,8 @@ function connectMP(name){
      — one tab, two people in the match. Entering multiplayer twice without
      quitting in between (a double-click on the card will do it) was enough. */
   if(socket){ try{ socket.disconnect(); }catch(e){} socket=null; }
-  socket = io({ auth: { tok: clientToken(), room: roomCode() } });
+  const opts = { auth: { tok: clientToken(), room: roomCode() } };
+  socket = MP_SERVER ? io(MP_SERVER, opts) : io(opts);
   socket.on('connect', ()=>{ connected=true; document.getElementById('status').textContent='connected'; socket.emit('state',{name}); });
   socket.on('disconnect', ()=>{ connected=false;
     document.getElementById('status').textContent = roomWasFull ? 'room full' : 'disconnected'; });

@@ -13,6 +13,32 @@ const http = require('http');
 const { Server } = require('socket.io');
 
 const app = express();
+
+/* The client can now be served from somewhere else entirely — a static host
+   that never sleeps, so the menu is up in a second while this box wakes. That
+   makes every call cross-origin, which the browser blocks unless we say
+   otherwise.
+
+   ALLOW_ORIGINS (comma-separated env var) is the allowlist. Unset, any origin
+   is accepted: there is nothing to protect with an origin check here — no
+   cookies, no browser-held session, and the socket's `auth.tok` is sent
+   explicitly by the client rather than attached by the browser, so a hostile
+   page gains nothing it could not get by opening the game itself. Set it once
+   you know your static host's URL and want the game embedded nowhere else. */
+const ALLOW_ORIGINS = (process.env.ALLOW_ORIGINS || '')
+  .split(',').map(s => s.trim()).filter(Boolean);
+const originAllowed = o => !ALLOW_ORIGINS.length || ALLOW_ORIGINS.includes(o);
+
+app.use((req, res, next) => {
+  const o = req.headers.origin;
+  if (o && originAllowed(o)) {
+    res.setHeader('Access-Control-Allow-Origin', o);
+    res.setHeader('Vary', 'Origin');             // or a cache serves one origin's header to all
+  }
+  next();
+});
+/* Still serves the client itself, so `npm start` and the Render box on their
+   own are unchanged — the static host is an addition, not a replacement. */
 app.use(express.static(path.join(__dirname, 'public')));
 /* The lobby reads these before joining anything, so they must work without a
    socket. Listing is the room browser; /rooms/new reserves a fresh code. */
@@ -30,7 +56,9 @@ app.get('/rooms/new', (req, res) => {
   res.json({ code });
 });
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: { origin: (o, cb) => cb(null, originAllowed(o)) },
+});
 
 const PORT = process.env.PORT || 8200;
 

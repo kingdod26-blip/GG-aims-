@@ -15,6 +15,7 @@ GG aims/
 │   └── public/
 │       ├── index.html # markup only (~190 lines)
 │       ├── style.css  # all the styling
+│       ├── config.js  # 0. WHERE THE SERVER IS (runs before core.js)
 │       ├── core.js    # 1. scene, camera, lights, post, graphics settings
 │       ├── world.js   # 2. materials, arena, floor/walls/ceiling, signage
 │       ├── models.js  # 3. box humanoid, weapon models, Spartan, podium
@@ -54,7 +55,35 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
 - GitHub: https://github.com/kingdod26-blip/GG-aims- (private)
 - Live: https://crimson-x.onrender.com
 - `render.yaml` is a Render blueprint; **`git push` auto-deploys**.
-- Free tier sleeps after ~15 min idle (first load ~30–60s).
+- Free tier sleeps after ~15 min idle (first load ~30-60s).
+- **The client can be hosted apart from the server, and should be.** It used
+  to be inseparable: `index.html` pulled `/socket.io/socket.io.js` out of the
+  Node process and `io()` connected same-origin, so a sleeping server was not
+  a slow game, it was a BLANK WHITE PAGE — nothing to render, because the
+  thing serving the page is the thing asleep. On a host that idles after 15
+  minutes nearly every new visitor got that, and a blank tab for 30-60s with
+  no spinner reads as a dead link.
+  `public/config.js` now owns the server address. `MP_SERVER` is `''`
+  (same-origin) on localhost and on any `*.onrender.com` host, so `npm start`
+  and the Node box serving the client on its own are both unchanged whatever
+  the Render service is called; anywhere else it is `SERVER_URL`, the one
+  line to edit. Every call goes through `mpUrl()`, socket.io comes from a CDN
+  pinned to the server's version, and `?server=` overrides the address on a
+  LOCAL page only — on a real one a crafted link could aim a player's client,
+  and the reconnect token it sends, at someone else's server.
+  **To deploy**: upload `mp/public` to Cloudflare Pages, GitHub Pages or a
+  Render static site; leave `mp/` on Render as the game server. The menu is
+  then up in about a second and target practice — which is entirely
+  client-side — is playable while the server wakes behind it.
+  The server allows any origin by default (`ALLOW_ORIGINS`, comma-separated,
+  narrows it). There is nothing an origin check protects here: no cookies, no
+  browser-held session, and `auth.tok` is sent explicitly by the client
+  rather than attached by the browser.
+  `refreshRooms` knocks on `/rooms` at page LOAD rather than on click, and
+  shares the in-flight request, so pressing REFRESH does not queue a second
+  60s wait behind the first. While it is waking the lobby says so with a
+  running count instead of "No rooms yet", which during a cold start
+  describes a game nobody plays rather than a wait that ends.
 - **The service name in `render.yaml` is what the URL is built from, and
   changing it here does not rename the service Render is already running** —
   Render matches blueprint entries by name, so a new name reads as a new
