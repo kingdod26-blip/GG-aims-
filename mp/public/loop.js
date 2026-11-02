@@ -146,7 +146,16 @@ function loop(){ requestAnimationFrame(loop);
           rl: rollT>0 ? +(1-rollT/ROLL.dur).toFixed(3) : 0});   // roll progress, so others see the tumble
       } }
     }
-    if(me.hp<prevHp-0.5) dmgFlash(); prevHp=me.hp;
+    /* The snapshot writes me.hp straight from the server and never tells the
+       HUD, so the number and the bar sat at whatever they last showed until
+       something else happened to call updateHUD() — a weapon switch, a buy, a
+       reload. The red flash came from here and worked, which is what made it
+       look like only the bar was broken. This is the one place that already
+       knows hp moved, so it refreshes from here; guarded on an actual change,
+       because updateHUD does real work and this runs every frame. */
+    if(me.hp<prevHp-0.5) dmgFlash();
+    if(me.hp!==prevHp) updateHUD();
+    prevHp=me.hp;
     drawCompass();
     updateDetectHUD();
     // Camera lean/dip during abilities — this is what sells the transition as

@@ -163,6 +163,18 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   Measured: a pistol arrives with 12, twelve shots empty it, eight more
   change nothing, firing 300ms into a 1200ms reload is refused, and the
   reload lands 12 rounds taking 12 off the reserve.
+- **A snapshot moving `me.hp` does not refresh the HUD by itself.** The
+  snapshot handler writes `me.hp = mine.hp` and nothing else, so the number
+  and the bar sat at whatever they last showed until something unrelated
+  happened to call `updateHUD()` - a weapon switch, a buy, a reload. In
+  multiplayer that is every point of damage you take: the red `dmgFlash()`
+  fired from `loop()` and worked, which made it look as though only the bar
+  was broken. `loop()` now calls `updateHUD()` when `me.hp` differs from
+  `prevHp`, which it already tracked for the flash - the one place that
+  knows hp moved. Guarded on an actual change, because `updateHUD` does real
+  work and this runs every frame. Note it sits after the `document.hidden`
+  early return, so a hidden tab heals on its first visible frame, same as the
+  canvas check.
 - **Damage is server-authoritative** (hitscan, arrows, melee all resolved in
   `server.js`). Movement is client-authoritative — cheatable, accepted tradeoff.
 - **Remote players are predicted, not just smoothed.** The server hit-tests
