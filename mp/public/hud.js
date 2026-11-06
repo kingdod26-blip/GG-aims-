@@ -194,24 +194,40 @@ function updateCrosshair(){ ringOn = null; sizeReticle(); }
    independently), and this is the circle inside it, which holds about 79%
    of them. The circle round the outside would be 41% wider and mostly
    empty. */
-let ringPx = -1, ringOn = null;
-/* The cone this weapon is throwing right now, in radians, or 0 for none. */
-function reticleCone(){
-  const w = curW();
-  if(!w.pellets || training('noSpread')) return 0;
-  return w.spread + (w.adsSpread - w.spread) * Math.min(1, ads / 0.85);
+let ringPx = -1, gapPx = -1, ringOn = null;
+/* Half the cone, in screen pixels: the same projection the shots use, so
+   whatever is drawn is the angle actually being fired. `camera.fov` is read
+   live, which folds in ADS and the sprint widening for free. */
+function conePx(cone){
+  return (innerHeight / 2) * (cone / 2) / Math.tan(camera.fov * Math.PI / 360);
 }
 function sizeReticle(){
   const el = document.getElementById('crosshair'); if(!el) return;
-  const cone = reticleCone(), on = cone > 0;
-  if(on !== ringOn){ el.classList.toggle('spread', on); ringOn = on; }
-  if(!on) return;                               // cross, not ring
-  const r = (innerHeight / 2) * (cone / 2) / Math.tan(camera.fov * Math.PI / 360);
-  // a real but tight cone is still a ring; below this it stops reading as one
-  const px = Math.max(14, Math.round(r * 2));
-  if(px === ringPx) return;                     // runs every frame; don't thrash layout
-  ringPx = px;
-  el.style.setProperty('--ring', px + 'px');
+  const w = curW();
+  const cone = currentCone(w, Math.min(1, ads / 0.85));
+  /* A pellet gun gets a ring: eight pellets land ANYWHERE in the cone, so a
+     point of aim would be a lie. Everything else fires one round down the
+     middle, so it keeps a cross and the cone becomes the gap around it.
+     With spread switched off on the range there is no cone to draw at all,
+     and sizing a zero one just pinned the ring to its floor — a ~6px circle
+     that reads as a broken reticle rather than "this gun has no spread". */
+  const ring = !!w.pellets && cone > 0;
+  if(ring !== ringOn){ el.classList.toggle('spread', ring); ringOn = ring; }
+
+  if(ring){
+    // a real but tight cone is still a ring; below this it stops reading as one
+    const px = Math.max(14, Math.round(conePx(cone) * 2));
+    if(px === ringPx) return;                   // runs every frame; don't thrash layout
+    ringPx = px; el.style.setProperty('--ring', px + 'px');
+    return;
+  }
+  /* The gap from the centre to each arm IS the cone radius, with a 3px floor
+     so the arms never close into a solid plus and swallow the dot. Nothing is
+     exaggerated: a planted pistol sits at the floor, a hip-fired sniper opens
+     to ~14px, and scoping it shuts again. */
+  const px = Math.round(3 + conePx(cone));
+  if(px === gapPx) return;
+  gapPx = px; el.style.setProperty('--gap', px + 'px');
 }
 let toastT;
 function toast(msg){

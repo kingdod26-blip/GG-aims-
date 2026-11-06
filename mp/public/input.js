@@ -255,10 +255,7 @@ function shoot(){
      mid-roll or slide. Peeking with Q/E still counts as planted — leaning
      shifts the body sideways but never touches me.hv, so that falls out
      for free rather than needing a special case. */
-  const planted = me.hv.length() < STEADY_SPEED && me.onGround && rollT <= 0 && slideT <= 0;
-  const cone    = (w.steady && planted) ? 0 : w.spread;
-  const adsCone = (w.steady && planted) ? 0 : w.adsSpread;
-  const spread = training('noSpread') ? 0 : cone + (adsCone - cone)*aimK;
+  const spread = currentCone(w, aimK);   // shared with the reticle, see weapons.js
   const o=camera.position.clone();
   const pellets = w.pellets || 1;                            // shotgun fires several
   for(let p=0;p<pellets;p++){

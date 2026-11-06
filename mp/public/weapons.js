@@ -37,6 +37,28 @@ const REMOTE_EASE = 22, REMOTE_PREDICT = 0.22;
    Peeking with Q/E deliberately still counts as planted — leaning shifts
    the body sideways but never touches me.hv, so it falls out for free. */
 const STEADY_SPEED = 0.1;          // m/s below which you count as stopped
+/* The cone this weapon is throwing RIGHT NOW, in radians.
+
+   One definition, because there are two callers: the shot itself and the
+   reticle that claims to show it. Written twice they drift, and a reticle
+   that disagrees with the bullet is worse than no reticle - you cannot see
+   that it is lying, you just miss.
+
+   `aimK` is the ADS blend, `min(1, ads/0.85)`: the scope overlay appears at
+   0.85, so accuracy has to arrive with it rather than at the end of the
+   zoom. A `steady` weapon is pinpoint while planted - stopped, grounded,
+   not mid-roll or slide. Peeking with Q/E still counts, because leaning
+   never writes me.hv. */
+function isPlanted(){
+  return me.hv.length() < STEADY_SPEED && me.onGround && rollT <= 0 && slideT <= 0;
+}
+function currentCone(w, aimK){
+  if(!w || training('noSpread')) return 0;
+  const steady = w.steady && isPlanted();
+  const hip = steady ? 0 : (w.spread || 0);
+  const aim = steady ? 0 : (w.adsSpread || 0);
+  return hip + (aim - hip) * aimK;
+}
 
 
 const LEAN = { angle:0.16, offset:0.45, rate:9 };

@@ -14,22 +14,37 @@
   * { margin:0; padding:0; box-sizing:border-box; }
   html,body { width:100%; height:100%; overflow:hidden; background:#0a0709; font-family:'Segoe UI',Arial,sans-serif; }
   #game { display:block; width:100%; height:100%; }
-  #crosshair { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:10; display:none; }
-  #crosshair::before,#crosshair::after { content:''; position:absolute; background:rgba(39,255,158,.9); box-shadow:0 0 3px #000; }
-  /* 1px arms rather than 2: a thinner cross covers less of a distant target */
-  #crosshair::before { width:1px; height:14px; left:-0.5px; top:-7px; }
-  #crosshair::after  { height:1px; width:14px; top:-0.5px; left:-7px; }
+  /* Four arms around a centre dot, and the GAP between them is the cone the
+     weapon is throwing — `--gap` is set every frame by `sizeReticle()`.
+     #crosshair has no size of its own, so an absolutely positioned child at
+     left:0/top:0 sits on the viewport centre and everything is measured from
+     there. Arms are 2px so they read against the arena; the dot is what you
+     actually aim with. */
+  #crosshair { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+               pointer-events:none; z-index:10; display:none; --gap:6px; }
+  #crosshair i { position:absolute; display:block; background:rgba(39,255,158,.9);
+                 box-shadow:0 0 3px #000; }
+  #crosshair .ct, #crosshair .cb { width:2px; height:7px; left:-1px; }
+  #crosshair .cl, #crosshair .cr { height:2px; width:7px; top:-1px; }
+  #crosshair .ct { top:calc(0px - var(--gap) - 7px); }
+  #crosshair .cb { top:var(--gap); }
+  #crosshair .cl { left:calc(0px - var(--gap) - 7px); }
+  #crosshair .cr { left:var(--gap); }
+  #crosshair .cdot { width:3px; height:3px; left:-1.5px; top:-1.5px; border-radius:50%; }
   /* Shotguns throw a cone, so they get a ring rather than a cross — the
      circle reads as "anywhere in here" instead of a point of aim. Its size
      comes from JS (`sizeReticle`), because the cone is an ANGLE: how wide it
      lands on screen depends on the FOV and the window height, neither of
      which a constant can know. The fallback is the old fixed value. */
+  #crosshair.spread i { display:none; }        /* ring instead of arms */
   #crosshair.spread::before, #crosshair.spread::after {
+    content:''; position:absolute;
     width:var(--ring,34px); height:var(--ring,34px);
     left:calc(var(--ring,34px) / -2); top:calc(var(--ring,34px) / -2); background:none;
     border:2px solid rgba(39,255,158,.9); border-radius:50%; box-shadow:0 0 3px #000; }
   #crosshair.spread::after { width:3px; height:3px; left:-1.5px; top:-1.5px;
-    background:rgba(39,255,158,.9); border:none; border-radius:50%; }
+    background:rgba(39,255,158,.9); border:none; border-radius:50%;
+    box-shadow:0 0 3px #000; }
   #hitmarker { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) rotate(45deg); z-index:11; opacity:0; pointer-events:none; }
   #hitmarker::before,#hitmarker::after { content:''; position:absolute; background:#fff; }
   #hitmarker::before { width:2px; height:10px; left:-1px; top:-5px; }

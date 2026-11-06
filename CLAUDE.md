@@ -361,6 +361,24 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   frame and re-runs `applySettings()` when they differ. Do not assume the
   listener is enough. Note the check sits after the `document.hidden` early
   return, so a hidden tab heals on its first visible frame.
+- **The reticle is four arms round a dot, and the GAP is the cone.** Every
+  weapon except a pellet gun fires one round down the middle, so it keeps a
+  point of aim and the spread is shown by how far the arms sit off it:
+  `--gap` is the cone RADIUS in pixels plus a 3px floor, so the arms never
+  close into a solid plus and swallow the dot. Nothing is exaggerated. A
+  planted pistol sits at the floor (3px), walking opens it to 5, a rifle hip
+  is 6 against 5 scoped, and a hip-fired sniper yawns to 14 before the scope
+  shuts it to 5 — which is the honest picture of a weapon that is 0.05 rad
+  from the hip and 0.0015 scoped. A pellet gun still gets the ring instead,
+  because eight pellets land ANYWHERE in the cone and a point of aim would
+  be a lie.
+  `currentCone(w, aimK)` in `weapons.js` is the ONE definition, used by the
+  shot and by the reticle. It was written twice — `shoot()` had its own
+  `planted` test and spread blend — and two copies of a rule like that drift;
+  a reticle that disagrees with the bullet is worse than none, because you
+  cannot see it lying, you just miss. Measured after the merge: the max
+  deviation of 400 shots lands on the square's corner (half-cone x sqrt2) for
+  every weapon and state, and a planted pistol is exactly 0.
 - **The shotgun ring IS the cone, measured, not a constant.** It was a flat
   34px. Spread is an ANGLE, so how wide it lands on screen scales with the
   window height and shrinks as the FOV narrows — 34px was tuned while ADS at
