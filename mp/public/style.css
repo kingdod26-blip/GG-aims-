@@ -18,19 +18,20 @@
      weapon is throwing — `--gap` is set every frame by `sizeReticle()`.
      #crosshair has no size of its own, so an absolutely positioned child at
      left:0/top:0 sits on the viewport centre and everything is measured from
-     there. Arms are 2px so they read against the arena; the dot is what you
-     actually aim with. */
+     there. Arms are 1px: a thinner mark covers less of a distant target,
+     which is the whole point of aiming with it. The black box-shadow is what
+     keeps them visible against a bright wall, not their width. */
   #crosshair { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
                pointer-events:none; z-index:10; display:none; --gap:6px; }
   #crosshair i { position:absolute; display:block; background:rgba(39,255,158,.9);
                  box-shadow:0 0 3px #000; }
-  #crosshair .ct, #crosshair .cb { width:2px; height:7px; left:-1px; }
-  #crosshair .cl, #crosshair .cr { height:2px; width:7px; top:-1px; }
+  #crosshair .ct, #crosshair .cb { width:1px; height:7px; left:-0.5px; }
+  #crosshair .cl, #crosshair .cr { height:1px; width:7px; top:-0.5px; }
   #crosshair .ct { top:calc(0px - var(--gap) - 7px); }
   #crosshair .cb { top:var(--gap); }
   #crosshair .cl { left:calc(0px - var(--gap) - 7px); }
   #crosshair .cr { left:var(--gap); }
-  #crosshair .cdot { width:3px; height:3px; left:-1.5px; top:-1.5px; border-radius:50%; }
+  #crosshair .cdot { width:2px; height:2px; left:-1px; top:-1px; border-radius:50%; }
   /* Shotguns throw a cone, so they get a ring rather than a cross — the
      circle reads as "anywhere in here" instead of a point of aim. Its size
      comes from JS (`sizeReticle`), because the cone is an ANGLE: how wide it
