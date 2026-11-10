@@ -123,7 +123,7 @@ function loop(){ requestAnimationFrame(loop);
   }
   let dt=(performance.now()-last)/1000; last=performance.now(); dt=Math.min(dt,0.05);
   // the cooldown tiles tick down between events, so they are a frame job
-  if(gameState==='playing'){ updateCooldowns(); sizeReticle(); }
+  if(gameState==='playing'){ updateCooldowns(); sizeReticle(); updateHurtMarks(); }
   // fps readout
   fpsAcc+=dt; fpsFrames++;
   if(fpsAcc>=0.5){ fpsShown=Math.round(fpsFrames/fpsAcc); fpsAcc=0; fpsFrames=0;
@@ -203,6 +203,8 @@ function loop(){ requestAnimationFrame(loop);
     camera.position.set(me.x + rgtX*off, eyeY, me.z + rgtZ*off);
     // right lean rolls negative, matching the sign the dodge roll already uses
     camera.rotation.order='YXZ'; camera.rotation.set(me.pitch,me.yaw,camRoll - leanAmt*LEAN.angle);
+    // eliminated in a match: ride behind a survivor instead (session.js)
+    if(gameMode==='mp' && !me.alive) spectateCamera(dt); else spectateOff();
     // --- ADS (right-click aim): smooth zoom, tightened aim, scope on sniper ---
     ads += (((aiming && me.alive) ? 1 : 0) - ads) * Math.min(1, dt*10);
     // sprint widens the view a touch — the cue that tells you you're sprinting
@@ -213,7 +215,7 @@ function loop(){ requestAnimationFrame(loop);
     const scoped = curW().scope && ads > 0.85;
     document.getElementById('scope').style.display = scoped ? 'block' : 'none';
     document.getElementById('crosshair').style.opacity = ads > 0.5 ? 0 : 1;
-    gun.visible = !scoped;                        // scope view hides the gun
+    gun.visible = !scoped && !specOn;             // scope view hides the gun; so does watching someone else
 
     gunKick=Math.max(0,gunKick-dt*6);
     // reload animation: gun swings down + tilts through the reload, then returns.

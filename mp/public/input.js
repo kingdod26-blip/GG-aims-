@@ -115,7 +115,10 @@ document.addEventListener('pointerlockchange',()=>{
     openPause();
   }
 });
-canvas.addEventListener('click',()=>{ if(gameState==='playing' && me.alive && !pointerLocked) lockPointer(); });
+canvas.addEventListener('click',()=>{
+  if(gameState==='playing' && me.alive && !pointerLocked) lockPointer();
+  else if(gameState==='playing' && specOn) cycleSpectate(1);     // eliminated: next survivor
+});
 
 /* ---- Shooting ---- */
 const _ray = new THREE.Raycaster();

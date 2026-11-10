@@ -39,6 +39,44 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
     document.getElementById('modeLbl').textContent = w.name+' · '+w.mode;
   }
   document.getElementById('stanceVal').textContent = me.stance.toUpperCase().replace('STAND','STANDING').replace('CROUCH','CROUCHING').replace('PRONE','PRONE'); }
+/* Damage direction. The server tells the victim where each hit came from;
+   an arc round the crosshair points that way and fades over HURT.ms.
+
+   The angle is recomputed every frame from where you are and which way you
+   are facing NOW, so the arc stays pinned to the attacker as you turn toward
+   them — a mark that froze at the angle it was hit from would point at
+   nothing the moment you reacted. A second hit from about the same place
+   refreshes its arc instead of stacking another on top. */
+const HURT = { ms: 1500, max: 3, same: 4 };
+const hurtMarks = [];                       // { x, z, until, el }
+function hurtFrom(x, z){
+  const now = performance.now();
+  let m = hurtMarks.find(h => Math.hypot(h.x - x, h.z - z) < HURT.same);
+  if(!m){
+    if(hurtMarks.length < HURT.max){
+      const el = document.createElement('div'); el.className = 'hurtarc';
+      document.getElementById('hurtDir').appendChild(el);
+      m = { el }; hurtMarks.push(m);
+    } else m = hurtMarks.reduce((a, b) => a.until < b.until ? a : b);   // reuse the oldest
+  }
+  m.x = x; m.z = z; m.until = now + HURT.ms;
+}
+function updateHurtMarks(){
+  if(!hurtMarks.length) return;
+  const now = performance.now();
+  const sin = Math.sin(me.yaw), cos = Math.cos(me.yaw);
+  for(const m of hurtMarks){
+    const left = m.until - now;
+    if(left <= 0 || !me.alive){ if(m.shown !== 0){ m.el.style.opacity = 0; m.shown = 0; } continue; }
+    const dx = m.x - me.x, dz = m.z - me.z;
+    // forward is (-sin, -cos), right is (cos, -sin); clockwise from straight ahead
+    const ang = Math.atan2(dx*cos - dz*sin, -dx*sin - dz*cos);
+    m.el.style.transform = 'rotate(' + ang.toFixed(3) + 'rad)';
+    m.el.style.opacity = Math.min(1, left / 500).toFixed(2);   // hold, then fade the last half second
+    m.shown = 1;
+  }
+}
+
 /* The three ability tiles beside the ammo.
 
    Driven from loop() rather than updateHUD(), which only runs on events -

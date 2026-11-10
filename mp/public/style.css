@@ -131,6 +131,27 @@
          font-size:12px; font-weight:800; line-height:20px; text-align:center;
          box-shadow:0 1px 5px rgba(0,0,0,.7); }
   .cd.cool .cdn { background:rgba(70,70,76,.95); }
+  /* Where the damage came from. Each arc is a slice of a ring centred on the
+     crosshair, rotated to point at the attacker: a conic gradient paints a
+     56-degree wedge at the top and a radial mask keeps only its rim. A
+     one-sided border would be simpler but always spans 90 degrees, which is
+     a quarter of the compass - too vague to turn toward. Red rather than the
+     brand's lighter crimson tints: this one has to read as "hurt". */
+  #hurtDir { position:fixed; top:50%; left:50%; width:0; height:0; z-index:9; pointer-events:none; }
+  .hurtarc { position:absolute; left:-120px; top:-120px; width:240px; height:240px; border-radius:50%;
+             background:conic-gradient(from -28deg, rgba(255,40,60,.95) 0deg 56deg, transparent 56deg);
+             -webkit-mask:radial-gradient(circle, transparent 108px, #000 109px 119px, transparent 120px);
+                     mask:radial-gradient(circle, transparent 108px, #000 109px 119px, transparent 120px);
+             filter:drop-shadow(0 0 7px rgba(255,0,30,.7)); opacity:0; }
+  /* who you are watching while eliminated */
+  #specTag { position:fixed; left:50%; bottom:104px; transform:translateX(-50%); z-index:11; display:none;
+             padding:7px 16px; border-radius:9px; font-size:11px; letter-spacing:3px; font-weight:600;
+             color:var(--t2); background:rgba(10,7,9,.6); border:1px solid rgba(255,255,255,.14);
+             pointer-events:none; white-space:nowrap; }
+  #specTag b { color:#fff; letter-spacing:2px; }
+  /* it is not your aim any more, and a reticle over someone else's back
+     suggests you can shoot */
+  .spectating #crosshair { display:none !important; }
   #compass { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:10; opacity:.85; }
   #stance { position:fixed; bottom:64px; left:50%; transform:translateX(-50%); z-index:10; color:rgba(255,255,255,.75); font-size:11px; letter-spacing:4px; font-weight:600; text-shadow:0 1px 4px rgba(0,0,0,.8); }
   #stance b { color:#fff; }

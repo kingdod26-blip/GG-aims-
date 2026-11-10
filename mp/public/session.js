@@ -404,7 +404,15 @@ function connectMP(name){
     if(s) onSnapshot(s);                 // null until the roster has landed
   });
   socket.on('shot', d=> addTracer(new THREE.Vector3(d.ox,d.oy,d.oz), new THREE.Vector3(d.dx,d.dy,d.dz), d.len));
-  socket.on('impact', d=> hitmark(d && d.zone));
+  /* Only your own hits get a marker. `impact` reaches the whole room, and
+     marking all of them showed you other people's fights and your own
+     wounds. Bolts and the blade send no zone, so a bolt's is rebuilt from
+     its head flag — its two hitboxes are exactly head and body. */
+  socket.on('impact', d=>{
+    if(!d || d.by !== myId) return;
+    hitmark(d.zone || (d.fire ? (d.head ? 'head' : 'torso') : undefined));
+  });
+  socket.on('hurt', d=>{ if(d) hurtFrom(d.x, d.z); });
   socket.on('groundfire', d=> spawnGroundFire(d.x, d.y||0, d.z));
   socket.on('smoke', d=> spawnSmoke(d.x, d.y||0, d.z, d.by));
   // the server decides the cash; ammo is ours to refill
@@ -450,6 +458,71 @@ function connectMP(name){
 /* The eliminated banner: loud for a moment, then it gets out of the way so
    you can actually watch the rest of the round. */
 let eliminatedTimer = 0;
+/* ---- Spectating ----
+   Death is elimination: you are out until the round ends, which can be a
+   minute of looking at the patch of floor you fell on. Instead the camera
+   rides behind whoever is still alive, and a click moves to the next one.
+
+   It is a chase camera, not their eyes, on purpose. The snapshot carries a
+   player's yaw but not their pitch, so a first-person view would stare at
+   the horizon while they shot at something above or below it; adding pitch
+   means a byte per player per tick and a protocol bump. From behind the
+   shoulder yaw is all the view needs, and you get to see the model.
+
+   The camera is eased toward its spot rather than welded to it, because the
+   target is itself a predicted, eased remote player — riding that directly
+   passes every correction straight to your eyes. It is pulled in along its
+   own line when a wall is in the way, so it never ends up outside the map
+   looking at the back of a texture. */
+const SPEC = { back: 3.4, up: 0.9, side: 0.55, ease: 9 };
+let specId = null, specOn = false, specFresh = true, specShown = '';
+const specPos = new THREE.Vector3();
+const _specHead = new THREE.Vector3(), _specWant = new THREE.Vector3(), _specDir = new THREE.Vector3();
+function specTargets(){ return [...others.values()].filter(o => o.alive); }
+function specTarget(){
+  const list = specTargets();
+  if(!list.length){ specId = null; return null; }
+  let o = list.find(x => x.id === specId);
+  if(!o){ o = list[0]; specId = o.id; specFresh = true; }   // first look, or the one we watched just died
+  return o;
+}
+function cycleSpectate(dir){
+  const list = specTargets(); if(list.length < 2) return;
+  const at = list.findIndex(o => o.id === specId);
+  specId = list[(at + dir + list.length) % list.length].id; specFresh = true;
+}
+function specLabel(text){
+  if(text === specShown) return;
+  specShown = text;
+  const tag = document.getElementById('specTag');
+  tag.innerHTML = text; tag.style.display = text ? 'block' : 'none';
+  document.body.classList.toggle('spectating', !!text);   // hides your own reticle, see style.css
+}
+function spectateOff(){ if(specOn || specShown){ specOn = false; specFresh = true; specLabel(''); } }
+function spectateCamera(dt){
+  const o = specTarget();
+  if(!o){ spectateOff(); return; }          // nobody left standing: stay where we fell
+  const x = o.bx !== undefined ? o.bx : o.tx, y = o.by !== undefined ? o.by : (o.ty || 0),
+        z = o.bz !== undefined ? o.bz : o.tz;
+  const look = o.mesh.rotation.y - Math.PI;                 // models face +Z, a look yaw means -Z
+  const fx = -Math.sin(look), fz = -Math.cos(look);
+  const eye = [1.6, 1.05, 0.5][o.tst || 0];
+  _specHead.set(x, y + eye, z);
+  _specWant.set(x - fx*SPEC.back + Math.cos(look)*SPEC.side, y + eye + SPEC.up,
+                z - fz*SPEC.back - Math.sin(look)*SPEC.side);
+  _specDir.copy(_specWant).sub(_specHead);
+  const len = _specDir.length(); _specDir.divideScalar(len);
+  _ray.set(_specHead, _specDir); _ray.far = len;
+  const hit = _ray.intersectObjects(wallMeshes, false)[0];
+  if(hit) _specWant.copy(_specHead).addScaledVector(_specDir, Math.max(0.3, hit.distance - 0.3));
+  if(specFresh){ specPos.copy(_specWant); specFresh = false; }
+  else specPos.lerp(_specWant, 1 - Math.exp(-SPEC.ease*dt));
+  camera.position.copy(specPos);
+  camera.lookAt(x + fx*6, y + eye*0.9, z + fz*6);
+  specOn = true;
+  specLabel('SPECTATING <b>' + esc(o.name || 'PLAYER') + '</b>'
+            + (specTargets().length > 1 ? ' · CLICK FOR NEXT' : ''));
+}
 function showEliminated(on){
   const el = document.getElementById('respawn');
   clearTimeout(eliminatedTimer);
@@ -595,7 +668,7 @@ function onSnapshot(s){
     // look direction — without this, remote players appear to run backwards.
     o.tx=p.x; o.tz=p.z; o.ty=p.y||0; o.tyaw=p.yaw+Math.PI; o.tst=p.st||0; o.trl=p.rl||0;
     o.tlo=p.lo||0;                    // how far they are peeking out of cover
-    o.tburn=!!p.bn; o.mesh.visible=p.alive;
+    o.tburn=!!p.bn; o.mesh.visible=p.alive; o.alive=!!p.alive; o.name=p.name;
     o.wins=p.wins||0;
     o.markedBy = p.mk || null; }       // set only while the tag is live
   for (const [id,o] of others){ if(!seen.has(id)){ clearMark(o); clearBurnFx(o); scene.remove(o.mesh); others.delete(id); } }

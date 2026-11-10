@@ -1045,8 +1045,14 @@ io.on('connection', (socket) => {
       const dealt = dmg * best.mult;
       const tgt = best.target.ref;
       tgt.hp -= dealt;
+      /* `by` says whose hit this was. The event goes to the whole room, and
+         the client used to flash a hit marker on EVERY one of them — so you
+         got a marker for other people's fights, and for being shot yourself.
+         `hurt` goes to the victim alone and carries where it came from, which
+         is what turns "the screen went red" into "from over there". */
       io.to(room.id).emit('impact', { x: o.x + dir.x*best.t, y: o.y + dir.y*best.t, z: o.z + dir.z*best.t,
-                          head: best.head, zone: best.zone });
+                          head: best.head, zone: best.zone, by: p.id });
+      if (best.target.kind === 'player') io.to(tgt.id).emit('hurt', { x: p.x, z: p.z });
       if (tgt.hp <= 0 && tgt.alive) {
         eliminate(tgt, best.target.kind === 'player');
         p.kills++;
@@ -1141,7 +1147,8 @@ io.on('connection', (socket) => {
     const step = Math.min(p.comboStep || 0, MELEE.combo.length-1);
     const t = best.ref, isPlayer = best.kind === 'player';
     t.hp -= MELEE.combo[step];
-    io.to(room.id).emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false });
+    io.to(room.id).emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false, by: p.id });
+    if (isPlayer) io.to(t.id).emit('hurt', { x: p.x, z: p.z });
     p.comboStep = (step + 1) % MELEE.combo.length;
     p.comboUntil = now + MELEE.windowMs;
     if (t.hp <= 0 && t.alive) {
@@ -1273,7 +1280,8 @@ function igniteTarget(room, hit, byId, now) {
   t.burnUntil = now + XBOW.burnMs; t.burnNext = now + 1000; t.burnBy = byId;
   t.burnRate = XBOW.burnDps;
   const shooter = players.get(byId);
-  io.to(room.id).emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head, fire:true });
+  io.to(room.id).emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head, fire:true, by: byId });
+  if (shooter && isPlayer) io.to(t.id).emit('hurt', { x: shooter.x, z: shooter.z });
   dropFire(room, t.x, t.y || 0, t.z, byId, now);   // pool at their feet
   if (t.hp <= 0 && t.alive) {
     eliminate(t, isPlayer);
