@@ -20,7 +20,7 @@ let stepDist=0, stepLeft=false;    // footstep pacing (distance-based)
    stop is 0.25m in about 0.13s. Still an ease, so it does not feel like
    hitting a wall; just one you can count on. */
 const COAST_RATE = 28, STOP_SNAP = 0.2;
-const AIM_GAP = 0.006;             // metres the gun's top sits below the eye line at full ADS
+const AIM_GAP = 0;                 // metres the gun's top sits below the eye line at full ADS: none, the tip meets the dot
 const REMOTE_STRIDE = 2.3;         // metres between another player's audible footsteps
 function movePlayer(dt){
   const st=STANCE[me.stance];

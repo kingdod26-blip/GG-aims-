@@ -442,11 +442,15 @@ repointed). Kill a stuck server with `taskkill //F //IM node.exe`. The server ca
   poses give way while aiming, and ADS recoil is gentler (rotation
   `1-ads*0.85`, kick-back `0.1-0.06*ads`).
   **Aiming is iron-sight style:** a red-dot gun comes all the way up to the
-  eye, its top `AIM_GAP` (6mm) below the eye line, so you look straight down
-  the barrel and the dot sits on the far end like the tip of a front sight.
-  `aimTop` is the gun's highest point, MEASURED per model in `models.js` on
-  load — rifle 0.074, shotgun 0.015, pistols ~0.085 — because one guessed
-  height floats one gun and buries another.
+  eye, so you look straight down the barrel and the front sight's tip meets
+  the dot. `aimTop` is the gun's top ALONG ITS CENTRELINE — the highest
+  vertex within 4mm of it, found by `centrelineTop` in `models.js` at load.
+  A point lands on the screen's centre row exactly when it is level with the
+  eye, whatever its distance, so the right number is the top of the slice
+  the centre column looks down — not the bounding box, which a lever or a
+  rear sight off to the side can set. `AIM_GAP` is 0: a 6mm gap plus the box
+  top left the tip 7-9px under the dot on every gun. Measured by marching
+  rays down the centre column: 0.5px on all four now.
 - **ADS accuracy arrives when the scope does.** The spread blended linearly
   with `ads`, but the scope overlay appears at `ads > 0.85`, where the sniper
   was still at 0.0088 — six times its aimed cone. Scoped HEADSHOTS were 59%

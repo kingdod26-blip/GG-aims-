@@ -64,6 +64,25 @@ fbxTexMgr.setURLModifier(u=> MISSING_TEX.test(u) ? BLANK_PX : u);
 /* Generic weapon-model loader: normalize size, center, auto-orient long axis
    forward (plus per-model ry flip, and an optional rx to lay an upright model
    down), then drop into its slot. */
+/* Highest vertex within `band` metres of the holder's centreline, in the
+   space of the holder's parent (the weapon slot, which sits at the gun
+   origin). Falls back when a model has no vertices in the slice. */
+function centrelineTop(holder, fallback, band = 0.004){
+  holder.updateMatrixWorld(true);
+  const toSlot = new THREE.Matrix4().copy(holder.parent.matrixWorld).invert();
+  const m = new THREE.Matrix4(), v = new THREE.Vector3();
+  const cx = holder.position.x; let top = -Infinity;
+  holder.traverse(o=>{
+    const pos = o.isMesh && o.geometry && o.geometry.attributes.position;
+    if(!pos) return;
+    m.multiplyMatrices(toSlot, o.matrixWorld);
+    for(let k = 0; k < pos.count; k++){
+      v.fromBufferAttribute(pos, k).applyMatrix4(m);
+      if(Math.abs(v.x - cx) < band && v.y > top) top = v.y;
+    }
+  });
+  return top > -Infinity ? top : fallback;
+}
 function fitWeaponModel(model, tune){
   model.traverse(o=>{ if(o.isMesh){ o.castShadow=false; o.frustumCulled=false;
     // There is no environment map in this scene by design, and metal with
@@ -89,12 +108,18 @@ WEAPON_MODELS.forEach((wm,i)=>{
     const { holder, size } = fitWeaponModel(model, wm);
     while(weaponHolders[i].children.length) weaponHolders[i].remove(weaponHolders[i].children[0]);
     weaponHolders[i].add(holder);
-    /* Highest point of this gun in gun-local space. Aiming lifts the gun so
-       this sits on your eye line and you look straight down the top of it.
-       Measured per model, since the four aimable guns are four different
-       heights. fitWeaponModel centres the model at the holder and only turns
-       it about Y, so the top is half its scaled height above the holder. */
-    WEAPONS[i].aimTop = holder.position.y + size.y * (wm.len / Math.max(size.x, size.y, size.z)) / 2;
+    /* The top of this gun ALONG ITS CENTRELINE, in gun-local space. Aiming
+       lifts the gun so this sits exactly on the eye line, which puts the tip
+       of the front sight on the dot.
+       It used to be the bounding box's top, and that left a 7-9px gap under
+       the dot on every gun: the highest point of a model is not necessarily
+       the part directly beneath the aim point - a lever or a rear sight off
+       to one side sets the box. A point lands on the centre ROW of the
+       screen exactly when it is level with the eye, whatever its distance,
+       so what matters is the highest vertex in the thin slice of the model
+       that the centre COLUMN looks down. One pass over the vertices at load. */
+    WEAPONS[i].aimTop = centrelineTop(holder,
+      holder.position.y + size.y * (wm.len / Math.max(size.x, size.y, size.z)) / 2);
     console.log(`[CrimsonX] weapon ${i+1} loaded (${wm.url}), raw size`, size.toArray().map(n=>+n.toFixed(1)));
   };
   const onErr = (err)=> console.warn(`[CrimsonX] weapon model failed: ${wm.url}`, err);
