@@ -154,7 +154,7 @@ const redDot = new THREE.Group();
   const mk = (r, op) => { const m = new THREE.Mesh(new THREE.CircleGeometry(r, 20),
     new THREE.MeshBasicMaterial({ color:0xff2238, transparent:true, opacity:op, depthTest:false, depthWrite:false }));
     m.renderOrder = 1002; return m; };
-  redDot.add(mk(0.0034, 0.28), mk(0.0013, 1));
+  redDot.add(mk(0.0019, 0.28), mk(0.0008, 1));     // ~3px core, faint 7px halo at 768 high
   redDot.position.set(0, 0, -0.32); redDot.visible = false; camera.add(redDot);
 })();
 
