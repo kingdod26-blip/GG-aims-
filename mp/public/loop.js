@@ -20,6 +20,7 @@ let stepDist=0, stepLeft=false;    // footstep pacing (distance-based)
    stop is 0.25m in about 0.13s. Still an ease, so it does not feel like
    hitting a wall; just one you can count on. */
 const COAST_RATE = 28, STOP_SNAP = 0.2;
+const AIM_GAP = 0.006;             // metres the gun's top sits below the eye line at full ADS
 const REMOTE_STRIDE = 2.3;         // metres between another player's audible footsteps
 function movePlayer(dt){
   const st=STANCE[me.stance];
@@ -240,8 +241,17 @@ function loop(){ requestAnimationFrame(loop);
     const sx = (-0.06*stanceAmt + 0.10*sp)*(1-ads);
     const sy = (-0.10*stanceAmt - 0.09*sp)*(1-ads);
     const sr = ( 0.30*stanceAmt + 0.45*sp)*(1-ads); // roll/tilt
-    // base pose slides toward screen center while aiming
-    const bx=0.3*(1-ads), by=-0.28+0.07*ads, bz=-0.55+0.12*ads;
+    /* Base pose slides toward the screen centre while aiming. A red-dot gun
+       comes all the way up to the eye: centred on its own centreline, with
+       its top AIM_GAP below the eye line, so you look straight down the
+       barrel and the dot sits just above the far end of it, like the tip of
+       a front sight. A horizontal line just below the eye projects closest to
+       centre at its far end, which is what gives the down-the-barrel look.
+       Everything else keeps the old, lower pose. */
+    const w = curW();
+    const adsX = w.redDot ? -0.02 : 0;                       // the model sits 0.02 right of the holder
+    const adsY = w.redDot ? -((w.aimTop !== undefined ? w.aimTop : 0.06) + AIM_GAP) : -0.21;
+    const bx = 0.3 + (adsX - 0.3)*ads, by = -0.28 + (adsY + 0.28)*ads, bz = -0.55 + 0.12*ads;
     // tuck the weapon down and in while rolling — you don't run a somersault
     // with the gun still levelled at the horizon
     const tuck = ROLL.tuck*rollPunch;

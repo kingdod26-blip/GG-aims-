@@ -441,6 +441,12 @@ repointed). Kill a stuck server with `taskkill //F //IM node.exe`. The server ca
   `ads > 0.82` and not reloading, rolling or spectating. Stance and sprint
   poses give way while aiming, and ADS recoil is gentler (rotation
   `1-ads*0.85`, kick-back `0.1-0.06*ads`).
+  **Aiming is iron-sight style:** a red-dot gun comes all the way up to the
+  eye, its top `AIM_GAP` (6mm) below the eye line, so you look straight down
+  the barrel and the dot sits on the far end like the tip of a front sight.
+  `aimTop` is the gun's highest point, MEASURED per model in `models.js` on
+  load — rifle 0.074, shotgun 0.015, pistols ~0.085 — because one guessed
+  height floats one gun and buries another.
 - **ADS accuracy arrives when the scope does.** The spread blended linearly
   with `ads`, but the scope overlay appears at `ads > 0.85`, where the sniper
   was still at 0.0088 — six times its aimed cone. Scoped HEADSHOTS were 59%

@@ -89,6 +89,12 @@ WEAPON_MODELS.forEach((wm,i)=>{
     const { holder, size } = fitWeaponModel(model, wm);
     while(weaponHolders[i].children.length) weaponHolders[i].remove(weaponHolders[i].children[0]);
     weaponHolders[i].add(holder);
+    /* Highest point of this gun in gun-local space. Aiming lifts the gun so
+       this sits on your eye line and you look straight down the top of it.
+       Measured per model, since the four aimable guns are four different
+       heights. fitWeaponModel centres the model at the holder and only turns
+       it about Y, so the top is half its scaled height above the holder. */
+    WEAPONS[i].aimTop = holder.position.y + size.y * (wm.len / Math.max(size.x, size.y, size.z)) / 2;
     console.log(`[CrimsonX] weapon ${i+1} loaded (${wm.url}), raw size`, size.toArray().map(n=>+n.toFixed(1)));
   };
   const onErr = (err)=> console.warn(`[CrimsonX] weapon model failed: ${wm.url}`, err);
