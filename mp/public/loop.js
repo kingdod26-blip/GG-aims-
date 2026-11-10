@@ -12,6 +12,14 @@
 
 /* ---- Movement + vertical collision (stand on crates) ---- */
 let stepDist=0, stepLeft=false;    // footstep pacing (distance-based)
+/* How hard you stop when the keys come up. This was rate 12 with a snap at
+   0.02 m/s: from a 7 m/s run you coasted 0.58m over half a second, which read
+   as sliding on ice — and since a `steady` weapon is only pinpoint once you
+   are under STEADY_SPEED, it also kept the pistols inaccurate for that whole
+   half second after you had let go. At 28 with a snap at 0.2 m/s the same
+   stop is 0.25m in about 0.13s. Still an ease, so it does not feel like
+   hitting a wall; just one you can count on. */
+const COAST_RATE = 28, STOP_SNAP = 0.2;
 function movePlayer(dt){
   const st=STANCE[me.stance];
   me.eyeH += (st.eye-me.eyeH)*Math.min(1,dt*12);
@@ -41,9 +49,13 @@ function movePlayer(dt){
     if(slideT===0) me.stance='stand';            // pop back up on your feet
   } else if(mv.lengthSq()>0){
     want.copy(mv).normalize().multiplyScalar(spd);
-  } else rate=12;                                // coast to a stop
+  } else rate=COAST_RATE;                        // keys released: stop
   me.hv.lerp(want, 1-Math.exp(-rate*dt));        // frame-rate independent easing
-  if(me.hv.lengthSq()<4e-4) me.hv.set(0,0,0);
+  /* Stopping is an exponential ease, so its tail never truly ends by itself;
+     this is where it gets cut off. It only applies while you are trying to
+     stop (nothing wanted), or it would fight the first frames of pulling
+     away from a standstill. */
+  if(want.lengthSq()===0 && me.hv.lengthSq()<STOP_SNAP*STOP_SNAP) me.hv.set(0,0,0);
   me.x+=me.hv.x*dt; me.z+=me.hv.z*dt;
   // footsteps: fire on distance travelled, so pace matches actual speed/stance
   if(me.hv.lengthSq()>1 && me.onGround){
