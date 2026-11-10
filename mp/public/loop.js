@@ -20,6 +20,7 @@ let stepDist=0, stepLeft=false;    // footstep pacing (distance-based)
    stop is 0.25m in about 0.13s. Still an ease, so it does not feel like
    hitting a wall; just one you can count on. */
 const COAST_RATE = 28, STOP_SNAP = 0.2;
+const REMOTE_STRIDE = 2.3;         // metres between another player's audible footsteps
 function movePlayer(dt){
   const st=STANCE[me.stance];
   me.eyeH += (st.eye-me.eyeH)*Math.min(1,dt*12);
@@ -296,7 +297,15 @@ function loop(){ requestAnimationFrame(loop);
        for hit tests — so what you see is what you can shoot. */
     o.lo = (o.lo||0) + (((o.tlo||0) - (o.lo||0)) * Math.min(1, dt*LEAN.rate));
     const lx = Math.cos(o.tyaw - Math.PI) * o.lo, lz = -Math.sin(o.tyaw - Math.PI) * o.lo;
-    const moved=Math.hypot(nx-px,nz-pz)>0.002; m.position.set(nx+lx,ny,nz+lz);
+    const gone=Math.hypot(nx-px,nz-pz), moved=gone>0.002; m.position.set(nx+lx,ny,nz+lz);
+    /* Footsteps you can hear coming. Paced by distance actually covered, like
+       your own, and only while they are upright: crouching and going prone
+       are how you move quietly. A single jump of over a metre is a respawn
+       or a correction, not a stride. */
+    if(o.alive && !o.tst && gone < 1){
+      o.stepAcc = (o.stepAcc||0) + gone;
+      if(o.stepAcc >= REMOTE_STRIDE){ o.stepAcc = 0; o.stepL = !o.stepL; Sfx.step(o.stepL, { x:nx, z:nz }); }
+    }
     // stance pose: crouched players squash down, prone players lie flat
     // YXZ so yaw is applied first: x then tips relative to the way they face,
     // instead of about the world axis (which cartwheeled anyone facing east)

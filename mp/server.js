@@ -1018,7 +1018,11 @@ io.on('connection', (socket) => {
     const dir = normalize(d.dx, d.dy, d.dz);
     const range = gun.range, dmg = gun.dmg;
     // broadcast a tracer so others see the shot
-    socket.to(room.id).emit('shot', { ox:o.x, oy:o.y, oz:o.z, dx:dir.x, dy:dir.y, dz:dir.z, len: range });
+    /* `w` is the gun and `f` marks the first packet of a trigger pull, so the
+       listener plays the right report once — a shotgun sends eight of these
+       per shot, one per pellet, and eight overlapping blasts is just noise. */
+    socket.to(room.id).emit('shot', { ox:o.x, oy:o.y, oz:o.z, dx:dir.x, dy:dir.y, dz:dir.z, len: range,
+                                     w: slot, f: p.volleyShots === 1 ? 1 : 0 });
 
     // nearest wall blocks the bullet — in 3D, so shots pass over low cover
     let wall = Infinity;
@@ -1057,7 +1061,7 @@ io.on('connection', (socket) => {
         eliminate(tgt, best.target.kind === 'player');
         p.kills++;
         if (best.target.kind === 'player') tgt.deaths++;   // eliminated for this round
-        io.to(room.id).emit('kill', { by: p.name, victim: best.target.kind === 'bot' ? 'a bot' : tgt.name, head: best.head });
+        io.to(room.id).emit('kill', { by: p.name, byId: p.id, victim: best.target.kind === 'bot' ? 'a bot' : tgt.name, head: best.head });
       }
     }
   });
@@ -1154,7 +1158,7 @@ io.on('connection', (socket) => {
     if (t.hp <= 0 && t.alive) {
       eliminate(t, isPlayer); p.kills++;
       if (isPlayer) t.deaths++;
-      io.to(room.id).emit('kill', { by: p.name, victim: isPlayer ? t.name : 'a bot', head: step === MELEE.combo.length-1 });
+      io.to(room.id).emit('kill', { by: p.name, byId: p.id, victim: isPlayer ? t.name : 'a bot', head: step === MELEE.combo.length-1 });
     }
   });
 
@@ -1287,7 +1291,7 @@ function igniteTarget(room, hit, byId, now) {
     eliminate(t, isPlayer);
     if (shooter) shooter.kills++;
     if (isPlayer) t.deaths++;
-    io.to(room.id).emit('kill', { by: shooter ? shooter.name : 'fire', victim: isPlayer ? t.name : 'a bot', head });
+    io.to(room.id).emit('kill', { by: shooter ? shooter.name : 'fire', byId: byId, victim: isPlayer ? t.name : 'a bot', head });
   }
 }
 
@@ -1611,7 +1615,7 @@ function tickRoom(room, now, dt) {
       const killer = players.get(e.burnBy);
       if (killer) killer.kills++;
       if (isPlayer) e.deaths++;
-      io.to(room.id).emit('kill', { by: killer ? killer.name : 'fire', victim: isPlayer ? e.name : 'a bot', head:false });
+      io.to(room.id).emit('kill', { by: killer ? killer.name : 'fire', byId: e.burnBy, victim: isPlayer ? e.name : 'a bot', head:false });
     }
   };
   for (const pl of players.values()) burnTick(pl, true);

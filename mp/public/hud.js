@@ -331,44 +331,174 @@ function esc(s){ return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>'
 /* ================= AUDIO =================
    All SFX are synthesized with Web Audio (no asset files). The reload
    call-out uses the browser's speech synthesis so the character speaks. */
+/* ---- Sound ----
+   Everything is synthesised in the browser; there are no audio files. The
+   first version was single beeps — one oscillator or one noise burst per
+   event — which is why it read as a toy. Real impulsive sounds are layered:
+   a gunshot is a crack (a few milliseconds of high noise), a body (band-
+   passed noise that carries the weapon's size), a thump (a sine dropping in
+   pitch, the part you feel) and a tail (low noise decaying over a fraction of
+   a second, which is the room answering). Each weapon is those four layers
+   with different weights, so a pistol snaps and a sniper booms rather than
+   all of them being the same hiss at different lengths.
+
+   Sounds can be PLACED. Pass `at` ({x,z}) and the sound is attenuated and
+   muffled by distance and panned to the side it is on, relative to where you
+   stand and face. That is what makes other players audible at all: their
+   shots used to draw a tracer and play nothing, and their footsteps did not
+   exist. Without `at` a sound is yours and plays dead centre.
+
+   One shared noise buffer is read from random offsets instead of building a
+   fresh buffer per sound — a rifle fires every 95ms and each shot is four
+   layers. Everything runs through a compressor, so several loud things at
+   once squash rather than clip. */
 const Sfx = (()=>{
-  let ctx=null;
-  const ensure = ()=> (ctx = ctx || new (window.AudioContext||window.webkitAudioContext)());
-  function noise(dur, vol, cutoff, type='lowpass'){
-    const c=ensure(); const buf=c.createBuffer(1, Math.max(1,c.sampleRate*dur), c.sampleRate);
-    const d=buf.getChannelData(0);
-    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length, 2);
-    const src=c.createBufferSource(); src.buffer=buf;
-    const g=c.createGain(); g.gain.value=vol;
-    const f=c.createBiquadFilter(); f.type=type; f.frequency.value=cutoff;
-    src.connect(f).connect(g).connect(c.destination); src.start();
+  let ctx=null, master=null, noiseBuf=null;
+  const MASTER = 2.4;                      // makeup before the compressor, see build()
+  /* Envelopes fall to this fraction of their level by the end of `dur`,
+     then cut. Decaying all the way to silence exponentially spends most of
+     the duration inaudible — a 0.28s tail was over in 0.1 — so the stated
+     length would be a third of what you hear. */
+  const FLOOR = 0.03;
+  function build(c){
+    ctx = c;
+    const comp = c.createDynamicsCompressor();
+    /* Gain staging, measured rather than guessed. Rendered offline, the first
+       cut of these peaked at 0.13 of full scale for a rifle — quieter than
+       the beeps it replaced — because filtered noise loses most of its level
+       and a -14dB threshold then sat on what was left. So: push everything up
+       before the compressor, and let it catch only the genuinely loud stack. */
+    comp.threshold.value = -7; comp.knee.value = 6; comp.ratio.value = 8;
+    comp.attack.value = 0.001; comp.release.value = 0.15;
+    master = c.createGain(); master.gain.value = MASTER;
+    // the worst stack measured (sniper, shotgun, three rifles and a hit at one
+    // instant) overshot to 1.04 through the compressor's attack, and scaling down did not cure it...
+    // ...so a tanh shaper sits last as a ceiling. A compressor only leans on
+    // peaks; this cannot emit more than 1.0 whatever arrives.
+    const post = c.createWaveShaper();
+    const curve = new Float32Array(2049);
+    for(let i=0;i<curve.length;i++) curve[i] = Math.tanh((i/1024 - 1) * 3);   // input spans -3..3
+    post.curve = curve; post.oversample = '2x';
+    const pre = c.createGain(); pre.gain.value = 1/3;                        // map +-3 onto the curve
+    master.connect(comp).connect(pre).connect(post).connect(c.destination);
+    noiseBuf = c.createBuffer(1, c.sampleRate * 2, c.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i] = Math.random()*2 - 1;
   }
-  function tone(freq, dur, type, vol, slideTo){
-    const c=ensure(); const o=c.createOscillator(), g=c.createGain();
-    o.type=type; o.frequency.setValueAtTime(freq, c.currentTime);
-    if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, c.currentTime+dur);
-    g.gain.setValueAtTime(vol, c.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, c.currentTime+dur);
-    o.connect(g).connect(c.destination); o.start(); o.stop(c.currentTime+dur);
+  const ensure = ()=>{ if(!ctx) build(new (window.AudioContext||window.webkitAudioContext)()); return ctx; };
+
+  /* Where a sound enters the graph. Null means too faint to bother. */
+  /* `ref` is how far a sound carries: the distance at which it is half as
+     loud. A footstep is 11m; a gunshot is 30, because at 11 a rifle 40m off
+     measured 0.02 of full scale — inaudible, in a game whose passive lets you
+     hear a shot from exactly that far. */
+  function bus(at, ref){
+    const c = ensure();
+    if(!at) return master;
+    ref = ref || 11;
+    const dx = at.x - me.x, dz = at.z - me.z, d = Math.hypot(dx, dz);
+    const vol = 1 / (1 + Math.pow(d / ref, 1.7));
+    if(vol < 0.012) return null;
+    const g = c.createGain(); g.gain.value = vol;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.value = Math.max(650, 18000 / (1 + d / (ref * 0.75)));   // distance eats the highs first
+    lp.connect(g);
+    if(c.createStereoPanner){
+      const pan = c.createStereoPanner();
+      // right is (cos yaw, -sin yaw); fully to one side is softened so it never hard-pans
+      pan.pan.value = d < 0.6 ? 0 : Math.max(-1, Math.min(1, (dx*Math.cos(me.yaw) - dz*Math.sin(me.yaw)) / d)) * 0.8;
+      g.connect(pan).connect(master);
+    } else g.connect(master);
+    return lp;
   }
+  /* A burst of filtered noise with a fast attack and an exponential decay. */
+  function nz(dest, type, freq, dur, vol, q, sweepTo){
+    if(!dest) return;
+    const c = ctx, t = c.currentTime;
+    const src = c.createBufferSource(); src.buffer = noiseBuf;
+    const f = c.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t);
+    if(q) f.Q.value = q;
+    if(sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t + dur);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.002);
+    g.gain.exponentialRampToValueAtTime(vol * FLOOR, t + dur);
+    g.gain.linearRampToValueAtTime(0, t + dur + 0.025);
+    src.connect(f).connect(g).connect(dest);
+    src.start(t, Math.random() * 1.2, dur + 0.08);
+  }
+  /* An oscillator sliding from f0 to f1, same envelope. */
+  function osc(dest, type, f0, f1, dur, vol, delay){
+    if(!dest) return;
+    const c = ctx, t = c.currentTime + (delay || 0);
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t);
+    if(f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.003);
+    g.gain.exponentialRampToValueAtTime(vol * FLOOR, t + dur);
+    g.gain.linearRampToValueAtTime(0, t + dur + 0.025);
+    o.connect(g).connect(dest); o.start(t); o.stop(t + dur + 0.05);
+  }
+
+  /* crack: [highpass Hz, seconds, level]   body: [bandpass Hz, seconds, level]
+     thump: [start Hz, seconds, level]      tail: [lowpass Hz, seconds, level] */
+  const GUN = {
+    RIFLE:      { crack:[2200,0.018,0.50], body:[700,0.09,0.55],  thump:[160,0.07,0.50], tail:[1100,0.28,0.16] },
+    SNIPER:     { crack:[1600,0.025,0.70], body:[420,0.22,0.80],  thump:[110,0.16,0.90], tail:[800,0.90,0.30] },
+    SHOTGUN:    { crack:[1400,0.030,0.60], body:[320,0.20,0.90],  thump:[95,0.15,0.85],  tail:[700,0.60,0.26] },
+    PISTOL:     { crack:[2600,0.014,0.55], body:[900,0.07,0.45],  thump:[200,0.055,0.40], tail:[1300,0.22,0.12] },
+    'PISTOL X': { crack:[2300,0.015,0.60], body:[760,0.085,0.55], thump:[170,0.065,0.50], tail:[1200,0.26,0.14] },
+  };
+  function gunshot(p, dest){
+    const v = 0.96 + Math.random()*0.08;          // no two shots identical, or auto fire drones
+    nz(dest, 'highpass', p.crack[0]*v, p.crack[1], p.crack[2]);
+    nz(dest, 'bandpass', p.body[0]*v,  p.body[1],  p.body[2], 0.8);
+    osc(dest, 'sine',    p.thump[0]*v, p.thump[0]*0.35, p.thump[1], p.thump[2]);
+    nz(dest, 'lowpass',  p.tail[0],    p.tail[1],  p.tail[2]);
+  }
+  const safe = fn => (...a)=>{ try{ ensure(); return fn(...a); }catch(e){} };
+
   return {
     resume(){ try{ const c=ensure(); if(c.state==='suspended') c.resume(); }catch(e){} },
-    // Each weapon gets a distinct report: punchy body + tail
-    shoot(w){ try{
-      const p = { RIFLE:{d:0.09,v:0.34,f:1400,t:150}, SNIPER:{d:0.34,v:0.5,f:900,t:70},
-                  SHOTGUN:{d:0.26,v:0.46,f:1100,t:90}, PISTOL:{d:0.11,v:0.32,f:1700,t:200},
-                  'PISTOL X':{d:0.09,v:0.3,f:1800,t:220} }[w.name] || {d:0.1,v:0.32,f:1500,t:170};
-      noise(p.d, p.v, p.f);                         // the crack
-      tone(p.t, p.d*1.4, 'sawtooth', p.v*0.5, p.t*0.4);   // low thump tail
-    }catch(e){} },
-    magOut(){ try{ tone(220,0.05,'square',0.18); noise(0.05,0.12,2500,'highpass'); }catch(e){} },
-    magIn(){  try{ tone(150,0.07,'square',0.22); noise(0.06,0.15,1800); }catch(e){} },
-    bolt(){   try{ tone(320,0.05,'square',0.16); setTimeout(()=>tone(260,0.05,'square',0.14),70); }catch(e){} },
-    empty(){  try{ tone(110,0.05,'square',0.18); }catch(e){} },
-    hit(){    try{ tone(950,0.035,'sine',0.22); }catch(e){} },
-    step(left){ try{ noise(0.07, left?0.10:0.085, 620); tone(left?95:88, 0.05,'sine',0.07); }catch(e){} },
-    land(){   try{ noise(0.12,0.18,450); tone(70,0.1,'sine',0.12); }catch(e){} },
-    swap(){   try{ tone(520,0.04,'square',0.14); setTimeout(()=>tone(700,0.04,'square',0.12),50); }catch(e){} },
+    /* A gun's report, or an ability's launch. `at` places someone else's. */
+    shoot: safe((w, at)=>{
+      const dest = bus(at, 30); if(!dest) return;
+      if(w.kind === 'xbow'){                       // string snap, then the bolt leaving
+        osc(dest, 'sawtooth', 240, 85, 0.16, 0.30); nz(dest, 'highpass', 2600, 0.03, 0.30);
+        nz(dest, 'bandpass', 900, 0.22, 0.16, 1.2, 2400);
+      } else if(w.kind === 'smoke'){               // a hollow launcher thump
+        osc(dest, 'sine', 130, 55, 0.18, 0.55); nz(dest, 'lowpass', 900, 0.20, 0.35);
+      } else gunshot(GUN[w.name] || GUN.RIFLE, dest);
+    }),
+    magOut: safe(()=>{ nz(master,'highpass',3000,0.022,0.28); osc(master,'triangle',1700,800,0.035,0.10); }),
+    magIn:  safe(()=>{ nz(master,'bandpass',1300,0.045,0.34,1.5); osc(master,'sine',240,150,0.07,0.22); }),
+    bolt:   safe(()=>{ nz(master,'highpass',2400,0.02,0.26); osc(master,'triangle',900,500,0.04,0.10);
+                       nz(master,'bandpass',1500,0.035,0.26,2); osc(master,'triangle',700,420,0.05,0.10,0.07); }),
+    empty:  safe(()=>{ nz(master,'highpass',3200,0.012,0.22); osc(master,'square',150,110,0.025,0.05); }),
+    /* Landing a hit: a dry tick on the body, a brighter two-note ring on the head. */
+    hit: safe((zone)=>{
+      // has to cut through your own gunfire, so it sits well above its natural level
+      if(zone === 'head'){ osc(master,'sine',2100,2100,0.10,0.34); osc(master,'sine',3150,3150,0.08,0.18);
+                           nz(master,'highpass',4000,0.012,0.24); }
+      else { osc(master,'sine',1350,950,0.04,0.32); nz(master,'highpass',3000,0.010,0.22); }
+    }),
+    /* Being hit: low and dull, so it can never be mistaken for landing one. */
+    hurt: safe(()=>{ osc(master,'sine',150,70,0.13,0.42); nz(master,'lowpass',700,0.09,0.30); }),
+    kill: safe(()=>{ osc(master,'sine',660,660,0.09,0.10); osc(master,'sine',990,990,0.14,0.10,0.08); }),
+    step: safe((left, at)=>{ const dest = bus(at); if(!dest) return;
+      nz(dest,'lowpass', left ? 520 : 460, 0.07, at ? 0.46 : 0.30); osc(dest,'sine', left ? 95 : 86, 60, 0.05, at ? 0.22 : 0.14); }),
+    land: safe(()=>{ nz(master,'lowpass',420,0.13,0.26); osc(master,'sine',85,45,0.12,0.22); }),
+    roll: safe(()=>{ nz(master,'bandpass',420,0.30,0.22,0.9,1500); }),
+    swap: safe(()=>{ nz(master,'bandpass',2100,0.03,0.16,1.4); osc(master,'triangle',520,420,0.03,0.05); }),
+    /* A pool catching, and a cloud bursting — heard from where they land. */
+    ignite: safe((at)=>{ const dest = bus(at, 16); if(!dest) return;
+      nz(dest,'lowpass',500,0.55,0.34,0,1400); osc(dest,'sine',90,60,0.25,0.22); }),
+    hiss: safe((at)=>{ const dest = bus(at, 16); if(!dest) return;
+      nz(dest,'highpass',1700,0.75,0.20); osc(dest,'sine',120,70,0.12,0.25); }),
+    /* For tests only: swap in another context (an OfflineAudioContext, say)
+       so a sound can be rendered and measured instead of merely not throwing. */
+    _use(c){ build(c); },
   };
 })();
 

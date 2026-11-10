@@ -59,7 +59,7 @@ function startRoll(){
   const d=new THREE.Vector3();
   if(keys['KeyW'])d.add(fwd); if(keys['KeyS'])d.sub(fwd); if(keys['KeyD'])d.add(rgt); if(keys['KeyA'])d.sub(rgt);
   if(d.lengthSq()===0) d.copy(fwd);
-  rollDir.copy(d.normalize()); rollT=ROLL.dur;
+  rollDir.copy(d.normalize()); rollT=ROLL.dur; Sfx.roll();
   rollCdUntil = training('noCooldown') ? 0 : now+ROLL.cdMs;
   // lean the camera the way we're rolling, and pitch it the way we're going:
   // sideways rolls lean, forward/back rolls somersault
@@ -291,7 +291,7 @@ function shoot(){
     for(const b of localBots){ if(!b.alive) continue;
       const z = hitZone(o, dir, b.x, b.z, 0, 0);     // bots always stand
       if(z && z.t<bd){ bd=z.t; best=b; mult=z.mult; zone=z.zone; } }
-    if(best){ best.hp-= w.dmg*mult; hitmark(zone); Sfx.hit();
+    if(best){ best.hp-= w.dmg*mult; hitmark(zone); Sfx.hit(zone);
       if(best.hp<=0 && best.alive){ best.alive=false; best.mesh.visible=false; localKills++; updateHUD(); setTimeout(()=>respawnLocalBot(best),2000); } }
   }
   // recoil kicks in AFTER the bullet leaves — shots land where the crosshair was

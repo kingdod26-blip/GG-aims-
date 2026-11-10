@@ -403,16 +403,22 @@ function connectMP(name){
     const s = raw ? decodeSnapshot(raw) : frame;
     if(s) onSnapshot(s);                 // null until the roster has landed
   });
-  socket.on('shot', d=> addTracer(new THREE.Vector3(d.ox,d.oy,d.oz), new THREE.Vector3(d.dx,d.dy,d.dz), d.len));
+  /* Someone else firing: the tracer, and now the report, placed where they
+     are. It used to be a silent line across the room. */
+  socket.on('shot', d=>{
+    addTracer(new THREE.Vector3(d.ox,d.oy,d.oz), new THREE.Vector3(d.dx,d.dy,d.dz), d.len);
+    if(d.f && WEAPONS[d.w]) Sfx.shoot(WEAPONS[d.w], { x:d.ox, z:d.oz });
+  });
   /* Only your own hits get a marker. `impact` reaches the whole room, and
      marking all of them showed you other people's fights and your own
      wounds. Bolts and the blade send no zone, so a bolt's is rebuilt from
      its head flag — its two hitboxes are exactly head and body. */
   socket.on('impact', d=>{
     if(!d || d.by !== myId) return;
-    hitmark(d.zone || (d.fire ? (d.head ? 'head' : 'torso') : undefined));
+    const zone = d.zone || (d.fire ? (d.head ? 'head' : 'torso') : undefined);
+    hitmark(zone); Sfx.hit(zone);              // a match had no hit sound at all
   });
-  socket.on('hurt', d=>{ if(d) hurtFrom(d.x, d.z); });
+  socket.on('hurt', d=>{ if(d){ hurtFrom(d.x, d.z); Sfx.hurt(); } });
   socket.on('groundfire', d=> spawnGroundFire(d.x, d.y||0, d.z));
   socket.on('smoke', d=> spawnSmoke(d.x, d.y||0, d.z, d.by));
   // the server decides the cash; ammo is ours to refill
@@ -453,7 +459,7 @@ function connectMP(name){
     arrowGfx.clear();
     for(const o of others.values()){ clearBurnFx(o); clearMark(o); }
   });
-  socket.on('kill', addFeed);
+  socket.on('kill', d=>{ addFeed(d); if(d && d.byId === myId) Sfx.kill(); });
 }
 /* The eliminated banner: loud for a moment, then it gets out of the way so
    you can actually watch the rest of the round. */

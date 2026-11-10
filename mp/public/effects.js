@@ -29,6 +29,7 @@ const GFIRE = { ms:9000, radius:4.35, baseRadius:1.45, max:14, fadeMs:1200,
                 lingerDps:6, lingerMs:5000 };      // still alight after stepping out
 const groundFires = [];
 function spawnGroundFire(x, y, z){
+  Sfx.ignite({ x, z });                  // heard from where it lands, in a match or on the range
   while(groundFires.length >= GFIRE.max) removeGroundFire(groundFires[0]);
   const g = new THREE.Group(); g.position.set(x, y||0, z);   // sits where the bolt stopped
   const flat = (r, color, opacity, y)=>{
@@ -90,6 +91,7 @@ function updateGroundFires(dt){
 const SMOKEFX = { ms:10000, radius:5.5, puffs:22, fadeMs:1500, markMs:4000, top:3.4 };
 const smokes = [];
 function spawnSmoke(x, y, z, byId){
+  Sfx.hiss({ x, z });
   while(smokes.length >= 8) removeSmoke(smokes[0]);
   const g = new THREE.Group(); g.position.set(x, y||0, z);   // sits where the bolt stopped
   const puffs = [];
@@ -512,7 +514,7 @@ function extinguish(b){
   b.burnDps = 0; b.burnUntil = 0; b.inFire = false;
 }
 function igniteLocalBot(b,dmg,w,head){
-  b.hp-=dmg; hitmark(head ? 'head' : 'torso'); Sfx.hit();
+  b.hp-=dmg; hitmark(head ? 'head' : 'torso'); Sfx.hit(head ? 'head' : 'torso');
   spawnGroundFire(b.x, 0, b.z);                       // the pool it leaves underfoot
   b.burnUntil=performance.now()+w.burnMs; b.burnNext=performance.now()+1000; b.burnDps=w.burnDps;
   if(!b.fire) b.fire = makeBurnFx(b.mesh);            // visible flames on the target

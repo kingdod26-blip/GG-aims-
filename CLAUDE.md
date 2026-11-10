@@ -47,7 +47,9 @@ npm install        # first time only
 npm start          # http://localhost:8200
 ```
 
-Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
+The project lives at `C:\Self\Self projects\Game project\GG aims` (it moved from
+`Self game project`; probe scripts that hardcode the old path need `mpclient.js`
+repointed). Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
 ~5s to bind; the first `curl` often returns 000 — retry before assuming failure.
 
 ## Deployment
@@ -163,6 +165,32 @@ Kill a stuck server with `taskkill //F //IM node.exe`. The server can take
   Measured: a pistol arrives with 12, twelve shots empty it, eight more
   change nothing, firing 300ms into a 1200ms reload is refused, and the
   reload lands 12 rounds taking 12 off the reserve.
+- **Stopping is `COAST_RATE` 28 with a snap at `STOP_SNAP` 0.2 m/s**
+  (`loop.js`). It was rate 12 with a snap at 0.02: a 7 m/s run coasted 0.58m
+  over half a second, which read as ice, and kept the `steady` pistols
+  inaccurate for that half second after letting go. Now 0.19m in 0.13s. The
+  snap only applies while nothing is wanted, or it eats the first frames of
+  pulling away from rest.
+- **Damage has a direction.** The server sends the victim alone a `hurt`
+  event with the attacker's position (hitscan, blade, bolt; burn ticks have
+  none), and `hurtFrom`/`updateHurtMarks` in `hud.js` draw an arc round the
+  crosshair for `HURT.ms`. The angle is recomputed every frame from where you
+  stand and face NOW — an arc frozen at the angle it was hit from points at
+  nothing the moment you turn toward it.
+  **`impact` goes to the whole room, so it carries `by`**, and only the
+  shooter flashes a hit marker. It used to mark every impact for everyone:
+  other people's fights, and your own wounds. `kill` carries `byId` for the
+  same reason (names are not unique — two tabs are both "Player").
+- **Eliminated players spectate.** `spectateCamera` (`session.js`, called
+  from `loop()` while `gameMode==='mp' && !me.alive`) rides behind a survivor;
+  a click cycles. It is a CHASE camera on purpose: the snapshot carries yaw
+  but not pitch, so first person would stare at the horizon while they aimed
+  above or below it, and pitch costs a byte per player per tick plus a
+  `SNAP_VERSION` bump. It is eased (its target is itself a predicted remote
+  player) and pulled in along its own line when a wall is in the way.
+  `specOn` hides the viewmodel; the `spectating` body class hides the
+  reticle. With only two players a kill ends the round at once, so there is
+  nothing to watch — testing it needs three (`scratchpad/spec3.js`).
 - **A snapshot moving `me.hp` does not refresh the HUD by itself.** The
   snapshot handler writes `me.hp = mine.hp` and nothing else, so the number
   and the bar sat at whatever they last showed until something unrelated
@@ -710,6 +738,37 @@ to the plain white one. It lives in the settings panel with the graphics
 options and saves with them, but the presets deliberately leave it alone —
 picking PERFORMANCE shouldn't rearrange your HUD.
 
+## Sound
+
+All of it is synthesised in `Sfx` (`hud.js`); there are no audio files. The
+first version was one oscillator or one noise burst per event, which is why
+it read as a toy. A gunshot is now four layers — crack (ms of high noise),
+body (band-passed noise, the weapon's size), thump (a sine dropping in
+pitch) and tail (low noise, the room answering) — weighted per weapon in the
+`GUN` table.
+
+**Sounds can be placed.** Pass `at` ({x,z}) and `bus()` attenuates, low-passes
+and pans it relative to where you stand and face. `ref` is the distance at
+which it is half as loud: 11m for a footstep, 30 for a gunshot, 16 for a pool
+or a cloud. This is what makes other players audible at all — their shots
+used to draw a tracer and play nothing, and their footsteps did not exist.
+The server's `shot` event carries `w` (the gun) and `f` (first packet of a
+trigger pull), because a shotgun sends eight packets per shot and eight
+reports is just noise. Remote footsteps are paced by distance covered
+(`REMOTE_STRIDE`) and only while upright — crouch or go prone to move quietly.
+
+**Levels were measured, not guessed**, by rendering each sound through an
+`OfflineAudioContext` (`Sfx._use(ctx)` exists for exactly that). The first
+cut peaked at 0.13 of full scale for a rifle, quieter than the beeps it
+replaced: filtered noise loses most of its level. `MASTER` (2.4) is makeup
+gain before a compressor, and a tanh shaper sits last as a ceiling — a
+compressor only leans on peaks, and the worst stack (sniper, shotgun, four
+rifles, a hit and a kill at one instant) overshot to 1.04 through its
+attack. Measured now: own rifle ~0.36, sniper ~0.49, that stack 0.79-0.84.
+Envelopes fall to `FLOOR` (3%) by the end of their duration and then cut;
+decaying exponentially all the way to silence spends most of the stated
+length inaudible.
+
 ## Hit zones
 
 Bullets are zoned: **head ×2.5, torso ×1.0, arms and legs ×0.65**. Each zone
@@ -921,4 +980,6 @@ Verify in the browser via `javascript_tool`, not by eyeballing. Two traps:
   flat two-tone (limbs vs stock). A palette JPG would give it real colour.
 - Never built: a real fail state. Bots don't shoot, so you can't lose. Wave
   survival + a difficulty toggle is the biggest remaining gameplay gap.
-- Sound is synthesized; Jack finds it weak. Real `.mp3` files would help.
+- Sound is still synthesised (no audio files), but layered and placed now —
+  see the Sound section. Recorded samples would be the next step up; they
+  need files Jack supplies or approves a source for.
