@@ -96,11 +96,11 @@ let rollFwd=0, rollPunch=0;      // rollFwd: +1 forward, -1 backward, 0 sideways
                                  // rollPunch: 0..1 envelope for the FOV/weapon kick
 /* Weapon roster (keys 1-5, Tab shows the armory). ADS on right-click. */
 const WEAPONS = [
-  { name:'RIFLE',    mode:'AUTO', auto:true,  fireRate:95,   dmg:26,  recoil:0.011, spread:0.014, adsSpread:0.006,  range:240, magMax:30, reserveMax:120, reloadMs:1600, adsFov:62, scope:false },
+  { name:'RIFLE', redDot:true,    mode:'AUTO', auto:true,  fireRate:95,   dmg:26,  recoil:0.011, spread:0.014, adsSpread:0.006,  range:240, magMax:30, reserveMax:120, reloadMs:1600, adsFov:62, scope:false },
   { name:'SNIPER',   mode:'BOLT', auto:false, fireRate:1200, dmg:110, recoil:0.045, spread:0.05,  adsSpread:0.0015, range:400, magMax:5,  reserveMax:25,  reloadMs:2400, adsFov:20, scope:true  },
-  { name:'SHOTGUN',  mode:'PUMP', auto:false, fireRate:900,  dmg:12,  pellets:8, recoil:0.03,  spread:0.09, adsSpread:0.06, range:60,  magMax:6,  reserveMax:36,  reloadMs:2200, adsFov:68, scope:false },
-  { name:'PISTOL',   mode:'SEMI', auto:false, fireRate:200,  dmg:30,  recoil:0.013, spread:0.010, adsSpread:0.004, steady:true,  range:180, magMax:12, reserveMax:60,  reloadMs:1200, adsFov:66, scope:false },
-  { name:'PISTOL X', mode:'SEMI', auto:false, fireRate:170,  dmg:40,  recoil:0.012, spread:0.012, adsSpread:0.005, steady:true,  range:180, magMax:10, reserveMax:50,  reloadMs:1100, adsFov:66, scope:false },
+  { name:'SHOTGUN', redDot:true,  mode:'PUMP', auto:false, fireRate:900,  dmg:12,  pellets:8, recoil:0.03,  spread:0.09, adsSpread:0.06, range:60,  magMax:6,  reserveMax:36,  reloadMs:2200, adsFov:68, scope:false },
+  { name:'PISTOL', redDot:true,   mode:'SEMI', auto:false, fireRate:200,  dmg:30,  recoil:0.013, spread:0.010, adsSpread:0.004, steady:true,  range:180, magMax:12, reserveMax:60,  reloadMs:1200, adsFov:66, scope:false },
+  { name:'PISTOL X', redDot:true, mode:'SEMI', auto:false, fireRate:170,  dmg:40,  recoil:0.012, spread:0.012, adsSpread:0.005, steady:true,  range:180, magMax:10, reserveMax:50,  reloadMs:1100, adsFov:66, scope:false },
   // ABILITY: charge-based, no magazine/reload. Each shot burns one charge that
   // regenerates on its own 30s timer. Right-click toggles RICOCHET.
   // 90 to the head, 50 to the body — see the XBOW block in server.js.
@@ -137,6 +137,77 @@ resetAbilities();
 // so they get procedural ones below).
 const weaponHolders = WEAPONS.map(()=>new THREE.Group());
 weaponHolders.forEach((h,i)=>{ gun.add(h); h.visible = i===0; });
+
+/* ---- Red-dot sight ----
+   Every gun with `redDot` carries a compact tube sight on top, and aiming
+   brings that tube onto your eye line so you look THROUGH it. The sniper
+   keeps its 4x scope; the abilities and the blade have no sight.
+
+   One sight object rides in the `gun` group and is shown for whichever red-
+   dot gun is in hand. It sits on that gun's highest point, which is measured
+   from the loaded model (`sightTop`, set in models.js) rather than guessed,
+   because the four guns are four different heights — guess one number and
+   the sight floats over a pistol or sinks into a rifle.
+
+   The DOT is not part of it. It is fixed to the camera, dead on the axis,
+   because that is where every shot goes — the shot starts at the camera, not
+   the barrel. A dot painted on the glass would move with the gun's recoil
+   and sway and point somewhere the bullet is not. Fixed to the camera it is
+   always the true point of aim, which is also how a real red dot behaves:
+   the dot is projected at infinity, so it stays on target while the tube
+   around it shifts. */
+const SIGHT = { r: 0.031, lens: 0.025, len: 0.052, mount: 0.032, z: 0.17, x: 0.02 };
+const sightMat = new THREE.MeshLambertMaterial({ color:0x1b1d21 });
+const sight = new THREE.Group();
+(function buildSight(){
+  const along = m => { m.rotation.x = Math.PI/2; return m; };      // cylinders stand on Y; lay them along Z
+  const tube = along(new THREE.Mesh(new THREE.CylinderGeometry(SIGHT.r, SIGHT.r, SIGHT.len, 40, 1, true), sightMat));
+  const bore = along(new THREE.Mesh(new THREE.CylinderGeometry(SIGHT.lens, SIGHT.lens, SIGHT.len, 40, 1, true),
+                 new THREE.MeshLambertMaterial({ color:0x0c0d0f, side:THREE.BackSide })));
+  sight.add(tube, bore);
+  for(const z of [-SIGHT.len/2, SIGHT.len/2]){                      // the rims, so the tube has a wall
+    const rim = new THREE.Mesh(new THREE.RingGeometry(SIGHT.lens, SIGHT.r, 40), sightMat);
+    rim.material = sightMat.clone(); rim.material.side = THREE.DoubleSide;
+    rim.position.z = z; sight.add(rim);
+  }
+  // front glass: barely there, enough to read as a lens without dimming the view
+  const glass = new THREE.Mesh(new THREE.CircleGeometry(SIGHT.lens, 40),
+    new THREE.MeshBasicMaterial({ color:0x9fd4ff, transparent:true, opacity:0.07, depthWrite:false }));
+  glass.position.z = -SIGHT.len/2; sight.add(glass);
+  // the brightness dial on the right and the turret on top, as in the reference
+  const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.014, 24), sightMat);
+  dial.rotation.z = Math.PI/2; dial.position.set(SIGHT.r + 0.004, 0.006, 0.004); sight.add(dial);
+  const turret = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.012, 20), sightMat);
+  turret.position.set(0, SIGHT.r + 0.004, 0.004); sight.add(turret);
+  // the riser down to the rail; its height comes from the gun in placeSight()
+  const riser = new THREE.Mesh(new THREE.BoxGeometry(0.016, 1, 0.034), new THREE.MeshLambertMaterial({ color:0x141518 }));
+  riser.name = 'riser'; sight.add(riser);
+  sight.traverse(o=>{ if(o.isMesh){ o.renderOrder = 1000; o.frustumCulled = false; } });
+  sight.visible = false; gun.add(sight);
+})();
+/* Where the tube's centre sits in gun-local space for the gun in hand, and
+   therefore where the gun group has to be at full ADS for that centre to
+   land on the eye line: the exact opposite of it. */
+function sightCentreY(w){ return (w.sightTop !== undefined ? w.sightTop : 0.06) + SIGHT.mount + SIGHT.r; }
+function placeSight(w){
+  sight.visible = !!w.redDot;
+  if(!w.redDot) return;
+  const top = w.sightTop !== undefined ? w.sightTop : 0.06;
+  sight.position.set(SIGHT.x, sightCentreY(w), SIGHT.z);
+  const riser = sight.getObjectByName('riser');
+  riser.scale.y = SIGHT.mount + SIGHT.r * 0.6;           // reaches from the rail up into the tube
+  riser.position.y = -(SIGHT.mount + SIGHT.r * 0.6) / 2 - SIGHT.r * 0.4;
+}
+/* The dot: camera-fixed, see above. A bright core with a soft halo — normal
+   blending, not additive, which vanishes against a bright wall. */
+const redDot = new THREE.Group();
+(function buildDot(){
+  const mk = (r, op) => { const m = new THREE.Mesh(new THREE.CircleGeometry(r, 20),
+    new THREE.MeshBasicMaterial({ color:0xff2238, transparent:true, opacity:op, depthTest:false, depthWrite:false }));
+    m.renderOrder = 1002; return m; };
+  redDot.add(mk(0.0034, 0.28), mk(0.0013, 1));
+  redDot.position.set(0, 0, -0.32); redDot.visible = false; camera.add(redDot);
+})();
 
 /* Procedural crossbow (ability slot) */
 (function buildCrossbow(){
@@ -440,5 +511,6 @@ function switchWeapon(i){
   // marks draw with depthTest off at renderOrder 900; the viewmodel has to
   // come after them or an enemy silhouette paints over your own gun
   weaponHolders[i].traverse(o=>{ o.renderOrder = 1000; });
+  placeSight(WEAPONS[i]);
   Sfx.swap(); updateHUD();
 }

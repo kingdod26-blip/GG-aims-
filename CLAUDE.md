@@ -432,6 +432,24 @@ repointed). Kill a stuck server with `taskkill //F //IM node.exe`. The server ca
   weapon shows. It owns that class for this reason; `updateCrosshair` only
   clears `ringOn` to force a re-test after a weapon change. The floor is
   14px, so a real but tight cone still reads as a ring.
+- **The rifle, shotgun and both pistols aim through a red-dot sight**
+  (`redDot:true` in `WEAPONS`); the sniper keeps its 4x scope and the
+  abilities and blade have none. One `sight` group rides in `gun`, built in
+  `weapons.js` and placed by `placeSight()` on whichever red-dot gun is in
+  hand. It sits on that gun's highest point, `sightTop`, MEASURED in
+  `models.js` when the model loads (half its scaled height above the holder)
+  — the four guns are four different heights, and one guessed number floats
+  the sight over a pistol or sinks it into a rifle. At full ADS the gun group
+  moves to exactly the negative of the tube centre (`sightCentreY`), so the
+  tube is on the eye line: measured 0px off screen centre for all four.
+  **The dot is NOT on the sight.** `redDot` is a camera child at (0,0,-0.32),
+  dead on the axis, because every shot starts at the camera, not the barrel;
+  a dot on the glass would move with recoil and sway and mark somewhere the
+  bullet is not. It is also how a real red dot behaves — projected at
+  infinity, steady on target while the tube shifts round it. Shown only when
+  `ads > 0.82` and not reloading, rolling or spectating. Stance and sprint
+  poses now give way while aiming, and ADS recoil is gentler (rotation
+  `1-ads*0.85`, kick-back `0.1-0.06*ads`), or the tube jumps off the dot.
 - **ADS accuracy arrives when the scope does.** The spread blended linearly
   with `ads`, but the scope overlay appears at `ads > 0.85`, where the sniper
   was still at 0.0088 — six times its aimed cone. Scoped HEADSHOTS were 59%
