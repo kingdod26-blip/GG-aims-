@@ -293,7 +293,7 @@ function startPlay(mode){
   // reset player + weapons
   me.x=0; me.z=44; me.feetY=0; me.eyeH=1.7; me.stance='stand'; me.vy=0; me.hp=100; me.alive=true;
   weaponAmmo = WEAPONS.map(w=>({ mag:w.magMax, reserve:w.reserveMax }));
-  currentWeapon=0; weaponHolders.forEach((h,i)=>h.visible=i===0); placeSight(WEAPONS[0]);
+  currentWeapon=0; weaponHolders.forEach((h,i)=>h.visible=i===0);
   reloading=false; clearTimeout(reloadTimer); aiming=false; ads=0; semiQueued=false; paused=false;
   camera.fov=80; camera.updateProjectionMatrix();
   localKills=0; updateHUD();

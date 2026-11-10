@@ -89,12 +89,6 @@ WEAPON_MODELS.forEach((wm,i)=>{
     const { holder, size } = fitWeaponModel(model, wm);
     while(weaponHolders[i].children.length) weaponHolders[i].remove(weaponHolders[i].children[0]);
     weaponHolders[i].add(holder);
-    /* The highest point of this gun in gun-local space, for the red-dot
-       sight to sit on. fitWeaponModel centres the model at the holder and
-       only ever turns it about Y, so its top is half its scaled height above
-       the holder's own -0.03. */
-    WEAPONS[i].sightTop = holder.position.y + size.y * (wm.len / Math.max(size.x, size.y, size.z)) / 2;
-    if(i === currentWeapon && typeof placeSight === 'function') placeSight(WEAPONS[i]);
     console.log(`[CrimsonX] weapon ${i+1} loaded (${wm.url}), raw size`, size.toArray().map(n=>+n.toFixed(1)));
   };
   const onErr = (err)=> console.warn(`[CrimsonX] weapon model failed: ${wm.url}`, err);

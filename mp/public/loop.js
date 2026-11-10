@@ -236,22 +236,16 @@ function loop(){ requestAnimationFrame(loop);
     if(swingT>0) swingT=Math.max(0, swingT-dt*(1000/curW().fireRate)*0.55);
     const sw = Math.sin(swingT*Math.PI) * swingDir;
     const sp = sprintAmt*(1-ads);
-    // stance and sprint poses give way while aiming: you shoulder the gun,
-    // and a sight that tilted with your crouch would put the tube off your eye
+    // stance and sprint poses give way while aiming: you shoulder the gun
     const sx = (-0.06*stanceAmt + 0.10*sp)*(1-ads);
     const sy = (-0.10*stanceAmt - 0.09*sp)*(1-ads);
     const sr = ( 0.30*stanceAmt + 0.45*sp)*(1-ads); // roll/tilt
-    /* Base pose slides toward the screen centre while aiming. A red-dot gun
-       goes exactly as far as it takes to put the sight's tube centre on your
-       eye line — measured per gun, since they are different heights — so at
-       full ADS you look straight through it. Others keep the old pose. */
-    const w = curW();
-    const adsX = w.redDot ? -SIGHT.x : 0, adsY = w.redDot ? -sightCentreY(w) : -0.21;
-    const bx = 0.3 + (adsX - 0.3)*ads, by = -0.28 + (adsY + 0.28)*ads, bz = -0.55 + 0.12*ads;
+    // base pose slides toward screen center while aiming
+    const bx=0.3*(1-ads), by=-0.28+0.07*ads, bz=-0.55+0.12*ads;
     // tuck the weapon down and in while rolling — you don't run a somersault
     // with the gun still levelled at the horizon
     const tuck = ROLL.tuck*rollPunch;
-    // recoil is gentler at full ADS so the tube does not jump off the dot every shot
+    // recoil is gentler at full ADS, so the gun does not leap across the view every shot
     gun.position.set(bx+rWob+sx - sw*0.26, by-rDip+sy + Math.abs(sw)*0.10 - tuck, bz+gunKick*(0.1-0.06*ads) - Math.abs(sw)*0.14 + tuck*0.5);
     gun.rotation.set(gunKick*0.4*(1-ads*0.85) - rRot*0.85 - 0.18*sp - Math.abs(sw)*0.5,
                      rRot*0.3 + sw*0.9,

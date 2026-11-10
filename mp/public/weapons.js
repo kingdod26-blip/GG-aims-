@@ -138,68 +138,17 @@ resetAbilities();
 const weaponHolders = WEAPONS.map(()=>new THREE.Group());
 weaponHolders.forEach((h,i)=>{ gun.add(h); h.visible = i===0; });
 
-/* ---- Red-dot sight ----
-   Every gun with `redDot` carries a compact tube sight on top, and aiming
-   brings that tube onto your eye line so you look THROUGH it. The sniper
-   keeps its 4x scope; the abilities and the blade have no sight.
+/* ---- Red dot ----
+   Guns with `redDot` (rifle, shotgun, both pistols) show a red dot when you
+   aim; the sniper keeps its 4x scope. There was a modelled tube sight round
+   it, and Jack had it taken off - just the dot.
 
-   One sight object rides in the `gun` group and is shown for whichever red-
-   dot gun is in hand. It sits on that gun's highest point, which is measured
-   from the loaded model (`sightTop`, set in models.js) rather than guessed,
-   because the four guns are four different heights — guess one number and
-   the sight floats over a pistol or sinks into a rifle.
-
-   The DOT is not part of it. It is fixed to the camera, dead on the axis,
-   because that is where every shot goes — the shot starts at the camera, not
-   the barrel. A dot painted on the glass would move with the gun's recoil
-   and sway and point somewhere the bullet is not. Fixed to the camera it is
-   always the true point of aim, which is also how a real red dot behaves:
-   the dot is projected at infinity, so it stays on target while the tube
-   around it shifts. */
-const SIGHT = { r: 0.031, lens: 0.025, len: 0.052, mount: 0.032, z: 0.17, x: 0.02 };
-const sightMat = new THREE.MeshLambertMaterial({ color:0x1b1d21 });
-const sight = new THREE.Group();
-(function buildSight(){
-  const along = m => { m.rotation.x = Math.PI/2; return m; };      // cylinders stand on Y; lay them along Z
-  const tube = along(new THREE.Mesh(new THREE.CylinderGeometry(SIGHT.r, SIGHT.r, SIGHT.len, 40, 1, true), sightMat));
-  const bore = along(new THREE.Mesh(new THREE.CylinderGeometry(SIGHT.lens, SIGHT.lens, SIGHT.len, 40, 1, true),
-                 new THREE.MeshLambertMaterial({ color:0x0c0d0f, side:THREE.BackSide })));
-  sight.add(tube, bore);
-  for(const z of [-SIGHT.len/2, SIGHT.len/2]){                      // the rims, so the tube has a wall
-    const rim = new THREE.Mesh(new THREE.RingGeometry(SIGHT.lens, SIGHT.r, 40), sightMat);
-    rim.material = sightMat.clone(); rim.material.side = THREE.DoubleSide;
-    rim.position.z = z; sight.add(rim);
-  }
-  // front glass: barely there, enough to read as a lens without dimming the view
-  const glass = new THREE.Mesh(new THREE.CircleGeometry(SIGHT.lens, 40),
-    new THREE.MeshBasicMaterial({ color:0x9fd4ff, transparent:true, opacity:0.07, depthWrite:false }));
-  glass.position.z = -SIGHT.len/2; sight.add(glass);
-  // the brightness dial on the right and the turret on top, as in the reference
-  const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.014, 24), sightMat);
-  dial.rotation.z = Math.PI/2; dial.position.set(SIGHT.r + 0.004, 0.006, 0.004); sight.add(dial);
-  const turret = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.012, 20), sightMat);
-  turret.position.set(0, SIGHT.r + 0.004, 0.004); sight.add(turret);
-  // the riser down to the rail; its height comes from the gun in placeSight()
-  const riser = new THREE.Mesh(new THREE.BoxGeometry(0.016, 1, 0.034), new THREE.MeshLambertMaterial({ color:0x141518 }));
-  riser.name = 'riser'; sight.add(riser);
-  sight.traverse(o=>{ if(o.isMesh){ o.renderOrder = 1000; o.frustumCulled = false; } });
-  sight.visible = false; gun.add(sight);
-})();
-/* Where the tube's centre sits in gun-local space for the gun in hand, and
-   therefore where the gun group has to be at full ADS for that centre to
-   land on the eye line: the exact opposite of it. */
-function sightCentreY(w){ return (w.sightTop !== undefined ? w.sightTop : 0.06) + SIGHT.mount + SIGHT.r; }
-function placeSight(w){
-  sight.visible = !!w.redDot;
-  if(!w.redDot) return;
-  const top = w.sightTop !== undefined ? w.sightTop : 0.06;
-  sight.position.set(SIGHT.x, sightCentreY(w), SIGHT.z);
-  const riser = sight.getObjectByName('riser');
-  riser.scale.y = SIGHT.mount + SIGHT.r * 0.6;           // reaches from the rail up into the tube
-  riser.position.y = -(SIGHT.mount + SIGHT.r * 0.6) / 2 - SIGHT.r * 0.4;
-}
-/* The dot: camera-fixed, see above. A bright core with a soft halo — normal
-   blending, not additive, which vanishes against a bright wall. */
+   The dot is fixed to the camera, dead on the axis, because that is where
+   every shot goes: the shot starts at the camera, not the barrel. A dot
+   attached to the gun would move with recoil and sway and mark somewhere
+   the bullet is not. */
+/* A bright core with a soft halo — normal blending, not additive, which
+   vanishes against a bright wall. */
 const redDot = new THREE.Group();
 (function buildDot(){
   const mk = (r, op) => { const m = new THREE.Mesh(new THREE.CircleGeometry(r, 20),
@@ -511,6 +460,5 @@ function switchWeapon(i){
   // marks draw with depthTest off at renderOrder 900; the viewmodel has to
   // come after them or an enemy silhouette paints over your own gun
   weaponHolders[i].traverse(o=>{ o.renderOrder = 1000; });
-  placeSight(WEAPONS[i]);
   Sfx.swap(); updateHUD();
 }
