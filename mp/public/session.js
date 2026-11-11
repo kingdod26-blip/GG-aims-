@@ -120,7 +120,8 @@ function quitToMenu(){
   // clear arrows in flight + reset ability state
   while(arrows.length) removeArrow(arrows[0]);
   for(const [id,m] of arrowGfx) scene.remove(m); arrowGfx.clear();
-  rollT=0; slideT=0; leanAmt=0; resetAbilities(); clearSmoke();
+  rollT=0; slideT=0; leanAmt=0; resetAbilities(); clearSmoke(); clearGrenades();
+  dashT=0; dashCdUntil=0; zoneUntil=0; zoneReadyAt=0; document.body.classList.remove('inzone');
   me.hv.set(0,0,0); camRoll=0; camDip=0; comboStep=0; swingT=0;
   // stop timers / audio / input state
   clearTimeout(reloadTimer); reloadSfxTimers.forEach(clearTimeout); reloadSfxTimers=[];
@@ -171,6 +172,18 @@ document.getElementById('backBtn').onclick = ()=>{ gameState='home';
   document.getElementById('mode').classList.add('hidden'); document.getElementById('home').classList.remove('hidden'); };
 document.getElementById('cardBots').onclick = ()=> startPlay('bots');
 document.getElementById('cardMp').onclick   = ()=> openLobby();
+/* Agent picker, on the mode screen. The choice is remembered for next time
+   and locked once you drop in — startPlay reads it, and the server takes it
+   from the handshake and never again. */
+function renderAgentPick(){
+  document.querySelectorAll('#agentRow .agent').forEach(el => el.classList.toggle('on', el.dataset.agent === myAgent));
+}
+document.querySelectorAll('#agentRow .agent').forEach(el => el.onclick = ()=>{
+  myAgent = el.dataset.agent;
+  try{ localStorage.setItem('cx.agent', myAgent); }catch(e){}
+  renderAgentPick(); Sfx.swap();
+});
+renderAgentPick();
 
 /* ---- Room browser ----
    Multiplayer no longer connects straight away: you pick a room first. The
@@ -296,7 +309,9 @@ function startPlay(mode){
   currentWeapon=0; weaponHolders.forEach((h,i)=>h.visible=i===0);
   reloading=false; clearTimeout(reloadTimer); aiming=false; ads=0; semiQueued=false; paused=false;
   camera.fov=80; camera.updateProjectionMatrix();
-  localKills=0; updateHUD();
+  localKills=0;
+  dashT=0; dashCdUntil=0; zoneUntil=0; zoneReadyAt=0; configureTiles();   // the agent is locked from here
+  updateHUD();
   if (mode==='mp'){ connectMP(nm); document.getElementById('status').textContent='connecting…'; }
   else { spawnLocalBots(8); document.getElementById('status').textContent='Target Practice — offline'; }
   lockPointer();
@@ -330,7 +345,7 @@ function connectMP(name){
      — one tab, two people in the match. Entering multiplayer twice without
      quitting in between (a double-click on the card will do it) was enough. */
   if(socket){ try{ socket.disconnect(); }catch(e){} socket=null; }
-  const opts = { auth: { tok: clientToken(), room: roomCode() } };
+  const opts = { auth: { tok: clientToken(), room: roomCode(), agent: myAgent } };
   socket = MP_SERVER ? io(MP_SERVER, opts) : io(opts);
   socket.on('connect', ()=>{ connected=true; document.getElementById('status').textContent='connected'; socket.emit('state',{name}); });
   socket.on('disconnect', ()=>{ connected=false;
@@ -460,6 +475,15 @@ function connectMP(name){
     for(const o of others.values()){ clearBurnFx(o); clearMark(o); }
   });
   socket.on('kill', d=>{ addFeed(d); if(d && d.byId === myId) Sfx.kill(); });
+  socket.on('boom', d=>{ if(d) boom(d.x, d.y || 0, d.z); });
+  /* The server's answer to X as Blast: the zone's timers, or a refusal that
+     still tells us when it will be ready. */
+  socket.on('zone', d=>{
+    const now = performance.now();
+    zoneUntil = now + ((d && d.ms) || 0);
+    zoneReadyAt = now + ((d && d.readyIn) || 0);
+    if(d && d.ms) Sfx.zone(); else Sfx.empty();
+  });
 }
 /* The eliminated banner: loud for a moment, then it gets out of the way so
    you can actually watch the rest of the round. */
@@ -603,8 +627,8 @@ function decodeSnapshot(buf){
     const vx = d.getInt16(o,true)/100; o += 2;
     const vy = d.getInt16(o,true)/100; o += 2;
     const vz = d.getInt16(o,true)/100; o += 2;
-    const sm = !!d.getUint8(o++);
-    arrows.push({ id, x:ax, y:ay, z:az, vx, vy, vz, sm });
+    const fl = d.getUint8(o++);                  // bit0 smoke bolt, bit1 grenade
+    arrows.push({ id, x:ax, y:ay, z:az, vx, vy, vz, sm: !!(fl & 1), gr: !!(fl & 2) });
   }
   return { match:{ phase, round, endsIn, roundWinner, matchWinner, resupplyTaken, ammoIn, potions },
            players, arrows };
@@ -688,8 +712,9 @@ function onSnapshot(s){
   const aseen=new Set();
   for(const ar of (s.arrows||[])){ aseen.add(ar.id);
     let m=arrowGfx.get(ar.id);
-    if(!m){ m=makeArrowMesh(); if(ar.sm) tintSmokeBolt(m); scene.add(m); arrowGfx.set(ar.id,m); }
+    if(!m){ m = ar.gr ? makeGrenadeMesh() : makeArrowMesh(); if(ar.sm) tintSmokeBolt(m); scene.add(m); arrowGfx.set(ar.id,m); }
     m.position.set(ar.x,ar.y,ar.z);
+    if(ar.gr){ m.rotation.x += 0.15; m.rotation.z += 0.08; continue; }   // a grenade tumbles; no bolt trail
     const voff = boltVisualOffset(ar.id, m.position);
     if(voff) m.position.add(voff);          // leaves the barrel, then catches up
     m.lookAt(ar.x+ar.vx, ar.y+ar.vy, ar.z+ar.vz);

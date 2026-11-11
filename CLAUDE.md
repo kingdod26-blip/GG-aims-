@@ -617,6 +617,62 @@ repointed). Kill a stuck server with `taskkill //F //IM node.exe`. The server ca
   procedural box humanoids (`humanoid()`) on purpose: stationary targets
   don't earn the detail, and eight boxes cost nearly nothing.
 
+## Agents
+
+You play an **agent**, picked on the mode screen (`#agentRow`, remembered in
+`localStorage` as `cx.agent`) and **locked for the match**: `startPlay` reads
+it, and the server takes it once from the socket handshake (`auth.agent`) and
+never again. Sprint and the double jump used to be everybody's; they are
+agent kit now. `AGENTS` in `weapons.js` and `AGENT_IDS` in `server.js` must
+agree.
+
+- **Aseed** (the original kit). Passive: **hearing** (the detection passive —
+  the server skips non-Aseed listeners in `noiseMade`, and `#detect` is
+  hidden for anyone else). V roll · G flaming crossbow · X smoke tag. One
+  jump, no sprint.
+- **Blast**. Passive: **double jump** (`jumps:2`). V **dash** · G **frag
+  grenade** · X **the zone**.
+
+`AGENTS[...].g` / `.x` name a WEAPONS slot when the ability is aimed and fired
+like a weapon (crossbow, smoke, grenade) or a string when it is instant
+(`'zone'`). `canEquip` only lets you equip your own agent's ability slots, the
+armory hides the other agent's, and the three cooldown tiles are re-pointed
+per agent by `configureTiles()` (`CD_ART` maps kind to icon). **Every ability
+handler on the server checks `p.agent`**, so a patched client cannot throw a
+grenade as Aseed or a bolt as Blast — measured both refused.
+
+**Dash** (`DASH`): 0.3s at 20 m/s, about 6.3m, 3s cooldown, works in the air
+and holds you level while it runs. Kept at 20 m/s because that is the
+server's sustained movement limit; a faster dash would just be clamped back.
+
+**Grenade** (`GRENADE` server, `GREN` client — keep in step): 2 charges, 30s
+each, server-owned like the crossbow's (`p.gshots`). Lobbed (view direction
+x17 m/s plus 3.5 up, plus half your run), gravity 14, bounces off boxes and
+the floor at 0.42, explodes 2s after the throw. 90 inside 1.5m, linear to 0
+at 5.5m, measured to the chest; geometry between blast and chest blocks it
+entirely; the thrower is never hurt by their own. The explosion is a noise,
+so Aseeds in earshot hear who threw it. **Grenades ride the snapshot's arrow
+section with flag bit1** — no layout change, no `SNAP_VERSION` bump — and the
+server clamps throw speed to 26 and the origin to within reach of the
+thrower. Measured: 90 / 63 / 31 / 0 at the feet / 2.5m / 4m / 6m, and 0 with
+a crate between.
+
+**The zone** (`ZONE`): a buff on Blast himself for 25s, then 90s before it is
+ready. Sprint (11 m/s; it does not exist otherwise), ADS comes up at rate 18
+instead of 10, every cone x0.55 through `currentCone` (shot and reticle
+alike), and +10 HP/s. **Regen is the server's** (hp is server-owned; the range
+does it locally), and the server ANSWERS every `zone` request with the timers
+— the duration and readiness, or a refusal saying when — so the client's
+tile and `zoneUntil` come from it, not from guessing. Measured on the server:
+30 -> 40 -> 50 -> 60 -> 70 over four seconds. A crimson edge glow
+(`#zoneFx`, body class `inzone`) shows while it runs, and its tile is lit and
+counts the 25s down before it starts the cooldown.
+
+Probing as an agent: `client(name, tok, code, port, agent)` in
+`scratchpad/mpclient.js`. Note a crossbow bolt and the pool it leaves burn at
+12 + 18/s, which outpaces the zone's regen — killing the target in a regen
+test is the test's fault, not the regen's.
+
 ## Features
 
 Weapons (`1`–`5`): rifle, sniper (4× scope), shotgun (8 pellets), 2 pistols.
@@ -747,7 +803,8 @@ one thing you always have.
 
 `Q`/`E` peek left/right — hold to lean. `LEAN.angle` 0.16 rad (~9°) plus a
 0.45m sideways shift of the eye, clamped by `clearLean` so you can't put your
-camera through a corner. Suppressed during a roll or slide. Double jump. Sprint (Shift). Stances: `C` crouch,
+camera through a corner. Suppressed during a roll or slide. (Double jump and sprint are agent kit now — see
+Agents.) Stances: `C` crouch,
 `Z` prone — these shrink your server-side hitbox.
 `Tab` armory, `O` graphics & HUD settings, `Esc` pause/quit.
 The home page's top nav had three dead words (RANGE / ARMORY /

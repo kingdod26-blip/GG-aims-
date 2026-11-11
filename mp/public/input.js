@@ -36,10 +36,11 @@ addEventListener('keydown',e=>{
   if(digit){ const inv = inventory(), at = +digit[1] - 1;
              if(at < inv.length) switchWeapon(inv[at]); }
   if(e.code==='Space' && !e.repeat) jumpPressed=true;   // edge, so holding won't spam
-  if(e.code==='KeyG') switchWeapon(XBOW);               // equip the crossbow ability
-  if(e.code==='KeyX') switchWeapon(SMOKE);              // equip the smoke ability
+  // G and X are the agent's: a weapon slot to equip, or an instant ability
+  if(e.code==='KeyG') switchWeapon(agent().g);
+  if(e.code==='KeyX'){ const x = agent().x; if(x === 'zone') startZone(); else switchWeapon(x); }
   if(e.code==='KeyF') switchWeapon(BLADE);              // equip the blade
-  if(e.code==='KeyV' && !e.repeat) startRoll();
+  if(e.code==='KeyV' && !e.repeat){ if(agent().v === 'dash') startDash(); else startRoll(); }
   if(e.code==='KeyC'){
     // sprinting -> slide; otherwise it's the normal crouch toggle
     // slide if you're sprinting OR still carrying speed (e.g. out of a roll)
@@ -67,6 +68,31 @@ function startRoll(){
   rollFwd  =  rollDir.dot(fwd);
   // velocity ramps in via the rate-30 easing below — punchy but not a jump
   me.stance='stand'; Sfx.land();
+}
+function startDash(){
+  const now=performance.now();
+  if(gameState!=='playing' || !me.alive || dashT>0 || now<dashCdUntil) return;
+  const fwd=new THREE.Vector3(-Math.sin(me.yaw),0,-Math.cos(me.yaw));
+  const rgt=new THREE.Vector3(Math.cos(me.yaw),0,-Math.sin(me.yaw));
+  const d=new THREE.Vector3();
+  if(keys['KeyW'])d.add(fwd); if(keys['KeyS'])d.sub(fwd); if(keys['KeyD'])d.add(rgt); if(keys['KeyA'])d.sub(rgt);
+  if(d.lengthSq()===0) d.copy(fwd);
+  dashDir.copy(d.normalize()); dashT=DASH.dur;
+  dashCdUntil = training('noCooldown') ? 0 : now+DASH.cdMs;
+  if(me.vy < 0) me.vy = 0;
+  Sfx.dash();
+}
+/* In a match the server decides: it checks the agent, the phase and the
+   cooldown, and answers with a `zone` event that sets the timers here. On
+   the range there is nobody to ask. */
+function startZone(){
+  const now=performance.now();
+  if(gameState!=='playing' || !me.alive) return;
+  if(now < zoneReadyAt){ Sfx.empty(); return; }
+  if(gameMode==='mp'){ if(socket) socket.emit('zone'); return; }
+  zoneUntil = now + ZONE.ms;
+  zoneReadyAt = training('noCooldown') ? zoneUntil : zoneUntil + ZONE.cdMs;
+  Sfx.zone();
 }
 function startSlide(){
   const now=performance.now();
@@ -186,6 +212,20 @@ function shoot(){
       abilityCharges[currentWeapon]--; abilityRecharge[currentWeapon].push(now + w.cooldownMs);
     }
     lastShot=now; gunKick=1; Sfx.shoot(w); updateHUD();
+    if(w.kind === 'grenade'){
+      /* A lob, not a bolt: thrown along the view with some lift, and the
+         simulation (server in a match, effects.js on the range) does the
+         bouncing and the fuse. It leaves from just below the eye so it does
+         not spawn inside your own face. */
+      const look=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(me.pitch,me.yaw,0,'YXZ'));
+      const o=camera.position.clone().addScaledVector(look,0.5); o.y-=0.15;
+      const v=look.clone().multiplyScalar(w.speed); v.y+=3.5;
+      v.x+=me.hv.x*0.5; v.z+=me.hv.z*0.5;                 // a throw carries some of your run
+      if(gameMode==='mp' && socket) socket.emit('grenade',{ ox:o.x,oy:o.y,oz:o.z, vx:v.x,vy:v.y,vz:v.z });
+      else spawnLocalGrenade(o, v);
+      dropSpentAbility();
+      return;
+    }
     /* Aim FIRST, kick after. This kicked the view up before working out
        where the bolt was going, so every bolt left along the post-recoil
        angle rather than the one you aimed — 0.6m high at 30m on the

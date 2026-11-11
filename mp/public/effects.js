@@ -548,3 +548,98 @@ function addTracer(o,dir,len,from){ const end=o.clone().add(dir.clone().multiply
 function disposeTracer(t){ if(!t) return; scene.remove(t.line);
   if(t.line.geometry) t.line.geometry.dispose();
   if(t.line.material) t.line.material.dispose(); }
+
+/* ---- Grenades and explosions ----
+   GREN must agree with GRENADE in server.js: a match's grenades fly on the
+   server and arrive in the snapshot, the range's fly here. Either way the
+   explosion is drawn and heard by boom().
+
+   Damage is full inside `full`, falling linearly to nothing at `radius`, and
+   a wall between the blast and your chest stops it — a grenade on the far
+   side of a crate is not a grenade that hits you. The thrower is never hurt
+   by their own, the same rule as fire pools and smoke. */
+const GREN = { fuseMs:2000, gravity:14, bounce:0.42, friction:0.72, radius:5.5, full:1.5, dmg:90 };
+const grenades = [];
+const _gray = new THREE.Raycaster();
+function makeGrenadeMesh(){
+  const g = new THREE.Group();
+  const egg = new THREE.Mesh(new THREE.SphereGeometry(0.075,12,10), new THREE.MeshLambertMaterial({color:0x3a4a33}));
+  egg.scale.set(1,1.25,1); g.add(egg);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.03,0.04,8), new THREE.MeshLambertMaterial({color:0x8e959c}));
+  cap.position.y = 0.105; g.add(cap);
+  return g;
+}
+function spawnLocalGrenade(o, v){
+  const mesh = makeGrenadeMesh(); mesh.position.copy(o); scene.add(mesh);
+  grenades.push({ mesh, pos:o.clone(), vel:v.clone(), at:performance.now() });
+}
+function grenadeDamage(d){
+  if(d >= GREN.radius) return 0;
+  if(d <= GREN.full) return GREN.dmg;
+  return Math.round(GREN.dmg * (1 - (d - GREN.full) / (GREN.radius - GREN.full)));
+}
+function updateGrenades(dt){
+  const now = performance.now();
+  for(let i = grenades.length - 1; i >= 0; i--){
+    const g = grenades[i];
+    if(now - g.at >= GREN.fuseMs){
+      boom(g.pos.x, g.pos.y, g.pos.z);
+      for(const b of localBots){
+        if(!b.alive) continue;
+        const chest = new THREE.Vector3(b.x, 1.05, b.z);
+        const d = chest.distanceTo(g.pos);
+        const dmg = grenadeDamage(d); if(!dmg) continue;
+        const dir = chest.clone().sub(g.pos).normalize();
+        _gray.set(g.pos, dir); _gray.far = d;
+        if(_gray.intersectObjects(wallMeshes, false).length) continue;      // cover took it
+        b.hp -= dmg; hitmark(dmg >= GREN.dmg ? 'head' : 'torso'); Sfx.hit(dmg >= GREN.dmg ? 'head' : 'torso');
+        if(b.hp <= 0 && b.alive){ b.alive=false; b.mesh.visible=false; extinguish(b);
+          localKills++; updateHUD(); setTimeout(()=>respawnLocalBot(b),2000); }
+      }
+      scene.remove(g.mesh); grenades.splice(i, 1); continue;
+    }
+    g.vel.y -= GREN.gravity * dt;
+    const step = g.vel.clone().multiplyScalar(dt), dist = step.length();
+    if(dist > 1e-5){
+      _gray.set(g.pos, step.clone().divideScalar(dist)); _gray.far = dist + 0.08;
+      const hit = _gray.intersectObjects(wallMeshes, false)[0];
+      if(hit && hit.face){
+        const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+        g.pos.addScaledVector(step, Math.max(0, (hit.distance - 0.08) / dist));
+        g.vel.reflect(n).multiplyScalar(GREN.bounce);
+      } else g.pos.add(step);
+    }
+    if(g.pos.y < 0.08){                               // the floor is not a collider box
+      g.pos.y = 0.08;
+      if(g.vel.y < 0){ g.vel.y = -g.vel.y * GREN.bounce; g.vel.x *= GREN.friction; g.vel.z *= GREN.friction; }
+      if(Math.abs(g.vel.y) < 0.6) g.vel.y = 0;
+    }
+    g.mesh.position.copy(g.pos);
+    g.mesh.rotation.x += dt * 9; g.mesh.rotation.z += dt * 5;           // tumbling
+  }
+}
+function clearGrenades(){ while(grenades.length){ scene.remove(grenades[0].mesh); grenades.shift(); } }
+/* The blast itself: a hot flash that swells and fades, a darker puff that
+   hangs a moment longer, and the sound, placed where it went off. */
+const booms = [];
+function boom(x, y, z){
+  const flash = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12),
+    new THREE.MeshBasicMaterial({ color:0xffb347, transparent:true, opacity:0.9, depthWrite:false }));
+  const puff = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10),
+    new THREE.MeshLambertMaterial({ color:0x3a3330, transparent:true, opacity:0.55, depthWrite:false }));
+  flash.position.set(x, y + 0.3, z); puff.position.set(x, y + 0.5, z);
+  scene.add(flash); scene.add(puff);
+  booms.push({ flash, puff, t:0 });
+  Sfx.boom({ x, z });
+}
+function updateBooms(dt){
+  for(let i = booms.length - 1; i >= 0; i--){
+    const b = booms[i]; b.t += dt;
+    const f = Math.min(1, b.t / 0.28), p = Math.min(1, b.t / 1.1);
+    b.flash.scale.setScalar(0.4 + 3.6 * f); b.flash.material.opacity = 0.9 * (1 - f);
+    b.puff.scale.setScalar(0.8 + 2.6 * p);  b.puff.material.opacity = 0.55 * (1 - p);
+    b.puff.position.y += dt * 0.6;
+    if(p >= 1){ for(const m of [b.flash, b.puff]){ scene.remove(m); m.geometry.dispose(); m.material.dispose(); }
+                booms.splice(i, 1); }
+  }
+}

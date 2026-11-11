@@ -93,6 +93,19 @@ const CD_TILES = [
   { id:'cdXbow',  kind:'xbow'  },
   { id:'cdSmoke', kind:'smoke' },
 ];
+/* The three tiles are V, G and X, so what they show depends on the agent. */
+const CD_ART = { roll:'cd-roll', xbow:'cd-fire', smoke:'cd-smoke', dash:'cd-dash', grenade:'cd-grenade', zone:'cd-zone' };
+function configureTiles(){
+  const a = agent();
+  const kinds = [a.v, a.g === XBOW ? 'xbow' : 'grenade', a.x === 'zone' ? 'zone' : 'smoke'];
+  CD_TILES.forEach((t, k) => {
+    t.kind = kinds[k];
+    const box = document.getElementById(t.id), img = box.querySelector('.cdico');
+    img.src = 'assets/' + CD_ART[t.kind] + '.png'; img.alt = t.kind;
+    const n = box.querySelector('.cdn'); if(n) n.style.display = (t.kind === 'xbow' || t.kind === 'smoke' || t.kind === 'grenade') ? '' : 'none';
+  });
+  cdEls = null;
+}
 let cdEls = null;
 function cdCache(){
   if(cdEls) return cdEls;
@@ -110,7 +123,17 @@ function cdState(kind, now){
     const remain = Math.max(0, rollCdUntil - now);
     return { remain, total:ROLL.cdMs, have:remain > 0 ? 0 : 1, max:1 };
   }
-  const slot = kind === 'xbow' ? XBOW : SMOKE, w = WEAPONS[slot];
+  if(kind === 'dash'){
+    const remain = Math.max(0, dashCdUntil - now);
+    return { remain, total:DASH.cdMs, have:remain > 0 ? 0 : 1, max:1 };
+  }
+  if(kind === 'zone'){
+    // while it runs the tile counts the 25s DOWN, lit; then the cooldown
+    if(now < zoneUntil) return { live:true, remain: zoneUntil - now, total:ZONE.ms, have:1, max:1 };
+    const remain = Math.max(0, zoneReadyAt - now);
+    return { remain, total:ZONE.cdMs, have:remain > 0 ? 0 : 1, max:1 };
+  }
+  const slot = kind === 'xbow' ? XBOW : kind === 'grenade' ? GRENADE : SMOKE, w = WEAPONS[slot];
   const q = abilityRecharge[slot] || [];
   return { remain: q.length ? Math.max(0, q[0] - now) : 0, total:w.cooldownMs,
            have: abilityCharges[slot] | 0, max:w.charges };
@@ -120,10 +143,15 @@ function updateCooldowns(){
   abilityTick();
   for(const t of cdCache()){
     const st = cdState(t.kind, now), L = t.last;
-    const cool = st.have <= 0, regen = !cool && st.remain > 0;
+    const live = !!st.live;
+    const cool = !live && st.have <= 0, regen = !live && !cool && st.remain > 0;
+    if(L.live !== live){ t.box.classList.toggle('live', live); L.live = live; }
     if(L.cool !== cool){ t.box.classList.toggle('cool', cool); L.cool = cool; }
     if(L.regen !== regen){ t.box.classList.toggle('regen', regen); L.regen = regen; }
-    if(cool){
+    if(live){
+      const secs = String(Math.ceil(st.remain / 1000));
+      if(L.secs !== secs){ t.time.textContent = secs; L.secs = secs; }
+    } else if(cool){
       /* A 1.2s roll counted in whole seconds reads "2" for most of its life
          and never shows 1 for long, which looks broken. Short cooldowns get
          a decimal; a 30s ability does not need one. */
@@ -192,7 +220,7 @@ function clearFeed(){
 function updateDetectHUD(){
   const el = document.getElementById('detect');
   if(!el) return;
-  if(gameMode !== 'mp' || gameState !== 'playing'){ el.style.display='none'; return; }
+  if(gameMode !== 'mp' || gameState !== 'playing' || !agent().hearing){ el.style.display='none'; return; }
   const now = performance.now();
   const active = detectUntil > now, cooling = !active && detectReady > now;
   el.style.display = 'block';
@@ -469,6 +497,8 @@ const Sfx = (()=>{
         nz(dest, 'bandpass', 900, 0.22, 0.16, 1.2, 2400);
       } else if(w.kind === 'smoke'){               // a hollow launcher thump
         osc(dest, 'sine', 130, 55, 0.18, 0.55); nz(dest, 'lowpass', 900, 0.20, 0.35);
+      } else if(w.kind === 'grenade'){             // the pin, then the throw
+        osc(dest, 'triangle', 2400, 1800, 0.03, 0.18); nz(dest, 'bandpass', 700, 0.22, 0.22, 0.8, 1500);
       } else gunshot(GUN[w.name] || GUN.RIFLE, dest);
     }),
     magOut: safe(()=>{ nz(master,'highpass',3000,0.022,0.28); osc(master,'triangle',1700,800,0.035,0.10); }),
@@ -490,6 +520,14 @@ const Sfx = (()=>{
       nz(dest,'lowpass', left ? 520 : 460, 0.07, at ? 0.46 : 0.30); osc(dest,'sine', left ? 95 : 86, 60, 0.05, at ? 0.22 : 0.14); }),
     land: safe(()=>{ nz(master,'lowpass',420,0.13,0.26); osc(master,'sine',85,45,0.12,0.22); }),
     roll: safe(()=>{ nz(master,'bandpass',420,0.30,0.22,0.9,1500); }),
+    dash: safe(()=>{ nz(master,'bandpass',900,0.22,0.30,0.9,3200); osc(master,'sine',180,90,0.12,0.18); }),
+    /* Blast's zone coming on: a rising swell and a heartbeat thump. */
+    zone: safe(()=>{ osc(master,'sawtooth',110,330,0.45,0.10); osc(master,'sine',60,48,0.30,0.40,0.05);
+                     nz(master,'highpass',2600,0.35,0.10); }),
+    /* A grenade: the biggest sound in the game, and it carries. */
+    boom: safe((at)=>{ const dest = bus(at, 40); if(!dest) return;
+      nz(dest,'highpass',1800,0.04,0.80); osc(dest,'sine',95,28,0.55,1.10);
+      nz(dest,'lowpass',520,0.45,0.95); nz(dest,'lowpass',260,1.40,0.40); }),
     swap: safe(()=>{ nz(master,'bandpass',2100,0.03,0.16,1.4); osc(master,'triangle',520,420,0.03,0.05); }),
     /* A pool catching, and a cloud bursting — heard from where they land. */
     ignite: safe((at)=>{ const dest = bus(at, 16); if(!dest) return;
@@ -553,6 +591,7 @@ function renderArmory(){
              : 'Shop opens between rounds · Tab to close';
 
   document.getElementById('armGrid').innerHTML = WEAPONS.map((w,i)=>{
+    if(w.ability && !agentHas(i)) return '';      // another agent's kit
     const free  = w.ability || w.melee;
     const price = free ? 0 : (shopPrices[i] || 0);
     const isMain = MAIN_SLOTS.includes(i), isSide = SIDE_SLOTS.includes(i);

@@ -13,7 +13,7 @@
 /* ---- Stance system + local player ---- */
 const STANCE = { stand:{eye:1.7,spd:1.0,body:1.8}, crouch:{eye:1.05,spd:0.5,body:1.15}, prone:{eye:0.6,spd:0.3,body:0.7} };
 const JUMP_V = 10.5, GRAV = 24;
-const MAX_JUMPS = 2;                 // ground jump + one mid-air jump
+// jumps are per agent now: AGENTS[...].jumps (Blast's passive is the second)
 let jumpPressed = false;             // edge-triggered by keydown
 
 /* ---- Abilities ---- */
@@ -57,7 +57,7 @@ function currentCone(w, aimK){
   const steady = w.steady && isPlanted();
   const hip = steady ? 0 : (w.spread || 0);
   const aim = steady ? 0 : (w.adsSpread || 0);
-  return hip + (aim - hip) * aimK;
+  return (hip + (aim - hip) * aimK) * (zoneOn() ? ZONE.spreadMul : 1);
 }
 
 
@@ -116,6 +116,13 @@ const WEAPONS = [
   { name:'SMOKE', mode:'ABILITY', ability:true, kind:'smoke', auto:false, fireRate:700, dmg:0,
     charges:2, cooldownMs:30000, speed:52,
     recoil:0.012, spread:0.004, adsSpread:0.004, range:320, adsFov:70, scope:false },
+  // ABILITY (Blast): frag grenade. Two charges, 30s each. Lobbed, bounces,
+  // and goes off GREN.fuseMs after it leaves your hand. `dmg` is the most it
+  // can do, inside GREN.full of the blast; see the GREN block in effects.js
+  // and GRENADE in server.js, which must agree.
+  { name:'GRENADE', mode:'ABILITY', ability:true, kind:'grenade', auto:false, fireRate:600, dmg:90,
+    charges:2, cooldownMs:30000, speed:17,
+    recoil:0.01, spread:0, adsSpread:0, range:60, adsFov:75, scope:false },
 ];
 // MELEE: five-hit combo. Each landed hit within the window advances the chain,
 // and the fifth is a heavy finisher. Missing or pausing resets you to hit 1.
@@ -123,6 +130,7 @@ WEAPONS.push({ name:'BLADE', mode:'MELEE', melee:true, auto:false, fireRate:360,
   combo:[22,22,28,28,70], comboWindowMs:1600, reach:3.2, arc:0.55,
   recoil:0.004, spread:0, adsSpread:0, range:3.2, adsFov:75, scope:false });
 const XBOW  = WEAPONS.findIndex(w=>w.kind==='xbow');    // crossbow slot
+const GRENADE = WEAPONS.findIndex(w=>w.kind==='grenade');   // Blast's frag slot
 const SMOKE = WEAPONS.findIndex(w=>w.kind==='smoke');   // smoke slot
 const BLADE = WEAPONS.findIndex(w=>w.melee);            // blade slot
 const ABILITY_SLOTS = WEAPONS.map((w,i)=>w.ability?i:-1).filter(i=>i>=0);
@@ -130,7 +138,47 @@ const ABILITY_SLOTS = WEAPONS.map((w,i)=>w.ability?i:-1).filter(i=>i>=0);
    and the blade have their own keys, and printing i+1 told you to press 7
    for smoke — a key that isn't bound to anything. */
 const WEAPON_KEY = WEAPONS.map((w,i)=> String(i+1));
-WEAPON_KEY[XBOW]='G'; WEAPON_KEY[SMOKE]='X'; WEAPON_KEY[BLADE]='F';
+WEAPON_KEY[XBOW]='G'; WEAPON_KEY[SMOKE]='X'; WEAPON_KEY[GRENADE]='G'; WEAPON_KEY[BLADE]='F';
+
+/* ---- Agents ----
+   You play an AGENT, picked on the menu and locked for the match. Each has a
+   passive and three abilities on V, G and X. Sprint and the double jump used
+   to be everybody's; they are agent kit now.
+
+     ASEED  passive: hears gunfire through walls (the detection passive)
+            V roll · G flaming crossbow · X smoke that tags
+     BLAST  passive: double jump
+            V dash · G frag grenade (2 charges) · X "the zone": 25s of
+            sprint, faster aim, +10 HP/s and a tighter cone, then a 90s wait
+
+   G and X name a WEAPONS slot when the ability is aimed and fired like a
+   weapon, or a string when it is instant. The server keeps its own copy of
+   who is which (auth.agent, at connect) and refuses the other agent's
+   abilities, so a patched client cannot throw grenades as Aseed. */
+const AGENTS = {
+  aseed: { id:'aseed', name:'ASEED', jumps:1, v:'roll', g:XBOW,    x:SMOKE,  hearing:true },
+  blast: { id:'blast', name:'BLAST', jumps:2, v:'dash', g:GRENADE, x:'zone', hearing:false },
+};
+let myAgent = (()=>{ try{ const a = localStorage.getItem('cx.agent'); return AGENTS[a] ? a : 'aseed'; }
+                     catch(e){ return 'aseed'; } })();
+function agent(){ return AGENTS[myAgent]; }
+function agentHas(slot){ const a = agent(); return a.g === slot || a.x === slot; }
+
+/* Blast's V. A straight burst at roll speed, no tumble, and it works in the
+   air: an air dash holds you level rather than dropping you through it.
+   Kept at ROLL.speed because the server's movement check allows 20 m/s
+   sustained and a faster dash would just be clamped back. */
+const DASH = { dur:0.3, speed:20, cdMs:3000 };
+let dashT = 0, dashCdUntil = 0;
+const dashDir = new THREE.Vector3();
+
+/* Blast's X, a buff on himself. `aimRate` is how fast ADS comes up (the
+   normal rate is 10) and `spreadMul` scales every cone, shot and reticle
+   alike, since both read currentCone(). Regen is the server's job in a
+   match, because hp is server-owned; the range does it locally. */
+const ZONE = { ms:25000, cdMs:90000, regen:10, aimRate:18, spreadMul:0.55 };
+let zoneUntil = 0, zoneReadyAt = 0;
+function zoneOn(){ return performance.now() < zoneUntil; }
 resetAbilities();
 
 // One holder per WEAPONS entry (the ability/melee slots have no file model,
@@ -193,6 +241,23 @@ const redDot = new THREE.Group();
   can.rotation.x=Math.PI/2; g.add(can);                                              // loaded canister
   g.position.set(0.02,-0.04,-0.04);
   weaponHolders[SMOKE].add(g);
+})();
+
+/* Procedural frag grenade (Blast's G slot) */
+(function buildGrenade(){
+  const g=new THREE.Group(),
+        body=new THREE.MeshLambertMaterial({color:0x3a4a33}),
+        metal=new THREE.MeshLambertMaterial({color:0x8e959c});
+  const egg=at(new THREE.Mesh(new THREE.SphereGeometry(0.075,16,12),body),0,0,-0.28);
+  egg.scale.set(1,1.25,1); g.add(egg);
+  for(let k=-1;k<=1;k++){ const r=at(new THREE.Mesh(new THREE.TorusGeometry(0.073,0.006,6,20),body),0,k*0.035,-0.28);
+    r.rotation.x=Math.PI/2; g.add(r); }                                          // the frag grooves
+  g.add(at(new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.03,0.04,10),metal),0,0.105,-0.28));   // fuse head
+  g.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.018,0.11,0.02),metal),0.035,0.07,-0.28));      // spoon
+  const pin=at(new THREE.Mesh(new THREE.TorusGeometry(0.02,0.004,6,14),metal),-0.035,0.11,-0.28);
+  pin.rotation.y=Math.PI/2; g.add(pin);
+  g.position.set(0.02,-0.04,0.02);
+  weaponHolders[GRENADE].add(g);
 })();
 
 /* Procedural blade (melee slot) */
@@ -401,7 +466,7 @@ function inventory(){
 }
 function canEquip(i){
   const w = WEAPONS[i]; if(!w) return false;
-  if(w.ability) return true;                 // crossbow and smoke, always yours
+  if(w.ability) return agentHas(i);          // only your own agent's abilities
   if(gameMode !== 'mp') return true;
   return inventory().includes(i);
 }

@@ -300,7 +300,7 @@ function makeRoom(id, holdMs) {
   return { id,
     players: new Map(),           // socket.id -> player
     parked: new Map(),            // token -> { wins, money, guns, name, at }
-    smokes: [], fires: [], arrows: [],
+    smokes: [], fires: [], arrows: [], grenades: [],
     /* A room made by the Create button has nobody in it yet. Without a hold
        the very next tick would retire it before its creator's socket even
        connected, and their code would be dead on arrival. */
@@ -386,6 +386,24 @@ function sweepParked(room, now) {
    The burn rides on top of either, so head is effectively 150 and body 110.
    Keep in step with the client's CROSSBOW entry in public/weapons.js. */
 const XBOW = { headDmg: 90, bodyDmg: 50, burnDps: 12, burnMs: 5000, charges: 2, cooldownMs: 30000, speed: 62 };
+/* ---- Agents ----
+   Picked on the client's menu and sent ONCE, in the socket handshake
+   (auth.agent); anything later is ignored, so you cannot swap mid-match.
+   Every ability handler checks it, so a patched client cannot throw an
+   Aseed bolt as Blast or a grenade as Aseed. Must match AGENTS in
+   public/weapons.js. */
+const AGENT_IDS = ['aseed', 'blast'];
+const agentOf = a => AGENT_IDS.includes(a) ? a : 'aseed';
+/* Blast's frag grenade: lobbed, bounces, goes off fuseMs after the throw.
+   Full damage inside `full`, linear to nothing at `radius`, and blocked by
+   geometry between the blast and the target's chest. The thrower is never
+   hurt by their own. Must match GREN in public/effects.js. */
+const GRENADE = { charges: 2, cooldownMs: 30000, fuseMs: 2000, gravity: 14, bounce: 0.42,
+                  friction: 0.72, radius: 5.5, full: 1.5, dmg: 90, maxSpeed: 26 };
+/* Blast's zone: 25s of buffs, then 90s before it can be used again. Only
+   the regen lives here — sprint, aim speed and spread are client feel, and
+   the server's movement check already bounds sprint. */
+const ZONE = { ms: 25000, cdMs: 90000, regen: 10 };
 // Smoke bolt: no damage. Anyone standing in the cloud is tagged for markMs,
 // and the tag renews every tick they stay in it. Must match the client's
 // SMOKEFX radius/top/markMs or the cloud you see won't match the one that tags.
@@ -655,7 +673,7 @@ function respawnAll(room) {
   }
 }
 function clearField(room) {        // no fire, smoke or arrows carried between rounds
-  room.arrows.length = 0; room.smokes.length = 0; room.fires.length = 0;
+  room.arrows.length = 0; room.smokes.length = 0; room.fires.length = 0; room.grenades.length = 0;
   io.to(room.id).emit('fieldclear');
 }
 /* Put every player out. The round ending used to leave the field alight: the
@@ -691,6 +709,7 @@ function noiseMade(room, byId, now) {
   const src = players.get(byId); if (!src) return;
   for (const p of players.values()) {
     if (p.id === byId || !p.alive) continue;
+    if (p.agent !== 'aseed') continue;                // hearing is Aseed's passive
     if (now < p.detectReadyAt) continue;             // still recharging
     if (Math.hypot(p.x - src.x, p.z - src.z) > DETECT.range) continue;   // too far to hear
     p.detectUntil = now + DETECT.revealMs;
@@ -782,10 +801,10 @@ const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff
      i8  lean   (centimetres out of cover, -60..60)
      i8  markedBy slot        i8  detectTarget slot
      u16 detectUntil ms       u16 detectReady ms
-   ARROW   15 bytes each
+   ARROW   15 bytes each (grenades too)
      u16 id
      i16 x,y,z *100           i16 vx,vy,vz *100
-     u8  flags: bit0 smoke
+     u8  flags: bit0 smoke bolt, bit1 grenade
    ========================================================================= */
 const SNAP_VERSION = 4;          // 2 lean, 3 ammo timer, 4 potions
 const PHASES = ['waiting', 'intermission', 'live', 'over', 'paused'];
@@ -812,7 +831,8 @@ function sendMeta(room, force) {
   io.to(room.id).emit('meta', meta);
 }
 function encodeSnapshot(room, now) {
-  const ps = [...room.players.values()], as = room.arrows;
+  // grenades ride in the arrow section with flag bit1 - no layout change
+  const ps = [...room.players.values()], as = room.arrows.concat(room.grenades);
   const slotOf = id => { const p = room.players.get(id); return p ? p.slot : -1; };
   const buf = Buffer.allocUnsafe(HEAD_B + ps.length*PLAYER_B + as.length*ARROW_B);
   const m = room.match;
@@ -854,7 +874,7 @@ function encodeSnapshot(room, now) {
     buf.writeInt16LE(i16(a.vx), o); o += 2;
     buf.writeInt16LE(i16(a.vy), o); o += 2;
     buf.writeInt16LE(i16(a.vz), o); o += 2;
-    buf.writeUInt8(a.smoke ? 1 : 0, o++);
+    buf.writeUInt8((a.smoke ? 1 : 0) | (a.grenade ? 2 : 0), o++);
   }
   return buf;
 }
@@ -897,6 +917,8 @@ io.on('connection', (socket) => {
        three or more in the room, reloading the page was a free heal. Sit the
        round out instead; respawnAll() brings you in at the next one. */
     hp: 100, alive: match.phase !== 'live', kills: 0, deaths: 0, wins: back ? back.wins : 0, tp: 0,
+    agent: agentOf(auth.agent),        // locked for this connection
+    gshots: [], zoneUntil: 0, zoneReadyAt: 0,
     money: back ? back.money : ECON.start,
     guns: back ? back.guns : [],       // owned WEAPONS slots, in purchase order
     detectReadyAt: 0, detectUntil: 0, detectTarget: null,
@@ -1069,7 +1091,7 @@ io.on('connection', (socket) => {
   // ---- Smoke bolt: same flight as an arrow, leaves a tagging cloud ----
   socket.on('smokebolt', (d) => {
     if (match.phase !== 'live') return;      // only during a live round
-    const p = players.get(socket.id); if (!p || !p.alive) return;
+    const p = players.get(socket.id); if (!p || !p.alive || p.agent !== 'aseed') return;
     noiseMade(room, p.id, Date.now());       // a bang: anyone listening picks it up
     const now = Date.now();
     p.smokeShots = (p.smokeShots || []).filter(t => now - t < SMOKE.cooldownMs);
@@ -1163,9 +1185,43 @@ io.on('connection', (socket) => {
   });
 
   // ---- Crossbow ability: launch a flaming arrow (server-simulated) ----
+  /* Blast's G. Charges are the server's, like the crossbow's. The throw's
+     speed is capped so a patched client cannot fling one across the map. */
+  socket.on('grenade', (d) => {
+    if (match.phase !== 'live') return;
+    const p = players.get(socket.id); if (!p || !p.alive || p.agent !== 'blast') return;
+    const now = Date.now();
+    p.gshots = p.gshots.filter(t => now - t < GRENADE.cooldownMs);
+    if (p.gshots.length >= GRENADE.charges) return;
+    p.gshots.push(now);
+    let vx = +d.vx || 0, vy = +d.vy || 0, vz = +d.vz || 0;
+    const sp = Math.hypot(vx, vy, vz);
+    if (sp > GRENADE.maxSpeed) { const k = GRENADE.maxSpeed / sp; vx *= k; vy *= k; vz *= k; }
+    // it leaves from where they ARE, within reach of their hand
+    let ox = +d.ox, oy = +d.oy, oz = +d.oz;
+    if (!(Math.hypot(ox - p.x, oz - p.z) < 1.5)) { ox = p.x; oz = p.z; }
+    if (!(oy > (p.y || 0) - 0.2 && oy < (p.y || 0) + 2.2)) oy = (p.y || 0) + 1.5;
+    room.grenades.push({ id: (arrowSeq = (arrowSeq + 1) & 0xffff), by: socket.id, grenade: true,
+      x: ox, y: oy, z: oz, vx, vy, vz, fuseAt: now + GRENADE.fuseMs });
+  });
+
+  /* Blast's X. Always answers, so the client's timers come from here: the
+     zone's duration and when it is next ready, or a refusal saying when. */
+  socket.on('zone', () => {
+    const p = players.get(socket.id); if (!p) return;
+    const now = Date.now();
+    if (p.agent !== 'blast' || !p.alive || match.phase !== 'live' || now < p.zoneReadyAt) {
+      socket.emit('zone', { ms: Math.max(0, p.zoneUntil - now), readyIn: Math.max(0, p.zoneReadyAt - now) });
+      return;
+    }
+    p.zoneUntil = now + ZONE.ms;
+    p.zoneReadyAt = p.zoneUntil + ZONE.cdMs;
+    socket.emit('zone', { ms: ZONE.ms, readyIn: ZONE.ms + ZONE.cdMs });
+  });
+
   socket.on('arrow', (d) => {
     if (match.phase !== 'live') return;      // only during a live round
-    const p = players.get(socket.id); if (!p || !p.alive) return;
+    const p = players.get(socket.id); if (!p || !p.alive || p.agent !== 'aseed') return;
     noiseMade(room, p.id, Date.now());       // a bang: anyone listening picks it up
     // enforce the 2-charge / 30s budget here too, so it can't be spammed
     const now = Date.now();
@@ -1273,6 +1329,41 @@ function stateAt(p, t) {
   }
   const o = h[0];
   return { x: o.x + Math.cos(o.yaw)*o.lo, z: o.z - Math.sin(o.yaw)*o.lo, y: o.y, st: o.st };
+}
+
+/* A grenade going off. Damage to every live player but the thrower inside
+   the radius, unless geometry stands between the blast and their chest. The
+   blast is a noise, so Aseeds within earshot hear who threw it. */
+function explodeGrenade(room, g, now) {
+  const players = room.players, match = room.match;
+  io.to(room.id).emit('boom', { x: g.x, y: g.y, z: g.z });
+  noiseMade(room, g.by, now);
+  if (match.phase !== 'live') return;
+  const thrower = players.get(g.by);
+  const o = { x: g.x, y: g.y + 0.25, z: g.z };
+  for (const t of players.values()) {
+    if (!t.alive || t.id === g.by) continue;
+    const cx = aimX(t), cy = (t.y || 0) + 1.0, cz = aimZ(t);
+    const dx = cx - o.x, dy = cy - o.y, dz = cz - o.z, d = Math.hypot(dx, dy, dz);
+    if (d >= GRENADE.radius) continue;
+    const dir = { x: dx/d, y: dy/d, z: dz/d };
+    let blocked = false;
+    for (const r of RAY_BOXES) { const h = rayBoxHit(o, dir, r); if (h && h.t > 0.05 && h.t < d) { blocked = true; break; } }
+    if (blocked) continue;                              // cover took it
+    const dmg = d <= GRENADE.full ? GRENADE.dmg
+              : Math.round(GRENADE.dmg * (1 - (d - GRENADE.full) / (GRENADE.radius - GRENADE.full)));
+    if (dmg <= 0) continue;
+    t.hp -= dmg;
+    io.to(t.id).emit('hurt', { x: g.x, z: g.z });
+    io.to(room.id).emit('impact', { x: cx, y: cy, z: cz, head: dmg >= GRENADE.dmg, by: g.by,
+                                    zone: dmg >= GRENADE.dmg ? 'head' : 'torso' });
+    if (t.hp <= 0 && t.alive) {
+      eliminate(t, true);
+      if (thrower) thrower.kills++;
+      t.deaths++;
+      io.to(room.id).emit('kill', { by: thrower ? thrower.name : 'a grenade', byId: g.by, victim: t.name, head: false });
+    }
+  }
 }
 
 /* Arrow impact: big direct hit, then it burns for 9s. */
@@ -1505,6 +1596,35 @@ function tickRoom(room, now, dt) {
       } else { drop(a.x, 0, a.z); arrows.splice(i, 1); }
     }
   }
+
+  // ---- Grenades: fly, bounce, and go off on the fuse ----
+  const grens = room.grenades;
+  for (let i = grens.length - 1; i >= 0; i--) {
+    const g = grens[i];
+    if (now >= g.fuseAt) { explodeGrenade(room, g, now); grens.splice(i, 1); continue; }
+    g.vy -= GRENADE.gravity * dt;
+    const sx = g.vx*dt, sy = g.vy*dt, sz = g.vz*dt, len = Math.hypot(sx, sy, sz);
+    if (len > 1e-6) {
+      const dir = { x: sx/len, y: sy/len, z: sz/len }, o = { x: g.x, y: g.y, z: g.z };
+      let best = null;
+      for (const r of RAY_BOXES) { const h = rayBoxHit(o, dir, r); if (h && h.t <= len + 0.08 && (!best || h.t < best.t)) best = h; }
+      if (best) {
+        const k = Math.max(0, best.t - 0.08);
+        g.x += dir.x*k; g.y += dir.y*k; g.z += dir.z*k;
+        if (best.axis === 0) g.vx = -g.vx; else if (best.axis === 1) g.vy = -g.vy; else g.vz = -g.vz;
+        g.vx *= GRENADE.bounce; g.vy *= GRENADE.bounce; g.vz *= GRENADE.bounce;
+      } else { g.x += sx; g.y += sy; g.z += sz; }
+    }
+    if (g.y < 0.08) {                                   // the floor is not a collider box
+      g.y = 0.08;
+      if (g.vy < 0) { g.vy = -g.vy * GRENADE.bounce; g.vx *= GRENADE.friction; g.vz *= GRENADE.friction; }
+      if (Math.abs(g.vy) < 0.6) g.vy = 0;
+    }
+  }
+
+  // ---- Blast's zone: regenerate while it runs ----
+  for (const pl of players.values())
+    if (pl.alive && pl.zoneUntil > now && pl.hp < 100) pl.hp = Math.min(100, pl.hp + ZONE.regen * dt);
 
   // ---- Smoke clouds: expire, and tag whoever is standing in one ----
   for (let i = smokes.length - 1; i >= 0; i--) if (smokes[i].until <= now) smokes.splice(i, 1);

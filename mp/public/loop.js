@@ -28,7 +28,8 @@ function movePlayer(dt){
   const fwd=new THREE.Vector3(-Math.sin(me.yaw),0,-Math.cos(me.yaw)), rgt=new THREE.Vector3(Math.cos(me.yaw),0,-Math.sin(me.yaw));
   const mv=new THREE.Vector3();
   if(keys['KeyW'])mv.add(fwd); if(keys['KeyS'])mv.sub(fwd); if(keys['KeyD'])mv.add(rgt); if(keys['KeyA'])mv.sub(rgt);
-  const sprint=(keys['ShiftLeft']||keys['ShiftRight']) && me.stance==='stand' && mv.lengthSq()>0 && !aiming
+  // sprint is not everyone's any more: Blast gets it inside the zone
+  const sprint=zoneOn() && (keys['ShiftLeft']||keys['ShiftRight']) && me.stance==='stand' && mv.lengthSq()>0 && !aiming
                && rollT<=0 && slideT<=0;
   me.sprinting = sprint;                       // drives the FOV kick + faster bob
   const spd=(sprint?11:7)*st.spd;
@@ -44,6 +45,10 @@ function movePlayer(dt){
     rollT=Math.max(0, rollT-dt);
     const k=Math.max(0.42, rollT/ROLL.dur);      // ease out, never fully stalls
     want.copy(rollDir).multiplyScalar(ROLL.speed*k); rate=24;
+  } else if(dashT>0){                            // V as Blast: dash
+    dashT=Math.max(0, dashT-dt);
+    want.copy(dashDir).multiplyScalar(DASH.speed); rate=40;
+    if(!me.onGround) me.vy=Math.max(me.vy, 0);   // an air dash holds you level
   } else if(slideT>0){                           // C while sprinting: slide
     slideT=Math.max(0, slideT-dt);
     slideSpd=Math.max(5, slideSpd-13*dt);        // friction
@@ -66,12 +71,12 @@ function movePlayer(dt){
     if(stepDist >= stride){ stepDist=0; stepLeft=!stepLeft; Sfx.step(stepLeft); }
   } else stepDist = Math.max(stepDist, 0);
   // jump — edge-triggered so holding Space can't bunny-hop, and you get a
-  // second mid-air jump (MAX_JUMPS) before touching down again.
+  // second mid-air jump (an agent with jumps:2, i.e. Blast) before touching down again.
   const wasAir = !me.onGround;
   if(jumpPressed){
     jumpPressed=false;
     if(me.stance!=='stand') me.stance='stand';            // first press stands you up
-    else if(me.jumpsUsed < MAX_JUMPS){
+    else if(me.jumpsUsed < agent().jumps){        // Blast's passive is the second one
       me.vy = (me.jumpsUsed===0) ? JUMP_V : JUMP_V*0.88;  // air jump slightly weaker
       me.jumpsUsed++; me.onGround=false;
       Sfx.step(me.jumpsUsed>1);
@@ -142,6 +147,8 @@ function loop(){ requestAnimationFrame(loop);
         if(b.alive) b.mesh.rotation.y = Math.atan2(me.x-b.x, me.z-b.z); }
       if(gameMode==='bots'){ updateBotHealthBars(); updateHitboxOverlay(); }
       updateArrows(dt);                      // flaming arrows + burn ticks
+      updateGrenades(dt);                    // the range's grenades; a match's are in the snapshot
+      updateBooms(dt);                       // explosions, either mode
       // Resupply crate. In a match the server drives this (it also pays out);
       // in target practice there is nobody to tell us, so check it here.
       if(gameMode !== 'mp'){
@@ -208,7 +215,10 @@ function loop(){ requestAnimationFrame(loop);
     // eliminated in a match: ride behind a survivor instead (session.js)
     if(gameMode==='mp' && !me.alive) spectateCamera(dt); else spectateOff();
     // --- ADS (right-click aim): smooth zoom, tightened aim, scope on sniper ---
-    ads += (((aiming && me.alive) ? 1 : 0) - ads) * Math.min(1, dt*10);
+    ads += (((aiming && me.alive) ? 1 : 0) - ads) * Math.min(1, dt*(zoneOn() ? ZONE.aimRate : 10));
+    // the zone: regen on the range (a match's hp is the server's), and the edge glow
+    if(gameMode!=='mp' && zoneOn() && me.alive && me.hp < 100) me.hp = Math.min(100, me.hp + ZONE.regen*dt);
+    const inZone = zoneOn(); if(inZone !== document.body.classList.contains('inzone')) document.body.classList.toggle('inzone', inZone);
     // sprint widens the view a touch — the cue that tells you you're sprinting
     sprintAmt += ((me.sprinting ? 1 : 0) - sprintAmt) * Math.min(1, dt*6);
     const baseFov = 80 + 9*sprintAmt + ROLL.fov*rollPunch;

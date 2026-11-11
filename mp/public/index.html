@@ -46,6 +46,7 @@
     <div id="fireMode"><span id="modeLbl">AUTO</span> <span class="pips">▮▮▮▮</span></div>
   </div>
   <canvas id="compass" width="380" height="30"></canvas>
+  <div id="zoneFx"></div>
   <div id="hurtDir"></div>
   <div id="specTag"></div>
   <div id="stance">STANCE: <b id="stanceVal">STANDING</b></div>
@@ -164,6 +165,18 @@
       <h2>SELECT MODE</h2>
       <p class="lead">Enter a callsign, then choose where to drop in.</p>
       <input id="nameInput" maxlength="16" placeholder="CALLSIGN" />
+      <div class="agentrow" id="agentRow">
+        <div class="agent glass" data-agent="aseed">
+          <h4>ASEED</h4>
+          <p><b>Passive</b> hears gunfire through walls</p>
+          <p><b>V</b> roll · <b>G</b> fire bolt · <b>X</b> smoke tag</p>
+        </div>
+        <div class="agent glass" data-agent="blast">
+          <h4>BLAST</h4>
+          <p><b>Passive</b> double jump</p>
+          <p><b>V</b> dash · <b>G</b> grenade ×2 · <b>X</b> the zone</p>
+        </div>
+      </div>
     </div>
     <div class="cards layer">
       <div class="card glass" id="cardBots">

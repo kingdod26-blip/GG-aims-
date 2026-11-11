@@ -143,6 +143,23 @@
              -webkit-mask:radial-gradient(circle, transparent 108px, #000 109px 119px, transparent 120px);
                      mask:radial-gradient(circle, transparent 108px, #000 109px 119px, transparent 120px);
              filter:drop-shadow(0 0 7px rgba(255,0,30,.7)); opacity:0; }
+  /* agent picker on the mode screen */
+  .agentrow { display:flex; gap:12px; justify-content:center; margin-top:16px; transform:translateZ(30px); }
+  .agent { width:210px; padding:12px 14px; border-radius:14px; cursor:pointer; text-align:left;
+           transition:border-color .15s, box-shadow .15s, transform .15s; }
+  .agent:hover { transform:translateY(-2px); }
+  .agent.on { border-color:rgba(255,45,74,.8); box-shadow:0 0 22px rgba(255,45,74,.35); }
+  .agent h4 { font-size:15px; letter-spacing:4px; margin-bottom:6px; }
+  .agent.on h4 { color:var(--ac-soft); }
+  .agent p { font-size:11.5px; color:var(--t2); line-height:1.6; }
+  .agent p b { color:#fff; }
+  /* Blast's zone: a crimson edge glow while it runs */
+  #zoneFx { position:fixed; inset:0; z-index:8; pointer-events:none; opacity:0; transition:opacity .35s;
+            background:radial-gradient(ellipse at center, transparent 58%, rgba(255,35,60,.30) 100%); }
+  .inzone #zoneFx { opacity:1; }
+  /* a cooldown tile whose ability is RUNNING: lit, counting down */
+  .cd.live { border-color:rgba(255,45,74,.9); box-shadow:0 0 14px rgba(255,45,74,.6); }
+  .cd.live .cdtime { display:flex; }
   /* who you are watching while eliminated */
   #specTag { position:fixed; left:50%; bottom:104px; transform:translateX(-50%); z-index:11; display:none;
              padding:7px 16px; border-radius:9px; font-size:11px; letter-spacing:3px; font-weight:600;
