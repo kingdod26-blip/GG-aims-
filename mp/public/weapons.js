@@ -485,6 +485,13 @@ let RESUPPLY = { x:0, z:0, radius:5.0, cash:100 };
 let inResupply = false;
 let lastShot=0, reloading=false, reloadTimer=null;
 let aiming=false, ads=0, semiQueued=false;   // ads = smoothed 0..1 aim amount
+/* One dry click per trigger PULL. An auto weapon calls shoot() every frame
+   while the button is down, and an empty magazine returns before lastShot
+   is touched, so the fire-rate gate never throttled it -- the empty click
+   played 60 times a second for as long as you held the button. This latches
+   after the first one and is released by letting go (mouseup), by switching
+   weapon, or by actually firing a round. */
+let dryClicked=false;
 /* What you can cycle through: the guns you bought, in the order you bought
    them, then the blade on the end. The crossbow and smoke are abilities —
    they live on their own keys and are deliberately NOT in this list, so the
@@ -551,6 +558,7 @@ function switchWeapon(i){
   if(!canEquip(i)){ Sfx.empty(); return; }   // you don't own that one
   if(abilitySpent(i)){ Sfx.empty(); return; }  // nothing left in it to throw
   currentWeapon=i; reloading=false; clearTimeout(reloadTimer); reloadSfxTimers.forEach(clearTimeout); semiQueued=false;
+  dryClicked=false;                 // a new gun deserves its own dry click
   weaponHolders.forEach((h,idx)=> h.visible = idx===i);
   // marks draw with depthTest off at renderOrder 900; the viewmodel has to
   // come after them or an enemy silhouette paints over your own gun

@@ -119,7 +119,7 @@ addEventListener('mousedown',e=>{
   if(e.button===2){ if(curW().ability && !curW().melee){ ricochet=!ricochet; Sfx.swap(); updateHUD(); }
                     else if(!curW().ability) aiming=true; } });   // abilities don't ADS
 addEventListener('mouseup',e=>{
-  if(e.button===0) wantFire=false;
+  if(e.button===0){ wantFire=false; dryClicked=false; }   // the next pull may click again
   if(e.button===2) aiming=false; });
 /* Scroll to change weapon: through your guns and the blade, never onto the
    crossbow or smoke — landing on an ability mid-fight because you nudged the
@@ -281,8 +281,13 @@ function shoot(){
   }
 
   const a=curAmmo();
-  if(a.mag<=0){ Sfx.empty(); reload(); return; }
-  lastShot=now; if(!training('infAmmo')) a.mag--;   // practice: the mag never empties
+  /* Empty: one click, not a stream of them. Holding the button on an auto
+     weapon runs this every frame and nothing here moves lastShot, so the
+     fire-rate gate above cannot throttle it. dryClicked latches until you
+     let go. The reload attempt still runs every frame, which is what makes
+     an empty gun reload itself the moment it can. */
+  if(a.mag<=0){ if(!dryClicked){ dryClicked=true; Sfx.empty(); } reload(); return; }
+  lastShot=now; dryClicked=false; if(!training('infAmmo')) a.mag--;   // practice: the mag never empties
   updateHUD(); gunKick=1; Sfx.shoot(w);
   /* Tighten to the full ADS cone by the time you are actually AIMING, not
      at the very end of the zoom. The scope overlay appears at ads 0.85, and

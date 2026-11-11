@@ -1079,6 +1079,15 @@ practice does the proximity check itself in `loop.js`.
   calls `preventDefault()` — so typing an `o` in the callsign box opened the
   graphics panel and ate the character. Any new binding inherits this; add it
   below the guard.
+- **An empty gun clicks ONCE per trigger pull.** An auto weapon calls
+  `shoot()` every frame while the button is held, and the empty-magazine
+  branch returns before `lastShot` is touched — so the fire-rate gate at
+  the top of `shoot()` never throttled it and `Sfx.empty()` fired 60 times
+  a second. `dryClicked` latches after the first one and is released by
+  mouseup, by switching weapon, or by actually firing a round. The reload
+  attempt still runs every frame, which is what makes an empty gun reload
+  itself the moment it is able to. Measured: 1 click while holding the
+  trigger for 120 frames, against 120 before.
 - **Ability charges are per-slot** (`abilityCharges` / `abilityRecharge`,
   keyed by weapon index, `ABILITY_SLOTS` lists them). They used to be two
   crossbow-only globals; with a second ability that would have meant both
