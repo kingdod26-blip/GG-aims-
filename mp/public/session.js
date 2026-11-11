@@ -88,7 +88,7 @@ let paused=false;
 function openPause(){
   if(gameState!=='playing' || paused) return;
   paused=true;
-  document.getElementById('pauseMode').textContent = (gameMode==='mp') ? 'Multiplayer' : 'Target Practice';
+  document.getElementById('pauseMode').textContent = t((gameMode==='mp') ? 'pause.mp' : 'pause.bots');
   document.getElementById('pause').classList.remove('hidden');
   document.exitPointerLock();
   wantFire=false; aiming=false;            // don't keep firing/aiming while paused
@@ -165,32 +165,135 @@ document.getElementById('setClose').onclick = closeSettings;
 document.querySelectorAll('.preset').forEach(p=> p.onclick = ()=> applyPreset(p.dataset.preset));
 renderSettingsUI();
 
-/* ---- Menu wiring ---- */
-document.getElementById('startBtn').onclick = ()=>{ gameState='mode';
-  document.getElementById('home').classList.add('hidden'); document.getElementById('mode').classList.remove('hidden'); };
-document.getElementById('backBtn').onclick = ()=>{ gameState='home';
-  document.getElementById('mode').classList.add('hidden'); document.getElementById('home').classList.remove('hidden'); };
-document.getElementById('cardBots').onclick = ()=> startPlay('bots');
-document.getElementById('cardMp').onclick   = ()=> openLobby();
-/* Agent picker, on the mode screen. The choice is remembered for next time
-   and locked once you drop in — startPlay reads it, and the server takes it
-   from the handshake and never again. */
+/* ---- The deployment terminal ----
+   One screen instead of two. Home used to be a splash page with a START
+   button that led to a mode screen; both are this now, with the tabs
+   swapping what the left column shows and the right column carrying what
+   you are about to drop into. The middle is left empty for the 3D operator.
+
+   Everything here is built or relabelled by renderLobbyCards(), which
+   applyLang() calls — so a language switch repaints the cards rather than
+   leaving yesterday's English sitting in them. */
+const byId = id => document.getElementById(id);
+
+/* Which mode PREPARE will start. Remembered, because whoever opens the page
+   to shoot at bots usually opens it to shoot at bots again. */
+let lobbyMode = (()=>{ try { const m = localStorage.getItem('cx.mode');
+                             return (m === 'bots' || m === 'mp') ? m : 'mp'; } catch(e){ return 'mp'; } })();
+
 function renderAgentPick(){
   document.querySelectorAll('#agentRow .agent').forEach(el => el.classList.toggle('on', el.dataset.agent === myAgent));
 }
+/* The arsenal list is built rather than written into the markup, so the
+   weapon names can change language. The right-hand values are mostly keys
+   too; the ones that are a KEYBOARD key and a number are not words and stay
+   as they are. */
+const ARSENAL_ROWS = [
+  ['w.rifle','wm.auto'], ['w.sniper','wm.scope'], ['w.shotgun','wm.pellet'],
+  ['w.pistol','wm.semi'], ['w.pistolx','wm.semi'],
+  ['w.crossbow','wm.fire'], ['w.smoke','wm.tag'],
+  ['w.grenade','G · ×2'], ['w.zone','X · 25s'], ['w.blade','wm.combo'],
+];
+function renderArsenal(){
+  const host = byId('arsenalRows'); if(!host) return;
+  host.innerHTML = '';
+  for(const [nameKey, metaKey] of ARSENAL_ROWS){
+    const row = document.createElement('div');
+    row.className = 'lb-row';
+    const a = document.createElement('span'); a.textContent = t(nameKey);
+    const b = document.createElement('b');    b.textContent = metaKey.startsWith('wm.') ? t(metaKey) : metaKey;
+    row.append(a, b); host.appendChild(row);
+  }
+}
+/* A plan of the arena, drawn from the SAME data the game builds geometry
+   from (maps.js), so the card cannot show a layout the match is not
+   playing. Square, because the arena is. */
+function drawMapThumb(){
+  const c = byId('mapThumb'); if(!c || typeof currentMap === 'undefined' || !currentMap) return;
+  const g = c.getContext('2d'), W = c.width, H = c.height, A = currentMap.arena;
+  const s = Math.min(W, H) / (A * 2) * 0.92;
+  const px = x => W/2 + x*s, pz = z => H/2 + z*s;
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = '#0e0a0c'; g.fillRect(0, 0, W, H);
+  g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = 1;
+  g.strokeRect(px(-A), pz(-A), A*2*s, A*2*s);
+  for(const b of currentMap.boxes){
+    g.fillStyle = b.mat === 'crate' ? 'rgba(255,154,90,.6)'
+                : b.mat === 'block' ? 'rgba(255,45,74,.5)'
+                : 'rgba(255,255,255,.34)';
+    g.fillRect(px(b.x - b.w/2), pz(b.z - b.d/2), b.w*s, b.d*s);
+  }
+  const rs = currentMap.resupply || { x:0, z:0 };
+  g.strokeStyle = 'rgba(39,255,158,.85)'; g.lineWidth = 1.5;
+  g.beginPath(); g.arc(px(rs.x), pz(rs.z), 5*s, 0, Math.PI*2); g.stroke();
+}
+function renderLobbyCards(){
+  if(!byId('agentName')) return;
+  const bots = lobbyMode === 'bots';
+  byId('agentName').textContent = (AGENTS[myAgent] || AGENTS.aseed).name;
+  byId('agentKit').textContent  = t(myAgent + '.kit');
+  byId('modeName').textContent  = t(bots ? 'mode.bots' : 'mode.mp');
+  byId('modeSub').textContent   = t(bots ? 'mode.bots.sub' : 'mode.mp.sub');
+  if(typeof currentMap !== 'undefined' && currentMap) byId('mapName').textContent = currentMap.name;
+  renderAgentPick(); renderArsenal(); drawMapThumb();
+}
+
+/* Tabs. The left column is four panes and only one is on. */
+function showTab(name){
+  document.querySelectorAll('#lbTabs .lb-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+  document.querySelectorAll('.lb-pane').forEach(p => p.classList.toggle('on', p.dataset.pane === name));
+}
+document.querySelectorAll('#lbTabs .lb-tab').forEach(b => b.onclick = ()=>{ showTab(b.dataset.tab); Sfx.swap(); });
+/* Tab cycles them, which is what the footer claims. Guarded on the home
+   screen and on not typing, since the callsign box lives in a tab. */
+addEventListener('keydown', e=>{
+  if(gameState !== 'home' || e.code !== 'Tab') return;
+  if(typeof typingInField === 'function' && typingInField(e.target)) return;
+  e.preventDefault();
+  const tabs = [...document.querySelectorAll('#lbTabs .lb-tab')];
+  const i = tabs.findIndex(b => b.classList.contains('on'));
+  showTab(tabs[(i + 1) % tabs.length].dataset.tab);
+  Sfx.swap();
+});
+
+/* The agent picker lives in the OPERATORS tab now. The choice is remembered
+   and locked once you drop in — startPlay reads it, and the server takes it
+   from the handshake and never again. */
 document.querySelectorAll('#agentRow .agent').forEach(el => el.onclick = ()=>{
   myAgent = el.dataset.agent;
   try{ localStorage.setItem('cx.agent', myAgent); }catch(e){}
-  renderAgentPick(); Sfx.swap();
+  renderLobbyCards(); Sfx.swap();
 });
-renderAgentPick();
+byId('cardAgent').onclick = ()=> showTab('operators');
+byId('cardMode').onclick  = ()=>{
+  lobbyMode = (lobbyMode === 'mp') ? 'bots' : 'mp';
+  try{ localStorage.setItem('cx.mode', lobbyMode); }catch(e){}
+  renderLobbyCards(); Sfx.swap();
+};
+byId('cardMap').onclick   = ()=> Sfx.swap();        // one arena for now
+byId('prepareBtn').onclick = ()=>{
+  if(lobbyMode === 'bots') startPlay('bots'); else openLobby();
+};
+document.querySelectorAll('#langSw button').forEach(b => b.onclick = ()=>{ setLang(b.dataset.lang); Sfx.swap(); });
+/* The UID chip is the reconnect token's tail — the id the server already
+   knows you by, rather than a number invented for the screen. */
+byId('uidVal').textContent = clientToken().slice(-4).toUpperCase();
+/* How many people are in rooms right now. The same warm-up request the
+   lobby makes at page load answers this, so it costs nothing extra. */
+function setOnline(d){
+  const n = byId('lbOnline'), dot = byId('lbDot'); if(!n) return;
+  if(!d){ n.textContent = '—'; dot.classList.add('off'); return; }
+  n.textContent = (d.rooms || []).reduce((a, r) => a + (r.players || 0), 0);
+  dot.classList.remove('off');
+}
+renderLobbyCards();
 
 /* ---- Room browser ----
    Multiplayer no longer connects straight away: you pick a room first. The
    listing comes over plain HTTP so it works before any socket exists. */
 let pendingRoom = null;              // the room startPlay('mp') should join
 function showScreen(id){
-  for(const s of ['home','mode','lobby']) document.getElementById(s).classList.add('hidden');
+  for(const s of ['home','lobby']) document.getElementById(s).classList.add('hidden');
   if(id) document.getElementById(id).classList.remove('hidden');
 }
 function lobbySay(msg, good){
@@ -223,7 +326,7 @@ function warmServer(again){
     .catch(e => { warm.state = 'cold'; throw e; });
   return warm.p;
 }
-addEventListener('load', ()=>{ warmServer().catch(()=>{}); });
+addEventListener('load', ()=>{ warmServer().then(d => setOnline(d)).catch(()=> setOnline(null)); });
 
 async function refreshRooms(){
   const host = document.getElementById('roomList');
@@ -271,7 +374,7 @@ function backToLobby(msg){
   refreshRooms(); lobbySay(msg);
 }
 document.getElementById('refreshBtn').onclick = refreshRooms;
-document.getElementById('lobbyBack').onclick  = ()=>{ gameState='mode'; showScreen('mode'); };
+document.getElementById('lobbyBack').onclick  = ()=>{ gameState='home'; showScreen('home'); };
 document.getElementById('quickBtn').onclick   = ()=>{ pendingRoom = null; startPlay('mp'); };
 document.getElementById('createBtn').onclick  = async ()=>{
   lobbySay('Creating…', true);
@@ -312,8 +415,8 @@ function startPlay(mode){
   localKills=0;
   dashT=0; dashCdUntil=0; zoneUntil=0; zoneReadyAt=0; configureTiles();   // the agent is locked from here
   updateHUD();
-  if (mode==='mp'){ connectMP(nm); document.getElementById('status').textContent='connecting…'; }
-  else { spawnLocalBots(8); document.getElementById('status').textContent='Target Practice — offline'; }
+  if (mode==='mp'){ connectMP(nm); document.getElementById('status').textContent=t('status.connecting'); }
+  else { spawnLocalBots(8); document.getElementById('status').textContent=t('status.offline'); }
   lockPointer();
 }
 

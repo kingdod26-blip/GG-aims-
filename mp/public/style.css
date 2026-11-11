@@ -245,11 +245,17 @@
      Glass panels layered on a CSS 3D stage, floating over the LIVE
      Three.js scene. --mx/--my are mouse parallax values set by JS. */
   :root { --mx:0; --my:0; }
+  /* `clip`, not `hidden`. The ambient orbs deliberately bleed past the edges,
+     which gives the overlay a scrollable overflow area — and `hidden` still
+     scrolls PROGRAMMATICALLY. Once the menu grew buttons near the edges, the
+     browser scrolling a newly focused one into view dragged the entire screen
+     90px sideways and cut the brand off. `clip` makes it not a scroll
+     container at all, so there is nothing to scroll. */
   .overlay { position:fixed; inset:0; z-index:20; color:#fff; text-align:center;
-    perspective:1400px; perspective-origin:50% 45%; overflow:hidden; }
+    perspective:1400px; perspective-origin:50% 45%; overflow:clip; }
 
   /* readability veil over the 3D scene (doesn't hide it) */
-  #home::before, #mode::before, #lobby::before { content:''; position:absolute; inset:0; pointer-events:none;
+  #home::before, #lobby::before { content:''; position:absolute; inset:0; pointer-events:none;
     background:radial-gradient(ellipse at 50% 42%, rgba(10,5,7,.15) 0%, rgba(10,5,7,.55) 45%, rgba(6,3,5,.92) 100%); }
 
   /* ambient blurred orbs in the game palette */
@@ -273,16 +279,6 @@
     backdrop-filter:blur(18px) saturate(150%); -webkit-backdrop-filter:blur(18px) saturate(150%);
     border:1px solid rgba(255,255,255,.13); box-shadow:0 20px 60px rgba(0,0,0,.5); }
 
-  /* --- top nav bar --- */
-  .navbar { position:absolute; top:26px; left:50%; width:min(1040px,92vw);
-    transform:translate(-50%,0) translateZ(70px);
-    display:flex; align-items:center; justify-content:space-between;
-    padding:13px 24px; border-radius:18px; }
-  .logo { display:flex; align-items:center; gap:10px; font-weight:900; font-size:19px; letter-spacing:3px; }
-  .logomark { width:26px; height:26px; border-radius:7px; display:block;
-    box-shadow:0 0 14px rgba(255,45,74,.45); }
-  .logo span { background:linear-gradient(90deg,var(--ac),var(--ac2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
-  .vtag { font-size:11px; letter-spacing:2px; color:var(--ac-soft); }
 
   /* --- hero block --- */
   .hero-l { transform:translateZ(30px); }
@@ -326,17 +322,6 @@
     text-shadow:0 2px 20px rgba(0,0,0,.85), 0 1px 3px rgba(0,0,0,.9); }
   .overlay p.lead { color:var(--t2); font-size:14px; max-width:520px; margin:0 auto;
     text-shadow:0 1px 10px rgba(0,0,0,.8); }
-  .cards { display:flex; gap:26px; margin-top:34px; flex-wrap:wrap; justify-content:center; transform-style:preserve-3d; }
-  .card { width:250px; padding:30px 24px; border-radius:20px; cursor:pointer; text-align:center;
-    transform:translateZ(50px); transition:transform .2s cubic-bezier(.2,.8,.2,1), border-color .2s, box-shadow .25s; }
-  .card:nth-child(1) { transform:translateZ(50px) rotateY(9deg); }
-  .card:nth-child(2) { transform:translateZ(50px) rotateY(-9deg); }
-  .card:hover { transform:translateZ(120px) rotateY(0deg) scale(1.04) !important;
-    border-color:rgba(255,45,74,.7); box-shadow:0 34px 80px rgba(255,45,74,.3); }
-  .card .ico { font-size:44px; filter:drop-shadow(0 6px 16px rgba(0,0,0,.6)); }
-  .card h3 { margin:14px 0 8px; font-size:20px; letter-spacing:2px; }
-  .card p { font-size:12.5px; opacity:.7; line-height:1.6; }
-  .card .cmeta { margin-top:14px; font-size:10px; letter-spacing:2px; color:var(--ac-soft); }
   input { margin-top:18px; padding:12px 18px; border-radius:10px; border:1px solid rgba(255,255,255,.16);
     background:rgba(255,255,255,.07); color:#fff; font-size:15px; text-align:center; letter-spacing:2px;
     transform:translateZ(30px); backdrop-filter:blur(10px); }
@@ -423,3 +408,144 @@
     .panel { display:none; }
     .pb { display:flex; }
   }
+
+  /* ======================= Deployment terminal =============================
+     The screen you land on. A lobby, not a splash page: tabs across the top,
+     the live 3D operator centre stage, and the deployment column down the
+     right that ends in PREPARE.
+
+     The grid leaves the MIDDLE COLUMN EMPTY on purpose — that is where the
+     Spartan stands, and the whole overlay is pointer-events:none so a drag
+     anywhere over him still spins him. Only the controls take the pointer
+     back. Get that backwards and the one interaction the screen advertises
+     ("drag to inspect") is dead everywhere the overlay covers, which is
+     everywhere.
+     ------------------------------------------------------------------- */
+  .lobby-ui { position:absolute; inset:0; z-index:2; pointer-events:none;
+    display:grid; gap:12px 18px; padding:18px clamp(14px,2.4vw,34px) 14px;
+    grid-template-rows:auto 1fr auto;
+    grid-template-columns:minmax(260px,26vw) 1fr minmax(250px,21vw);
+    grid-template-areas:"top top top" "left mid right" "bot bot bot";
+    text-align:left; }
+  .lobby-ui button, .lobby-ui input, .lobby-ui .lb-card, .lobby-ui .agent { pointer-events:auto; }
+
+  /* ---- top bar ---- */
+  .lb-top { grid-area:top; display:flex; align-items:center; gap:clamp(10px,2vw,28px); }
+  .lb-uid { font-size:10px; letter-spacing:2px; color:var(--t3);
+    border:1px solid rgba(255,255,255,.14); border-radius:6px; padding:5px 9px;
+    background:rgba(0,0,0,.35); white-space:nowrap; }
+  .lb-uid b { color:var(--ac-soft); font-weight:700; }
+  .lb-tabs { display:flex; align-items:stretch; gap:2px; flex:1; min-width:0; overflow:hidden; }
+  .lb-tab { background:none; border:0; color:var(--t3); cursor:pointer;
+    font:inherit; font-size:12px; font-weight:700; letter-spacing:3px;
+    padding:10px 16px; border-bottom:2px solid transparent; white-space:nowrap;
+    transition:color .15s, border-color .15s, background .15s; }
+  .lb-tab:hover { color:var(--t1); background:rgba(255,255,255,.05); }
+  .lb-tab.on { color:#fff; border-bottom-color:var(--ac); background:rgba(255,45,74,.10); }
+  .lb-tr { display:flex; align-items:center; gap:10px; margin-left:auto; }
+  /* The language switch is two buttons rather than a dropdown: with only two
+     languages a menu hides the choice behind a click, and the one you are not
+     using is the one you are looking for. */
+  .langsw { display:flex; border:1px solid rgba(255,255,255,.16); border-radius:7px; overflow:hidden; }
+  .langsw button { background:rgba(0,0,0,.3); border:0; color:var(--t3); cursor:pointer;
+    font:inherit; font-size:11px; font-weight:700; letter-spacing:1px; padding:6px 11px;
+    transition:background .15s, color .15s; }
+  .langsw button + button { border-left:1px solid rgba(255,255,255,.16); }
+  .langsw button:hover { color:#fff; background:rgba(255,255,255,.08); }
+  .langsw button.on { background:var(--ac-deep); color:#fff; }
+  .lb-gear { background:rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.16); border-radius:7px;
+    color:var(--t3); cursor:pointer; font:inherit; font-size:11px; font-weight:700;
+    letter-spacing:2px; padding:6px 12px; white-space:nowrap; transition:color .15s, background .15s; }
+  .lb-gear:hover { color:#fff; background:rgba(255,255,255,.08); }
+  .lb-gear::before { content:'\2699'; margin-right:6px; }
+
+  /* ---- left column: brand, then whichever tab is open ---- */
+  .lb-left { grid-area:left; align-self:end; min-width:0; padding-bottom:6px; }
+  .lb-brand { display:flex; align-items:center; gap:10px; font-weight:900;
+    font-size:clamp(20px,2.4vw,30px); letter-spacing:7px; margin-bottom:14px;
+    filter:drop-shadow(0 6px 26px rgba(0,0,0,.7)); }
+  .lb-brand img { width:30px; height:30px; border-radius:8px; box-shadow:0 0 16px rgba(255,45,74,.5); }
+  .lb-brand b { background:linear-gradient(90deg,var(--ac),var(--ac2));
+    -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .lb-pane { display:none; max-width:560px; }
+  .lb-pane.on { display:block; animation:lbIn .22s ease-out; }
+  @keyframes lbIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+  .lb-lead { font-size:13.5px; line-height:1.75; color:var(--t2); max-width:460px; }
+  .lb-hint { margin-top:12px; font-size:10.5px; letter-spacing:2.5px; text-transform:uppercase; color:var(--t3); }
+  #nameInput { margin-top:14px; }
+  .lb-rows { margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:4px 18px; max-width:460px; }
+  .lb-row { display:flex; justify-content:space-between; gap:12px; font-size:12px;
+    padding:5px 0; border-bottom:1px solid rgba(255,255,255,.07); }
+  .lb-row span { color:var(--t2); }
+  .lb-row b { color:var(--ac-soft); font-weight:700; letter-spacing:1px; white-space:nowrap; }
+  .lb-keys { margin-top:14px; display:flex; flex-wrap:wrap; gap:7px; max-width:520px; }
+  .lb-keys .kcap { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--t3);
+    background:rgba(0,0,0,.34); border:1px solid rgba(255,255,255,.10); border-radius:7px; padding:5px 9px; }
+  .lb-keys .kcap b { color:#fff; font-size:10.5px; letter-spacing:1px; }
+  .lb-keys .kcap i { font-style:normal; }
+
+  /* ---- right column: what you are about to drop into ---- */
+  .lb-right { grid-area:right; align-self:center; justify-self:stretch;
+    display:flex; flex-direction:column; gap:9px; }
+  .lb-card { position:relative; border-radius:12px; padding:11px 13px; cursor:pointer;
+    background:linear-gradient(180deg,rgba(20,14,17,.78),rgba(10,7,9,.88));
+    border:1px solid rgba(255,255,255,.12); backdrop-filter:blur(14px) saturate(140%);
+    -webkit-backdrop-filter:blur(14px) saturate(140%);
+    box-shadow:0 14px 40px rgba(0,0,0,.5); transition:border-color .16s, transform .16s, box-shadow .16s; }
+  .lb-card:hover { transform:translateX(-3px); border-color:rgba(255,45,74,.6);
+    box-shadow:0 18px 50px rgba(0,0,0,.6), 0 0 24px rgba(255,45,74,.22); }
+  .lb-k { font-size:9.5px; letter-spacing:2.5px; color:var(--t3); }
+  .lb-v { font-size:16px; font-weight:900; letter-spacing:2px; margin-top:3px; color:#fff; }
+  .lb-s { font-size:11px; color:var(--t2); margin-top:3px; line-height:1.5; }
+  /* The map card shows the arena drawn from its own data (maps.js), so it
+     cannot show a picture of a layout the game is not playing. */
+  .lb-mapcard { padding:0; overflow:hidden; }
+  .lb-mapcard canvas { display:block; width:100%; height:auto; opacity:.9; }
+  .lb-maprow { display:flex; align-items:baseline; gap:8px; padding:8px 13px 10px; }
+  .lb-maprow b { font-size:14px; font-weight:900; letter-spacing:2px; }
+  .lb-prepare { margin-top:4px; padding:15px 10px; border:0; border-radius:12px; cursor:pointer;
+    font:inherit; font-size:16px; font-weight:900; letter-spacing:5px; color:#fff;
+    background:linear-gradient(100deg,var(--ac-deep),var(--ac2));
+    box-shadow:0 14px 40px rgba(255,45,74,.42); transition:transform .14s, box-shadow .14s, filter .14s; }
+  .lb-prepare:hover { transform:translateY(-2px); filter:brightness(1.08);
+    box-shadow:0 20px 56px rgba(255,45,74,.6); }
+  .lb-prepare:active { transform:translateY(0); }
+
+  /* ---- bottom bar ---- */
+  .lb-bot { grid-area:bot; display:flex; align-items:center; justify-content:space-between;
+    gap:16px; font-size:10.5px; letter-spacing:1.5px; color:var(--t3); }
+  .lb-foot-l { display:flex; gap:14px; flex-wrap:wrap; }
+  .fkey b { display:inline-block; background:rgba(255,255,255,.1); border-radius:4px;
+    padding:2px 6px; margin-right:6px; color:#fff; font-size:10px; }
+  .fkey i { font-style:normal; }
+  .lb-foot-r { white-space:nowrap; }
+  #lbDot { font-style:normal; color:#27ff9e; }
+  #lbDot.off { color:#5a636e; }
+
+  /* The agent cards move into the OPERATORS tab, so they sit left and wrap
+     instead of being centred across the screen. */
+  #home .agentrow { justify-content:flex-start; transform:none; margin-top:14px; flex-wrap:wrap; }
+  #home .agent { width:220px; }
+
+  /* Chinese sets no word spaces and the wide tracking the English chrome uses
+     reads as broken spacing, so it is pulled in wherever it was opened up. */
+  body.lang-zh { font-family:'Segoe UI','Microsoft YaHei','PingFang SC','Hiragino Sans GB',
+                 'Noto Sans CJK SC',sans-serif; }
+  body.lang-zh .lb-tab, body.lang-zh .lb-brand { letter-spacing:3px; }
+  body.lang-zh .lb-prepare { letter-spacing:6px; }
+  body.lang-zh .lb-v, body.lang-zh .lb-maprow b { letter-spacing:1px; }
+  body.lang-zh .lb-k, body.lang-zh .lb-hint, body.lang-zh .lb-bot { letter-spacing:1px; }
+
+  /* Narrow windows: the three columns become one, the operator keeps the
+     middle, and the deployment column goes full width under it. */
+  @media (max-width: 1080px) {
+    .lobby-ui { grid-template-columns:1fr; grid-template-rows:auto 1fr auto auto;
+      grid-template-areas:"top" "mid" "right" "bot"; }
+    .lb-left { display:none; }
+    .lb-right { flex-direction:row; align-items:stretch; overflow-x:auto; }
+    .lb-right .lb-card { flex:1 0 150px; }
+    .lb-mapcard { display:none; }
+    .lb-prepare { flex:1 0 140px; margin-top:0; }
+    .lb-tab { padding:9px 10px; letter-spacing:2px; font-size:11px; }
+  }
+  @media (max-height: 560px) { .lb-brand { display:none; } }

@@ -299,11 +299,23 @@ function loop(){ requestAnimationFrame(loop);
     // smooth the pointer so the camera glides instead of snapping
     camLerp.x += (menuMouse.x - camLerp.x)*Math.min(1,dt*4);
     camLerp.y += (menuMouse.y - camLerp.y)*Math.min(1,dt*4);
-    const zoom = (gameState==='mode') ? 35.2 : 37.5;         // push in on the mode screen
+    /* One menu screen now, and the operator is its centrepiece, so the
+       camera sits at what used to be the mode screen's closer framing. */
+    const zoom = 35.2;
     camera.position.set(Math.sin(t*0.18)*1.0 + camLerp.x*2.6,
                         1.55 + Math.sin(t*0.3)*0.1 - camLerp.y*1.1,
                         zoom);
     camera.lookAt(camLerp.x*0.7, 1.12 - camLerp.y*0.25, 32);
+    /* A portrait lens for the menu. The operator is the centrepiece of the
+       deployment screen, and at the playing FOV of 80 he is a small figure in
+       a wide room. Narrowing the LENS rather than walking the camera in keeps
+       him clear of the podium and compresses the arena behind him, which is
+       what makes it read as a backdrop. startPlay puts it back to 80. */
+    const MENU_FOV = 52;
+    if(Math.abs(camera.fov - MENU_FOV) > 0.01){
+      camera.fov += (MENU_FOV - camera.fov) * Math.min(1, dt*6);
+      camera.updateProjectionMatrix();
+    }
   }
 
   // interpolate + animate networked entities

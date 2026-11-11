@@ -38,7 +38,14 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
     document.getElementById('reserveNum').textContent='/ '+curAmmo().reserve;
     document.getElementById('modeLbl').textContent = w.name+' · '+w.mode;
   }
-  document.getElementById('stanceVal').textContent = me.stance.toUpperCase().replace('STAND','STANDING').replace('CROUCH','CROUCHING').replace('PRONE','PRONE'); }
+  updateStanceLabel(); }
+/* Its own function so the language switch can repaint it: applyLang()
+   calls this, and updateHUD() is event-driven and may not run again for
+   a while. */
+function updateStanceLabel(){
+  const el = document.getElementById('stanceVal'); if(!el) return;
+  el.textContent = t('stance.' + (me.stance === 'crouch' ? 'crouch' : me.stance === 'prone' ? 'prone' : 'stand'));
+}
 /* Damage direction. The server tells the victim where each hit came from;
    an arc round the crosshair points that way and fades over HURT.ms.
 

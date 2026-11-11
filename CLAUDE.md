@@ -16,6 +16,7 @@ GG aims/
 │       ├── index.html # markup only (~190 lines)
 │       ├── style.css  # all the styling
 │       ├── config.js  # 0. WHERE THE SERVER IS (runs before core.js)
+│       ├── i18n.js    # 0. EN / 简体中文 strings and t() (also before core.js)
 │       ├── core.js    # 1. scene, camera, lights, post, graphics settings
 │       ├── maps.js    # 2. THE ARENAS AS DATA — the server requires this too
 │       ├── world.js   # 3. materials, arena geometry, floor/walls/ceiling, signage
@@ -35,7 +36,9 @@ Almost all work happens in the numbered client files above and **`mp/server.js`*
 Those ten are **classic scripts sharing one global scope**, not modules.
 `maps.js` is the exception that proves the rule: it is pure data with no
 THREE and no `document`, because **the Node server requires that same file**.
-Keep it that way or the server stops booting.
+Keep it that way or the server stops booting. `i18n.js` sits outside the
+numbering with config.js for the opposite reason: it depends on nothing and
+everything after it wants `t()` at load time.
 **The order `index.html` lists them in is the contract** — each runs after
 the one before it, and anything referenced at load time must already have
 run. Function declarations hoist and move freely; a top-level `const` does
@@ -372,9 +375,9 @@ repointed). Kill a stuck server with `taskkill //F //IM node.exe`. The server ca
   at the cap. Recolour any of those to crimson and a pair collapses into one
   colour. The crosshair stays green for the same reason — it has to read
   against fire pools, which are crimson and orange.
-  `#lobby` was missing from the `::before` readability veil that `#home` and
-  `#mode` have, so PICK A ROOM was white text on a white wall; all three
-  share the rule now.
+  `#lobby` was missing from the `::before` readability veil that `#home`
+  has, so PICK A ROOM was white text on a white wall; both share the rule
+  now. (`#mode` had it too, until that screen was folded into the menu.)
 - **Practice-only settings are hidden in multiplayer.** Rows marked
   `practice:true` in `SET_DEFS` are filtered out when `gameMode === 'mp'`,
   and `renderSettingsUI()` re-runs on every open so the panel is right for
@@ -669,8 +672,8 @@ threading the room's rects through the handlers that read module-level
 
 ## Agents
 
-You play an **agent**, picked on the mode screen (`#agentRow`, remembered in
-`localStorage` as `cx.agent`) and **locked for the match**: `startPlay` reads
+You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,
+remembered in `localStorage` as `cx.agent`) and **locked for the match**: `startPlay` reads
 it, and the server takes it once from the socket handshake (`auth.agent`) and
 never again. The double jump used to be everybody's; it is Blast's
 passive now. `AGENTS` in `weapons.js` and `AGENT_IDS` in `server.js` must
@@ -920,6 +923,71 @@ MULTIPLAYER) that were never links — removed, along with `.navlinks`.
 to the plain white one. It lives in the settings panel with the graphics
 options and saves with them, but the presets deliberately leave it alone —
 picking PERFORMANCE shouldn't rearrange your HUD.
+
+## The menu
+
+**One screen, not three.** There used to be a splash page (`#home`) with a
+START button that led to a mode screen (`#mode`) that led to the room browser.
+`#mode` is gone; `#home` is a deployment terminal modelled on a shooter lobby,
+and `#lobby` (the room browser) is still the one step after it, for
+multiplayer only.
+
+- **Top bar**: the UID chip (the tail of the reconnect token, so it is the id
+  the server already knows you by rather than a number invented for the
+  screen), four tabs, the language switch, and SETTINGS.
+- **Tabs** swap the left column only: START (the pitch), OPERATORS (callsign
+  + the agent cards, which used to live on `#mode`), ARSENAL, CONTROLS. `Tab`
+  cycles them, which is what the footer claims.
+- **The middle column is deliberately EMPTY** — that is where the 3D Spartan
+  stands. `.lobby-ui` is `pointer-events:none` and only the controls take the
+  pointer back, so dragging to spin him still works anywhere over the layout.
+  Get that backwards and the one interaction the screen advertises is dead.
+- **The right column** is what you are about to drop into: agent, mode
+  (click to flip between multiplayer and the range, remembered as `cx.mode`),
+  the map, and PREPARE, which either starts the range or opens the room
+  browser.
+- **The map card draws the arena from `maps.js`**, the same data the game
+  builds geometry from, so it cannot show a plan the match is not playing.
+  Crates orange, blocks crimson, the resupply ring green.
+- **The menu runs a 52° lens** (`MENU_FOV` in loop.js) rather than the 80° the
+  game plays at. The operator is the centrepiece and at 80 he is a small
+  figure in a wide room; narrowing the LENS instead of walking the camera in
+  keeps him clear of the podium and compresses the arena behind him into a
+  backdrop. `startPlay` puts it back to 80.
+
+- **`.overlay` is `overflow:clip`, not `hidden`, and that matters.** The
+  ambient orbs bleed past the edges on purpose, which gives the overlay a
+  scrollable overflow area — and `hidden` still scrolls PROGRAMMATICALLY.
+  Once the menu had buttons near the edges, the browser scrolling a newly
+  focused one into view dragged the whole screen 90px sideways and cut the
+  brand off; `getBoundingClientRect` showed every child at -90 while the
+  parent sat at 0, which reads like a transform bug and is not one. `clip`
+  means there is no scroll container to scroll.
+
+## Language
+
+English and 简体中文, picked in the top bar and remembered as `cx.lang`;
+with nothing remembered it follows `navigator.language`, so a `zh-*` browser
+opens in Chinese. `i18n.js` owns both packs and `t(key)`.
+
+Two ways in, and they cover different problems. **Markup** carries
+`data-i18n` (plus `data-i18n-ph` for placeholders) and `applyLang()` rewrites
+the text — the English stays in the HTML as the fallback and as the thing you
+read while editing, so a missing key degrades to English rather than to an
+empty element. **Code** calls `t()` for anything built at runtime.
+
+**`applyLang()` must re-run every renderer that writes text**, because a
+language switch has to repaint what is ALREADY on screen, not just what is
+drawn next: `renderSettingsUI`, `renderLobbyCards` (which covers the agent,
+mode and map cards and the arsenal list), `updateHUD`, `updateStanceLabel`,
+and the armory only while it is open. Add a renderer and add it there, or it
+sits in the old language until something unrelated redraws it. The first call
+is deferred to `DOMContentLoaded` because those renderers live further down
+the load chain.
+
+`t()` falls back to English and then to the key itself. Not translated on
+purpose: player names and room codes (data, not copy), and the in-play kill
+feed and toasts, which are assembled from fragments at a dozen call sites.
 
 ## Sound
 

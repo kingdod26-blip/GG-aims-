@@ -21,16 +21,16 @@
 <div id="scope"><div id="scopeDot"></div></div>
 
 <div id="armory" class="hidden">
-  <h2>ARMORY</h2>
+  <h2 data-i18n="hud.armory">ARMORY</h2>
   <div id="armGrid"></div>
-  <p class="armHint">Click a weapon or press its number · Tab to close</p>
+  <p class="armHint" data-i18n="hud.armoryhint">Click a weapon or press its number · Tab to close</p>
 </div>
 
 <!-- In-game HUD -->
 <div class="hud">
-  <div id="board"><h3>Scoreboard <span id="roomCount"></span></h3><div id="rows"></div></div>
+  <div id="board"><h3><span data-i18n="hud.board">Scoreboard</span> <span id="roomCount"></span></h3><div id="rows"></div></div>
   <div id="feed"></div>
-  <div id="healthPanel"><div class="hudlbl">HEALTH</div>
+  <div id="healthPanel"><div class="hudlbl" data-i18n="hud.health">HEALTH</div>
     <div id="hpRow"><span id="hpNum">100</span><div id="hpBar"><div id="hpFill"></div></div></div></div>
   <div id="ammoPanel">
     <!-- Roll, crossbow and smoke, with whatever time is left on each.
@@ -49,72 +49,118 @@
   <div id="zoneFx"></div>
   <div id="hurtDir"></div>
   <div id="specTag"></div>
-  <div id="stance">STANCE: <b id="stanceVal">STANDING</b></div>
+  <div id="stance"><span data-i18n="hud.stance">STANCE:</span> <b id="stanceVal">STANDING</b></div>
   <div id="status">—</div>
   <div id="fpsTag">-- FPS</div>
   <button id="exitHud" title="Pause / exit (Esc)">⏸ ESC</button>
 </div>
-<div id="respawn"><h1>ELIMINATED</h1><p id="respawnMsg">watching until the next round</p></div>
+<div id="respawn"><h1 data-i18n="hud.eliminated">ELIMINATED</h1><p id="respawnMsg" data-i18n="hud.watching">watching until the next round</p></div>
 <div id="banner"><div id="bannerBig"></div><div id="bannerSub"></div></div>
-<div id="detect"><span id="detectDot">●</span> <span id="detectTxt">DETECT</span></div>
+<div id="detect"><span id="detectDot">●</span> <span id="detectTxt" data-i18n="hud.detect">DETECT</span></div>
 
-<!-- ===== Home: spatial UI floating over the live 3D scene ===== -->
+<!-- ===== Deployment terminal: the screen you land on =====
+     Laid out like a lobby rather than a splash page: tabs across the top,
+     your operator centre stage (the live 3D hero, draggable), and the
+     deployment column down the right that ends in PREPARE. The old home and
+     mode screens were two steps to do what this does in one. -->
 <div id="home" class="overlay">
-  <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
+  <div class="orb o1"></div><div class="orb o2"></div>
   <div class="scanlines"></div>
 
-  <div class="stage">
-    <nav class="navbar glass layer">
-      <div class="logo"><img class="logomark" src="icon.png" alt="" />CRIMSON<span> X</span></div>
-      <button class="gear" id="gearBtn">⚙ SETTINGS</button>
-    </nav>
+  <div class="lobby-ui">
+    <header class="lb-top">
+      <div class="lb-uid">UID <b id="uidVal">----</b></div>
+      <nav class="lb-tabs" id="lbTabs">
+        <button class="lb-tab on" data-tab="start"     data-i18n="tab.start">START</button>
+        <button class="lb-tab"    data-tab="operators" data-i18n="tab.operators">OPERATORS</button>
+        <button class="lb-tab"    data-tab="arsenal"   data-i18n="tab.arsenal">ARSENAL</button>
+        <button class="lb-tab"    data-tab="controls"  data-i18n="tab.controls">CONTROLS</button>
+      </nav>
+      <div class="lb-tr">
+        <div class="langsw" id="langSw">
+          <button data-lang="en">EN</button><button data-lang="zh">中文</button>
+        </div>
+        <button class="lb-gear" id="gearBtn"><span data-i18n="top.settings">SETTINGS</span></button>
+      </div>
+    </header>
 
-    <div class="hero-l layer">
-      <div class="badge">◆ TACTICAL FPS · RUNS IN YOUR BROWSER</div>
-      <h1>CRIMSON X</h1>
-      <p class="sub">Step onto the live-fire range. Five weapons, a scoped sniper, and an arena
-        built for peeking, perching and precision.</p>
-      <button class="btn" id="startBtn">START GAME</button>
-      <div class="hint">drag to inspect your operator · move mouse to look around</div>
-    </div>
+    <section class="lb-left">
+      <div class="lb-brand"><img src="icon.png" alt="" />CRIMSON<b> X</b></div>
 
-    <div class="panel glass layer pl">
-      <div class="ptitle">ARSENAL</div>
-      <div class="prow"><span>Rifle</span><b>AUTO</b></div>
-      <div class="prow"><span>Sniper</span><b>4× SCOPE</b></div>
-      <div class="prow"><span>Shotgun</span><b>8 PELLET</b></div>
-      <div class="prow"><span>Pistol</span><b>SEMI</b></div>
-      <div class="prow"><span>Pistol X</span><b>SEMI</b></div>
-      <div class="prow"><span>Crossbow</span><b>G · FIRE</b></div>
-      <div class="prow"><span>Smoke</span><b>X · TAG</b></div>
-      <div class="prow"><span>Blade</span><b>F · COMBO</b></div>
-    </div>
+      <div class="lb-pane on" data-pane="start">
+        <p class="lb-lead" data-i18n="start.tagline">Step onto the live-fire range.</p>
+        <div class="lb-hint" data-i18n="start.hint">drag to inspect your operator</div>
+      </div>
 
-    <div class="panel glass layer pr">
-      <div class="ptitle">OPERATOR</div>
-      <div class="prow"><span>Suit</span><b>MK V</b></div>
-      <div class="prow"><span>Stances</span><b>3</b></div>
-      <div class="prow"><span>Mobility</span><b>VAULT</b></div>
-      <div class="prow"><span>Status</span><b>READY</b></div>
-    </div>
+      <div class="lb-pane" data-pane="operators">
+        <p class="lb-lead" data-i18n="op.lead">Pick who you drop in as.</p>
+        <input id="nameInput" maxlength="16" placeholder="CALLSIGN" data-i18n-ph="op.callsign" />
+        <div class="agentrow" id="agentRow">
+          <div class="agent glass" data-agent="aseed">
+            <h4>ASEED</h4>
+            <p><b data-i18n="op.passive">Passive</b> <span data-i18n="aseed.passive">hears gunfire through walls</span></p>
+            <p><span data-i18n="aseed.kit">roll · fire bolt · smoke tag</span></p>
+          </div>
+          <div class="agent glass" data-agent="blast">
+            <h4>BLAST</h4>
+            <p><b data-i18n="op.passive">Passive</b> <span data-i18n="blast.passive">double jump</span></p>
+            <p><span data-i18n="blast.kit">dash · grenade ×2 · the zone</span></p>
+          </div>
+        </div>
+      </div>
 
-    <div class="panel glass layer pb">
-      <div class="kcap"><b>WASD</b>move</div>
-      <div class="kcap"><b>␣</b>jump</div>
-      <div class="kcap"><b>C</b>crouch</div>
-      <div class="kcap"><b>Z</b>prone</div>
-      <div class="kcap"><b>R</b>reload</div>
-      <div class="kcap"><b>1-5</b>weapons</div>
-      <div class="kcap"><b>G</b>crossbow</div>
-      <div class="kcap"><b>X</b>smoke</div>
-      <div class="kcap"><b>F</b>blade</div>
-      <div class="kcap"><b>V</b>roll</div>
-      <div class="kcap"><b>Q</b>peek L</div>
-      <div class="kcap"><b>E</b>peek R</div>
-      <div class="kcap"><b>C</b>slide</div>
-      <div class="kcap"><b>Tab</b>armory</div>
-      <div class="kcap"><b>RMB</b>aim</div>
-    </div>
+      <div class="lb-pane" data-pane="arsenal">
+        <p class="lb-lead" data-i18n="arsenal.lead">Everything you can carry.</p>
+        <div class="lb-rows" id="arsenalRows"></div>
+      </div>
+
+      <div class="lb-pane" data-pane="controls">
+        <p class="lb-lead" data-i18n="controls.lead">Mouse to look, left click to fire.</p>
+        <div class="lb-keys">
+          <div class="kcap"><b>WASD</b><i data-i18n="k.move">move</i></div>
+          <div class="kcap"><b>Shift</b><i data-i18n="k.sprint">sprint</i></div>
+          <div class="kcap"><b>␣</b><i data-i18n="k.jump">jump</i></div>
+          <div class="kcap"><b>C</b><i data-i18n="k.crouch">crouch</i></div>
+          <div class="kcap"><b>Z</b><i data-i18n="k.prone">prone</i></div>
+          <div class="kcap"><b>R</b><i data-i18n="k.reload">reload</i></div>
+          <div class="kcap"><b>1-5</b><i data-i18n="k.weapons">weapons</i></div>
+          <div class="kcap"><b>G</b><i data-i18n="k.ability1">ability 1</i></div>
+          <div class="kcap"><b>X</b><i data-i18n="k.ability2">ability 2</i></div>
+          <div class="kcap"><b>F</b><i data-i18n="k.blade">blade</i></div>
+          <div class="kcap"><b>V</b><i data-i18n="k.move2">dash / roll</i></div>
+          <div class="kcap"><b>Q</b><i data-i18n="k.peekl">peek left</i></div>
+          <div class="kcap"><b>E</b><i data-i18n="k.peekr">peek right</i></div>
+          <div class="kcap"><b>Tab</b><i data-i18n="k.armory">armory</i></div>
+          <div class="kcap"><b>RMB</b><i data-i18n="k.aim">aim</i></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="lb-right">
+      <div class="lb-card" id="cardAgent">
+        <div class="lb-k" data-i18n="card.agent">AGENT</div>
+        <div class="lb-v" id="agentName">ASEED</div>
+        <div class="lb-s" id="agentKit"></div>
+      </div>
+      <div class="lb-card" id="cardMode">
+        <div class="lb-k" data-i18n="card.mode">MODE</div>
+        <div class="lb-v" id="modeName"></div>
+        <div class="lb-s" id="modeSub"></div>
+      </div>
+      <div class="lb-card lb-mapcard" id="cardMap">
+        <canvas id="mapThumb" width="300" height="300"></canvas>
+        <div class="lb-maprow"><span class="lb-k" data-i18n="card.map">MAP</span><b id="mapName">FOUNDRY</b></div>
+      </div>
+      <button class="lb-prepare" id="prepareBtn" data-i18n="btn.prepare">PREPARE</button>
+    </aside>
+
+    <footer class="lb-bot">
+      <div class="lb-foot-l">
+        <span class="fkey"><b>Tab</b><i data-i18n="foot.switch">switch tab</i></span>
+        <span class="fkey"><b>O</b><i data-i18n="top.settings">settings</i></span>
+      </div>
+      <div class="lb-foot-r"><i id="lbDot">●</i> <span id="lbOnline">—</span> <span data-i18n="foot.online">online</span></div>
+    </footer>
   </div>
 </div>
 
@@ -122,12 +168,12 @@
 <div id="pause" class="overlay hidden">
   <div class="stage">
     <div class="setpanel glass layer" style="width:min(380px,90vw)">
-      <h2>PAUSED</h2>
+      <h2 data-i18n="pause.title">PAUSED</h2>
       <p class="lead" id="pauseMode">Target Practice</p>
       <div class="pausebtns">
-        <button class="btn" id="resumeBtn">RESUME</button>
-        <button class="pbtn" id="pauseSettings">⚙ GRAPHICS SETTINGS</button>
-        <button class="pbtn danger" id="quitBtn">✕ QUIT TO MENU</button>
+        <button class="btn" id="resumeBtn" data-i18n="pause.resume">RESUME</button>
+        <button class="pbtn" id="pauseSettings" data-i18n="pause.graphics">⚙ GRAPHICS SETTINGS</button>
+        <button class="pbtn danger" id="quitBtn" data-i18n="pause.quit">✕ QUIT TO MENU</button>
       </div>
     </div>
   </div>
@@ -137,60 +183,21 @@
 <div id="settings" class="overlay hidden">
   <div class="stage">
     <div class="setpanel glass layer">
-      <h2>GRAPHICS &amp; HUD</h2>
-      <p class="lead">Lower settings = cooler machine and quieter fans.</p>
+      <h2 data-i18n="set.title">GRAPHICS &amp; HUD</h2>
+      <p class="lead" data-i18n="set.lead">Lower settings = cooler machine and quieter fans.</p>
       <div class="presets">
-        <div class="preset" data-preset="performance">PERFORMANCE</div>
-        <div class="preset" data-preset="balanced">BALANCED</div>
-        <div class="preset" data-preset="quality">QUALITY</div>
+        <div class="preset" data-preset="performance" data-i18n="set.performance">PERFORMANCE</div>
+        <div class="preset" data-preset="balanced" data-i18n="set.balanced">BALANCED</div>
+        <div class="preset" data-preset="quality" data-i18n="set.quality">QUALITY</div>
       </div>
       <div id="setRows"></div>
-      <div class="fpsread">CURRENT: <b id="fpsNow">--</b> FPS</div>
+      <div class="fpsread"><span data-i18n="set.current">CURRENT:</span> <b id="fpsNow">--</b> FPS</div>
       <div class="setnote">
         <b>Frame cap</b> is the biggest heat saver — 60 looks smooth and halves the work of an uncapped 144Hz.<br>
         <b>Resolution</b> at 200% renders 4× the pixels; 100% usually looks nearly identical.
       </div>
-      <div style="text-align:center"><button class="btn" id="setClose">DONE</button></div>
+      <div style="text-align:center"><button class="btn" id="setClose" data-i18n="set.done">DONE</button></div>
     </div>
-  </div>
-</div>
-
-<!-- ===== Mode select: floating deployment cards ===== -->
-<div id="mode" class="overlay hidden">
-  <div class="orb o1"></div><div class="orb o2"></div>
-  <div class="scanlines"></div>
-  <div class="stage">
-    <div class="hero-l layer">
-      <div class="badge">◆ STEP 2 · DEPLOYMENT</div>
-      <h2>SELECT MODE</h2>
-      <p class="lead">Enter a callsign, then choose where to drop in.</p>
-      <input id="nameInput" maxlength="16" placeholder="CALLSIGN" />
-      <div class="agentrow" id="agentRow">
-        <div class="agent glass" data-agent="aseed">
-          <h4>ASEED</h4>
-          <p><b>Passive</b> hears gunfire through walls</p>
-          <p><b>V</b> roll · <b>G</b> fire bolt · <b>X</b> smoke tag</p>
-        </div>
-        <div class="agent glass" data-agent="blast">
-          <h4>BLAST</h4>
-          <p><b>Passive</b> double jump</p>
-          <p><b>V</b> dash · <b>G</b> grenade ×2 · <b>X</b> the zone</p>
-        </div>
-      </div>
-    </div>
-    <div class="cards layer">
-      <div class="card glass" id="cardBots">
-        <div class="ico">🎯</div><h3>TARGET PRACTICE</h3>
-        <p>Solo range with stationary Spartan targets. Warm up your aim — nothing shoots back.</p>
-        <div class="cmeta">OFFLINE · INSTANT</div>
-      </div>
-      <div class="card glass" id="cardMp">
-        <div class="ico">🌐</div><h3>MULTIPLAYER</h3>
-        <p>Share the arena with other players. Open this page in another tab or device to join.</p>
-        <div class="cmeta">LIVE · SHARED WORLD</div>
-      </div>
-    </div>
-    <button class="link" id="backBtn">← BACK</button>
   </div>
 </div>
 
@@ -201,23 +208,23 @@
   <div class="stage">
     <div class="hero-l layer">
       <div class="badge">◆ STEP 3 · ROOMS</div>
-      <h2>PICK A ROOM</h2>
-      <p class="lead">Drop into any room with space, or make one and share the code.</p>
+      <h2 data-i18n="lobby.title">PICK A ROOM</h2>
+      <p class="lead" data-i18n="lobby.lead">Drop into any room with space, or make one and share the code.</p>
       <div class="lobbybtns">
-        <button class="btn small" id="quickBtn">QUICK PLAY</button>
-        <button class="btn small ghost" id="createBtn">CREATE ROOM</button>
+        <button class="btn small" id="quickBtn" data-i18n="lobby.quick">QUICK PLAY</button>
+        <button class="btn small ghost" id="createBtn" data-i18n="lobby.create">CREATE ROOM</button>
       </div>
       <div class="joinrow">
-        <input id="codeInput" maxlength="5" placeholder="CODE" />
-        <button class="btn small ghost" id="joinBtn">JOIN</button>
+        <input id="codeInput" maxlength="5" placeholder="CODE" data-i18n-ph="lobby.code" />
+        <button class="btn small ghost" id="joinBtn" data-i18n="lobby.join">JOIN</button>
       </div>
       <div id="lobbyMsg"></div>
     </div>
     <div class="layer roomsbox glass">
-      <div class="roomshead"><span>OPEN ROOMS</span><button class="link" id="refreshBtn">↻ REFRESH</button></div>
+      <div class="roomshead"><span data-i18n="lobby.open">OPEN ROOMS</span><button class="link" id="refreshBtn" data-i18n="lobby.refresh">↻ REFRESH</button></div>
       <div id="roomList"></div>
     </div>
-    <button class="link" id="lobbyBack">← BACK</button>
+    <button class="link" id="lobbyBack" data-i18n="lobby.back">← BACK</button>
   </div>
 </div>
 
@@ -243,6 +250,7 @@
      global scope, so THIS ORDER IS THE CONTRACT: each runs after the one
      above it. Reordering them will break load-time references. -->
 <script src="config.js"></script>
+<script src="i18n.js"></script>
 <script src="core.js"></script>
 <script src="maps.js"></script>
 <script src="world.js"></script>
