@@ -930,6 +930,20 @@ body (band-passed noise, the weapon's size), thump (a sine dropping in
 pitch) and tail (low noise, the room answering) — weighted per weapon in the
 `GUN` table.
 
+**Footsteps are paced by the distance you actually COVERED**, measured at
+the end of `movePlayer` after collision has had its say — not by the
+velocity you asked for. In the open the two are the same number; with
+something in the way they are nothing alike. Collision moves you back out
+of a wall, it does not slow you down, so `me.hv` sits at full walking
+speed for as long as you hold the key while you go nowhere — and the old
+test (`me.hv.lengthSq()>1`, distance from `me.hv.length()*dt`) laid down a
+step every 1.6m of travel that never happened. Measured: six footsteps
+while moving 10cm into a wall, now zero, with open-ground pacing
+unchanged (3 steps per 5.6m walking, 7 per 15.6m sprinting, 4 per 5.25m
+crouched). Remote players' footsteps a few hundred lines down have always
+been paced this way, off the drawn delta. `gone < 1` guards it: a jump of
+over a metre is a respawn or a teleport, not a stride.
+
 **Sounds can be placed.** Pass `at` ({x,z}) and `bus()` attenuates, low-passes
 and pans it relative to where you stand and face. `ref` is the distance at
 which it is half as loud: 11m for a footstep, 30 for a gunshot, 16 for a pool

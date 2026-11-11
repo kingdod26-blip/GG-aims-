@@ -64,13 +64,11 @@ function movePlayer(dt){
      stop (nothing wanted), or it would fight the first frames of pulling
      away from a standstill. */
   if(want.lengthSq()===0 && me.hv.lengthSq()<STOP_SNAP*STOP_SNAP) me.hv.set(0,0,0);
+  /* Where the feet were before this frame moved them. Footsteps are paced on
+     the distance ACTUALLY covered, so they are counted at the end of this
+     function — after collision has had its say. */
+  const px = me.x, pz = me.z;
   me.x+=me.hv.x*dt; me.z+=me.hv.z*dt;
-  // footsteps: fire on distance travelled, so pace matches actual speed/stance
-  if(me.hv.lengthSq()>1 && me.onGround){
-    stepDist += me.hv.length()*dt;              // paced by actual speed, not intent
-    const stride = me.stance==='prone' ? 1.5 : me.stance==='crouch' ? 1.15 : (sprint ? 2.0 : 1.6);
-    if(stepDist >= stride){ stepDist=0; stepLeft=!stepLeft; Sfx.step(stepLeft); }
-  } else stepDist = Math.max(stepDist, 0);
   // jump — edge-triggered so holding Space can't bunny-hop, and you get a
   // second mid-air jump (an agent with jumps:2, i.e. Blast) before touching down again.
   const wasAir = !me.onGround;
@@ -100,6 +98,25 @@ function movePlayer(dt){
     const dx=me.x-cx, dz=me.z-cz, d=Math.hypot(dx,dz);
     if(d<me.radius&&d>1e-4){ const p=me.radius-d; me.x+=dx/d*p; me.z+=dz/d*p; } else if(d===0) me.x+=me.radius; }
   const b=ARENA-1.2; me.x=Math.max(-b,Math.min(b,me.x)); me.z=Math.max(-b,Math.min(b,me.z));
+
+  /* Footsteps, paced by the distance actually COVERED rather than the speed
+     you asked for. In the open those are the same number; with something in
+     the way they are nothing alike. Walking into a wall or a crate leaves
+     me.hv sitting at full speed forever — collision moves you back out, it
+     does not slow you down — so the old test (me.hv.lengthSq()>1, distance
+     from me.hv.length()*dt) kept laying down a step every 1.6m of travel you
+     never made. Measured: six footsteps while moving 10cm into a wall, and
+     they carry on for as long as you hold the key, which is also why they
+     seemed to follow the mouse rather than the legs.
+     Measuring here costs nothing — the remote-player footsteps a few hundred
+     lines down have always been paced this way, off the drawn delta.
+     A jump of over a metre is a respawn or a teleport, not a stride. */
+  const gone = Math.hypot(me.x - px, me.z - pz);
+  if(me.onGround && gone < 1){
+    stepDist += gone;
+    const stride = me.stance==='prone' ? 1.5 : me.stance==='crouch' ? 1.15 : (sprint ? 2.0 : 1.6);
+    if(stepDist >= stride){ stepDist=0; stepLeft=!stepLeft; Sfx.step(stepLeft); }
+  }
 }
 
 /* ---- Main loop ---- */
