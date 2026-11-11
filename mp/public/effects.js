@@ -1,5 +1,5 @@
 /* =============================================================
-   Crimson X — effects.js  (7 of 9 in load order)
+   Crimson X — effects.js  (8 of 10 in load order)
 
    Fire pools, smoke clouds, through-wall marks, arrows and burn FX.
 
@@ -492,7 +492,7 @@ function updateArrows(dt){
     if(t>=(b.burnNext||0)){
       b.burnNext=t+1000; b.hp-=b.burnDps||6;
       if(b.hp<=0 && b.alive){ b.alive=false; b.mesh.visible=false; extinguish(b);
-        localKills++; updateHUD(); setTimeout(()=>respawnLocalBot(b),2000); }
+        localKills++; creditKill(); updateHUD(); setTimeout(()=>respawnLocalBot(b),2000); }
     }
   }
   updateGroundFires(dt);
@@ -519,7 +519,7 @@ function igniteLocalBot(b,dmg,w,head){
   b.burnUntil=performance.now()+w.burnMs; b.burnNext=performance.now()+1000; b.burnDps=w.burnDps;
   if(!b.fire) b.fire = makeBurnFx(b.mesh);            // visible flames on the target
   if(b.hp<=0 && b.alive){ b.alive=false; b.mesh.visible=false; extinguish(b);
-    localKills++; updateHUD(); setTimeout(()=>respawnLocalBot(b),2000); }
+    localKills++; creditKill(); updateHUD(); setTimeout(()=>respawnLocalBot(b),2000); }
 }
 
 const MAX_TRACERS = 48;   // hard cap so a stuck frame can never grow this unbounded
@@ -558,7 +558,8 @@ function disposeTracer(t){ if(!t) return; scene.remove(t.line);
    a wall between the blast and your chest stops it — a grenade on the far
    side of a crate is not a grenade that hits you. The thrower is never hurt
    by their own, the same rule as fire pools and smoke. */
-const GREN = { fuseMs:2000, gravity:14, bounce:0.42, friction:0.72, radius:5.5, full:1.5, dmg:90 };
+const GREN = { fuseMs:2000, gravity:14, bounce:0.22, bodyBounce:0.12, bodyR:0.45,
+               friction:0.62, radius:5.5, full:1.5, dmg:90 };
 const grenades = [];
 const _gray = new THREE.Raycaster();
 function makeGrenadeMesh(){
@@ -578,6 +579,35 @@ function grenadeDamage(d){
   if(d <= GREN.full) return GREN.dmg;
   return Math.round(GREN.dmg * (1 - (d - GREN.full) / (GREN.radius - GREN.full)));
 }
+/* Segment vs axis-aligned box, slab method, mirroring rayBoxHit on the
+   server so a grenade behaves the same on the range as it does in a match. */
+function segBoxHit(o, dir, far, r){
+  let tmin=0, tmax=far, axis=-1;
+  const slab=[[o.x,dir.x,r.minx,r.maxx],[o.y,dir.y,r.miny,r.maxy],[o.z,dir.z,r.minz,r.maxz]];
+  for(let i=0;i<3;i++){
+    const p=slab[i][0], d=slab[i][1], lo=slab[i][2], hi=slab[i][3];
+    if(Math.abs(d)<1e-9){ if(p<lo||p>hi) return null; continue; }
+    let t1=(lo-p)/d, t2=(hi-p)/d; if(t1>t2){ const t=t1; t1=t2; t2=t; }
+    if(t1>tmin){ tmin=t1; axis=i; }
+    if(t2<tmax) tmax=t2;
+    if(tmin>tmax) return null;
+  }
+  return tmax<0 ? null : { t:tmin, axis };
+}
+/* A body stops a grenade -- this is the half that made one look as though it
+   passed straight through someone. Bots stand in for players here, as the
+   same box the server uses, and a body keeps only GREN.bodyBounce so the
+   frag drops at their feet rather than skipping off them. */
+function grenadeBodyHit(pos, dir, far){
+  let best=null;
+  for(const b of localBots){
+    if(!b.alive) continue;
+    const r=GREN.bodyR;
+    const h=segBoxHit(pos, dir, far, { minx:b.x-r, maxx:b.x+r, miny:0, maxy:1.8, minz:b.z-r, maxz:b.z+r });
+    if(h && h.t>0.02 && (!best || h.t<best.t)) best=h;
+  }
+  return best;
+}
 function updateGrenades(dt){
   const now = performance.now();
   for(let i = grenades.length - 1; i >= 0; i--){
@@ -594,16 +624,22 @@ function updateGrenades(dt){
         if(_gray.intersectObjects(wallMeshes, false).length) continue;      // cover took it
         b.hp -= dmg; hitmark(dmg >= GREN.dmg ? 'head' : 'torso'); Sfx.hit(dmg >= GREN.dmg ? 'head' : 'torso');
         if(b.hp <= 0 && b.alive){ b.alive=false; b.mesh.visible=false; extinguish(b);
-          localKills++; updateHUD(); setTimeout(()=>respawnLocalBot(b),2000); }
+          localKills++; creditKill(); updateHUD(); setTimeout(()=>respawnLocalBot(b),2000); }
       }
       scene.remove(g.mesh); grenades.splice(i, 1); continue;
     }
     g.vel.y -= GREN.gravity * dt;
     const step = g.vel.clone().multiplyScalar(dt), dist = step.length();
     if(dist > 1e-5){
-      _gray.set(g.pos, step.clone().divideScalar(dist)); _gray.far = dist + 0.08;
+      const dirv = step.clone().divideScalar(dist);
+      _gray.set(g.pos, dirv); _gray.far = dist + 0.08;
       const hit = _gray.intersectObjects(wallMeshes, false)[0];
-      if(hit && hit.face){
+      const body = grenadeBodyHit(g.pos, dirv, dist + 0.08);
+      if(body && (!hit || body.t < hit.distance)){
+        g.pos.addScaledVector(dirv, Math.max(0, body.t - 0.08));
+        if(body.axis===0) g.vel.x=-g.vel.x; else if(body.axis===1) g.vel.y=-g.vel.y; else g.vel.z=-g.vel.z;
+        g.vel.multiplyScalar(GREN.bodyBounce);
+      } else if(hit && hit.face){
         const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
         g.pos.addScaledVector(step, Math.max(0, (hit.distance - 0.08) / dist));
         g.vel.reflect(n).multiplyScalar(GREN.bounce);

@@ -1,5 +1,5 @@
 /* =============================================================
-   Crimson X — core.js  (1 of 9 in load order)
+   Crimson X — core.js  (1 of 10 in load order)
 
    Boot: scene, backdrop, camera, lights, post-processing, graphics settings.
 

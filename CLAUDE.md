@@ -17,21 +17,25 @@ GG aims/
 │       ├── style.css  # all the styling
 │       ├── config.js  # 0. WHERE THE SERVER IS (runs before core.js)
 │       ├── core.js    # 1. scene, camera, lights, post, graphics settings
-│       ├── world.js   # 2. materials, arena, floor/walls/ceiling, signage
-│       ├── models.js  # 3. box humanoid, weapon models, Spartan, podium
-│       ├── weapons.js # 4. player state, ability charges, roster, viewmodels
-│       ├── session.js # 5. game state, menus, pause, networking, local bots
-│       ├── input.js   # 6. keyboard/mouse, shooting
-│       ├── effects.js # 7. fire pools, smoke, marks, arrows, burn FX
-│       ├── hud.js     # 8. HUD, kill feed, audio, armory, compass
-│       ├── loop.js    # 9. movement, collision, main loop
+│       ├── maps.js    # 2. THE ARENAS AS DATA — the server requires this too
+│       ├── world.js   # 3. materials, arena geometry, floor/walls/ceiling, signage
+│       ├── models.js  # 4. box humanoid, weapon models, Spartan, podium
+│       ├── weapons.js # 5. player state, movement speeds, abilities, roster, viewmodels
+│       ├── session.js # 6. game state, menus, pause, networking, local bots
+│       ├── input.js   # 7. keyboard/mouse, shooting
+│       ├── effects.js # 8. fire pools, smoke, marks, arrows, grenades, burn FX
+│       ├── hud.js     # 9. HUD, kill feed, audio, armory, compass
+│       ├── loop.js    # 10. movement, collision, main loop
 │       └── assets/    # models + textures
 └── extras/            # parked features (see slide-ability.md)
 ```
 
 Almost all work happens in the numbered client files above and **`mp/server.js`**.
 
-Those nine are **classic scripts sharing one global scope**, not modules.
+Those ten are **classic scripts sharing one global scope**, not modules.
+`maps.js` is the exception that proves the rule: it is pure data with no
+THREE and no `document`, because **the Node server requires that same file**.
+Keep it that way or the server stops booting.
 **The order `index.html` lists them in is the contract** — each runs after
 the one before it, and anything referenced at load time must already have
 run. Function declarations hoist and move freely; a top-level `const` does
@@ -617,14 +621,72 @@ repointed). Kill a stuck server with `taskkill //F //IM node.exe`. The server ca
   procedural box humanoids (`humanoid()`) on purpose: stationary targets
   don't earn the detail, and eight boxes cost nearly nothing.
 
+## Arenas
+
+**The arena is data, in one place: `public/maps.js`.** The browser loads it as
+a script and `server.js` requires it, so there is exactly one copy of the
+numbers. It used to be written out twice — a `LAYOUT` in world.js as
+`[x,z,w,h,d,colour]` and another in server.js as `[x,z,w,d,h]`, the same boxes
+in a DIFFERENT argument order — with nothing but a note in this file keeping
+them equal. Get one height wrong and the cover you can see is not the cover
+that stops a bullet. A box is an object now (`{x,z,w,d,h,mat}`), so there is no
+order to get wrong.
+
+- `arena` is a HALF-extent (60 -> a 120x120 room). The four perimeter walls,
+  the roof and the lamp grid are all DERIVED from it, so a different-sized map
+  changes one number rather than four wall entries. Floor, wall and ceiling
+  textures tile by world metre (`texRepeat`), so a smaller map keeps the same
+  grain instead of stretching it.
+- Materials are NAMED (`crate`, `block`, `pillar`, `wall`), not hex colours.
+  The client used to key its material table off the colour in the layout, so
+  the colour was really an id and two boxes could not share a look without
+  sharing a number.
+- `mapRects` / `mapWallRects` / `mapCeilingRect` are in maps.js so both sides
+  build their collision boxes from one function. The ceiling stays out of the
+  wall rects for the old reason: that list also drives the 2D movement tests,
+  and a box over the whole arena would shove every player sideways out of the
+  map.
+
+**`buildArena(map)` in world.js can run again** — the arena is no longer
+welded in at page load. Three things that makes necessary, all of them
+learned here: materials are CACHED by name (`arenaMat`), or a rebuild
+re-downloads every photoscan; discarded geometry is DISPOSED; and
+`colliders` / `wallMeshes` are emptied IN PLACE, never reassigned, because
+effects.js, input.js, loop.js and session.js all hold that same array.
+Measured: rebuilding foundry leaves the collider count, the wallMesh count
+and `scene.children` all unchanged (21 / 22 / 59).
+
+**Which map a room plays is the server's to say.** `MAP` in server.js picks it
+(`process.env.MAP`, defaulting to `foundry`), its id rides in `welcome`, and
+the client calls `ensureMap(id)` — a no-op when it already matches, a rebuild
+when it does not. An unknown id falls back to the default rather than leaving
+one side with no arena. `RESUPPLY` takes its x/z from the map, so the pickup
+follows the crate.
+
+Still to come: one map per ROOM rather than per server process, which means
+threading the room's rects through the handlers that read module-level
+`RECTS` / `RAY_BOXES`, and a second arena to pick.
+
 ## Agents
 
 You play an **agent**, picked on the mode screen (`#agentRow`, remembered in
 `localStorage` as `cx.agent`) and **locked for the match**: `startPlay` reads
 it, and the server takes it once from the socket handshake (`auth.agent`) and
-never again. Sprint and the double jump used to be everybody's; they are
-agent kit now. `AGENTS` in `weapons.js` and `AGENT_IDS` in `server.js` must
+never again. The double jump used to be everybody's; it is Blast's
+passive now. `AGENTS` in `weapons.js` and `AGENT_IDS` in `server.js` must
 agree.
+
+**Sprint belongs to everyone, and the zone makes Blast's faster.** It was
+briefly Blast-in-the-zone only, which left every other agent with one speed.
+`MOVE_SPD` (weapons.js) is the whole ladder: `walk` 5.6, `sprint` 8.4 on
+Shift, `zoneSprint` 12 for Blast while the zone runs. Walk is deliberately
+below the old flat 7 — everyone is heavier now, so holding Shift is a
+decision rather than the speed you simply always have. All three stay under
+`MOVE.maxSpeed` (20) on the server, which is the sustained ceiling its token
+bucket allows; go past it and the server clamps you, which reads as
+rubber-banding rather than speed. Measured in the range: 5.6 walking, 8.4 on
+Shift, 12 on Shift in the zone, 2.8 crouched, and aiming still refuses to
+sprint.
 
 - **Aseed** (the original kit). Passive: **hearing** (the detection passive —
   the server skips non-Aseed listeners in `noiseMade`, and `#detect` is
@@ -641,14 +703,44 @@ per agent by `configureTiles()` (`CD_ART` maps kind to icon). **Every ability
 handler on the server checks `p.agent`**, so a patched client cannot throw a
 grenade as Aseed or a bolt as Blast — measured both refused.
 
-**Dash** (`DASH`): 0.3s at 20 m/s, about 6.3m, 3s cooldown, works in the air
+**Dash** (`DASH`): 0.45s at 20 m/s, about 9m, 5s cooldown, works in the air
 and holds you level while it runs. Kept at 20 m/s because that is the
-server's sustained movement limit; a faster dash would just be clamped back.
+server's sustained movement limit; a faster dash would just be clamped back —
+so a longer dash buys its distance with TIME, which is also what makes it
+committal. It was 0.3s (~6.3m), too short to break an angle with.
+**A kill clears the cooldown.** Five seconds is a long wait for an engage
+tool, so winning the fight buys you the way back out. `creditKill()` in
+weapons.js does it, called from everywhere a kill is credited to you: the
+server's `kill` event when `byId` is yours, and each local bot death on the
+range. The cooldown lives on the CLIENT — dash is client-authoritative
+movement like everything else about where you stand — so there is nothing for
+the server to send and nothing new to trust. It reads `agent().v`, so Aseed
+is untouched by it. Measured: 9.05m travelled, a 5.0s cooldown, zero after a
+kill, and Aseed's own timer left alone.
 
 **Grenade** (`GRENADE` server, `GREN` client — keep in step): 2 charges, 30s
 each, server-owned like the crossbow's (`p.gshots`). Lobbed (view direction
 x17 m/s plus 3.5 up, plus half your run), gravity 14, bounces off boxes and
-the floor at 0.42, explodes 2s after the throw. 90 inside 1.5m, linear to 0
+the floor at `bounce` 0.22, explodes 2s after the throw. It was 0.42, which
+sent a frag skipping back out of the room it was thrown into.
+**A BODY stops a grenade.** Players were not in the flight test at all, so one
+thrown straight at someone flew through them and went off behind. They are
+boxes now (`bodyBoxes`, `bodyR` 0.45 half-width, the stance's own `BODY_H`),
+tested with the same `rayBoxHit` that handles cover and placed with the same
+lean-aware `aimX`/`aimZ` the shots use — so what stops a frag is where the
+player actually is. A body ABSORBS: it keeps `bodyBounce` 0.12 rather than
+the wall figure, so the grenade drops at their feet. Two details matter. The
+THROWER is skipped, or their own body swats every throw out of the air as it
+leaves their hand. And a body hit must require `h.t > 0.02`, because
+`rayBoxHit` returns `t: 0` with `axis: -1` when the origin is already inside
+a box — a grenade resting under someone's feet would otherwise flip its
+velocity every tick. Measured on the range: a live bot stops it at their feet
+with 0.3 m/s left, while a dead one lets the same throw sail 4.7m further;
+floor restitution measures 0.224 against the 0.22 asked for.
+Measured on the server with `scratchpad/grenadebody.js`:
+thrown flat at a player 6m away it goes off at z 31.3, just in front of
+them, while the identical throw through empty air carries on to z 25.5 --
+5.8m further. 90 inside 1.5m, linear to 0
 at 5.5m, measured to the chest; geometry between blast and chest blocks it
 entirely; the thrower is never hurt by their own. The explosion is a noise,
 so Aseeds in earshot hear who threw it. **Grenades ride the snapshot's arrow
@@ -658,9 +750,24 @@ thrower. Measured: 90 / 63 / 31 / 0 at the feet / 2.5m / 4m / 6m, and 0 with
 a crate between.
 
 **The zone** (`ZONE`): a buff on Blast himself for 25s, then 90s before it is
-ready. Sprint (11 m/s; it does not exist otherwise), ADS comes up at rate 18
-instead of 10, every cone x0.55 through `currentCone` (shot and reticle
-alike), and +10 HP/s. **Regen is the server's** (hp is server-owned; the range
+ready. A faster sprint (`MOVE_SPD.zoneSprint` 12 against everyone's 8.4), ADS
+comes up at rate 18 instead of 10, every cone x0.55 through `currentCone`
+(shot and reticle alike), +10 HP/s, and a reload at `ZONE.reloadMul` (0.6) of
+its usual length.
+**The reload multiplier has to be applied on BOTH sides.** The server owns
+the clock that decides when you may fire again (`p.reloadAt`); the client
+owns the magazine sounds and the progress bar, all of which go through one
+`reloadMsNow(w)` in weapons.js so the bar, the two mag sounds and the refill
+timer cannot drift apart. Shorten only the client and the bar finishes early
+while the gun is still refused. Measured: a rifle's 1600ms becomes 960ms in the
+client, and on the server (`scratchpad/zonereload.js`) a shot fired 1050ms
+into a reload is refused normally -- the magazine is still three rounds
+down -- and lands in the zone, where the reload has already pushed four
+rounds up out of the reserve.
+**Note what an `ammo` event does NOT prove.** The server sends one to
+correct the client when it REFUSES a shot as well as when it lands one,
+so from outside the two look identical; the probe reads the RESERVE
+instead, which only moves when a reload really completes. **Regen is the server's** (hp is server-owned; the range
 does it locally), and the server ANSWERS every `zone` request with the timers
 — the duration and readiness, or a refusal saying when — so the client's
 tile and `zoneUntil` come from it, not from guessing. Measured on the server:

@@ -1,5 +1,5 @@
 /* =============================================================
-   Crimson X — loop.js  (9 of 9 in load order)
+   Crimson X — loop.js  (10 of 10 in load order)
 
    Movement with vertical collision, and the main loop.
 
@@ -28,11 +28,12 @@ function movePlayer(dt){
   const fwd=new THREE.Vector3(-Math.sin(me.yaw),0,-Math.cos(me.yaw)), rgt=new THREE.Vector3(Math.cos(me.yaw),0,-Math.sin(me.yaw));
   const mv=new THREE.Vector3();
   if(keys['KeyW'])mv.add(fwd); if(keys['KeyS'])mv.sub(fwd); if(keys['KeyD'])mv.add(rgt); if(keys['KeyA'])mv.sub(rgt);
-  // sprint is not everyone's any more: Blast gets it inside the zone
-  const sprint=zoneOn() && (keys['ShiftLeft']||keys['ShiftRight']) && me.stance==='stand' && mv.lengthSq()>0 && !aiming
+  // Sprint is everyone's: hold Shift, standing, moving, not aiming. Blast in
+  // the zone sprints FASTER than that rather than being the only one who can.
+  const sprint=(keys['ShiftLeft']||keys['ShiftRight']) && me.stance==='stand' && mv.lengthSq()>0 && !aiming
                && rollT<=0 && slideT<=0;
   me.sprinting = sprint;                       // drives the FOV kick + faster bob
-  const spd=(sprint?11:7)*st.spd;
+  const spd=(sprint ? (zoneOn() ? MOVE_SPD.zoneSprint : MOVE_SPD.sprint) : MOVE_SPD.walk)*st.spd;
 
   // --- Movement runs through a velocity that carries between states ---
   // Each source only says what velocity it WANTS; the real velocity eases
@@ -234,7 +235,7 @@ function loop(){ requestAnimationFrame(loop);
     // reload animation: gun swings down + tilts through the reload, then returns.
     let rDip=0, rRot=0, rWob=0;
     if(reloading){
-      const p=Math.min(1,(performance.now()-reloadStart)/curW().reloadMs);
+      const p=Math.min(1,(performance.now()-reloadStart)/reloadMsNow(curW()));
       const s=Math.sin(p*Math.PI);                  // 0→1→0 envelope
       rDip=s*0.22; rRot=s;
       if(p>0.3&&p<0.7) rWob=Math.sin(p*40)*0.02;    // hand jiggle mid-reload

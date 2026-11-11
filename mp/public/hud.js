@@ -1,5 +1,5 @@
 /* =============================================================
-   Crimson X — hud.js  (8 of 9 in load order)
+   Crimson X — hud.js  (9 of 10 in load order)
 
    HUD, kill feed, audio, armory and compass.
 

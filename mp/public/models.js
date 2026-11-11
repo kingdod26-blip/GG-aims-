@@ -1,5 +1,5 @@
 /* =============================================================
-   Crimson X — models.js  (3 of 9 in load order)
+   Crimson X — models.js  (4 of 10 in load order)
 
    Everything with a body: box humanoid, weapon-model loading, the Spartan, podium hero.
 

@@ -62,37 +62,38 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 8200;
 
-/* ----------------------------- Shared arena ------------------------------- */
-/* Must match the client's arena. Heights matter: obstacles used to be treated
-   as infinitely tall for line-of-sight, so you could not shoot over a crate —
-   and standing ON one put your own muzzle inside a collider, which zeroed the
-   wall distance and made every shot you took miss. Movement and spawn checks
-   are still deliberately 2D (they only ever run at ground level). */
-const ARENA = 60;
-const WALL_H = 8;                 // perimeter wall height (client's WH)
-const LAYOUT = [ // [x, z, w, d, h]
-  [0,0,6,6,3],
-  [-18,-12,4,4,2.5],[18,-12,4,4,2.5],[-18,12,4,4,2.5],[18,12,4,4,2.5],
-  [0,-24,12,2,4],[0,24,12,2,4],[-30,0,2,12,4],[30,0,2,12,4],
-  [-10,-30,3,3,2],[10,30,3,3,2],[-34,-30,5,5,3],[34,30,5,5,3],
-  [24,-28,3,3,2],[-24,28,3,3,2],[12,8,2.5,2.5,1.5],[-12,-8,2.5,2.5,1.5],
-];
-// Boxes as {minx,minz,maxx,maxz,miny,maxy}; they all sit on the floor.
-const RECTS = LAYOUT.map(([x,z,w,d,h]) => ({ minx:x-w/2, minz:z-d/2, maxx:x+w/2, maxz:z+d/2, miny:0, maxy:h }));
-// The perimeter walls are collidable on the client, so the server needs them
-// too — otherwise bullets and ricocheting arrows fly straight through them.
+/* ----------------------------- Shared arena -------------------------------
+   The arena is DATA, and it lives in one place: public/maps.js, which the
+   browser loads as a script and this file requires. It used to be written
+   out twice — a LAYOUT here as [x,z,w,d,h] and another in world.js as
+   [x,z,w,h,d], the same boxes in a different argument order — with nothing
+   but a note in CLAUDE.md keeping them equal. Get one height wrong and the
+   cover you can see is not the cover that stops a bullet.
+
+   Heights matter: obstacles used to be treated as infinitely tall for
+   line-of-sight, so you could not shoot over a crate — and standing ON one
+   put your own muzzle inside a collider, which zeroed the wall distance and
+   made every shot you took miss. Movement and spawn checks are still
+   deliberately 2D (they only ever run at ground level).
+
+   MAP is the arena this process simulates. One per server for now; the env
+   var is there so a second map can be run and played before the lobby can
+   choose one per room. Its id goes out in `welcome`, and the client rebuilds
+   its geometry to match. */
+const { MAPS, MAP_IDS, DEFAULT_MAP, mapById,
+        mapRects, mapWallRects, mapCeilingRect } = require('./public/maps.js');
+const MAP = mapById(process.env.MAP || DEFAULT_MAP);
+const ARENA = MAP.arena;
+const WALL_H = MAP.wallH;         // perimeter wall height (client's WH)
+/* Boxes as {minx,minz,maxx,maxz,miny,maxy}; the cover sits on the floor, and
+   the four perimeter walls are collidable on the client, so the server needs
+   them too — otherwise bullets and ricocheting arrows fly straight through. */
+const RECTS = mapRects(MAP).concat(mapWallRects(MAP));
 /* The roof. It is deliberately NOT in RECTS: that list also drives resolve2D,
    insideWall and lineClear, which are all 2D, so a box covering the whole
    arena would shove every player sideways out of the map. It belongs only to
    the 3D ray tests, hence a separate list. */
-const CEILING = { minx:-ARENA-1, minz:-ARENA-1, maxx:ARENA+1, maxz:ARENA+1,
-                  miny:WALL_H, maxy:WALL_H+1 };
-RECTS.push(
-  { minx:-ARENA-1, minz:-ARENA-1, maxx: ARENA+1, maxz:-ARENA+1, miny:0, maxy:WALL_H },   // north
-  { minx:-ARENA-1, minz: ARENA-1, maxx: ARENA+1, maxz: ARENA+1, miny:0, maxy:WALL_H },   // south
-  { minx:-ARENA-1, minz:-ARENA-1, maxx:-ARENA+1, maxz: ARENA+1, miny:0, maxy:WALL_H },   // west
-  { minx: ARENA-1, minz:-ARENA-1, maxx: ARENA+1, maxz: ARENA+1, miny:0, maxy:WALL_H },   // east
-);
+const CEILING = mapCeilingRect(MAP);
 // what bullets and arrows collide with: the walls plus the roof
 const RAY_BOXES = RECTS.concat([CEILING]);
 
@@ -398,12 +399,20 @@ const agentOf = a => AGENT_IDS.includes(a) ? a : 'aseed';
    Full damage inside `full`, linear to nothing at `radius`, and blocked by
    geometry between the blast and the target's chest. The thrower is never
    hurt by their own. Must match GREN in public/effects.js. */
-const GRENADE = { charges: 2, cooldownMs: 30000, fuseMs: 2000, gravity: 14, bounce: 0.42,
-                  friction: 0.72, radius: 5.5, full: 1.5, dmg: 90, maxSpeed: 26 };
+/* `bounce` is what it keeps off geometry. It was 0.42, which sent a frag
+   skipping back out of the room it was thrown into; at 0.22 it stays near
+   where it lands. `bodyBounce` is the same number for a PERSON, lower again
+   because flesh absorbs: a grenade thrown at someone now drops at their
+   feet instead of flying through them, which it used to do -- bodies were
+   not in the collision test at all. `bodyR` is the half-width of the box
+   that stands in for a player (see bodyBoxes). */
+const GRENADE = { charges: 2, cooldownMs: 30000, fuseMs: 2000, gravity: 14, bounce: 0.22,
+                  bodyBounce: 0.12, bodyR: 0.45,
+                  friction: 0.62, radius: 5.5, full: 1.5, dmg: 90, maxSpeed: 26 };
 /* Blast's zone: 25s of buffs, then 90s before it can be used again. Only
    the regen lives here — sprint, aim speed and spread are client feel, and
    the server's movement check already bounds sprint. */
-const ZONE = { ms: 25000, cdMs: 90000, regen: 10 };
+const ZONE = { ms: 25000, cdMs: 90000, regen: 10, reloadMul: 0.6 };
 // Smoke bolt: no damage. Anyone standing in the cloud is tagged for markMs,
 // and the tag renews every tick they stay in it. Must match the client's
 // SMOKEFX radius/top/markMs or the cloud you see won't match the one that tags.
@@ -562,7 +571,7 @@ const CORE_R = [0.26, 0.26, 0.30];
    made the middle of the map a free refill station — it is now one player
    every ammoMs, shared, and only while a round is live. Outside a live round
    it is free: the buy window already hands you a full magazine with a gun. */
-const RESUPPLY = { x: 0, z: 0, radius: 5.0, cash: 100, ammoMs: 30000 };
+const RESUPPLY = { x: MAP.resupply.x, z: MAP.resupply.z, radius: 5.0, cash: 100, ammoMs: 30000 };
 /* Health potions. Five scattered each round, each one gone for the round
    once anybody takes it.
 
@@ -930,7 +939,7 @@ io.on('connection', (socket) => {
   players.set(socket.id, player);
   /* Everything that never changes goes out ONCE, here, instead of riding in
      every snapshot 30 times a second. */
-  socket.emit('welcome', { id: socket.id, spawn: s, color: player.color, arena: ARENA,
+  socket.emit('welcome', { id: socket.id, spawn: s, color: player.color, arena: ARENA, map: MAP.id,
     room: room.id,
     prices: PRICES, mainSlots: MAIN_SLOTS, sideSlots: SIDE_SLOTS, resupply: RESUPPLY,
     maxMain: MAX_MAIN, maxSide: MAX_SIDE, maxPlayers: MATCH.maxPlayers,
@@ -1245,7 +1254,12 @@ io.on('connection', (socket) => {
     if (p.reloadAt) return;                       // already reloading
     const a = ammoOf(p, slot);
     if (a.mag >= g.magMax || a.reserve <= 0) return;
-    p.reloadAt = now + g.reloadMs; p.reloadSlot = slot;
+    /* The zone reloads faster. The client shortens its own HUD copy by the
+       same ZONE.reloadMul, but this is the clock that decides when you can
+       fire again -- leave it out and the bar finishes early while the gun is
+       still refused. */
+    const rms = g.reloadMs * (p.zoneUntil > now ? ZONE.reloadMul : 1);
+    p.reloadAt = now + rms; p.reloadSlot = slot;
   });
 
   socket.on('disconnect', () => {
@@ -1329,6 +1343,23 @@ function stateAt(p, t) {
   }
   const o = h[0];
   return { x: o.x + Math.cos(o.yaw)*o.lo, z: o.z - Math.sin(o.yaw)*o.lo, y: o.y, st: o.st };
+}
+
+/* A live player's body, as a box, for a grenade to bounce off. Boxes rather
+   than spheres so the same rayBoxHit that handles cover handles a chest,
+   and the same lean-aware aimX/aimZ the shot tests use, so what stops a
+   frag is where the player actually is. The THROWER is skipped: their own
+   body sits around the spawn point and would swat every throw out of the
+   air as it left their hand. */
+function bodyBoxes(room, exceptId) {
+  const out = [], r = GRENADE.bodyR;
+  for (const p of room.players.values()) {
+    if (!p.alive || p.id === exceptId) continue;
+    const x = aimX(p), z = aimZ(p), feet = p.y || 0;
+    out.push({ minx: x-r, maxx: x+r, minz: z-r, maxz: z+r,
+               miny: feet, maxy: feet + (BODY_H[p.st | 0] || BODY_H[0]) });
+  }
+  return out;
 }
 
 /* A grenade going off. Damage to every live player but the thrower inside
@@ -1606,13 +1637,21 @@ function tickRoom(room, now, dt) {
     const sx = g.vx*dt, sy = g.vy*dt, sz = g.vz*dt, len = Math.hypot(sx, sy, sz);
     if (len > 1e-6) {
       const dir = { x: sx/len, y: sy/len, z: sz/len }, o = { x: g.x, y: g.y, z: g.z };
-      let best = null;
+      let best = null, onBody = false;
       for (const r of RAY_BOXES) { const h = rayBoxHit(o, dir, r); if (h && h.t <= len + 0.08 && (!best || h.t < best.t)) best = h; }
+      /* Bodies too. `h.t > 0.02` matters: rayBoxHit returns t=0 with axis -1
+         when the origin is already INSIDE a box, and a resting grenade under
+         someone's feet would then flip its velocity every tick. */
+      for (const r of bodyBoxes(room, g.by)) {
+        const h = rayBoxHit(o, dir, r);
+        if (h && h.t > 0.02 && h.t <= len + 0.08 && (!best || h.t < best.t)) { best = h; onBody = true; }
+      }
       if (best) {
         const k = Math.max(0, best.t - 0.08);
         g.x += dir.x*k; g.y += dir.y*k; g.z += dir.z*k;
         if (best.axis === 0) g.vx = -g.vx; else if (best.axis === 1) g.vy = -g.vy; else g.vz = -g.vz;
-        g.vx *= GRENADE.bounce; g.vy *= GRENADE.bounce; g.vz *= GRENADE.bounce;
+        const keep = onBody ? GRENADE.bodyBounce : GRENADE.bounce;
+        g.vx *= keep; g.vy *= keep; g.vz *= keep;
       } else { g.x += sx; g.y += sy; g.z += sz; }
     }
     if (g.y < 0.08) {                                   // the floor is not a collider box

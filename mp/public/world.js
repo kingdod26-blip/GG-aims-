@@ -1,13 +1,26 @@
 /* =============================================================
-   Crimson X — world.js  (2 of 9 in load order)
+   Crimson X — world.js  (3 of 10 in load order)
 
    The arena: procedural + photoscanned materials, floor, walls, ceiling, signage.
 
+   WHERE THE ARENA COMES FROM: the numbers all live in maps.js, which the
+   SERVER reads too. This file only turns one of those map definitions into
+   geometry, through `buildArena(map)` — which can run again, so the arena
+   is swappable at runtime rather than welded in place at page load. The
+   server names the map in its `welcome`, and `ensureMap()` rebuilds if it is
+   not the one already standing.
+
+   Three things a rebuild has to get right, all of them learned here:
+   materials are CACHED by name (a rebuild must not re-download the
+   photoscans), geometry that is thrown away is DISPOSED, and `colliders` /
+   `wallMeshes` are emptied in place rather than reassigned — other files
+   hold a reference to those same two arrays.
+
    These files are CLASSIC scripts sharing ONE global scope, loaded in
    the order index.html lists them. That order is the whole contract:
-   this file runs after core.js and before models.js, and anything it
-   references at load time must already have run. Function declarations
-   hoist and are safe anywhere; a top-level const is not.
+   this file runs after maps.js and core.js and before models.js, and
+   anything it references at load time must already have run. Function
+   declarations hoist and are safe anywhere; a top-level const is not.
    ============================================================= */
 
 /* ---- Procedural textures (no asset files needed) ---- */
@@ -41,42 +54,153 @@ function pbr(prefix, rx, ry, extra={}){
   d.encoding = THREE.sRGBEncoding;
   return new THREE.MeshStandardMaterial(Object.assign({ map:d, normalMap:n, roughnessMap:r }, extra));
 }
-const MAT_BY_COLOR = {
-  0x8a6b45: pbr('crate', 1, 1),                     // real worn wood planks
-  0x6b7280: new THREE.MeshLambertMaterial({ map: blockTex }),
-  0x707a88: new THREE.MeshLambertMaterial({ map: pillarTex }),
-  0x5a6472: pbr('wall', 12, 1.2),                   // real scanned concrete wall
-};
 
-/* ---- Arena (identical to the server) ---- */
-const ARENA = 60;
+/* ---- Materials by NAME, built once and kept ----
+   Boxes in maps.js name their material ('crate', 'block', 'pillar', 'wall')
+   instead of carrying a hex colour the client used to look a material up by.
+   The cache matters on a rebuild: pbr() starts three texture downloads per
+   call, so building the arena twice without it would fetch every photoscan
+   again. Textures tile by WORLD metre (see `texRepeat`), so a map of a
+   different size keeps the same grain rather than stretching it. */
+const MAT_CACHE = {};
+function arenaMat(name){
+  if (MAT_CACHE[name]) return MAT_CACHE[name];
+  let m;
+  switch (name) {
+    case 'crate':  m = pbr('crate', 1, 1); break;                       // real worn wood planks
+    case 'block':  m = new THREE.MeshLambertMaterial({ map: blockTex }); break;
+    case 'pillar': m = new THREE.MeshLambertMaterial({ map: pillarTex }); break;
+    case 'wall':   m = pbr('wall', 12, 1.2); break;                     // real scanned concrete
+    default:       m = new THREE.MeshLambertMaterial({ color: 0x8a8f99 });
+  }
+  return (MAT_CACHE[name] = m);
+}
+
+/* ---- The arena ----
+   ARENA and WH are read by loop.js (the position clamp) and session.js (bot
+   placement), so they stay globals — but they are `let`, because a map may
+   be a different size. Both are rewritten by buildArena.
+   `colliders` and `wallMeshes` are emptied in place and never reassigned:
+   effects.js, input.js, loop.js and session.js all hold this same array. */
+let ARENA = 60;
+let WH = 8;
+let currentMap = null;
 const colliders = [], wallMeshes = [];
-function addBox(x,y,z,w,h,d,color){
-  const mat = MAT_BY_COLOR[color] || new THREE.MeshLambertMaterial({color});
-  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
-  m.position.set(x,y,z); m.castShadow=m.receiveShadow=true; scene.add(m); wallMeshes.push(m);
-  colliders.push({minx:x-w/2,minz:z-d/2,maxx:x+w/2,maxz:z+d/2,miny:y-h/2,maxy:y+h/2}); return m; }
-/* Wet, sky-reflecting concrete floor: photoscanned maps + strong reflections */
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(ARENA*2,ARENA*2),
-  pbr('floor', 16, 16, { roughness:0.9, metalness:0.0 }));
-floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
-/* Resupply marker: a ring on the floor around the centre crate, so the
-   pickup is somewhere you can see rather than a secret radius. Unlit and
-   flat, like the fire pools. */
+const arenaParts = [];            // everything buildArena made, so it can be undone
+let floor = null, ceiling = null;
 let resupplyRing = null;
-(function makeResupplyRing(){
+
+function addBox(x,y,z,w,h,d,matName){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), arenaMat(matName));
+  m.position.set(x,y,z); m.castShadow=m.receiveShadow=true; scene.add(m);
+  wallMeshes.push(m); arenaParts.push(m);
+  colliders.push({minx:x-w/2,minz:z-d/2,maxx:x+w/2,maxz:z+d/2,miny:y-h/2,maxy:y+h/2}); return m; }
+
+/* Tiling in world metres, so the photoscans look the same on any map size.
+   Foundry is 120m across and was authored at 16 repeats, hence 7.5m a tile. */
+function texRepeat(metres, metresPerTile){ return metres / metresPerTile; }
+
+/* Throw the current arena away. Geometry is per-build so it is disposed;
+   MATERIALS are cached and shared, so they are deliberately left alone —
+   except a sign's, which owns a canvas texture built for that one sign. */
+function clearArena(){
+  for (const o of arenaParts) {
+    scene.remove(o);
+    if (o.geometry) o.geometry.dispose();
+    if (o.userData.ownMaterial && o.material) {
+      if (o.material.map) o.material.map.dispose();
+      o.material.dispose();
+    }
+  }
+  arenaParts.length = 0;
+  colliders.length = 0;
+  wallMeshes.length = 0;
+  floor = ceiling = resupplyRing = null;
+}
+
+/* Build one map's geometry. Safe to call again: it clears first. */
+function buildArena(map){
+  clearArena();
+  currentMap = map;
+  ARENA = map.arena; WH = map.wallH;
+  const span = ARENA * 2;
+
+  /* Floor. Photoscanned concrete; metalness stays 0 because there is no
+     environment map to reflect (see the Gotchas in CLAUDE.md). */
+  floor = new THREE.Mesh(new THREE.PlaneGeometry(span, span),
+    pbr('floor', texRepeat(span, 7.5), texRepeat(span, 7.5), { roughness:0.9, metalness:0.0 }));
+  floor.rotation.x=-Math.PI/2; floor.receiveShadow=true;
+  floor.userData.ownMaterial = true;      // its repeat is map-sized, so not cacheable
+  scene.add(floor); arenaParts.push(floor);
+
+  /* Perimeter: four 2m-thick walls on the boundary, derived from ARENA so a
+     map only states its size. These ARE colliders, unlike the roof. */
+  addBox(0,WH/2,-ARENA,span,WH,2,'wall'); addBox(0,WH/2,ARENA,span,WH,2,'wall');
+  addBox(-ARENA,WH/2,0,2,WH,span,'wall'); addBox(ARENA,WH/2,0,2,WH,span,'wall');
+
+  /* Roof. castShadow is deliberately left OFF — a shadow-casting lid between
+     the key light and the arena would drop the whole room into black. It is the
+     walls and crates that cast, not the ceiling. */
+  ceiling = new THREE.Mesh(new THREE.PlaneGeometry(span, span),
+    pbr('wall', texRepeat(span, 6), texRepeat(span, 6), { roughness:0.95, metalness:0.0, color:0x6a7079 }));
+  ceiling.rotation.x = Math.PI/2; ceiling.position.y = WH;
+  ceiling.userData.ownMaterial = true;
+  scene.add(ceiling); arenaParts.push(ceiling);
+  // arrows and bullets have to stop at the roof like anything else; it is in
+  // wallMeshes (3D raycasts only) but NOT in colliders, which is 2D movement
+  wallMeshes.push(ceiling);
+
+  /* Ceiling lamps: unlit geometry, not lights. They read as the source of the
+     room's light without adding a single real light to the scene — which is the
+     point, because with no tone mapping a grid of point lights would burn the
+     floor to white. */
+  const L = map.lamps;
+  if (L) {
+    const lampMat = MAT_CACHE.lamp || (MAT_CACHE.lamp = new THREE.MeshBasicMaterial({ color:0xffe8cc }));
+    const lampGeo = new THREE.PlaneGeometry(L.w, L.d);
+    for(let gx=-L.reach; gx<=L.reach; gx++) for(let gz=-L.reach; gz<=L.reach; gz++){
+      const lamp = new THREE.Mesh(lampGeo, lampMat);
+      lamp.rotation.x = Math.PI/2;
+      lamp.position.set(gx*L.spacing, WH-0.06, gz*L.spacing);
+      scene.add(lamp); arenaParts.push(lamp);
+    }
+  }
+
+  /* Cover. Every box sits on the floor, so y is half its height. */
+  for (const b of map.boxes) addBox(b.x, b.h/2, b.z, b.w, b.h, b.d, b.mat);
+
+  /* Resupply marker: a ring on the floor around the centre crate, so the
+     pickup is somewhere you can see rather than a secret radius. Unlit and
+     flat, like the fire pools. */
+  const rs = map.resupply || { x:0, z:0 };
   resupplyRing = new THREE.Mesh(new THREE.RingGeometry(4.5, 5.0, 48),
     new THREE.MeshBasicMaterial({ color:0x27ff9e, transparent:true, opacity:0.35,
       side:THREE.DoubleSide, depthWrite:false }));
-  resupplyRing.rotation.x = -Math.PI/2; resupplyRing.position.set(0, 0.03, 0);
-  scene.add(resupplyRing);
-})();
+  resupplyRing.rotation.x = -Math.PI/2; resupplyRing.position.set(rs.x, 0.03, rs.z);
+  resupplyRing.userData.ownMaterial = true;
+  scene.add(resupplyRing); arenaParts.push(resupplyRing);
+
+  for (const s of (map.signs || [])) addSign(s);
+}
+
+/* The server names the map it is simulating; only rebuild when it differs
+   from what is already standing, because a rebuild costs every box's
+   geometry. Target practice never connects, so it keeps the default. */
+function ensureMap(id){
+  const m = mapById(id);
+  if (currentMap && currentMap.id === m.id) return false;
+  buildArena(m);
+  return true;
+}
+
 /* ---- Health potions ----
    Five a round, scattered, each gone once anybody takes it. The server owns
    where they are and whether they are still there; this only draws them.
    A floor ring like the resupply marker so it reads at a distance, plus a
    small bobbing vial so it is obvious what it is. Unlit and depthWrite off,
-   matching the other pickups. */
+   matching the other pickups.
+   Not part of the arena: they survive a map rebuild, since the server places
+   them per round and nothing about them is map geometry. */
 const potionFX = [];
 function makePotion(){
   const g = new THREE.Group();
@@ -133,58 +257,43 @@ function setResupplyState(cashTaken, ammoIn){
   resupplyRing.material.opacity = !ready ? 0.14 : (cashTaken ? 0.26 : 0.4);
 }
 function setResupplyClaimed(taken){ setResupplyState(taken, 0); }   // older callers
-const WH=8;
-addBox(0,WH/2,-ARENA,ARENA*2,WH,2,0x5a6472); addBox(0,WH/2,ARENA,ARENA*2,WH,2,0x5a6472);
-addBox(-ARENA,WH/2,0,2,WH,ARENA*2,0x5a6472); addBox(ARENA,WH/2,0,2,WH,ARENA*2,0x5a6472);
-/* Roof. castShadow is deliberately left OFF — a shadow-casting lid between
-   the key light and the arena would drop the whole room into black. It is the
-   walls and crates that cast, not the ceiling. */
-const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ARENA*2, ARENA*2),
-  pbr('wall', 20, 20, { roughness:0.95, metalness:0.0, color:0x6a7079 }));
-ceiling.rotation.x = Math.PI/2; ceiling.position.y = WH; scene.add(ceiling);
-// arrows and bullets have to stop at the roof like anything else; it is in
-// wallMeshes (3D raycasts only) but NOT in colliders, which is 2D movement
-wallMeshes.push(ceiling);
-/* Ceiling lamps: unlit geometry, not lights. They read as the source of the
-   room's light without adding a single real light to the scene — which is the
-   point, because with no tone mapping a grid of point lights would burn the
-   floor to white. */
-const lampMat = new THREE.MeshBasicMaterial({ color:0xffe8cc });
-const lampGeo = new THREE.PlaneGeometry(6, 2.4);
-for(let gx=-2; gx<=2; gx++) for(let gz=-2; gz<=2; gz++){
-  const lamp = new THREE.Mesh(lampGeo, lampMat);
-  lamp.rotation.x = Math.PI/2;
-  lamp.position.set(gx*24, WH-0.06, gz*24);
-  scene.add(lamp);
-}
-const LAYOUT=[[0,0,6,3,6,0x707a88],[-18,-12,4,2.5,4,0x8a6b45],[18,-12,4,2.5,4,0x8a6b45],[-18,12,4,2.5,4,0x8a6b45],[18,12,4,2.5,4,0x8a6b45],
- [0,-24,12,4,2,0x6b7280],[0,24,12,4,2,0x6b7280],[-30,0,2,4,12,0x6b7280],[30,0,2,4,12,0x6b7280],
- [-10,-30,3,2,3,0x8a6b45],[10,30,3,2,3,0x8a6b45],[-34,-30,5,3,5,0x707a88],[34,30,5,3,5,0x707a88],
- [24,-28,3,2,3,0x8a6b45],[-24,28,3,2,3,0x8a6b45],[12,8,2.5,1.5,2.5,0x8a6b45],[-12,-8,2.5,1.5,2.5,0x8a6b45]];
-LAYOUT.forEach(([x,z,w,h,d,c])=>addBox(x,h/2,z,w,h,d,c));
 
-/* ---- Range signage (canvas-drawn planes on the walls) ---- */
+/* ---- Range signage (canvas-drawn planes on the walls) ----
+   A map's `signs` entry names the artwork and says where to hang it; the
+   drawing and the panel size live here, with the rest of the look. */
 function signMesh(draw, w, h, cw=512, ch=256){
   const c=document.createElement('canvas'); c.width=cw; c.height=ch; draw(c.getContext('2d'),cw,ch);
   const t=new THREE.CanvasTexture(c); t.encoding=THREE.sRGBEncoding;
   return new THREE.Mesh(new THREE.PlaneGeometry(w,h), new THREE.MeshLambertMaterial({ map:t }));
 }
-const rulesSign = signMesh((g,w,h)=>{
-  g.fillStyle='#1c1e22'; g.fillRect(0,0,w,h);
-  g.strokeStyle='#3a3e46'; g.lineWidth=10; g.strokeRect(5,5,w-10,h-10);
-  g.fillStyle='#f2f4f6'; g.font='bold 52px Arial'; g.fillText('LIVE FIRE RANGE', 30, 70);
-  g.font='26px Arial'; g.fillStyle='#c9ced6';
-  ['• KEEP FIREARMS POINTED DOWNRANGE','• FINGER OFF TRIGGER UNTIL READY','• KNOW YOUR TARGET AND BEYOND']
-    .forEach((s,i)=> g.fillText(s, 34, 125+i*42));
-}, 7, 3.5);
-rulesSign.position.set(-58.9, 3.4, 30); rulesSign.rotation.y = Math.PI/2; scene.add(rulesSign);
-const distSign = signMesh((g,w,h)=>{
-  g.fillStyle='#4a4f58'; g.fillRect(0,0,w,h);
-  g.strokeStyle='#2a2d33'; g.lineWidth=14; g.strokeRect(7,7,w-14,h-14);
-  g.fillStyle='#f2f4f6'; g.font='bold 150px Arial'; g.textAlign='center'; g.fillText('10M', w/2, h/2+55);
-}, 4, 2);
-distSign.position.set(20, 4, -58.9); scene.add(distSign);
-const b2Sign = signMesh((g,w,h)=>{
-  g.clearRect(0,0,w,h); g.fillStyle='#d9b23a'; g.font='bold 170px Arial'; g.textAlign='center'; g.fillText('B-2 →', w/2, h/2+60);
-}, 3, 1.5);
-b2Sign.position.set(-58.9, 4.5, 10); b2Sign.rotation.y = Math.PI/2; b2Sign.material.transparent = true; scene.add(b2Sign);
+const SIGN_ART = {
+  rules: { w:7, h:3.5, draw:(g,w,h)=>{
+    g.fillStyle='#1c1e22'; g.fillRect(0,0,w,h);
+    g.strokeStyle='#3a3e46'; g.lineWidth=10; g.strokeRect(5,5,w-10,h-10);
+    g.fillStyle='#f2f4f6'; g.font='bold 52px Arial'; g.fillText('LIVE FIRE RANGE', 30, 70);
+    g.font='26px Arial'; g.fillStyle='#c9ced6';
+    ['• KEEP FIREARMS POINTED DOWNRANGE','• FINGER OFF TRIGGER UNTIL READY','• KNOW YOUR TARGET AND BEYOND']
+      .forEach((s,i)=> g.fillText(s, 34, 125+i*42));
+  }},
+  dist: { w:4, h:2, draw:(g,w,h)=>{
+    g.fillStyle='#4a4f58'; g.fillRect(0,0,w,h);
+    g.strokeStyle='#2a2d33'; g.lineWidth=14; g.strokeRect(7,7,w-14,h-14);
+    g.fillStyle='#f2f4f6'; g.font='bold 150px Arial'; g.textAlign='center'; g.fillText('10M', w/2, h/2+55);
+  }},
+  b2: { w:3, h:1.5, transparent:true, draw:(g,w,h)=>{
+    g.clearRect(0,0,w,h); g.fillStyle='#d9b23a'; g.font='bold 170px Arial'; g.textAlign='center'; g.fillText('B-2 →', w/2, h/2+60);
+  }},
+};
+function addSign(s){
+  const art = SIGN_ART[s.kind]; if (!art) return;
+  const m = signMesh(art.draw, art.w, art.h);
+  m.position.set(s.x, s.y, s.z);
+  m.rotation.y = (s.ry || 0) * Math.PI / 180;
+  if (art.transparent) m.material.transparent = true;
+  m.userData.ownMaterial = true;          // its canvas texture is this sign's alone
+  scene.add(m); arenaParts.push(m);
+}
+
+/* Stand the default arena up at load, so the menu has a world behind it and
+   target practice is playable without ever talking to a server. */
+buildArena(mapById(DEFAULT_MAP));

@@ -1,5 +1,5 @@
 /* =============================================================
-   Crimson X — session.js  (5 of 9 in load order)
+   Crimson X — session.js  (6 of 10 in load order)
 
    Game state and flow: menus, settings panel, pause, networking, local bots.
 
@@ -376,6 +376,10 @@ function connectMP(name){
        times a second, despite never changing. They come once now. An older
        server sends none of this, in which case the defaults stand. */
     myRoom = d.room || null;
+    /* The server names the arena it is simulating; build that one before
+       anything else reads geometry, or the collision you get is the map
+       the page happened to load with. A no-op when it already matches. */
+    if (d.map) ensureMap(d.map);
     if(d.prices)     shopPrices = d.prices;
     if(d.resupply)   RESUPPLY   = d.resupply;
     if(d.mainSlots)  MAIN_SLOTS = d.mainSlots;
@@ -474,7 +478,7 @@ function connectMP(name){
     arrowGfx.clear();
     for(const o of others.values()){ clearBurnFx(o); clearMark(o); }
   });
-  socket.on('kill', d=>{ addFeed(d); if(d && d.byId === myId) Sfx.kill(); });
+  socket.on('kill', d=>{ addFeed(d); if(d && d.byId === myId){ Sfx.kill(); creditKill(); } });
   socket.on('boom', d=>{ if(d) boom(d.x, d.y || 0, d.z); });
   /* The server's answer to X as Blast: the zone's timers, or a refusal that
      still tells us when it will be ready. */

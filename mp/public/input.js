@@ -1,5 +1,5 @@
 /* =============================================================
-   Crimson X — input.js  (6 of 9 in load order)
+   Crimson X — input.js  (7 of 10 in load order)
 
    Keyboard and mouse, and firing every weapon.
 
@@ -161,9 +161,10 @@ function reload(){ const w=curW();
   // voice call-out + timed magazine sounds across the reload
   Voice.say(RELOAD_LINES[Math.floor(Math.random()*RELOAD_LINES.length)]);
   Sfx.magOut();
-  const t1=setTimeout(()=>Sfx.magIn(), w.reloadMs*0.55);
-  const t2=setTimeout(()=>Sfx.bolt(),  w.reloadMs*0.85);
-  reloadTimer=setTimeout(()=>{ const need=w.magMax-a.mag, take=Math.min(need,a.reserve); a.mag+=take; a.reserve-=take; reloading=false; updateHUD(); }, w.reloadMs);
+  const rms=reloadMsNow(w);          // the zone reloads faster; so must the sounds
+  const t1=setTimeout(()=>Sfx.magIn(), rms*0.55);
+  const t2=setTimeout(()=>Sfx.bolt(),  rms*0.85);
+  reloadTimer=setTimeout(()=>{ const need=w.magMax-a.mag, take=Math.min(need,a.reserve); a.mag+=take; a.reserve-=take; reloading=false; updateHUD(); }, rms);
   reloadSfxTimers=[t1,t2]; }
 let reloadSfxTimers=[];
 function shoot(){
@@ -198,7 +199,7 @@ function shoot(){
       comboStep=(comboStep+1)%w.combo.length; comboUntil=now+w.comboWindowMs;
       if(finisher){ gunKick=1; Sfx.land(); }
       if(best.hp<=0 && best.alive){ best.alive=false; best.mesh.visible=false; extinguish(best);
-        localKills++; setTimeout(()=>respawnLocalBot(best),2000); }
+        localKills++; creditKill(); setTimeout(()=>respawnLocalBot(best),2000); }
     } else { comboStep=0; }                          // a miss breaks the chain
     updateHUD();
     return;
@@ -332,7 +333,7 @@ function shoot(){
       const z = hitZone(o, dir, b.x, b.z, 0, 0);     // bots always stand
       if(z && z.t<bd){ bd=z.t; best=b; mult=z.mult; zone=z.zone; } }
     if(best){ best.hp-= w.dmg*mult; hitmark(zone); Sfx.hit(zone);
-      if(best.hp<=0 && best.alive){ best.alive=false; best.mesh.visible=false; localKills++; updateHUD(); setTimeout(()=>respawnLocalBot(best),2000); } }
+      if(best.hp<=0 && best.alive){ best.alive=false; best.mesh.visible=false; localKills++; creditKill(); updateHUD(); setTimeout(()=>respawnLocalBot(best),2000); } }
   }
   // recoil kicks in AFTER the bullet leaves — shots land where the crosshair was
   me.pitch=Math.min(me.pitch + w.recoil*(1-ads*0.5), Math.PI/2-0.05);

@@ -1,5 +1,5 @@
 /* =============================================================
-   Crimson X — weapons.js  (4 of 9 in load order)
+   Crimson X — weapons.js  (5 of 10 in load order)
 
    Player state, ability charges, peek/roll tuning, the weapon roster and its viewmodels.
 
@@ -12,6 +12,16 @@
 
 /* ---- Stance system + local player ---- */
 const STANCE = { stand:{eye:1.7,spd:1.0,body:1.8}, crouch:{eye:1.05,spd:0.5,body:1.15}, prone:{eye:0.6,spd:0.3,body:0.7} };
+/* How fast you move, in m/s, before the stance multiplier.
+   `walk` is deliberately below the old flat 7: everyone is a little
+   heavier now, so holding Shift is a real decision rather than the
+   speed you simply always have. Sprint is EVERYONE'S again (it was
+   briefly Blast's alone, inside the zone); the zone now buys him a
+   faster sprint on top, which is what makes it an engage tool.
+   All three stay under MOVE.maxSpeed (20) on the server, which is the
+   sustained ceiling its token bucket allows — go past it and the server
+   clamps you back, which reads as rubber-banding rather than speed. */
+const MOVE_SPD = { walk:5.6, sprint:8.4, zoneSprint:12 };
 const JUMP_V = 10.5, GRAV = 24;
 // jumps are per agent now: AGENTS[...].jumps (Blast's passive is the second)
 let jumpPressed = false;             // edge-triggered by keydown
@@ -168,17 +178,37 @@ function agentHas(slot){ const a = agent(); return a.g === slot || a.x === slot;
    air: an air dash holds you level rather than dropping you through it.
    Kept at ROLL.speed because the server's movement check allows 20 m/s
    sustained and a faster dash would just be clamped back. */
-const DASH = { dur:0.3, speed:20, cdMs:3000 };
+/* dur x speed is the distance: 0.45s at 20 m/s is ~9m. It was 0.3s (~6.3m),
+   which Jack found too short to break an angle with. The SPEED is what must
+   not rise — 20 is the server's sustained limit — so a longer dash buys its
+   distance with time, which is also what makes it committal. */
+const DASH = { dur:0.45, speed:20, cdMs:5000 };
 let dashT = 0, dashCdUntil = 0;
+/* A kill clears Blast's dash. Five seconds is a long wait for an engage
+   tool, so the reward for winning the fight is the way back out -- which
+   also means the dash is never the reason you cannot chase a second one.
+   Called from every place a kill is credited to you: the server's `kill`
+   event in a match, and each local bot death on the range. The cooldown
+   lives on the client (dash is client-authoritative movement), so there
+   is nothing for the server to send and nothing new to trust. */
+function creditKill(){
+  if (agent().v === 'dash') dashCdUntil = 0;
+}
 const dashDir = new THREE.Vector3();
 
 /* Blast's X, a buff on himself. `aimRate` is how fast ADS comes up (the
    normal rate is 10) and `spreadMul` scales every cone, shot and reticle
    alike, since both read currentCone(). Regen is the server's job in a
    match, because hp is server-owned; the range does it locally. */
-const ZONE = { ms:25000, cdMs:90000, regen:10, aimRate:18, spreadMul:0.55 };
+const ZONE = { ms:25000, cdMs:90000, regen:10, aimRate:18, spreadMul:0.55,
+               reloadMul:0.6 };     // and MOVE_SPD.zoneSprint for the legs
 let zoneUntil = 0, zoneReadyAt = 0;
 function zoneOn(){ return performance.now() < zoneUntil; }
+/* How long THIS reload takes. The zone cuts it, so there are four callers
+   that must agree: the timer that refills the magazine, the two magazine
+   sounds placed inside it, and the progress bar. The server applies the
+   same multiplier to its own clock, which is the one that really decides. */
+function reloadMsNow(w){ return (w.reloadMs || 0) * (zoneOn() ? ZONE.reloadMul : 1); }
 resetAbilities();
 
 // One holder per WEAPONS entry (the ability/melee slots have no file model,
