@@ -133,10 +133,18 @@ function buildArena(map){
   floor.userData.ownMaterial = true;      // its repeat is map-sized, so not cacheable
   scene.add(floor); arenaParts.push(floor);
 
-  /* Perimeter: four 2m-thick walls on the boundary, derived from ARENA so a
-     map only states its size. These ARE colliders, unlike the roof. */
-  addBox(0,WH/2,-ARENA,span,WH,2,'wall'); addBox(0,WH/2,ARENA,span,WH,2,'wall');
-  addBox(-ARENA,WH/2,0,2,WH,span,'wall'); addBox(ARENA,WH/2,0,2,WH,span,'wall');
+  /* Perimeter: four 2m-thick walls on the boundary, built from the SAME
+     mapWallRects() the server builds its collision from rather than from four
+     addBox calls carrying their own numbers. Those two agreed everywhere
+     except the CORNERS — the server's walls ran a metre past each end and the
+     client's stopped dead — so there was a metre of wall at each corner that
+     stopped a bullet on one side and not the other. Deriving the mesh from
+     the rect means the box you see is the box that is tested, by
+     construction. These ARE colliders, unlike the roof. */
+  for (const w of mapWallRects(map)) {
+    addBox((w.minx + w.maxx)/2, (w.miny + w.maxy)/2, (w.minz + w.maxz)/2,
+           w.maxx - w.minx, w.maxy - w.miny, w.maxz - w.minz, 'wall');
+  }
 
   /* Roof. castShadow is deliberately left OFF — a shadow-casting lid between
      the key light and the arena would drop the whole room into black. It is the

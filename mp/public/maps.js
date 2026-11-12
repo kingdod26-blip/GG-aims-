@@ -75,6 +75,44 @@ const MAPS = {
     ],
   },
 
+  /* A second arena, and a deliberately different fight. Foundry is 120m
+     across and open, which rewards a scoped sniper down either axis.
+     Substation is 88m with the middle walled into THREE LANES, so a sightline
+     is something you commit to rather than something you are handed: the two
+     long dividers and the two cross walls break every diagonal, the corner
+     towers are the only high ground, and the core in the middle is the one
+     place all three lanes meet. Everything is symmetric under a 180-degree
+     turn, so neither spawn half owns a better angle. */
+  substation: {
+    id: 'substation',
+    name: 'SUBSTATION',
+    blurb: 'Tighter, three lanes and a walled core. No long diagonal.',
+    arena: 44,
+    wallH: 7,
+    lamps: { spacing: 20, reach: 2, w: 5, d: 2.2 },
+    resupply: { x: 0, z: 0 },
+    boxes: [
+      { x:   0, z:   0, w: 7, d: 7, h: 3,   mat: 'pillar' },   // the core / resupply
+      { x: -16, z:   0, w: 2, d: 26, h: 4,  mat: 'block'  },   // the two lane dividers
+      { x:  16, z:   0, w: 2, d: 26, h: 4,  mat: 'block'  },
+      { x:   0, z: -26, w: 26, d: 2, h: 4,  mat: 'block'  },   // and the cross walls
+      { x:   0, z:  26, w: 26, d: 2, h: 4,  mat: 'block'  },
+      { x: -30, z: -30, w: 6, d: 6, h: 4,   mat: 'pillar' },   // corner towers: the high ground
+      { x:  30, z:  30, w: 6, d: 6, h: 4,   mat: 'pillar' },
+      { x:  30, z: -30, w: 6, d: 6, h: 4,   mat: 'pillar' },
+      { x: -30, z:  30, w: 6, d: 6, h: 4,   mat: 'pillar' },
+      { x: -24, z:   0, w: 4, d: 4, h: 2.4, mat: 'crate'  },   // outer lane cover
+      { x:  24, z:   0, w: 4, d: 4, h: 2.4, mat: 'crate'  },
+      { x:  -9, z:  -9, w: 3, d: 3, h: 1.6, mat: 'crate'  },   // low: shoot over, or stand on
+      { x:   9, z:   9, w: 3, d: 3, h: 1.6, mat: 'crate'  },
+      { x:   9, z:  -9, w: 3, d: 3, h: 1.6, mat: 'crate'  },
+      { x:  -9, z:   9, w: 3, d: 3, h: 1.6, mat: 'crate'  },
+      { x:   0, z: -13, w: 5, d: 2, h: 2,   mat: 'crate'  },   // cover on the way into the core
+      { x:   0, z:  13, w: 5, d: 2, h: 2,   mat: 'crate'  },
+    ],
+    signs: [],
+  },
+
 };
 
 const DEFAULT_MAP = 'foundry';

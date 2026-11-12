@@ -659,16 +659,57 @@ effects.js, input.js, loop.js and session.js all hold that same array.
 Measured: rebuilding foundry leaves the collider count, the wallMesh count
 and `scene.children` all unchanged (21 / 22 / 59).
 
-**Which map a room plays is the server's to say.** `MAP` in server.js picks it
-(`process.env.MAP`, defaulting to `foundry`), its id rides in `welcome`, and
-the client calls `ensureMap(id)` — a no-op when it already matches, a rebuild
-when it does not. An unknown id falls back to the default rather than leaving
-one side with no arena. `RESUPPLY` takes its x/z from the map, so the pickup
-follows the crate.
+**Every ROOM has its own arena.** The collision lists used to be module-level
+constants, so one arena served the whole server. `makeRoom` now spreads
+`arenaOf(map)` onto the room — `rects` (cover plus the four perimeter walls,
+for movement and line of sight), `rayBoxes` (those plus the roof, for
+anything that flies), `arena`, `wallH` and `resupply` — and **every helper
+that tests geometry takes the room**: `lineClear`, `resolveBody`, `vetMove`,
+`resolve2D`, `randomSpawn`, `insideWall`, `spreadSpawns` and `eliminate`.
+Miss one and that room is playing a map while the physics answers for
+another, which is invisible until someone walks through a wall that is not
+there. There is no module-level `RECTS`, `RAY_BOXES`, `ARENA` or `WALL_H`
+left; if you find yourself reaching for one, you want the room.
 
-Still to come: one map per ROOM rather than per server process, which means
-threading the room's rects through the handlers that read module-level
-`RECTS` / `RAY_BOXES`, and a second arena to pick.
+The arena is fixed when the room is made and never changes under the people
+in it — swapping it mid-match would leave everyone standing in cover that is
+no longer there.
+
+**How a map gets chosen.** `GET /rooms/new?map=<id>` creates on that arena
+(an unknown id falls back to the default rather than refusing, so an older
+client cannot get a dead Create button); `GET /rooms` lists every room's map
+and advertises what the server has; `welcome` carries `map`, `mapName` and
+`arena`, and the client calls `ensureMap(id)` — a no-op when it already
+matches. `process.env.MAP` still sets what a server defaults to.
+
+On the client the MAP card in the menu cycles through `MAP_IDS` (remembered
+as `cx.map`) and **builds the arena as you click**, because the menu's
+backdrop IS the arena — picking a map shows you the map rather than its name.
+That pick is what CREATE ROOM asks for and what the practice range builds;
+joining someone else's room adopts theirs instead. Note `startPlay` clamps
+the range's spawn to `ARENA-8`: z=44 is a corner of Foundry and the WALL of
+anything smaller.
+
+**The client builds its perimeter from `mapWallRects()` too**, rather than
+from four `addBox` calls carrying their own numbers. Those two agreed
+everywhere except the CORNERS — the server's walls ran a metre past each end
+and the client's stopped dead — so there was a metre of wall at each corner
+that stopped a bullet on one side and not the other. Deriving the mesh from
+the rect makes the box you see the box that is tested, by construction.
+Measured: all 21 rects match on both maps, where four did not before.
+
+**The maps.** `foundry` is the original: 120m across, open, long sightlines
+down both axes, which is what a scoped sniper wants. `substation` is 88m with
+the middle walled into three lanes — the two long dividers and two cross
+walls break every diagonal, the corner towers are the only high ground, and
+the core is where the lanes meet. It is symmetric under a 180-degree turn so
+neither spawn half owns a better angle.
+
+`scratchpad/permap.js` is the proof that a room really simulates its own
+arena rather than just reporting its name: it samples twenty spawns per room
+and checks each against that map's own bound and geometry, which a server
+holding one global arena would fail. Measured: 20/20 inside the bound and
+none inside geometry, on both maps.
 
 ## Agents
 

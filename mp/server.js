@@ -42,7 +42,8 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 /* The lobby reads these before joining anything, so they must work without a
    socket. Listing is the room browser; /rooms/new reserves a fresh code. */
-app.get('/rooms', (_req, res) => res.json({ rooms: roomList(), max: MATCH.maxPlayers }));
+app.get('/rooms', (_req, res) => res.json({ rooms: roomList(), max: MATCH.maxPlayers,
+  maps: MAP_IDS.map(id => ({ id, name: MAPS[id].name, blurb: MAPS[id].blurb })) }));
 app.get('/rooms/new', (req, res) => {
   if (rooms.size >= MAX_ROOMS)
     return res.status(503).json({ error: 'the server is full, try again shortly' });
@@ -51,9 +52,13 @@ app.get('/rooms/new', (req, res) => {
     return res.status(429).json({ error: 'too many rooms too quickly' });
   const code = newRoomCode();
   if (!code) return res.status(503).json({ error: 'could not allocate a code' });
-  rooms.set(code, makeRoom(code, 60000));     // held for a minute so it survives the trip
-  console.log(`[*] room ${code} created (${rooms.size} room(s))`);
-  res.json({ code });
+  /* The creator picks the arena. An unknown id falls back to the default
+     rather than refusing, because the alternative is a dead Create button
+     when an older client asks for a map this server has not got. */
+  const map = mapById(req.query.map);
+  rooms.set(code, makeRoom(code, 60000, map.id));   // held a minute, so it survives the trip
+  console.log(`[*] room ${code} created on ${map.id} (${rooms.size} room(s))`);
+  res.json({ code, map: map.id });
 });
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -62,40 +67,43 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 8200;
 
-/* ----------------------------- Shared arena -------------------------------
-   The arena is DATA, and it lives in one place: public/maps.js, which the
-   browser loads as a script and this file requires. It used to be written
-   out twice — a LAYOUT here as [x,z,w,d,h] and another in world.js as
-   [x,z,w,h,d], the same boxes in a different argument order — with nothing
-   but a note in CLAUDE.md keeping them equal. Get one height wrong and the
-   cover you can see is not the cover that stops a bullet.
+/* ------------------------------- Arenas ----------------------------------
+   The arena is DATA, in one place: public/maps.js, which the browser loads
+   as a script and this file requires. It used to be written out twice — a
+   LAYOUT here as [x,z,w,d,h] and another in world.js as [x,z,w,h,d], the
+   same boxes in a different argument order — with nothing but a note in
+   CLAUDE.md keeping them equal. Get one height wrong and the cover you can
+   see is not the cover that stops a bullet.
+
+   EVERY ROOM HAS ITS OWN. These lists used to be module-level constants, so
+   one arena served the whole server and every room played it. They live on
+   the room now and every helper that tests geometry takes the room — miss
+   one and that room is playing a map while the physics answers for another,
+   which is invisible until someone walks through a wall that is not there.
 
    Heights matter: obstacles used to be treated as infinitely tall for
    line-of-sight, so you could not shoot over a crate — and standing ON one
    put your own muzzle inside a collider, which zeroed the wall distance and
    made every shot you took miss. Movement and spawn checks are still
-   deliberately 2D (they only ever run at ground level).
-
-   MAP is the arena this process simulates. One per server for now; the env
-   var is there so a second map can be run and played before the lobby can
-   choose one per room. Its id goes out in `welcome`, and the client rebuilds
-   its geometry to match. */
+   deliberately 2D (they only ever run at ground level). */
 const { MAPS, MAP_IDS, DEFAULT_MAP, mapById,
         mapRects, mapWallRects, mapCeilingRect } = require('./public/maps.js');
-const MAP = mapById(process.env.MAP || DEFAULT_MAP);
-const ARENA = MAP.arena;
-const WALL_H = MAP.wallH;         // perimeter wall height (client's WH)
-/* Boxes as {minx,minz,maxx,maxz,miny,maxy}; the cover sits on the floor, and
-   the four perimeter walls are collidable on the client, so the server needs
-   them too — otherwise bullets and ricocheting arrows fly straight through. */
-const RECTS = mapRects(MAP).concat(mapWallRects(MAP));
-/* The roof. It is deliberately NOT in RECTS: that list also drives resolve2D,
-   insideWall and lineClear, which are all 2D, so a box covering the whole
-   arena would shove every player sideways out of the map. It belongs only to
-   the 3D ray tests, hence a separate list. */
-const CEILING = mapCeilingRect(MAP);
-// what bullets and arrows collide with: the walls plus the roof
-const RAY_BOXES = RECTS.concat([CEILING]);
+/* What a room gets when nobody asks for a map. The env var is a way to make
+   a whole server default to something other than foundry. */
+const DEFAULT_MAP_ID = mapById(process.env.MAP || DEFAULT_MAP).id;
+/* A room's collision, built once when the room is made. `rects` is cover
+   plus the four perimeter walls, and drives movement and line of sight;
+   `rayBoxes` adds the roof, for anything that flies.
+
+   The roof is deliberately kept OUT of `rects`: that list also feeds the 2D
+   tests (resolve2D, insideWall, lineClear), and a box spanning the whole
+   arena there would shove every player sideways out of the map. */
+function arenaOf(map) {
+  const rects = mapRects(map).concat(mapWallRects(map));
+  return { map, arena: map.arena, wallH: map.wallH,
+           resupply: { x: map.resupply.x, z: map.resupply.z },
+           rects, rayBoxes: rects.concat([mapCeilingRect(map)]) };
+}
 
 /* ------------------------------- Geometry --------------------------------- */
 // 2D segment (from → to) vs axis-aligned rectangle. Returns nearest hit
@@ -117,8 +125,8 @@ function segRectDist(fx, fz, tx, tz, r) {
   return tmin * len;
 }
 // Is the straight line between two XZ points unobstructed by any wall?
-function lineClear(fx, fz, tx, tz) {
-  for (const r of RECTS) if (segRectDist(fx, fz, tx, tz, r) < Infinity) return false;
+function lineClear(room, fx, fz, tx, tz) {
+  for (const r of room.rects) if (segRectDist(fx, fz, tx, tz, r) < Infinity) return false;
   return true;
 }
 // Push a circle (radius) out of any rectangle it overlaps, then clamp to arena.
@@ -153,9 +161,9 @@ const BODY_H = [1.8, 1.15, 0.7];        // stand / crouch / prone, matching STAN
 /* Push out of boxes the body is actually inside. Height-aware on purpose:
    resolve2D below is 2D and would shove a player off the crate they are
    standing on. */
-function resolveBody(pos, feetY, st) {
+function resolveBody(room, pos, feetY, st) {
   const top = feetY + (BODY_H[st] || BODY_H[0]), r = MOVE.radius;
-  for (const c of RECTS) {
+  for (const c of room.rects) {
     if (c.miny > top || c.maxy <= feetY + 0.05) continue;    // above us, or underfoot
     const cx = Math.max(c.minx, Math.min(pos.x, c.maxx));
     const cz = Math.max(c.minz, Math.min(pos.z, c.maxz));
@@ -163,13 +171,13 @@ function resolveBody(pos, feetY, st) {
     if (d < r && d > 1e-4) { const p = r - d; pos.x += dx/d*p; pos.z += dz/d*p; }
     else if (d === 0) pos.x += r;
   }
-  const b = ARENA - 1.2;
+  const b = room.arena - 1.2;
   pos.x = Math.max(-b, Math.min(b, pos.x));
   pos.z = Math.max(-b, Math.min(b, pos.z));
 }
 
 /* Returns the position the server is willing to believe. */
-function vetMove(p, nx, ny, nz, now) {
+function vetMove(room, p, nx, ny, nz, now) {
   const dt = Math.min(Math.max((now - (p.moveAt || now)) / 1000, 0.016), 0.5);
   p.moveAt = now;
 
@@ -194,21 +202,21 @@ function vetMove(p, nx, ny, nz, now) {
   let y = typeof ny === 'number' ? ny : (p.y || 0);
   const rise = y - (p.y || 0), maxRise = MOVE.maxRise * dt;
   if (Math.abs(rise) > maxRise) y = (p.y || 0) + Math.sign(rise) * maxRise;
-  y = Math.max(0, Math.min(y, WALL_H - 1.9));
+  y = Math.max(0, Math.min(y, room.wallH - 1.9));
 
-  resolveBody(pos, y, p.st || 0);
+  resolveBody(room, pos, y, p.st || 0);
   return { x: pos.x, y, z: pos.z };
 }
 
-function resolve2D(pos, radius) {
-  for (const r of RECTS) {
+function resolve2D(room, pos, radius) {
+  for (const r of room.rects) {
     const cx = Math.max(r.minx, Math.min(pos.x, r.maxx));
     const cz = Math.max(r.minz, Math.min(pos.z, r.maxz));
     const dx = pos.x - cx, dz = pos.z - cz, d = Math.hypot(dx, dz);
     if (d < radius && d > 1e-4) { const p = radius - d; pos.x += dx/d*p; pos.z += dz/d*p; }
     else if (d === 0) pos.x += radius;
   }
-  const b = ARENA - 1.2;
+  const b = room.arena - 1.2;
   pos.x = Math.max(-b, Math.min(b, pos.x));
   pos.z = Math.max(-b, Math.min(b, pos.z));
 }
@@ -263,14 +271,15 @@ function segRectHit(fx, fz, tx, tz, r) {
 }
 
 const rand = (a, b) => a + Math.random()*(b-a);
-function randomSpawn() {
+function randomSpawn(room) {
+  const A = room.arena;
   let x, z, t = 0;
-  do { x = rand(-(ARENA-6), ARENA-6); z = rand(-(ARENA-6), ARENA-6); t++; }
-  while (insideWall(x, z) && t < 40);
+  do { x = rand(-(A-6), A-6); z = rand(-(A-6), A-6); t++; }
+  while (insideWall(room, x, z) && t < 40);
   return { x, z };
 }
-function insideWall(x, z) {
-  for (const r of RECTS) if (x > r.minx-1 && x < r.maxx+1 && z > r.minz-1 && z < r.maxz+1) return true;
+function insideWall(room, x, z) {
+  for (const r of room.rects) if (x > r.minx-1 && x < r.maxx+1 && z > r.minz-1 && z < r.maxz+1) return true;
   return false;
 }
 
@@ -297,8 +306,12 @@ function mayCreateRoom(ip) {
     for (const [k, v] of NEWROOM.seen) if (now >= v.resetAt) NEWROOM.seen.delete(k);
   return ++e.n <= NEWROOM.perMinute;
 }
-function makeRoom(id, holdMs) {
-  return { id,
+function makeRoom(id, holdMs, mapId) {
+  /* The arena is fixed when the room is made and never changes under the
+     people in it: the client builds geometry from the id in `welcome`, and
+     swapping it mid-match would leave everyone standing in cover that is no
+     longer there. */
+  return { id, ...arenaOf(mapById(mapId || DEFAULT_MAP_ID)),
     players: new Map(),           // socket.id -> player
     parked: new Map(),            // token -> { wins, money, guns, name, at }
     smokes: [], fires: [], arrows: [], grenades: [],
@@ -352,7 +365,7 @@ function roomFor(code, tok) {
   for (const r of rooms.values())
     if (r.players.size && r.players.size < MATCH.maxPlayers) return r;
   if (rooms.size >= MAX_ROOMS) return null;          // at capacity: turned away
-  const r = makeRoom(nextRoomId());
+  const r = makeRoom(nextRoomId());   // auto-made rooms take the server default
   rooms.set(r.id, r);
   return r;
 }
@@ -361,6 +374,7 @@ function roomList() {
   return [...rooms.values()]
     .map(r => ({ id: r.id, players: r.players.size, max: MATCH.maxPlayers,
                  phase: r.match.phase, round: r.match.round,
+                 map: r.map.id, mapName: r.map.name,
                  named: !/^r[0-9]+$/.test(r.id) }))
     .sort((a, b) => b.players - a.players || (a.id < b.id ? -1 : 1));
 }
@@ -571,7 +585,9 @@ const CORE_R = [0.26, 0.26, 0.30];
    made the middle of the map a free refill station — it is now one player
    every ammoMs, shared, and only while a round is live. Outside a live round
    it is free: the buy window already hands you a full magazine with a gun. */
-const RESUPPLY = { x: MAP.resupply.x, z: MAP.resupply.z, radius: 5.0, cash: 100, ammoMs: 30000 };
+/* WHERE it is comes from the room's map (room.resupply); these are the
+   numbers that are the same wherever it stands. */
+const RESUPPLY = { radius: 5.0, cash: 100, ammoMs: 30000 };
 /* Health potions. Five scattered each round, each one gone for the round
    once anybody takes it.
 
@@ -590,8 +606,8 @@ function placePotions(room) {
   for (let i = 0; i < POTION.n; i++) {
     let best = null, bestNearest = -1;
     for (let tries = 0; tries < 160; tries++) {
-      const c = randomSpawn();
-      if (Math.hypot(c.x - RESUPPLY.x, c.z - RESUPPLY.z) < POTION.clearOfCrate) continue;
+      const c = randomSpawn(room);
+      if (Math.hypot(c.x - room.resupply.x, c.z - room.resupply.z) < POTION.clearOfCrate) continue;
       let nearest = Infinity;
       for (const o of out) nearest = Math.min(nearest, Math.hypot(c.x - o.x, c.z - o.z));
       if (nearest >= POTION.apart) { best = c; break; }      // good enough, take it
@@ -644,18 +660,18 @@ function hitZone(o, dir, cx, cz, baseY, st) {
    other's line of sight. Scored rather than rejected outright: with five
    players in one room a perfect no-sightline set may not exist, so we take
    the best of a bounded search instead of looping forever. */
-function spreadSpawns(n) {
+function spreadSpawns(room, n) {
   const chosen = [];
   for (let i = 0; i < n; i++) {
     let best = null, bestScore = -Infinity;
     for (let tries = 0; tries < 120; tries++) {
-      const c = randomSpawn();
+      const c = randomSpawn(room);
       if (!chosen.length) { best = c; break; }
       let nearest = Infinity, blocked = 0;
       for (const o of chosen) {
         const d = Math.hypot(c.x - o.x, c.z - o.z);
         if (d < nearest) nearest = d;
-        if (!lineClear(c.x, c.z, o.x, o.z)) blocked++;   // something in the way
+        if (!lineClear(room, c.x, c.z, o.x, o.z)) blocked++;   // something in the way
       }
       if (nearest < SPAWN_APART) continue;               // never spawn on top of someone
       const hidden = blocked === chosen.length;
@@ -663,16 +679,16 @@ function spreadSpawns(n) {
       if (score > bestScore) { bestScore = score; best = c; }
       if (hidden && nearest > 30) break;                 // good enough
     }
-    chosen.push(best || randomSpawn());
+    chosen.push(best || randomSpawn(room));
   }
   return chosen;
 }
 function respawnAll(room) {
   const players = room.players;
-  const spots = spreadSpawns(players.size);
+  const spots = spreadSpawns(room, players.size);
   let i = 0;
   for (const p of players.values()) {
-    const s = spots[i++] || randomSpawn();
+    const s = spots[i++] || randomSpawn(room);
     p.x = s.x; p.z = s.z; p.y = 0; p.hp = 100; p.alive = true;
     p.tp = (p.tp || 0) + 1;        // force the client to accept this position
     p.burnUntil = 0; p.burnRate = 0; p.inFire = false;
@@ -729,12 +745,12 @@ function noiseMade(room, byId, now) {
 /* Being eliminated moves you to a spawn point rather than leaving your body
    where it fell. You sit the round out there — same place you'd start a round
    or a match from. Bots have no spawn to go to, so they stay put. */
-function eliminate(e, isPlayer) {
+function eliminate(room, e, isPlayer) {
   e.alive = false; e.hp = 0;
   e.diedAt = Date.now();        // who went down last decides a mutual kill
   e.burnUntil = 0; e.burnRate = 0; e.inFire = false;
   e.markedUntil = 0; e.markedBy = null; e.rl = 0;
-  if (isPlayer) { const s = randomSpawn(); e.x = s.x; e.z = s.z; e.y = 0; e.st = 0;
+  if (isPlayer) { const s = randomSpawn(room); e.x = s.x; e.z = s.z; e.y = 0; e.st = 0;
                   e.tp = (e.tp || 0) + 1; e.moveAt = 0; }
 }
 /* Payloads land where the bolt actually stopped, height included. These used
@@ -911,7 +927,7 @@ io.on('connection', (socket) => {
   }
   socket.join(room.id);
   const players = room.players, match = room.match, parked = room.parked;
-  const s = randomSpawn();
+  const s = randomSpawn(room);
   /* Did this browser leave an unfinished match behind a moment ago? Give it
      back rather than starting them at nothing — a reload mid-match should not
      cost you the rounds you already won. */
@@ -939,9 +955,12 @@ io.on('connection', (socket) => {
   players.set(socket.id, player);
   /* Everything that never changes goes out ONCE, here, instead of riding in
      every snapshot 30 times a second. */
-  socket.emit('welcome', { id: socket.id, spawn: s, color: player.color, arena: ARENA, map: MAP.id,
+  socket.emit('welcome', { id: socket.id, spawn: s, color: player.color,
+    arena: room.arena, map: room.map.id, mapName: room.map.name,
     room: room.id,
-    prices: PRICES, mainSlots: MAIN_SLOTS, sideSlots: SIDE_SLOTS, resupply: RESUPPLY,
+    prices: PRICES, mainSlots: MAIN_SLOTS, sideSlots: SIDE_SLOTS,
+    resupply: { x: room.resupply.x, z: room.resupply.z,
+                radius: RESUPPLY.radius, cash: RESUPPLY.cash },
     maxMain: MAX_MAIN, maxSide: MAX_SIDE, maxPlayers: MATCH.maxPlayers,
     winsNeeded: MATCH.winsNeeded });
   sendMeta(room, true);                // the roster, before any frame refers to it
@@ -1003,7 +1022,7 @@ io.on('connection', (socket) => {
       /* What they claim, checked before it is believed. vetMove does the
          height and the geometry too, so x/y/z all come back from it. */
       if (typeof d.x === 'number' && typeof d.z === 'number') {
-        const v = vetMove(p, d.x, typeof d.y === 'number' ? d.y : (p.y || 0), d.z, at);
+        const v = vetMove(room, p, d.x, typeof d.y === 'number' ? d.y : (p.y || 0), d.z, at);
         p.x = v.x; p.y = v.y; p.z = v.z;
       }
     }
@@ -1057,7 +1076,7 @@ io.on('connection', (socket) => {
 
     // nearest wall blocks the bullet — in 3D, so shots pass over low cover
     let wall = Infinity;
-    for (const r of RAY_BOXES) {
+    for (const r of room.rayBoxes) {
       const h = rayBoxHit(o, dir, r);
       if (h && h.t < wall) wall = h.t;
     }
@@ -1089,7 +1108,7 @@ io.on('connection', (socket) => {
                           head: best.head, zone: best.zone, by: p.id });
       if (best.target.kind === 'player') io.to(tgt.id).emit('hurt', { x: p.x, z: p.z });
       if (tgt.hp <= 0 && tgt.alive) {
-        eliminate(tgt, best.target.kind === 'player');
+        eliminate(room, tgt, best.target.kind === 'player');
         p.kills++;
         if (best.target.kind === 'player') tgt.deaths++;   // eliminated for this round
         io.to(room.id).emit('kill', { by: p.name, byId: p.id, victim: best.target.kind === 'bot' ? 'a bot' : tgt.name, head: best.head });
@@ -1165,7 +1184,7 @@ io.on('connection', (socket) => {
          against, whose box can contain the swing's own origin. */
       const to = { x: vx/dist, y: vy/dist, z: vz/dist };
       const from = { x: ox, y: oy, z: oz };
-      for (const r of RAY_BOXES) {
+      for (const r of room.rayBoxes) {
         const h = rayBoxHit(from, to, r);
         if (h && h.t > 0.1 && h.t < dist) return;        // wall in the way
       }
@@ -1187,7 +1206,7 @@ io.on('connection', (socket) => {
     p.comboStep = (step + 1) % MELEE.combo.length;
     p.comboUntil = now + MELEE.windowMs;
     if (t.hp <= 0 && t.alive) {
-      eliminate(t, isPlayer); p.kills++;
+      eliminate(room, t, isPlayer); p.kills++;
       if (isPlayer) t.deaths++;
       io.to(room.id).emit('kill', { by: p.name, byId: p.id, victim: isPlayer ? t.name : 'a bot', head: step === MELEE.combo.length-1 });
     }
@@ -1379,7 +1398,7 @@ function explodeGrenade(room, g, now) {
     if (d >= GRENADE.radius) continue;
     const dir = { x: dx/d, y: dy/d, z: dz/d };
     let blocked = false;
-    for (const r of RAY_BOXES) { const h = rayBoxHit(o, dir, r); if (h && h.t > 0.05 && h.t < d) { blocked = true; break; } }
+    for (const r of room.rayBoxes) { const h = rayBoxHit(o, dir, r); if (h && h.t > 0.05 && h.t < d) { blocked = true; break; } }
     if (blocked) continue;                              // cover took it
     const dmg = d <= GRENADE.full ? GRENADE.dmg
               : Math.round(GRENADE.dmg * (1 - (d - GRENADE.full) / (GRENADE.radius - GRENADE.full)));
@@ -1389,7 +1408,7 @@ function explodeGrenade(room, g, now) {
     io.to(room.id).emit('impact', { x: cx, y: cy, z: cz, head: dmg >= GRENADE.dmg, by: g.by,
                                     zone: dmg >= GRENADE.dmg ? 'head' : 'torso' });
     if (t.hp <= 0 && t.alive) {
-      eliminate(t, true);
+      eliminate(room, t, true);
       if (thrower) thrower.kills++;
       t.deaths++;
       io.to(room.id).emit('kill', { by: thrower ? thrower.name : 'a grenade', byId: g.by, victim: t.name, head: false });
@@ -1410,7 +1429,7 @@ function igniteTarget(room, hit, byId, now) {
   if (shooter && isPlayer) io.to(t.id).emit('hurt', { x: shooter.x, z: shooter.z });
   dropFire(room, t.x, t.y || 0, t.z, byId, now);   // pool at their feet
   if (t.hp <= 0 && t.alive) {
-    eliminate(t, isPlayer);
+    eliminate(room, t, isPlayer);
     if (shooter) shooter.kills++;
     if (isPlayer) t.deaths++;
     io.to(room.id).emit('kill', { by: shooter ? shooter.name : 'fire', byId: byId, victim: isPlayer ? t.name : 'a bot', head });
@@ -1570,7 +1589,7 @@ function tickRoom(room, now, dt) {
 
     // nearest wall along this step, height-aware
     let wallT = Infinity, wn = null;
-    for (const r of RAY_BOXES) {
+    for (const r of room.rayBoxes) {
       const h = rayBoxHit(o, dir, r);
       if (h && h.t < wallT && h.t <= stepLen) { wallT = h.t; wn = h; }
     }
@@ -1638,7 +1657,7 @@ function tickRoom(room, now, dt) {
     if (len > 1e-6) {
       const dir = { x: sx/len, y: sy/len, z: sz/len }, o = { x: g.x, y: g.y, z: g.z };
       let best = null, onBody = false;
-      for (const r of RAY_BOXES) { const h = rayBoxHit(o, dir, r); if (h && h.t <= len + 0.08 && (!best || h.t < best.t)) best = h; }
+      for (const r of room.rayBoxes) { const h = rayBoxHit(o, dir, r); if (h && h.t <= len + 0.08 && (!best || h.t < best.t)) best = h; }
       /* Bodies too. `h.t > 0.02` matters: rayBoxHit returns t=0 with axis -1
          when the origin is already INSIDE a box, and a resting grenade under
          someone's feet would then flip its velocity every tick. */
@@ -1723,7 +1742,7 @@ function tickRoom(room, now, dt) {
   // ---- Resupply crate: top up ammo, and pay out once a round ----
   for (const pl of players.values()) {
     if (!pl.alive) continue;
-    const near = Math.hypot(pl.x - RESUPPLY.x, pl.z - RESUPPLY.z) <= RESUPPLY.radius;
+    const near = Math.hypot(pl.x - room.resupply.x, pl.z - room.resupply.z) <= RESUPPLY.radius;
     if (!near) { pl.inResupply = false; continue; }
     if (pl.inResupply) continue;                 // already standing in it
     pl.inResupply = true;
@@ -1770,7 +1789,7 @@ function tickRoom(room, now, dt) {
     e.burnNext = now + 1000;
     e.hp -= (e.burnRate || XBOW.burnDps);
     if (e.hp <= 0 && e.alive) {
-      eliminate(e, isPlayer);
+      eliminate(room, e, isPlayer);
       const killer = players.get(e.burnBy);
       if (killer) killer.kills++;
       if (isPlayer) e.deaths++;

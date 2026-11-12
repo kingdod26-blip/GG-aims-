@@ -180,6 +180,11 @@ const byId = id => document.getElementById(id);
    to shoot at bots usually opens it to shoot at bots again. */
 let lobbyMode = (()=>{ try { const m = localStorage.getItem('cx.mode');
                              return (m === 'bots' || m === 'mp') ? m : 'mp'; } catch(e){ return 'mp'; } })();
+/* Which arena the MAP card is showing. It is what the practice range
+   builds and what CREATE ROOM asks the server for; joining someone
+   else's room adopts theirs instead, from `welcome`. */
+let pickedMap = (()=>{ try { const m = localStorage.getItem('cx.map');
+                             return MAPS[m] ? m : DEFAULT_MAP; } catch(e){ return DEFAULT_MAP; } })();
 
 function renderAgentPick(){
   document.querySelectorAll('#agentRow .agent').forEach(el => el.classList.toggle('on', el.dataset.agent === myAgent));
@@ -234,7 +239,7 @@ function renderLobbyCards(){
   byId('agentKit').textContent  = t(myAgent + '.kit');
   byId('modeName').textContent  = t(bots ? 'mode.bots' : 'mode.mp');
   byId('modeSub').textContent   = t(bots ? 'mode.bots.sub' : 'mode.mp.sub');
-  if(typeof currentMap !== 'undefined' && currentMap) byId('mapName').textContent = currentMap.name;
+  byId('mapName').textContent = mapById(pickedMap).name;
   renderAgentPick(); renderArsenal(); drawMapThumb();
 }
 
@@ -270,7 +275,14 @@ byId('cardMode').onclick  = ()=>{
   try{ localStorage.setItem('cx.mode', lobbyMode); }catch(e){}
   renderLobbyCards(); Sfx.swap();
 };
-byId('cardMap').onclick   = ()=> Sfx.swap();        // one arena for now
+byId('cardMap').onclick   = ()=>{
+  const i = MAP_IDS.indexOf(pickedMap);
+  pickedMap = MAP_IDS[(i + 1) % MAP_IDS.length];
+  try{ localStorage.setItem('cx.map', pickedMap); }catch(e){}
+  /* Build it right now: the menu's backdrop IS the arena, so picking a
+     map shows you the map rather than just its name. */
+  ensureMap(pickedMap); renderLobbyCards(); Sfx.swap();
+};
 byId('prepareBtn').onclick = ()=>{
   if(lobbyMode === 'bots') startPlay('bots'); else openLobby();
 };
@@ -360,7 +372,8 @@ async function refreshRooms(){
                 : r.phase === 'waiting' ? 'WAITING'
                 : r.phase === 'paused' ? 'PAUSED' : 'BUY WINDOW';
     row.innerHTML = '<span class="rid' + (r.named ? ' code' : '') + '">' + esc(r.id) + '</span>'
-      + '<span class="rmeta"><span class="rn">' + r.players + '/' + r.max + '</span> · ' + phase + '</span>';
+      + '<span class="rmeta"><span class="rn">' + r.players + '/' + r.max + '</span> · ' + phase
+      + (r.mapName ? ' · <span class="rmap">' + esc(r.mapName) + '</span>' : '') + '</span>';
     if(!full) row.onclick = ()=> joinRoom(r.id);
     host.appendChild(row);
   }
@@ -379,7 +392,7 @@ document.getElementById('quickBtn').onclick   = ()=>{ pendingRoom = null; startP
 document.getElementById('createBtn').onclick  = async ()=>{
   lobbySay('Creating…', true);
   try {
-    const d = await (await fetch(mpUrl('/rooms/new'))).json();
+    const d = await (await fetch(mpUrl('/rooms/new?map=' + encodeURIComponent(pickedMap)))).json();
     if(!d.code){ lobbySay('The server could not open a room.'); return; }
     lobbySay('Room ' + d.code + ' — share that code', true);
     joinRoom(d.code);
@@ -404,10 +417,15 @@ function startPlay(mode){
   document.getElementById('feed').style.display  = (mode==='mp') ? 'block' : 'none';
   Sfx.resume();                       // unlock audio (browsers require a user gesture)
   if(window.speechSynthesis) speechSynthesis.getVoices();   // warm up voice list
+  /* The range is entirely client-side, so it just builds what you picked.
+     Multiplayer ignores this and takes the room's map from `welcome`. */
+  if(mode === 'bots') ensureMap(pickedMap);
   heroGroup.forEach(o=>o.visible=false); gun.visible=true;
   const nm = (document.getElementById('nameInput').value.trim()) || (mode==='bots'?'You':'Player');
   // reset player + weapons
-  me.x=0; me.z=44; me.feetY=0; me.eyeH=1.7; me.stance='stand'; me.vy=0; me.hp=100; me.alive=true;
+  /* z=44 is a corner of Foundry and the WALL of anything smaller, so the
+     spawn is clamped to the arena actually standing. */
+  me.x=0; me.z=Math.min(44, ARENA-8); me.feetY=0; me.eyeH=1.7; me.stance='stand'; me.vy=0; me.hp=100; me.alive=true;
   weaponAmmo = WEAPONS.map(w=>({ mag:w.magMax, reserve:w.reserveMax }));
   currentWeapon=0; weaponHolders.forEach((h,i)=>h.visible=i===0);
   reloading=false; clearTimeout(reloadTimer); aiming=false; ads=0; semiQueued=false; paused=false;

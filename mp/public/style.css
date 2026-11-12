@@ -409,6 +409,8 @@
     .pb { display:flex; }
   }
 
+  .roomrow .rmap { color:var(--ac-soft); letter-spacing:1px; }
+
   /* ======================= Deployment terminal =============================
      The screen you land on. A lobby, not a splash page: tabs across the top,
      the live 3D operator centre stage, and the deployment column down the
