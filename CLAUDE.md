@@ -952,6 +952,29 @@ beeps and you find out mid-fight. `fallbackWeapon()` is the first GUN in
 the blade is the floor, since a lost round strips your guns and it is the
 one thing you always have.
 
+**Climb is everyone's, and it is movement rather than kit.** Press jump
+facing a ledge between `CLIMB.minRise` (0.5m) and `CLIMB.maxRise` (2.7m)
+above your feet and you pull up onto it instead of jumping into its side;
+it works from the ground or from the air, so Blast can double-jump to a
+lip and still mantle it. 2.7 is chosen to clear the **2.5m crates, which
+a jump cannot** — `JUMP_V` 10.5 against `GRAV` 24 tops out at 2.3m, so
+those were cover nobody could ever get onto. The 3m centre block stays
+out of reach on purpose: that is the resupply crate, and a new perch over
+the middle of the map is a balance decision rather than a movement one.
+The perimeter walls are 7-8m, so you cannot climb out of the arena.
+**The pull-up goes UP before it goes OVER** (`CLIMB.upPart`, 62% of its
+0.42s), and that ordering is the whole trick: while your feet are below
+the ledge you have to stay out of the box's footprint, or the client's
+wall push and the server's `resolveBody` both shove you straight back
+off it. It refuses while rolling, dashing, sliding, crouched or dead, and
+refuses when anything taller stands where you would land.
+Nothing about it asks the server for new trust: it rises at 9.6 m/s and
+slides forward at 8.5, against `MOVE.maxRise` 16 and `MOVE.maxSpeed` 20,
+so `vetMove` passes it like any other movement. Measured on the range:
+the 2.5m, 2.0m and 1.5m crates all climbable, the 3m block and the
+perimeter wall both refused, a mantle started mid-jump lands on top, and
+open air does nothing.
+
 `Q`/`E` peek left/right — hold to lean. `LEAN.angle` 0.16 rad (~9°) plus a
 0.45m sideways shift of the eye, clamped by `clearLean` so you can't put your
 camera through a corner. Suppressed during a roll or slide. (Double jump and sprint are agent kit now — see

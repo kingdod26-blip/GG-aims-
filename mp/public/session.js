@@ -121,7 +121,7 @@ function quitToMenu(){
   while(arrows.length) removeArrow(arrows[0]);
   for(const [id,m] of arrowGfx) scene.remove(m); arrowGfx.clear();
   rollT=0; slideT=0; leanAmt=0; resetAbilities(); clearSmoke(); clearGrenades();
-  dashT=0; dashCdUntil=0; zoneUntil=0; zoneReadyAt=0; document.body.classList.remove('inzone');
+  dashT=0; dashCdUntil=0; climbT=0; zoneUntil=0; zoneReadyAt=0; document.body.classList.remove('inzone');
   me.hv.set(0,0,0); camRoll=0; camDip=0; comboStep=0; swingT=0;
   // stop timers / audio / input state
   clearTimeout(reloadTimer); reloadSfxTimers.forEach(clearTimeout); reloadSfxTimers=[];
@@ -431,7 +431,7 @@ function startPlay(mode){
   reloading=false; clearTimeout(reloadTimer); aiming=false; ads=0; semiQueued=false; paused=false;
   camera.fov=80; camera.updateProjectionMatrix();
   localKills=0;
-  dashT=0; dashCdUntil=0; zoneUntil=0; zoneReadyAt=0; configureTiles();   // the agent is locked from here
+  dashT=0; dashCdUntil=0; climbT=0; zoneUntil=0; zoneReadyAt=0; configureTiles();   // the agent is locked from here
   updateHUD();
   if (mode==='mp'){ connectMP(nm); document.getElementById('status').textContent=t('status.connecting'); }
   else { spawnLocalBots(8); document.getElementById('status').textContent=t('status.offline'); }

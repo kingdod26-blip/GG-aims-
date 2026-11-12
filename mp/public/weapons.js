@@ -183,6 +183,22 @@ function agentHas(slot){ const a = agent(); return a.g === slot || a.x === slot;
    not rise — 20 is the server's sustained limit — so a longer dash buys its
    distance with time, which is also what makes it committal. */
 const DASH = { dur:0.45, speed:20, cdMs:5000 };
+/* Climb, and EVERY agent has it — it is movement, not kit.
+   `minRise` is the lip worth a pull-up (below it you can just walk on);
+   `maxRise` is as high as you can reach, deliberately under the 2.5m
+   3m centre block's and the 4m walls' tops. 2.7 is chosen to clear the
+   2.5m crates, which a jump cannot: JUMP_V 10.5 against GRAV 24 tops
+   out at 2.3m, so those were cover you could never get onto. The 3m
+   block stays out of reach on purpose — that is the resupply crate,
+   and a new perch over the middle of the map is a balance decision,
+   not a movement one. `reach` is how far past your own radius the ledge
+   may be, `land` how far past its edge you end up.
+   `upPart` is the share of the move spent going UP before you go over,
+   and it is the whole trick: while your feet are below the ledge you
+   must stay out of the box's footprint, or the client's wall push and
+   the server's resolveBody both shove you straight back off it. */
+const CLIMB = { minRise:0.5, maxRise:2.7, reach:0.7, land:0.95, dur:0.42, upPart:0.62 };
+let climbT = 0, climbFrom = null, climbTo = null;
 let dashT = 0, dashCdUntil = 0;
 /* A kill clears Blast's dash. Five seconds is a long wait for an engage
    tool, so the reward for winning the fight is the way back out -- which

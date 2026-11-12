@@ -22,9 +22,76 @@ let stepDist=0, stepLeft=false;    // footstep pacing (distance-based)
 const COAST_RATE = 28, STOP_SNAP = 0.2;
 const AIM_GAP = 0;                 // metres the gun's top sits below the eye line at full ADS: none, the tip meets the dot
 const REMOTE_STRIDE = 2.3;         // metres between another player's audible footsteps
+/* ---- Climb ----
+   Press jump facing a ledge between CLIMB.minRise and CLIMB.maxRise above
+   your feet and you pull up onto it instead of jumping into its side. It
+   works from the ground or from the air, so Blast can double-jump to a lip
+   and still mantle it, and it is nobody's ability: all agents climb.
+
+   Nothing here is new trust for the server to grant. A mantle rises about
+   8 m/s and slides forward about 7, both well under MOVE.maxRise (16) and
+   MOVE.maxSpeed (20), so vetMove passes it like any other movement.
+
+   The perimeter walls are 7-8m, far over maxRise, so you cannot climb out
+   of the arena. */
+function findLedge(){
+  if(climbT>0 || rollT>0 || dashT>0 || slideT>0) return null;
+  if(me.stance!=='stand' || !me.alive) return null;
+  const fx=-Math.sin(me.yaw), fz=-Math.cos(me.yaw);
+  const px=me.x+fx*(me.radius+CLIMB.reach), pz=me.z+fz*(me.radius+CLIMB.reach);
+  let best=null;
+  for(const c of colliders){
+    if(px<c.minx||px>c.maxx||pz<c.minz||pz>c.maxz) continue;    // not what we are facing
+    const rise=c.maxy-me.feetY;
+    if(rise<CLIMB.minRise||rise>CLIMB.maxRise) continue;        // beneath notice, or out of reach
+    if(!best||c.maxy>best.maxy) best=c;                         // the highest lip we can still reach
+  }
+  if(!best) return null;
+  const topY=best.maxy, b=ARENA-1.2;
+  const dx=Math.max(-b,Math.min(b, me.x+fx*(me.radius+CLIMB.land)));
+  const dz=Math.max(-b,Math.min(b, me.z+fz*(me.radius+CLIMB.land)));
+  /* Refuse if something taller stands where we would land. Every box in a
+     map sits on the floor, so "taller than the lip at that spot" is the
+     whole test — it catches both a wall to climb into and a crate stacked
+     on the one we are climbing. */
+  for(const c of colliders){
+    if(dx<c.minx-0.05||dx>c.maxx+0.05||dz<c.minz-0.05||dz>c.maxz+0.05) continue;
+    if(c.maxy>topY+0.05) return null;
+  }
+  return { x:dx, z:dz, y:topY };
+}
+function startClimb(l){
+  climbT=CLIMB.dur; climbFrom={ x:me.x, z:me.z, y:me.feetY }; climbTo=l;
+  me.hv.set(0,0,0); me.vy=0; me.onGround=false;
+  stepDist=0;                       // the pull-up is not a stride
+  Sfx.step(true);
+}
+function updateClimb(dt){
+  climbT=Math.max(0, climbT-dt);
+  const k=1-climbT/CLIMB.dur;                                   // 0..1 through the pull-up
+  const up =Math.min(1, k/CLIMB.upPart);                        // up first...
+  const fwd=Math.max(0, (k-CLIMB.upPart)/(1-CLIMB.upPart));     // ...then over the edge
+  const ease=t=>t*t*(3-2*t);
+  me.feetY=climbFrom.y+(climbTo.y-climbFrom.y)*ease(up);
+  me.x    =climbFrom.x+(climbTo.x-climbFrom.x)*ease(fwd);
+  me.z    =climbFrom.z+(climbTo.z-climbFrom.z)*ease(fwd);
+  me.vy=0;
+  if(climbT<=0){
+    me.feetY=climbTo.y; me.x=climbTo.x; me.z=climbTo.z;
+    me.onGround=true; me.jumpsUsed=0;        // you are standing on it; jumps come back
+    Sfx.land();
+  }
+}
 function movePlayer(dt){
   const st=STANCE[me.stance];
   me.eyeH += (st.eye-me.eyeH)*Math.min(1,dt*12);
+  /* A climb owns the frame: no input, no gravity, no wall push — it is
+     moving you along a path it already checked. */
+  if(climbT>0){ updateClimb(dt); return; }
+  if(jumpPressed){
+    const ledge=findLedge();
+    if(ledge){ jumpPressed=false; startClimb(ledge); return; }   // climb beats jump
+  }
   const fwd=new THREE.Vector3(-Math.sin(me.yaw),0,-Math.cos(me.yaw)), rgt=new THREE.Vector3(Math.cos(me.yaw),0,-Math.sin(me.yaw));
   const mv=new THREE.Vector3();
   if(keys['KeyW'])mv.add(fwd); if(keys['KeyS'])mv.sub(fwd); if(keys['KeyD'])mv.add(rgt); if(keys['KeyA'])mv.sub(rgt);
