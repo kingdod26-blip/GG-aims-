@@ -1075,6 +1075,54 @@ the load chain.
 purpose: player names and room codes (data, not copy), and the in-play kill
 feed and toasts, which are assembled from fragments at a dozen call sites.
 
+## The look (branch `jack/lighting`, not merged)
+
+An experiment after reading Saltline: an environment to reflect, a filmic
+curve, and a grade. It is behind `SETTINGS.look` (LOOK: FLAT / GRADED in the
+settings panel) so the two can be compared in one session rather than from
+memory, and `main` is untouched.
+
+It deliberately reverses the rule in Gotchas — no tone mapping, no envMap,
+`metalness` pinned at 0. That rule is correct *for a scene with no
+environment*; give it one and the constraint lifts, which is why all three
+arrive and leave together.
+
+- **The environment is a small ROOM baked into a PMREM**, not a sky: Crimson X
+  is indoors, so what the armour should pick up is a dim cool shell, a floor
+  that bounces and warm panels overhead.
+- **ACES tone mapping** with exposure 1.45, and the graded look carries its
+  own lights — hemisphere down from 0.55 to 0.22, key up from 0.85 to 1.55
+  and warmer. That matters more than the curve: **a flat 0.55 ambient against
+  a 0.85 key lights every face of every crate to nearly the same value, and
+  no curve recovers contrast that was never there.** Tone mapping alone
+  barely read.
+- **One grade pass** after the bloom: split tone (teal shadows, warm
+  highlights), S-curve, lifted blacks, saturation, vignette, animated grain
+  weighted to the shadows, ordered dither against banding in the gradients.
+- **Every arena material is Standard now**, including the two that were
+  Lambert — Lambert cannot see `scene.environment` at all, so with the look on
+  the blocks and pillars were the only flat things in the room.
+- **`lookTag(m, graded, flat)`** records a material's two personalities where
+  the numbers are known, at creation. Reading the flat values back off the
+  material at toggle time does not work: by then they are whatever the last
+  toggle left.
+- **BLOOM GLOW used to decide whether the composer ran at all** (loop.js fell
+  back to a direct render), which would have taken the grade with it. It
+  switches its own pass now and the loop uses the composer when either wants
+  it.
+
+Two things learned the hard way, both the same lesson one step on from the
+old one. **Metal is only as bright as what it reflects**: at metalness 0.70
+against the first, dim capture the Spartan went to a silhouette on the menu.
+The capture is brighter now (panel AREA, since a colour is clamped at 1) and
+the armour sits at 0.40 — painted, not chrome. And **the arena is evenly lit
+by design**, so the grade does far less for it than for the character; a real
+jump there means redesigning the map's lighting, not grading it harder.
+
+Not measured: frame cost. The extra full-screen pass and two Lambert
+materials promoted to Standard are not free, and `rAF` is throttled while the
+preview pane is hidden, so no honest number was taken.
+
 ## Sound
 
 All of it is synthesised in `Sfx` (`hud.js`); there are no audio files. The

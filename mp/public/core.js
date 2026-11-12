@@ -38,18 +38,177 @@ const BACKDROP = 0x0e1116;
 scene.background = new THREE.Color(BACKDROP);
 scene.fog = new THREE.Fog(BACKDROP, 42, 135);
 const camera = new THREE.PerspectiveCamera(80, innerWidth/innerHeight, 0.05, 500);
-scene.add(new THREE.HemisphereLight(0x8c9bb0, 0x1b1e24, 0.55));
+const hemi = new THREE.HemisphereLight(0x8c9bb0, 0x1b1e24, 0.55);
 const sun = new THREE.DirectionalLight(0xffeccf, 0.85); sun.position.set(25,55,18); sun.castShadow = true;
+scene.add(hemi);
 sun.shadow.mapSize.set(2048,2048);
 Object.assign(sun.shadow.camera,{left:-70,right:70,top:70,bottom:-70,far:170}); scene.add(sun);
 
+
+/* ===================== THE LOOK (branch: jack/lighting) =====================
+   An environment to reflect, a filmic curve, and a grade — the three things
+   that separate this from a lit-but-flat browser scene, and the three that
+   Saltline spends most of its shader budget on.
+
+   This reverses a deliberate decision, so it is behind a switch. CLAUDE.md
+   records that tone mapping and the HDR environment were REMOVED, and that
+   `metalness` has to stay at 0 as a consequence: metal with nothing to
+   reflect renders black. That is true — of a scene with no environment. Give
+   it one and the constraint lifts, which is why these three arrive together
+   and leave together. `SETTINGS.look` is 0 for the old flat look and 1 for
+   this, so the two can be compared in the same session rather than from
+   memory.
+
+   What this is NOT: Saltline's PCSS shadows, its volumetrics, or its
+   procedural material library. Those are most of its 1,500 shader lines and
+   they are not free on a frame budget shared with five players and a server.
+   ------------------------------------------------------------------------ */
+/* The grade can only grade what the lights give it. A flat 0.55 hemisphere
+   against a 0.85 key lights every face of every crate to nearly the same
+   value, and no curve recovers contrast that was never there — which is
+   why the first pass with tone mapping alone barely read. The graded look
+   therefore drops the ambient, raises and warms the key, and buys the
+   brightness back with exposure. The environment then fills the shadows,
+   which is the job it is actually for. */
+const LOOK = { exposure: 1.45, envIntensity: 1.6, pmremSigma: 0.04,
+               hemi: 0.22, sun: 1.55, sunColor: 0xffe2b4,
+               flatHemi: 0.55, flatSun: 0.85, flatSunColor: 0xffeccf };
+
+/* The environment is a tiny ROOM, rendered once into a PMREM — not a sky.
+   Crimson X is indoors: a grey-blue hall with warm panels overhead. What the
+   armour should pick up is that room, so the capture is a box with a dim
+   cool shell, a floor that bounces, and a grid of warm ceiling panels at the
+   same spacing the arena uses. Three colours and nine quads is enough; what
+   matters for reflections is the broad distribution of light, not detail. */
+function buildEnvScene(){
+  const env = new THREE.Scene();
+  /* Bright enough to be worth reflecting. The first capture was the arena's
+     own dim slate and the Spartan went to a silhouette the moment he had
+     metal — polished metal is only as bright as its surroundings, which is
+     the same trap as the old "metal renders black with no env", one step on.
+     A panel's colour is clamped at 1, so AREA is the only way to make the
+     capture brighter: big quads, and a bright band round the top of the
+     walls standing in for the room's bounce. */
+  const shell = new THREE.Mesh(new THREE.BoxGeometry(26, 13, 26),
+    new THREE.MeshBasicMaterial({ color:0x39424e, side:THREE.BackSide }));
+  env.add(shell);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(26, 26),
+    new THREE.MeshBasicMaterial({ color:0x55554a }));
+  floor.rotation.x = -Math.PI/2; floor.position.y = -6.4; env.add(floor);
+  const lamp = new THREE.MeshBasicMaterial({ color:0xfff4e4 });
+  const lampGeo = new THREE.PlaneGeometry(7.5, 3.4);
+  for(let i=-1;i<=1;i++) for(let j=-1;j<=1;j++){
+    const p = new THREE.Mesh(lampGeo, lamp);
+    p.rotation.x = Math.PI/2; p.position.set(i*8, 6.3, j*8); env.add(p);
+  }
+  const bandMat = new THREE.MeshBasicMaterial({ color:0x9aa6b4, side:THREE.BackSide });
+  const band = new THREE.Mesh(new THREE.BoxGeometry(25.6, 2.6, 25.6), bandMat);
+  band.position.y = 4.2; env.add(band);
+  return env;
+}
+/* A material has TWO looks, and this records both at the point the
+   material is made, where the numbers are actually known. Reading the
+   'flat' values back off the material at toggle time does not work: by
+   then they are whatever the last toggle left behind. */
+function lookTag(m, graded, flat){
+  if(!m) return m;
+  m.userData.look = graded;
+  m.userData.flat = flat || { metalness:0, roughness:m.roughness };
+  return m;
+}
+let envRT = null;
+function environmentTexture(){
+  if(envRT) return envRT.texture;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const envScene = buildEnvScene();
+  envRT = pmrem.fromScene(envScene, LOOK.pmremSigma);
+  pmrem.dispose();
+  /* The capture scene is thrown away, but its geometry and materials are
+     not disposed by anyone else. */
+  envScene.traverse(o => { if(o.geometry) o.geometry.dispose();
+                           if(o.material) o.material.dispose(); });
+  return envRT.texture;
+}
+
+/* Turning the look on or off changes how every standard material compiles
+   (an env map is a #define), so they all need `needsUpdate`. Missing that
+   leaves the old shader in place and the change only appears on whatever
+   happens to be rebuilt next. */
+function applyLook(){
+  const on = !!SETTINGS.look;
+  renderer.toneMapping = on ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+  renderer.toneMappingExposure = on ? LOOK.exposure : 1;
+  scene.environment = on ? environmentTexture() : null;
+  hemi.intensity = on ? LOOK.hemi : LOOK.flatHemi;
+  sun.intensity  = on ? LOOK.sun  : LOOK.flatSun;
+  sun.color.setHex(on ? LOOK.sunColor : LOOK.flatSunColor);
+  if(typeof gradePass !== 'undefined' && gradePass) gradePass.enabled = on;
+  scene.traverse(o => {
+    if(!o.isMesh || !o.material) return;
+    (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
+      if(!m || !m.isMeshStandardMaterial) return;
+      m.envMapIntensity = on ? LOOK.envIntensity : 1;
+      /* Metal is the whole reason the environment is here. A material that
+         declares a graded look gets it; anything else is forced to
+         metalness 0, which is the old rule and still right with no env. */
+      const g = m.userData.look, f = m.userData.flat;
+      if(g && f){
+        m.metalness = on ? (g.metalness != null ? g.metalness : m.metalness) : f.metalness;
+        if(g.roughness != null) m.roughness = on ? g.roughness : f.roughness;
+      } else if(!on) m.metalness = 0;
+      m.needsUpdate = true;
+    });
+  });
+}
+
+/* The grade, as one pass after the bloom. Everything here is a display-space
+   tweak of what the renderer already produced: no extra geometry, no second
+   scene render, one full-screen triangle's worth of work.
+   Split tone first (teal in the shadows, warm in the highlights) because it
+   is what makes a flat grey room read as a lit photograph; then an S-curve
+   for contrast, lifted blacks so the darks are not dead, saturation, a
+   vignette, animated grain weighted toward the shadows (bright pixels do not
+   look noisy), and a last ordered dither against banding in the gradients —
+   which is where 8-bit output shows first. */
+const GradeShader = {
+  uniforms: { tDiffuse:{ value:null }, uTime:{ value:0 },
+              uVig:{ value:0.62 }, uGrain:{ value:0.04 },
+              uSat:{ value:1.12 }, uContrast:{ value:0.26 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uSat, uContrast;
+    varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
+    void main(){
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      c *= mix(vec3(0.88, 1.0, 1.07), vec3(1.07, 1.0, 0.91), smoothstep(0.12, 0.78, l));
+      c = mix(c, c * c * (3.0 - 2.0 * c), uContrast);     // gentle S-curve
+      c += vec3(0.004, 0.008, 0.012);                      // lifted, slightly teal blacks
+      c = mix(vec3(l), c, uSat);
+      vec2 q = vUv - 0.5;
+      c *= clamp(1.0 - uVig * dot(q, q) * 1.5, 0.0, 1.0);
+      float n = hash(vUv * vec2(1.0, 1.31) + fract(uTime));
+      c += (n - 0.5) * uGrain * (0.3 + 0.7 * (1.0 - l));
+      c += (hash(gl_FragCoord.xy) - 0.5) / 255.0;          // dither the gradients
+      gl_FragColor = vec4(max(c, 0.0), 1.0);
+    }`,
+};
+let gradePass = null;
+
 /* Post-processing: subtle bloom for sun glare / highlight glow (AAA "graded" feel) */
-let composer = null;
+let composer = null, bloomPass = null;
 try {
   composer = new THREE.EffectComposer(renderer);
   composer.addPass(new THREE.RenderPass(scene, camera));
-  const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.32, 0.55, 0.82);
-  composer.addPass(bloom);
+  bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.32, 0.55, 0.82);
+  composer.addPass(bloomPass);
+  /* Last, so it grades the finished frame rather than something the
+     bloom then smears. It is disabled with the look, not removed, so the
+     chain's length never changes under the composer. */
+  gradePass = new THREE.ShaderPass(GradeShader);
+  composer.addPass(gradePass);
 } catch(e){ console.warn('[CrimsonX] post-processing unavailable, falling back to direct render', e); composer = null; }
 
 /* ===================== GRAPHICS SETTINGS =====================
@@ -58,7 +217,7 @@ try {
 // hitZone is a HUD preference rather than a graphics one, but this is the
 // only settings panel, and it saves with the rest. The presets below leave
 // it alone on purpose — picking PERFORMANCE shouldn't change your HUD.
-const SET_DEFAULTS = { fpsCap:60, resScale:1, bloom:1, shadows:1024, hitZone:1,
+const SET_DEFAULTS = { fpsCap:60, resScale:1, bloom:1, shadows:1024, hitZone:1, look:1,
                        showBoxes:0, infAmmo:0, noCooldown:0, noSpread:0 };
 /* Training aids. Gated to target practice on purpose — ammo and ability
    charges are client-side, so honouring these in a match would just be a
@@ -94,6 +253,12 @@ function applySettings(){
     scene.traverse(o=>{ if(o.isMesh && o.material)
       (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{ if(m) m.needsUpdate=true; }); });
   }
+  /* BLOOM GLOW used to decide whether the composer ran AT ALL (loop.js
+     fell back to a direct render), which would silently take the grade
+     with it. It switches its own pass now, and the loop uses the composer
+     when either wants it. */
+  if(bloomPass) bloomPass.enabled = !!SETTINGS.bloom;
+  applyLook();
   try { localStorage.setItem('botstrike.gfx', JSON.stringify(SETTINGS)); } catch(e){}
 }
 function applyPreset(name){ Object.assign(SETTINGS, SET_PRESETS[name]); applySettings(); renderSettingsUI(); }

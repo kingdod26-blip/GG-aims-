@@ -88,8 +88,13 @@ function fitWeaponModel(model, tune){
     // There is no environment map in this scene by design, and metal with
     // nothing to reflect renders black. The sniper's GLB shipped at
     // metalness 0.4, which left its receiver dark no matter the lighting.
+    /* The file's own metalness is remembered rather than thrown away: with
+       an environment to reflect it is correct, and without one it is black.
+       lookTag keeps both and applyLook picks. */
     const ms=Array.isArray(o.material)?o.material:[o.material];
-    ms.forEach(m=>{ if(m && m.metalness){ m.metalness=0; m.needsUpdate=true; } });
+    ms.forEach(m=>{ if(m && m.metalness){
+      lookTag(m, { metalness:m.metalness }, { metalness:0, roughness:m.roughness });
+      m.metalness=0; m.needsUpdate=true; } });
   } });
   const bbox=new THREE.Box3().setFromObject(model);
   const size=new THREE.Vector3(); bbox.getSize(size);
@@ -155,11 +160,14 @@ function spartanMaterial(name){
   const prefix = aliased || SPARTAN_MATS.find(p => name && name.toLowerCase().includes(p.toLowerCase()));
   if (prefix){
     const L=(suf,srgb)=>{ const t=texLoader.load(`assets/spartan_tex/${prefix}_${suf}.jpg`); if(srgb) t.encoding=THREE.sRGBEncoding; return t; };
-    return new THREE.MeshStandardMaterial({ map:L('BaseColor',1), normalMap:L('Normal'), roughnessMap:L('Roughness'), metalness:0.0, roughness:1.0 });
+    return lookTag(new THREE.MeshStandardMaterial({ map:L('BaseColor',1), normalMap:L('Normal'),
+      roughnessMap:L('Roughness'), metalness:0.0, roughness:1.0 }),
+      { metalness:0.40, roughness:0.95 }, { metalness:0, roughness:1.0 });   // painted armour, not chrome
   }
   if (name && name.toLowerCase().includes('lambert')){   // visor / misc with opacity
     const t=texLoader.load('assets/spartan_tex/lambert1_Colour-Opacity.png'); t.encoding=THREE.sRGBEncoding;
-    return new THREE.MeshStandardMaterial({ map:t, transparent:true, roughness:0.5, metalness:0.0 });
+    return lookTag(new THREE.MeshStandardMaterial({ map:t, transparent:true, roughness:0.5, metalness:0.0 }),
+      { metalness:0.72, roughness:0.22 }, { metalness:0, roughness:0.5 });   // the visor
   }
   return null;
 }

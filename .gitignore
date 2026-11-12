@@ -16,3 +16,7 @@ desktop.ini
 *.log
 npm-debug.log*
 .env
+
+# Saltline, downloaded for reference. Somebody else's game: read it,
+# don't ship it.
+SALETINE/

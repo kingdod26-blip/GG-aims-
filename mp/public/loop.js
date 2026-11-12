@@ -457,7 +457,15 @@ function loop(){ requestAnimationFrame(loop);
     if(tracers[i].life<=0){ disposeTracer(tracers[i]); tracers.splice(i,1); } }
 
   // bloom off = skip the composer's extra full-screen passes entirely
-  if (composer && SETTINGS.bloom) composer.render(); else renderer.render(scene,camera);
+  /* The composer carries the bloom AND the grade, so it runs when either
+     is on; with both off this falls back to the plain render, which is
+     what the Performance preset is for. */
+  if (gradePass) gradePass.uniforms.uTime.value = nowMs * 0.001;   // the grain has to move
+  if (composer && (SETTINGS.bloom || SETTINGS.look)) composer.render(); else renderer.render(scene,camera);
 }
 addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); applySettings(); });
-updateHUD(); loop();
+updateHUD();
+/* Once more now that the world, the models and the viewmodels all exist:
+   the first call ran from core.js, when the scene held almost nothing. */
+applyLook();
+loop();

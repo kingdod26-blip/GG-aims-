@@ -63,14 +63,26 @@ function pbr(prefix, rx, ry, extra={}){
    again. Textures tile by WORLD metre (see `texRepeat`), so a map of a
    different size keeps the same grain rather than stretching it. */
 const MAT_CACHE = {};
+/* Every arena material is STANDARD now, including the two that were Lambert.
+   Lambert cannot see `scene.environment` at all — no envMap, no specular — so
+   with the graded look on, the painted blocks and pillars were the only
+   things in the room that stayed flat, which read as a bug rather than a
+   style. The cost is a slightly heavier shader on a handful of boxes.
+   `lookTag` carries each material's two personalities: the graded figures
+   (real roughness, some metal on the painted steel) and the flat ones, which
+   are the old values with metalness pinned at 0. */
 function arenaMat(name){
   if (MAT_CACHE[name]) return MAT_CACHE[name];
   let m;
   switch (name) {
-    case 'crate':  m = pbr('crate', 1, 1); break;                       // real worn wood planks
-    case 'block':  m = new THREE.MeshLambertMaterial({ map: blockTex }); break;
-    case 'pillar': m = new THREE.MeshLambertMaterial({ map: pillarTex }); break;
-    case 'wall':   m = pbr('wall', 12, 1.2); break;                     // real scanned concrete
+    case 'crate':  m = lookTag(pbr('crate', 1, 1),                          // real worn wood planks
+                     { metalness:0,    roughness:0.82 }, { metalness:0, roughness:1 }); break;
+    case 'block':  m = lookTag(new THREE.MeshStandardMaterial({ map: blockTex, roughness:0.95, metalness:0 }),
+                     { metalness:0.35, roughness:0.55 }, { metalness:0, roughness:0.95 }); break;
+    case 'pillar': m = lookTag(new THREE.MeshStandardMaterial({ map: pillarTex, roughness:0.95, metalness:0 }),
+                     { metalness:0.25, roughness:0.62 }, { metalness:0, roughness:0.95 }); break;
+    case 'wall':   m = lookTag(pbr('wall', 12, 1.2),                        // real scanned concrete
+                     { metalness:0,    roughness:0.88 }, { metalness:0, roughness:1 }); break;
     default:       m = new THREE.MeshLambertMaterial({ color: 0x8a8f99 });
   }
   return (MAT_CACHE[name] = m);
@@ -128,7 +140,8 @@ function buildArena(map){
   /* Floor. Photoscanned concrete; metalness stays 0 because there is no
      environment map to reflect (see the Gotchas in CLAUDE.md). */
   floor = new THREE.Mesh(new THREE.PlaneGeometry(span, span),
-    pbr('floor', texRepeat(span, 7.5), texRepeat(span, 7.5), { roughness:0.9, metalness:0.0 }));
+    lookTag(pbr('floor', texRepeat(span, 7.5), texRepeat(span, 7.5), { roughness:0.9, metalness:0.0 }),
+      { metalness:0.08, roughness:0.62 }, { metalness:0, roughness:0.9 }));
   floor.rotation.x=-Math.PI/2; floor.receiveShadow=true;
   floor.userData.ownMaterial = true;      // its repeat is map-sized, so not cacheable
   scene.add(floor); arenaParts.push(floor);
