@@ -683,8 +683,9 @@ and advertises what the server has; `welcome` carries `map`, `mapName` and
 matches. `process.env.MAP` still sets what a server defaults to.
 
 On the client the MAP card in the menu cycles through `MAP_IDS` (remembered
-as `cx.map`) and **builds the arena as you click**, because the menu's
-backdrop IS the arena — picking a map shows you the map rather than its name.
+as `cx.map`) and builds the arena as you click — not to show it off (the menu
+stands in its own set now, see The menu) but because the card's plan is drawn
+from whatever is built and the range wants it standing anyway.
 That pick is what CREATE ROOM asks for and what the practice range builds;
 joining someone else's room adopts theirs instead. Note `startPlay` clamps
 the range's spawn to `ARENA-8`: z=44 is a corner of Foundry and the WALL of
@@ -1016,8 +1017,29 @@ multiplayer only.
 - **The menu runs a 52° lens** (`MENU_FOV` in loop.js) rather than the 80° the
   game plays at. The operator is the centrepiece and at 80 he is a small
   figure in a wide room; narrowing the LENS instead of walking the camera in
-  keeps him clear of the podium and compresses the arena behind him into a
+  keeps him clear of the podium and compresses what is behind him into a
   backdrop. `startPlay` puts it back to 80.
+- **The menu has its own SET, and the arena is hidden behind it.** It used to
+  be staged in the map you were about to play, which made the backdrop busy,
+  lit the screen like a warehouse and changed its character every time the
+  map did. `menuSet` in world.js is a small studio for the one job — a
+  vignetted backdrop with a crimson pool low behind the character, a floor pad
+  to stand him on, and two short strips at his shoulders — and
+  `setMenuBackdrop(on)` swaps it for the arena, called from `startPlay` and
+  from the quit path. Everything in it is UNLIT except the floor pad, which is
+  Lambert so the podium spotlight's shadow lands on something; the glow is
+  painted into the textures rather than lit, because with no tone mapping
+  another real light in here would blow the floor out the way the ceiling
+  lamps would in the arena.
+  Two things the first cut got wrong, both worth keeping in mind: the wall was
+  lit evenly, so the operator was exactly as bright as the room and had
+  nothing to stand against — contrast is the job, not detail; and the strips
+  ran long and above his head, which read as scaffolding rather than lighting.
+  **`buildArena()` has to honour `menuBackdropOn`**: a rebuild makes fresh
+  meshes, which default to visible, so changing map from the menu would
+  otherwise drop the arena back in behind the panels. Measured: 0 of 52 arena
+  parts visible at the menu, all 52 in game, 0 again on quitting, and 0 after
+  a map change.
 
 - **`.overlay` is `overflow:clip`, not `hidden`, and that matters.** The
   ambient orbs bleed past the edges on purpose, which gives the overlay a

@@ -189,6 +189,11 @@ function buildArena(map){
   scene.add(resupplyRing); arenaParts.push(resupplyRing);
 
   for (const s of (map.signs || [])) addSign(s);
+  /* A rebuild makes fresh meshes, which default to visible — so a map
+     change from the menu would drop the arena back in behind the panels
+     unless this has the last word. */
+  if (typeof menuBackdropOn !== 'undefined')
+    for (const o of arenaParts) o.visible = !menuBackdropOn;
 }
 
 /* The server names the map it is simulating; only rebuild when it differs
@@ -199,6 +204,92 @@ function ensureMap(id){
   if (currentMap && currentMap.id === m.id) return false;
   buildArena(m);
   return true;
+}
+
+
+/* ---- The menu's own set ----
+   The menu used to be staged in the ARENA: you stood in the map you were
+   about to play, which made the backdrop busy, lit it like a warehouse and
+   meant the screen changed character every time the map did. This is a
+   small studio built for the one job — a lit backdrop, a floor pad to stand
+   the operator on and two strip lights to edge him — and it swaps in for the
+   arena whenever a menu is up.
+
+   Everything here is UNLIT (MeshBasic) except the floor pad, which is
+   Lambert so the spotlight's shadow actually lands on it. No new lights:
+   with no tone mapping, another real light in here would blow the floor out
+   the way the ceiling lamps would in the arena. The glow is painted into
+   the textures instead. */
+const menuSet = new THREE.Group();
+menuSet.position.set(0, 0, 32);              // the podium's own spot
+(function buildMenuSet(){
+  /* Backdrop: nearly black, with one pool of crimson low behind the
+     character and the corners pulled down. The first cut lit the whole wall
+     and the operator had nothing to stand out against — he was exactly as
+     bright as the room. Contrast is the job here, not detail. */
+  const back = canvasTex((g,w,h)=>{
+    const sky = g.createLinearGradient(0,0,0,h);
+    sky.addColorStop(0,'#05060a'); sky.addColorStop(0.6,'#0c0f16'); sky.addColorStop(1,'#050608');
+    g.fillStyle=sky; g.fillRect(0,0,w,h);
+    const glow = g.createRadialGradient(w*0.5,h*0.76,8, w*0.5,h*0.76,w*0.30);
+    glow.addColorStop(0,'rgba(255,45,74,0.30)'); glow.addColorStop(0.45,'rgba(255,45,74,0.09)');
+    glow.addColorStop(1,'rgba(255,45,74,0)');
+    g.fillStyle=glow; g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(255,255,255,0.030)'; g.lineWidth=2;      // faint panel seams
+    for(let x=0;x<w;x+=72){ g.beginPath(); g.moveTo(x,0); g.lineTo(x,h); g.stroke(); }
+    /* Vignette, painted in rather than lit: the frame has to fall off at the
+       edges or the wall competes with the UI panels sitting on top of it. */
+    const vig = g.createRadialGradient(w*0.5,h*0.6,w*0.18, w*0.5,h*0.6,w*0.62);
+    vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,0,0,0.92)');
+    g.fillStyle=vig; g.fillRect(0,0,w,h);
+  }, 512, 256, 1, 1);
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(34, 15),
+    new THREE.MeshBasicMaterial({ map: back, fog:false }));
+  wall.position.set(0, 5.6, -7.2); menuSet.add(wall);
+
+  /* Floor pad: bright under the podium, black by the edges, so he stands on
+     something without a room having to exist around him. Lambert and
+     receiveShadow, or the spotlight would throw his shadow onto nothing. */
+  const pad = canvasTex((g,w,h)=>{
+    g.fillStyle='#000'; g.fillRect(0,0,w,h);
+    const r = g.createRadialGradient(w/2,h/2,8, w/2,h/2,w*0.42);
+    r.addColorStop(0,'#2b2f37'); r.addColorStop(0.40,'#14161b');
+    r.addColorStop(1,'#000'); g.fillStyle=r; g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(255,255,255,0.040)'; g.lineWidth=2;       // a light floor grid
+    for(let i=0;i<=8;i++){ const t=i*w/8;
+      g.beginPath(); g.moveTo(t,0); g.lineTo(t,h); g.stroke();
+      g.beginPath(); g.moveTo(0,t); g.lineTo(w,t); g.stroke(); }
+    g.strokeStyle='rgba(255,45,74,0.26)'; g.lineWidth=5;          // and a ring round the stand
+    g.beginPath(); g.arc(w/2,h/2,w*0.21,0,Math.PI*2); g.stroke();
+  }, 512, 512, 1, 1);
+  const floorPad = new THREE.Mesh(new THREE.PlaneGeometry(24, 24),
+    new THREE.MeshLambertMaterial({ map: pad }));
+  floorPad.rotation.x = -Math.PI/2; floorPad.position.set(0, 0.012, 0);
+  floorPad.receiveShadow = true; menuSet.add(floorPad);
+
+  /* Two short strips at his shoulders, and nothing else. They are geometry,
+     not lights, exactly like the arena's ceiling panels — what they are for
+     is the bloom pass, which is where the sheen along the armour comes from.
+     They were twice this long and ran above his head, which read as
+     scaffolding rather than lighting. */
+  const strip = (x, y, z, w, h, color) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ color, fog:false }));
+    m.position.set(x, y, z); menuSet.add(m); return m;
+  };
+  strip(-3.6, 1.5, -4.2, 0.09, 2.6, 0xd8324a);
+  strip( 3.6, 1.5, -4.2, 0.09, 2.6, 0xd8324a);
+})();
+scene.add(menuSet);
+
+/* Which world is on screen. The menu's set and the arena are never both up:
+   buildArena() has to honour this too, or changing map from the menu puts
+   the arena back on screen behind the panels. */
+let menuBackdropOn = true;
+function setMenuBackdrop(on){
+  menuBackdropOn = on;
+  menuSet.visible = on;
+  for(const o of arenaParts) o.visible = !on;
 }
 
 /* ---- Health potions ----

@@ -135,6 +135,7 @@ function quitToMenu(){
   showEliminated(false);
   clearFeed(); clearGroundFires();
   heroGroup.forEach(o=>o.visible=true); gun.visible=false;
+  setMenuBackdrop(true);               // the studio, not the map
   setPotions([]);
   pendingRoom = null;
   showScreen('home');
@@ -279,8 +280,9 @@ byId('cardMap').onclick   = ()=>{
   const i = MAP_IDS.indexOf(pickedMap);
   pickedMap = MAP_IDS[(i + 1) % MAP_IDS.length];
   try{ localStorage.setItem('cx.map', pickedMap); }catch(e){}
-  /* Build it right now: the menu's backdrop IS the arena, so picking a
-     map shows you the map rather than just its name. */
+  /* Build it now rather than at PREPARE: the plan on the card is drawn
+     from whatever is built, and the range wants it standing anyway. The
+     menu itself shows the studio set, not the arena. */
   ensureMap(pickedMap); renderLobbyCards(); Sfx.swap();
 };
 byId('prepareBtn').onclick = ()=>{
@@ -421,6 +423,7 @@ function startPlay(mode){
      Multiplayer ignores this and takes the room's map from `welcome`. */
   if(mode === 'bots') ensureMap(pickedMap);
   heroGroup.forEach(o=>o.visible=false); gun.visible=true;
+  setMenuBackdrop(false);              // out of the studio, into the map
   const nm = (document.getElementById('nameInput').value.trim()) || (mode==='bots'?'You':'Player');
   // reset player + weapons
   /* z=44 is a corner of Foundry and the WALL of anything smaller, so the
