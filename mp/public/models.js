@@ -108,11 +108,84 @@ function fitWeaponModel(model, tune){
   holder.position.set(0.02,-0.03,0.05);
   return { holder, size };
 }
+/* ---- The viewmodel's second skin ----
+   The gun is the one object on screen in every frame, and it was the last
+   thing in the room still drawn the old way. The weapon files ship as Phong
+   materials that are almost black with a pure white highlight, which under
+   one directional light gives exactly two tones: black, and wherever the
+   highlight happens to land. That is why the rifle read as a black-and-
+   white placeholder however the arena around it was lit.
+
+   So each of those gets a physically-based twin, built from the material's
+   NAME where the file has a meaningful one (the Quaternius guns call theirs
+   Metal, DarkMetal, Wood, Main…) and from its colour where it does not (the
+   crossbow, grenade and blade are built in code with no names). Steel is
+   metal and fairly smooth, so it shows the room's lamps sliding over it as
+   you turn; the furniture is a dark polymer that is no longer pure black,
+   so the gun has a shape; wood is wood.
+
+   Both skins are kept on the mesh (`userData.lookMats`) and applyLook picks
+   one. LOOK: FLAT therefore draws the original materials, untouched. */
+const VM_NAMED = [      // first match wins, so the more specific names come first
+  [/dark(er)?metal/i, 0x26282c, 0.90, 0.38],
+  [/lightmetal/i,     0x7b7e84, 0.95, 0.30],
+  [/metal/i,          0x484b50, 0.92, 0.34],
+  [/darkwood/i,       0x2a180e, 0.00, 0.60],
+  [/wood/i,           0x3d2413, 0.00, 0.56],
+  [/maindark/i,       0x0c0d0f, 0.00, 0.54],
+  [/mainlight/i,      0x1a1c1f, 0.00, 0.50],
+  [/main/i,           0x121416, 0.00, 0.52],
+  [/magazine/i,       0x17181b, 0.55, 0.44],
+  [/black/i,          0x09090b, 0.00, 0.64],
+];
+const VM_CACHE = new Map();
+function vmLitMaterial(src){
+  let spec = null;
+  for(const [re, color, metalness, roughness] of VM_NAMED)
+    if(re.test(src.name || '')){ spec = { color, metalness, roughness }; break; }
+  if(!spec){
+    /* No name to go on. Near-neutral and not warm is bare metal, brighter
+       meaning more polished; a saturated yellow is brass; anything else is
+       paint, wood or rubber. */
+    const c = src.color, hsl = {}; c.getHSL(hsl);
+    const chroma = Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b), warm = hsl.h < 0.17;
+    if(chroma < 0.075 && !warm) spec = { color:c.getHex(), metalness: hsl.l > 0.5 ? 0.92 : 0.70, roughness: hsl.l > 0.5 ? 0.25 : 0.42 };
+    else if(warm && hsl.h > 0.09 && chroma > 0.3) spec = { color:c.getHex(), metalness:0.90, roughness:0.35 };
+    else spec = { color:c.getHex(), metalness:0, roughness:0.58 };
+  }
+  const m = new THREE.MeshStandardMaterial(spec);
+  m.name = src.name; m.side = src.side; m.transparent = src.transparent; m.opacity = src.opacity;
+  if(src.map) m.map = src.map;
+  if(src.emissive) m.emissive.copy(src.emissive);
+  m.skinning = !!src.skinning;
+  /* At 1.3 the room's cool shell washed over everything and a black rifle
+     came out an even blue-grey, like a toy. The furniture has to stay dark
+     for the steel to read against it. */
+  m.userData.envK = 0.8;
+  return m;
+}
+/* Safe to call again: a mesh that already has both skins is skipped, so
+   this is run on the whole viewmodel every time the look is applied and
+   simply picks up whatever has loaded since. */
+function lookifyViewmodel(root){
+  const old = m => m && (m.isMeshPhongMaterial || m.isMeshLambertMaterial);
+  root.traverse(o=>{
+    if(!o.isMesh || o.userData.lookMats) return;
+    const many = Array.isArray(o.material), src = many ? o.material : [o.material];
+    if(!src.some(old)) return;
+    const lit = src.map(m=>{ if(!old(m)) return m;
+      if(!VM_CACHE.has(m)) VM_CACHE.set(m, vmLitMaterial(m));
+      return VM_CACHE.get(m); });
+    o.userData.lookMats = { flat:o.material, lit: many ? lit : lit[0] };
+  });
+}
+
 WEAPON_MODELS.forEach((wm,i)=>{
   const onLoad = (model)=>{
     const { holder, size } = fitWeaponModel(model, wm);
     while(weaponHolders[i].children.length) weaponHolders[i].remove(weaponHolders[i].children[0]);
     weaponHolders[i].add(holder);
+    lookSoon();                 // it arrived after the look was last applied
     /* The top of this gun ALONG ITS CENTRELINE, in gun-local space. Aiming
        lifts the gun so this sits exactly on the eye line, which puts the tip
        of the front sight on the dot.
@@ -153,6 +226,25 @@ function newBotMesh(){ return humanoid(0x8a3030); }
 // for players) already points +Z the right way — so no correction is needed.
 // This was Math.PI, which spun him a second time and showed you his back.
 const SPARTAN_FACE = 0;
+/* A rim of light round a player's outline. Dark armour in front of a dark
+   barrier is a shape you find late, and in a duel that is the whole game:
+   the edge of a body, where its surface turns away from you, picks up a
+   cool highlight, strongest on what faces up, so a figure separates from
+   whatever is behind it without being lit any brighter overall.
+   One uniform shared by every player material. lighting.js sets it for the
+   arena and zeroes it at the menu and in the flat look, so neither changes. */
+const RIMU = { uRim: { value: new THREE.Vector3(0, 0, 0) } };
+function rimPatch(m){
+  m.onBeforeCompile = (shader)=>{
+    shader.uniforms.uRim = RIMU.uRim;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <clipping_planes_pars_fragment>', '#include <clipping_planes_pars_fragment>\nuniform vec3 uRim;')
+      .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+        { float rimK = pow( 1.0 - clamp( dot( geometry.normal, geometry.viewDir ), 0.0, 1.0 ), 3.0 );
+          reflectedLight.indirectSpecular += uRim * rimK * ( 0.55 + 0.45 * inverseTransformDirection( geometry.normal, viewMatrix ).y ); }`);
+  };
+  return m;
+}
 const SPARTAN_MATS = ['ODST_Shoulder_Mat','Spartan_Arms_Mat','Spartan_Chest_Mat','Spartan_Ears_Mat','Spartan_Helmet_Mat','Spartan_Legs_Mat','Spartan_Undersuit_Mat'];
 const SPARTAN_ALIASES = { 'spartan_ear_mat':'Spartan_Ears_Mat', 'spartan_shoulders_mat':'ODST_Shoulder_Mat' };
 function spartanMaterial(name){
@@ -160,8 +252,8 @@ function spartanMaterial(name){
   const prefix = aliased || SPARTAN_MATS.find(p => name && name.toLowerCase().includes(p.toLowerCase()));
   if (prefix){
     const L=(suf,srgb)=>{ const t=texLoader.load(`assets/spartan_tex/${prefix}_${suf}.jpg`); if(srgb) t.encoding=THREE.sRGBEncoding; return t; };
-    return lookTag(new THREE.MeshStandardMaterial({ map:L('BaseColor',1), normalMap:L('Normal'),
-      roughnessMap:L('Roughness'), metalness:0.0, roughness:1.0 }),
+    return lookTag(rimPatch(new THREE.MeshStandardMaterial({ map:L('BaseColor',1), normalMap:L('Normal'),
+      roughnessMap:L('Roughness'), metalness:0.0, roughness:1.0 })),
       { metalness:0.40, roughness:0.95 }, { metalness:0, roughness:1.0 });   // painted armour, not chrome
   }
   if (name && name.toLowerCase().includes('lambert')){   // visor / misc with opacity
@@ -214,6 +306,7 @@ if (THREE.FBXLoader) try {
       scene.remove(hero); hero=makeSpartan(); hero.position.set(0,0.12,32); scene.add(hero);
       heroGroup[0]=hero; spot.target=hero; scene.add(spot.target);
     }
+    lookSoon();                 // his armour's metal only exists once the look is applied to it
     console.log('[CrimsonX] spartan model loaded, raw size', size.toArray().map(n=>+n.toFixed(1)));
   }, undefined, (err)=> console.warn('[CrimsonX] spartan FBX failed, keeping box soldiers', err));
 } catch(e){ console.warn('[CrimsonX] soldier load error', e); }

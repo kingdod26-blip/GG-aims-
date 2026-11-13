@@ -102,9 +102,14 @@ const arenaParts = [];            // everything buildArena made, so it can be un
 let floor = null, ceiling = null;
 let resupplyRing = null;
 
+/* `userData.flat` marks the ORIGINAL arena: what LOOK: FLAT draws, and what
+   every ray is tested against in either look. `userData.lit` (lighting.js)
+   marks its lit twin, which is only ever looked at. arenaVis() shows one
+   set or the other; anything carrying neither flag is in both. */
 function addBox(x,y,z,w,h,d,matName){
   const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), arenaMat(matName));
   m.position.set(x,y,z); m.castShadow=m.receiveShadow=true; scene.add(m);
+  m.userData.flat = true;
   wallMeshes.push(m); arenaParts.push(m);
   colliders.push({minx:x-w/2,minz:z-d/2,maxx:x+w/2,maxz:z+d/2,miny:y-h/2,maxy:y+h/2}); return m; }
 
@@ -120,7 +125,11 @@ function clearArena(){
     scene.remove(o);
     if (o.geometry) o.geometry.dispose();
     if (o.userData.ownMaterial && o.material) {
-      if (o.material.map) o.material.map.dispose();
+      /* All three maps, not just the colour: the floor and roof are
+         photoscans built per map, and their normal and roughness textures
+         were left on the GPU by every rebuild. The lit floor shares these
+         with the flat one, so each is disposed twice, which is harmless. */
+      for (const k of ['map', 'normalMap', 'roughnessMap']) if (o.material[k]) o.material[k].dispose();
       o.material.dispose();
     }
   }
@@ -144,6 +153,7 @@ function buildArena(map){
       { metalness:0.08, roughness:0.62 }, { metalness:0, roughness:0.9 }));
   floor.rotation.x=-Math.PI/2; floor.receiveShadow=true;
   floor.userData.ownMaterial = true;      // its repeat is map-sized, so not cacheable
+  floor.userData.flat = true;
   scene.add(floor); arenaParts.push(floor);
 
   /* Perimeter: four 2m-thick walls on the boundary, built from the SAME
@@ -166,6 +176,7 @@ function buildArena(map){
     pbr('wall', texRepeat(span, 6), texRepeat(span, 6), { roughness:0.95, metalness:0.0, color:0x6a7079 }));
   ceiling.rotation.x = Math.PI/2; ceiling.position.y = WH;
   ceiling.userData.ownMaterial = true;
+  ceiling.userData.flat = true;
   scene.add(ceiling); arenaParts.push(ceiling);
   // arrows and bullets have to stop at the roof like anything else; it is in
   // wallMeshes (3D raycasts only) but NOT in colliders, which is 2D movement
@@ -183,6 +194,7 @@ function buildArena(map){
       const lamp = new THREE.Mesh(lampGeo, lampMat);
       lamp.rotation.x = Math.PI/2;
       lamp.position.set(gx*L.spacing, WH-0.06, gz*L.spacing);
+      lamp.userData.flat = true;
       scene.add(lamp); arenaParts.push(lamp);
     }
   }
@@ -202,11 +214,26 @@ function buildArena(map){
   scene.add(resupplyRing); arenaParts.push(resupplyRing);
 
   for (const s of (map.signs || [])) addSign(s);
+  /* The lit twin of everything above (lighting.js). It is handed the flat
+     floor and roof materials so it can reuse their textures, which already
+     carry this map's tiling. */
+  litBuildArena(map, floor.material, ceiling.material);
   /* A rebuild makes fresh meshes, which default to visible — so a map
      change from the menu would drop the arena back in behind the panels
      unless this has the last word. */
-  if (typeof menuBackdropOn !== 'undefined')
-    for (const o of arenaParts) o.visible = !menuBackdropOn;
+  arenaVis();
+}
+
+/* Which arena is on screen: none at the menu, otherwise the flat one or the
+   lit one according to LOOK. Hidden is not the same as gone — a hidden mesh
+   is still ray-tested, which is exactly what the flat boxes are for while
+   the lit ones are drawn. */
+function arenaVis(){
+  const lit = !!SETTINGS.look && LIT_OK;
+  for (const o of arenaParts) {
+    const u = o.userData;
+    o.visible = !menuBackdropOn && (u.lit ? lit : u.flat ? !lit : true);
+  }
 }
 
 /* The server names the map it is simulating; only rebuild when it differs
@@ -302,7 +329,11 @@ let menuBackdropOn = true;
 function setMenuBackdrop(on){
   menuBackdropOn = on;
   menuSet.visible = on;
-  for(const o of arenaParts) o.visible = !on;
+  arenaVis();
+  litLights();        // the studio and the arena light their figures differently (lighting.js)
+  /* Walking into the arena: whatever is left of the light bake has to be
+     done before the first frame of it, not finished behind your back. */
+  if (!on) litBakeFinishNow();
 }
 
 /* ---- Health potions ----

@@ -460,6 +460,7 @@ function loop(){ requestAnimationFrame(loop);
   /* The composer carries the bloom AND the grade, so it runs when either
      is on; with both off this falls back to the plain render, which is
      what the Performance preset is for. */
+  litFrame();                                                      // the shadow box rides with the camera (lighting.js)
   if (gradePass) gradePass.uniforms.uTime.value = nowMs * 0.001;   // the grain has to move
   if (composer && (SETTINGS.bloom || SETTINGS.look)) composer.render(); else renderer.render(scene,camera);
 }

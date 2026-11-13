@@ -19,6 +19,7 @@ GG aims/
 │       ├── i18n.js    # 0. EN / 简体中文 strings and t() (also before core.js)
 │       ├── core.js    # 1. scene, camera, lights, post, graphics settings
 │       ├── maps.js    # 2. THE ARENAS AS DATA — the server requires this too
+│       ├── lighting.js#    THE LIT ARENA — baked light, the floor's mirror (unnumbered, see below)
 │       ├── world.js   # 3. materials, arena geometry, floor/walls/ceiling, signage
 │       ├── models.js  # 4. box humanoid, weapon models, Spartan, podium
 │       ├── weapons.js # 5. player state, movement speeds, abilities, roster, viewmodels
@@ -38,7 +39,9 @@ Those ten are **classic scripts sharing one global scope**, not modules.
 THREE and no `document`, because **the Node server requires that same file**.
 Keep it that way or the server stops booting. `i18n.js` sits outside the
 numbering with config.js for the opposite reason: it depends on nothing and
-everything after it wants `t()` at load time.
+everything after it wants `t()` at load time. `lighting.js` is unnumbered
+too, so the ten keep their numbers: it loads between maps.js and world.js,
+runs nothing at load but definitions, and is called from `buildArena`.
 **The order `index.html` lists them in is the contract** — each runs after
 the one before it, and anything referenced at load time must already have
 run. Function declarations hoist and move freely; a top-level `const` does
@@ -1077,51 +1080,209 @@ feed and toasts, which are assembled from fragments at a dozen call sites.
 
 ## The look (branch `jack/lighting`, not merged)
 
-An experiment after reading Saltline: an environment to reflect, a filmic
-curve, and a grade. It is behind `SETTINGS.look` (LOOK: FLAT / GRADED in the
-settings panel) so the two can be compared in one session rather than from
-memory, and `main` is untouched.
+Behind `SETTINGS.look` (LOOK: FLAT / LIT in the settings panel), so the two
+can be compared in one session rather than from memory, and `main` is
+untouched. **FLAT is the game exactly as it was**: the original arena
+meshes, the original gun materials, no tone mapping. LIT is everything in
+this section and the next.
+
+It began as an experiment after reading Saltline — an environment to
+reflect, a filmic curve and a grade, laid over the SAME evenly lit arena
+(the switch read GRADED then). What that taught is at the end of this
+section: a grade cannot find contrast the lights never made. The lit arena
+in the next section is the answer, and the two now arrive under one switch.
+If the lit arena cannot build (`LIT_OK` false: WebGL1, or a Three build
+whose light chunk has moved), LIT falls back to exactly that older graded
+look over the flat arena. `?nolit` in the URL forces the fallback so it can
+be looked at; measured there: no lit meshes, 48 flat parts drawn, lights at
+0.22 / 1.55, no errors.
 
 It deliberately reverses the rule in Gotchas — no tone mapping, no envMap,
 `metalness` pinned at 0. That rule is correct *for a scene with no
 environment*; give it one and the constraint lifts, which is why all three
-arrive and leave together.
+arrive and leave together. **The Gotchas still describe FLAT**, and still
+hold there.
 
 - **The environment is a small ROOM baked into a PMREM**, not a sky: Crimson X
   is indoors, so what the armour should pick up is a dim cool shell, a floor
   that bounces and warm panels overhead.
-- **ACES tone mapping** with exposure 1.45, and the graded look carries its
-  own lights — hemisphere down from 0.55 to 0.22, key up from 0.85 to 1.55
-  and warmer. That matters more than the curve: **a flat 0.55 ambient against
-  a 0.85 key lights every face of every crate to nearly the same value, and
-  no curve recovers contrast that was never there.** Tone mapping alone
-  barely read.
+- **ACES tone mapping** with exposure 1.45. The graded figures for the two
+  real lights — hemisphere down from 0.55 to 0.22, key up from 0.85 to 1.55
+  and warmer — now apply **at the menu only**, where the operator on the
+  podium was tuned with them. In the arena those lights are reset for moving
+  things alone (`litLights`, next section).
 - **One grade pass** after the bloom: split tone (teal shadows, warm
   highlights), S-curve, lifted blacks, saturation, vignette, animated grain
   weighted to the shadows, ordered dither against banding in the gradients.
-- **Every arena material is Standard now**, including the two that were
+  **It also smooths edges (FXAA).** `antialias:true` only covers the canvas;
+  the moment a composer is in the chain the scene is drawn into a render
+  target that has none, so with bloom or the look on every crate edge was a
+  staircase. `uPx` is one pixel of the target and is set in `applySettings`.
+- **Every FLAT arena material is Standard now**, including the two that were
   Lambert — Lambert cannot see `scene.environment` at all, so with the look on
   the blocks and pillars were the only flat things in the room.
 - **`lookTag(m, graded, flat)`** records a material's two personalities where
   the numbers are known, at creation. Reading the flat values back off the
   material at toggle time does not work: by then they are whatever the last
-  toggle left.
+  toggle left. `userData.envK` is a material's own share of the room's
+  reflection; without it everything took `LOOK.envIntensity`, which was too
+  much for a wall and too little for bare steel.
 - **BLOOM GLOW used to decide whether the composer ran at all** (loop.js fell
   back to a direct render), which would have taken the grade with it. It
   switches its own pass now and the loop uses the composer when either wants
   it.
+- **Models that load late need the look applied again: `lookSoon()`.** Their
+  graded metalness is only RECORDED by lookTag, not set, and files arrive
+  after `applyLook` ran at boot — so a freshly loaded Spartan or sniper sat at
+  metalness 0 until something unrelated (a resize, a settings click)
+  re-applied it. Every model loader calls `lookSoon()`, which waits 80ms so
+  several files landing together cost one pass.
+- **The gun has two skins** (`lookMats` on each viewmodel mesh, models.js).
+  The weapon files ship as Phong, nearly black with a pure white highlight,
+  which under one directional light gives exactly two tones — that is why the
+  rifle read as a black-and-white placeholder. `vmLitMaterial` builds a
+  physically-based twin from the material's NAME where the file has one (the
+  Quaternius guns: Metal, DarkMetal, Wood, Main…) and from its colour where it
+  does not (crossbow, grenade, blade). `applyLook` picks a skin; FLAT draws
+  the originals. Two traps: `envK` at 1.3 washed the room's cool shell over
+  the whole gun and a black rifle came out an even blue-grey, like a toy (it
+  is 0.8, and the furniture has no metal); and **`Object3D.clone()` copies
+  `userData` through JSON**, which would turn `lookMats` into garbage — the
+  ability models are cloned BEFORE `lookSoon()` for that reason.
 
 Two things learned the hard way, both the same lesson one step on from the
 old one. **Metal is only as bright as what it reflects**: at metalness 0.70
 against the first, dim capture the Spartan went to a silhouette on the menu.
 The capture is brighter now (panel AREA, since a colour is clamped at 1) and
-the armour sits at 0.40 — painted, not chrome. And **the arena is evenly lit
-by design**, so the grade does far less for it than for the character; a real
-jump there means redesigning the map's lighting, not grading it harder.
+the armour sits at 0.40 — painted, not chrome. And **the arena was evenly lit
+by design**, so the grade did far less for it than for the character; a real
+jump there meant redesigning the map's lighting, not grading it harder. That
+is the next section.
 
-Not measured: frame cost. The extra full-screen pass and two Lambert
-materials promoted to Standard are not free, and `rAF` is throttled while the
-preview pane is hidden, so no honest number was taken.
+## The lit arena (`lighting.js`)
+
+The room's light is worked out from the fixtures that are in it. The old
+arena had a hemisphere and one directional key, which light every square
+metre of floor identically: no pool under a lamp, no shadow behind a crate.
+The ceiling panels were pictures of lamps. They are emitters now, and so is
+a crimson strip round the walls at 3m — the menu's colour, brought into the
+arena, which until now looked like a different game from its own front page.
+
+**There are two arenas, and only one is ever looked at.** Everything
+`buildArena` used to make carries `userData.flat`; its lit twin from
+`litBuildArena` carries `userData.lit`; `arenaVis()` shows one set by LOOK
+(neither at the menu). **The flat boxes stay in `wallMeshes` in both looks**,
+hidden but still ray-tested — a hidden mesh is skipped by the renderer, not
+by `Raycaster` — so every bullet, bolt and grenade meets the same plain boxes
+the server collides with. No lit mesh is in `wallMeshes` or `colliders`. That
+is what lets the lit cover have bevels, and the walls be one merged mesh,
+without the picture and the physics being able to disagree. Measured: a ray
+north from (0, 1.5, 44) stops at 19.00m on a box reporting `visible:false`;
+`wallMeshes` / `colliders` are still 22 / 21; a rebuild leaves the scene's
+child count unchanged, and GPU geometries and textures were steady at
+162 / 69 across ten rebuilds.
+
+- **The bake.** Each panel and each stretch of strip is an AREA light,
+  sampled at several points (18 on the nearest panel, fewer with distance),
+  each sample tested against the cover. That is where soft-edged shadows come
+  from, with a penumbra that widens the further the caster stands from the
+  floor — what one point light and a shadow map cannot do. The floor gets a
+  lightmap (256² on Foundry, about 0.47m a texel), jittered then blurred so a
+  regular grid's banding becomes noise fine enough to blur away, and packed
+  SQUARE-ROOT into 8 bits because light is wanted most finely in the dark.
+  Cover, walls, roof and fixtures take the same light per vertex in a
+  `cxBake` attribute, plus what the floor throws back up. Ambient is NOT
+  baked: it is a uniform, so it tunes without a re-bake.
+  **One unit of baked light is the floor directly under a single panel**,
+  measured per map rather than assumed, so a lower roof or a bigger panel
+  lands at the same exposure.
+- **It is spread over frames behind the menu, and finished at the door.** A
+  whole map is about half a second of work (Foundry 367-475ms for rebuild
+  plus bake). Behind the menu that is free, because the arena is not on
+  screen; done in one go it would freeze the MAP card on every click.
+  `setMenuBackdrop(false)` calls `litBakeFinishNow()` so the first frame of
+  the arena is never an unlit one, and a build that happens while already
+  playing (a multiplayer `welcome` naming another map) bakes synchronously.
+- **Texels the bake cannot reach are filled from their neighbours** — under
+  cover, inside the walls. They are never seen, but the texture is filtered,
+  and a black texel beside a crate smeared a dark edge onto the floor in a
+  different place for every crate, depending on how it fell on the grid.
+- **The shader patch** (`litPatch`, kinds floor / wall / cover / ceil) is
+  `MeshStandardMaterial` with Three's own light loop cut at two known lines so
+  the directional block is fenced off, and the ambient term replaced by the
+  bake. **Point lights still land on these surfaces** (a flaming bolt), which
+  is why the key is skipped rather than all direct light zeroed. **The key's
+  shadow map is still read by hand**, so a player's shadow falls on baked
+  ground. Nothing static casts in this look, so the shadow box is 68m round
+  the camera instead of 140m round the arena — the same texture over a
+  quarter of the area — and its focus is snapped to whole texels in the
+  LIGHT's frame, or every shadow edge crawls as you walk.
+- **Contact shadow at the foot of cover is computed, not baked**: how much of
+  the sky a point on the floor has lost to each box, per pixel. A lightmap
+  texel half a metre across could never be crisp there. The perimeter walls
+  join that list with their height capped at 2.6m; at the full 8m they dimmed
+  the floor for eight metres out, which read as a dirty room.
+- **The floor's mirror is solved, not rendered.** The panels are rectangles
+  on a grid at a known height, so the reflection is exact per pixel: reflect
+  the eye ray, meet the lamp plane, see whether it landed on a panel, blur by
+  roughness, and test the ray against the cover so a lamp behind a crate does
+  not show in the floor in front of it. The wall strip is done the same way
+  against the four wall planes. No second render of the scene. It keeps only
+  a tenth of the generic PMREM reflection, which is what made the old graded
+  floor milky at a distance.
+- **`LIT` holds every number; `LITU` holds the uniforms**, one set of objects
+  shared by every lit material, so `LITU.uLitGain.value = 6` in the console
+  retunes the whole room live. Gain, ambient, shadow depth, reflection
+  strength and the strip colours need no re-bake.
+- **The two real lights only reach what moves.** A lit surface skips the key
+  and replaces the ambient, so in the arena the hemisphere and the key light
+  players, targets and the gun and nothing else, and are set for those:
+  fill 0.62, key 1.05, coming down 23° off vertical. With the old slanted key
+  and 0.22 fill anyone facing away from it was a black cut-out. `litLights()`
+  switches these on entering the arena and back at the menu.
+- **Players carry a rim light** (`rimPatch` / `RIMU`, models.js): a cool edge
+  highlight, strongest on what faces up. Dark armour in front of a dark
+  barrier was a shape found late. Zero at the menu and in FLAT.
+- **The floor is labelled A1 to E5**, one cell per lamp, as callouts two
+  players can both see. All markings are one canvas laid over the arena,
+  drawn north-up, premultiplied so paint edges have no dark fringe.
+
+Learned here, each of them the hard way:
+- **The strip is an accent.** At full strength on what faces down it turned
+  the roof red for ten metres in from every wall and the room stopped having
+  a colour of its own. It is `stripRoof` (0.22) on the roof, and the tan wall
+  scan is mostly desaturated in the shader, because tan under crimson is
+  salmon.
+- **A canvas colour is decoded from sRGB, which stretches the gap between
+  channels.** A slate picked as (65, 75, 89) came out royal blue in the room.
+  Paint for these textures is chosen nearly neutral.
+- **Used raw, the photoscan's roughness chopped the mirror into chalk.** Every
+  scratch switched the reflection on and off. The mirror takes 70% of one
+  fixed roughness and 30% of the texture.
+- **Picking one of two box extents for the contact shadow drew a straight
+  line from every corner of every long barrier.** It blends between them.
+- **A bevel given one texture coordinate along its width** showed a single
+  column of the texture stretched across it — on a crate, a strip of
+  something else nailed down the corner. Its far edge carries the UVs on by
+  the bevel's own width.
+
+**Frame cost, measured** on Intel Arc integrated graphics (ANGLE, D3D11) by
+running the whole `loop()` 40 times at each of five viewpoints and forcing
+the GPU to finish with a one-pixel `readPixels`: at 1280×720, LIT 3.2-3.6ms
+against FLAT 2.6-2.8ms; at 1920×1080, 5.05ms against 3.3-3.5ms. Both leave a
+60fps budget of 16.6ms mostly unused on that machine. Lit geometry on Foundry
+is 8 meshes, 11,684 vertices, 15,522 triangles.
+
+Checked: the menu keeps its lights (0.22 / 1.55) and its bloom; FLAT draws 48
+flat parts and no lit ones with the Phong rifle back; LIT draws 8 lit and no
+flat; quitting restores the studio and the sun at (25, 55, 18). Two clients
+joined one room on Foundry with no console errors and saw each other.
+
+Not checked: a real match played by people, a phone, or a machine weaker than
+the one above. **Substation gets all of this for free and has not been tuned**
+— Jack considers that map badly made and wants it left alone for now
+(2026-11-13), so nothing here should be read as a judgement that it looks
+right.
 
 ## Sound
 
@@ -1342,9 +1503,54 @@ Verify in the browser via `javascript_tool`, not by eyeballing. Two traps:
 - Set `SETTINGS.fpsCap = 0` first or the frame limiter skips your frames.
 - Reset ability state (`rollT`, `slideT`, cooldowns) between checks — leftover
   state silently invalidates results.
+- **`loop()` re-arms itself, so calling it by hand starts a SECOND loop** that
+  never stops: every manual call leaves another `requestAnimationFrame` chain
+  running and the game does its work twice, then three times. Stub it for the
+  call: `const raf=requestAnimationFrame; requestAnimationFrame=()=>0;
+  try{ loop(); } finally { requestAnimationFrame=raf; }`.
+- **`applySettings()` saves.** Setting `SETTINGS.fpsCap = 0` or a resolution
+  scale for a test and then calling it writes that to `localStorage`
+  (`botstrike.gfx`). Put the values back and call it again when done.
+- **To look at a frame, capture the canvas rather than the pane.** The Browser
+  pane's own screenshot returned only the top-left quarter of the page at
+  device-pixel-ratio 2, and nothing renders at all while the pane is hidden.
+  `renderer.domElement.toDataURL()` works, but only in the SAME task as the
+  render — the drawing buffer is cleared once the frame is presented — so
+  drive `loop()` by hand as above, read the canvas straight after, and send
+  the result somewhere it can be opened (a throwaway local receiver that
+  writes the POST body to a file does it). That is how every lit-arena frame
+  was judged. The HUD is HTML and is not in such a capture, which for judging
+  the 3D is an advantage.
+- **Time a frame with a forced finish**, not with `rAF`: run `loop()` N times,
+  then `gl.readPixels` one pixel so the GPU has to complete, and divide.
+  `rAF` in the pane is throttled whenever the pane is not in view.
 
 ## Parked / possible next
 
+- **The push toward a AAA standard** (Jack's ask, 2026-11-12). He pointed at
+  Saltline as the bar. The framing agreed with him: a literal AAA game is
+  hundreds of people's models, animation and recorded sound, which code
+  cannot make; what code CAN close is lighting, materials, feel and sound.
+  **Saltline is in `SALETINE/` to be read, not shipped** — techniques only,
+  never its code, its level or its look; Crimson X's look is its own menu's
+  crimson on near-black. Done so far: the lit arena on Foundry, the gun's
+  second skin, the rim light. What is left, in the order it would show:
+  1. **Feel.** The viewmodel has no spring to it: recoil, sway and landing are
+     eased, not sprung. No muzzle-flash LIGHT (a point light reaches lit
+     surfaces now, so one would), no impact sparks or dust, no shell casings.
+  2. **The room in the sound.** Everything is dry. One generated impulse
+     response on a convolver would put every shot in the hall it is fired in.
+  3. **Moving things lit by where they stand.** The gun and the players are
+     as bright in a shadow as under a lamp. `litBounceAt` already samples the
+     floor's light on the CPU at any point; it is not yet used for this.
+  4. **Air.** Dust in the pools of light, shafts under the panels — additive
+     blending works now the room is dark, which it never did before.
+  5. **The operator.** He is fan art of a character Microsoft owns (see the
+     README: hobby use only), he has no animation at all — he stands in one
+     pose and slides — and nothing above fixes either. An original, animated
+     operator is the largest single gap left and is not a code problem.
+  6. **Substation**, when Jack wants it: he considers the map itself badly
+     made, so the lit look there is untuned by request.
 - **Slide is disabled** behind `SLIDE_ENABLED` — see `extras/slide-ability.md`.
 - **Smoke is cosmetic cover only**: it does not block bullets or line of
   sight server-side. You can see and be shot straight through it. Making it

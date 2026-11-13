@@ -143,11 +143,19 @@ function applyLook(){
   sun.intensity  = on ? LOOK.sun  : LOOK.flatSun;
   sun.color.setHex(on ? LOOK.sunColor : LOOK.flatSunColor);
   if(typeof gradePass !== 'undefined' && gradePass) gradePass.enabled = on;
+  /* The viewmodel keeps two skins per mesh (models.js); give anything that
+     has loaded since last time its second one before choosing. */
+  if(typeof lookifyViewmodel === 'function' && typeof gun !== 'undefined') lookifyViewmodel(gun);
   scene.traverse(o => {
     if(!o.isMesh || !o.material) return;
+    if(o.userData.lookMats) o.material = on ? o.userData.lookMats.lit : o.userData.lookMats.flat;
     (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
       if(!m || !m.isMeshStandardMaterial) return;
-      m.envMapIntensity = on ? LOOK.envIntensity : 1;
+      /* A lit-arena material sets its own share of the room's reflection
+         (userData.envK, lighting.js): a wall wants almost none of it, bare
+         steel wants most of it, and one number for everything was wrong
+         for both. */
+      m.envMapIntensity = on ? (m.userData.envK != null ? m.userData.envK : LOOK.envIntensity) : 1;
       /* Metal is the whole reason the environment is here. A material that
          declares a graded look gets it; anything else is forced to
          metalness 0, which is the old rule and still right with no env. */
@@ -159,7 +167,20 @@ function applyLook(){
       m.needsUpdate = true;
     });
   });
+  /* The lit arena swaps in with the look: which set of meshes is drawn, the
+     shadow box, the fog. Guarded because this first runs from the bottom of
+     this file, before lighting.js has been read. */
+  if(typeof litApplyLook === 'function') litApplyLook(on);
 }
+
+/* Models arrive whenever their download finishes, which is after the look
+   was applied at boot. Their graded metalness is only recorded by lookTag,
+   not set, so without another pass a freshly loaded Spartan or sniper sat at
+   metalness 0 until something unrelated (a resize, a settings click) happened
+   to re-apply it. Several files land close together, so this waits a moment
+   and does it once. */
+let lookTimer = 0;
+function lookSoon(){ clearTimeout(lookTimer); lookTimer = setTimeout(applyLook, 80); }
 
 /* The grade, as one pass after the bloom. Everything here is a display-space
    tweak of what the renderer already produced: no extra geometry, no second
@@ -170,18 +191,47 @@ function applyLook(){
    vignette, animated grain weighted toward the shadows (bright pixels do not
    look noisy), and a last ordered dither against banding in the gradients —
    which is where 8-bit output shows first. */
+/* It also smooths edges. `antialias:true` on the renderer only covers the
+   canvas itself, and the moment a composer is in the chain the scene is
+   drawn into a render target that has none — so with bloom or the look on,
+   every crate edge was a staircase. This is FXAA: find where brightness
+   steps sharply, work out which way the edge runs from the four diagonal
+   neighbours, and blend ALONG it. One pass, and flat areas return after
+   five samples. `uPx` is one pixel of the target, set in applySettings. */
 const GradeShader = {
   uniforms: { tDiffuse:{ value:null }, uTime:{ value:0 },
+              uPx:{ value:new THREE.Vector2(1/1280, 1/720) },
               uVig:{ value:0.62 }, uGrain:{ value:0.04 },
               uSat:{ value:1.12 }, uContrast:{ value:0.26 } },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uSat, uContrast;
+    uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uSat, uContrast; uniform vec2 uPx;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
+    float luma(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
+    vec3 smoothEdges(){
+      vec3 m  = texture2D(tDiffuse, vUv).rgb;
+      float lNW = luma(texture2D(tDiffuse, vUv + vec2(-1.0, -1.0) * uPx).rgb);
+      float lNE = luma(texture2D(tDiffuse, vUv + vec2( 1.0, -1.0) * uPx).rgb);
+      float lSW = luma(texture2D(tDiffuse, vUv + vec2(-1.0,  1.0) * uPx).rgb);
+      float lSE = luma(texture2D(tDiffuse, vUv + vec2( 1.0,  1.0) * uPx).rgb);
+      float lM = luma(m);
+      float lMin = min(lM, min(min(lNW, lNE), min(lSW, lSE)));
+      float lMax = max(lM, max(max(lNW, lNE), max(lSW, lSE)));
+      if (lMax - lMin < max(0.0312, lMax * 0.125)) return m;          // no edge here
+      vec2 dir = vec2(-((lNW + lNE) - (lSW + lSE)), (lNW + lSW) - (lNE + lSE));
+      float damp = max((lNW + lNE + lSW + lSE) * 0.03125, 0.0078125);
+      dir = clamp(dir / (min(abs(dir.x), abs(dir.y)) + damp), -8.0, 8.0) * uPx;
+      vec3 a = 0.5 * (texture2D(tDiffuse, vUv + dir * (1.0/3.0 - 0.5)).rgb
+                    + texture2D(tDiffuse, vUv + dir * (2.0/3.0 - 0.5)).rgb);
+      vec3 b = a * 0.5 + 0.25 * (texture2D(tDiffuse, vUv - dir * 0.5).rgb
+                               + texture2D(tDiffuse, vUv + dir * 0.5).rgb);
+      float lB = luma(b);
+      return (lB < lMin || lB > lMax) ? a : b;                        // the wide blend left the edge: use the narrow one
+    }
     void main(){
-      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      vec3 c = smoothEdges();
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
       c *= mix(vec3(0.88, 1.0, 1.07), vec3(1.07, 1.0, 0.91), smoothstep(0.12, 0.78, l));
       c = mix(c, c * c * (3.0 - 2.0 * c), uContrast);     // gentle S-curve
@@ -240,6 +290,8 @@ function applySettings(){
     if(composer.setPixelRatio) composer.setPixelRatio(pr);
     composer.setSize(innerWidth, innerHeight);
   }
+  // one pixel of the composer's target, for the edge smoothing in the grade
+  if(gradePass) gradePass.uniforms.uPx.value.set(1/Math.max(1, innerWidth*pr), 1/Math.max(1, innerHeight*pr));
   // shadows: off / 1024 / 2048
   const q = SETTINGS.shadows|0;
   const wasEnabled = renderer.shadowMap.enabled;

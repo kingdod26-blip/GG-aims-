@@ -407,6 +407,9 @@ if (THREE.FBXLoader) ABILITY_MODELS.forEach(am=>{
         while(h.children.length){ const c=h.children[0]; h.remove(c); disposeTree(c); }
         h.add(n === 0 ? holder : holder.clone());
       });
+      /* After the clones, never before: clone() copies userData through
+         JSON, which would turn the viewmodel's second skin into garbage. */
+      lookSoon();
       console.log(`[CrimsonX] ${am.url} loaded, raw size`, size.toArray().map(n=>+n.toFixed(2)));
     }, undefined, onErr);
   } catch(e){ onErr(e); }

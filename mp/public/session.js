@@ -65,7 +65,7 @@ const SET_DEFS = [
   { key:'bloom',    label:'BLOOM GLOW', opts:[[0,'OFF'],[1,'ON']] },
   /* The whole lighting change behind one row, so the two looks can be
      compared in the same session rather than from memory. */
-  { key:'look',     label:'LOOK',       opts:[[0,'FLAT'],[1,'GRADED']] },
+  { key:'look',     label:'LOOK',       opts:[[0,'FLAT'],[1,'LIT']] },
   { key:'hitZone',  label:'HIT MARKER', opts:[[0,'PLAIN'],[1,'SHOW ZONE']] },
   /* practice:true rows never appear in multiplayer. training() already
      refuses to honour them there, so showing them would only advertise
