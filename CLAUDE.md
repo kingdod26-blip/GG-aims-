@@ -702,7 +702,7 @@ that stopped a bullet on one side and not the other. Deriving the mesh from
 the rect makes the box you see the box that is tested, by construction.
 Measured: all 21 rects match on both maps, where four did not before.
 
-**The maps.** `foundry` is the original: 120m across, open, long sightlines
+**The maps.** `powerstation` (below; it replaced `foundry`) is 120m across, open, long sightlines
 down both axes, which is what a scoped sniper wants. `substation` is 88m with
 the middle walled into three lanes — the two long dividers and two cross
 walls break every diagonal, the corner towers are the only high ground, and
@@ -717,22 +717,22 @@ none inside geometry, on both maps.
 
 ### The power station (was Foundry)
 
-The main arena, id , is the old Foundry rebuilt on its own
+The main arena, id `powerstation`, is the old Foundry rebuilt on its own
 skeleton at Jack's request (2026-11-13): still 120m, open, long sightlines,
-resupply core dead centre, symmetric under a half turn. The id  no
-longer exists;  falls back to the default, so an old link, a saved
- or  lands on the power station.
+resupply core dead centre, symmetric under a half turn. The id `foundry` no
+longer exists; `mapById` falls back to the default, so an old link, a saved
+`cx.map` or `MAP=foundry` lands on the power station.
 
-- ** names what a box IS**, and the lit arena builds each kind its own
-  way ( in lighting.js):  grows fins, bushings and a
-  conservator from the box's own size,  is a cabinet row whose status
-  lamps are an emissive map,  /  are concrete,
-   is a painted enclosure. The FLAT look draws them all as plain
-  boxes in a stand-in material ().
+- **`mat` names what a box IS**, and the lit arena builds each kind its own
+  way (`LIT_DRAW` in lighting.js): `transformer` grows fins, bushings and a
+  conservator from the box's own size, `switch` is a cabinet row whose status
+  lamps are an emissive map, `plinth` / `firewall` are concrete, `machine` is
+  a painted enclosure. The FLAT look draws them all as plain boxes in a
+  stand-in material (`arenaMat`).
 - **A round thing is several boxes.** A turbine unit is a pedestal plus three
-  narrower, taller boxes on the same footprint, mat : every box still
+  narrower, taller boxes on the same footprint, mat `hidden`: every box still
   stands on the floor, which is all the server asks. The lit arena does not
-  draw  boxes; the  entry in the map's  draws the
+  draw `hidden` boxes; the `turbine` entry in the map's `props` draws the
   casing where they stand.
 - **Boxes on the floor cannot make an overhang.** The first casing was a plain
   cylinder, which is 0.6m NARROWER than the bottom step where it meets the
@@ -740,23 +740,27 @@ longer exists;  falls back to the default, so an old link, a saved
   its centre line (exactly the bottom step), a half-cylinder above (within
   0.15m of the steps, measured by ray), and the generator is drawn as the
   steps themselves. Design round plant that way round.
-- **Anything in  that is not on a box's footprint hangs at 4.6m or
+- **Anything in `props` that is not on a box's footprint hangs at 4.6m or
   more** (crane, busducts, trays, steam lines) and is not collision, like the
   roof girders. Bushings above a transformer's lid are the one exception:
   thin, over head height, and not shaped like cover.
-- **** is the map's floor markings (aisles, trench covers, hatched
+- **`paint`** is the map's floor markings (aisles, trench covers, hatched
   borders, stencils). The aisle green is kept grey and thin: the crosshair is
-  green.  is 40 now; the map has 29 boxes plus four walls.
+  green. `LIT_NBOX` is 40 now; the map has 29 boxes plus four walls.
 - **The crane's runway beams run down the long walls at 5.5m**, so the big
   wall boards hang on the END walls.
-- **The plant hums** (,  in hud.js): transformers at
+- **Round geometry needs its own material** (`machineR`, define `CX_ROUND`):
+  the edge-wear shader treats a normal between two axes as a worn bevel, and
+  on a cylinder every normal is one.
+- **The plant hums** (`Sfx.plant`, `stationHum` in hud.js): transformers at
   100Hz and harmonics, turbines a low roar, each by distance from the camera,
-  silent at the menu and on a hidden tab. The level was set by ear on paper,
-  NOT measured through an offline render like the other sounds, and nobody
-  has listened to it yet.
+  silent at the menu and on a hidden tab. The level was chosen on paper, NOT
+  measured through an offline render like the other sounds, and nobody has
+  listened to it yet.
 - Measured: half-turn symmetry exact, no two objects closer than 1.2m, spawn
-  probe () 20/20 on both maps, 4.3ms a frame at
-  1280x720 on the Intel Arc machine, 28k triangles.
+  probe (`scratchpad/permap.js`) 20/20 on both maps, a multiplayer join lands
+  on `powerstation` with no errors, 4.3ms a frame at 1280x720 on the Intel Arc
+  machine, 28k triangles. Not checked: a real match, or the hum by ear.
 
 ## Agents
 
