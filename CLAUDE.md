@@ -717,69 +717,102 @@ none inside geometry, on both maps.
 
 ### The power station (was Foundry)
 
-The main arena, id `powerstation`, is the old Foundry rebuilt on its own
-skeleton at Jack's request (2026-11-13): still 120m, open, long sightlines,
-resupply core dead centre, symmetric under a half turn. The id `foundry` no
-longer exists; `mapById` falls back to the default, so an old link, a saved
-`cx.map` or `MAP=foundry` lands on the power station.
+The main arena, id `powerstation`. Rebuilt from the floor up on 2026-11-13
+after Jack played it: *"remove all the obstacle and build it like how a
+logical power station would be like"*, with a photograph of a tokamak in its
+pit for the middle — *"such a big thing would give u supplies and all"*. The
+id `foundry` no longer exists; `mapById` falls back to the default, so an old
+link, a saved `cx.map` or `MAP=foundry` lands here.
 
-- **`mat` names what a box IS**, and the lit arena builds each kind its own
-  way (`LIT_DRAW` in lighting.js): `transformer` grows fins, bushings and a
-  conservator from the box's own size, `switch` is a cabinet row whose status
-  lamps are an emissive map, `plinth` / `firewall` are concrete, `machine` is
-  a painted enclosure. The FLAT look draws them all as plain boxes in a
-  stand-in material (`arenaMat`).
-- **A round thing is several boxes.** A turbine unit is a pedestal plus three
-  narrower, taller boxes on the same footprint, mat `hidden`: every box still
-  stands on the floor, which is all the server asks. The lit arena does not
-  draw `hidden` boxes; the `turbine` entry in the map's `props` draws the
-  casing where they stand.
-- **Boxes on the floor cannot make an overhang.** The first casing was a plain
-  cylinder, which is 0.6m NARROWER than the bottom step where it meets the
-  pedestal: you walked into nothing a pace short of it. It is now square below
-  its centre line (exactly the bottom step), a half-cylinder above (within
-  0.15m of the steps, measured by ray), and the generator is drawn as the
-  steps themselves. Design round plant that way round.
-- **Anything in `props` that is not on a box's footprint hangs at 4.6m or
-  more** (crane, busducts, trays, steam lines) and is not collision, like the
-  roof girders. Bushings above a transformer's lid are the one exception:
-  thin, over head height, and not shaped like cover.
-- **`paint`** is the map's floor markings (aisles, trench covers, hatched
-  borders, stencils). The aisle green is kept grey and thin: the crosshair is
-  green. `LIT_NBOX` is 40 now; the map has 29 boxes plus four walls.
-- **The crane's runway beams run down the long walls at 5.5m**, so the big
-  wall boards hang on the END walls.
-- **Round geometry needs its own material** (`machineR`, define `CX_ROUND`):
-  the edge-wear shader treats a normal between two axes as a worn bevel, and
-  on a cylinder every normal is one.
+**THE RULE THE MAP IS BUILT ON: if it looks like a floor, it is one.** What
+Jack actually reported was *"a lot of them is not able to allow me to stand
+on, basically they are visually there but they are not physically there"*. A
+raycast of the whole hall against `colliders` found the cause exactly: below
+head height there was no mismatch anywhere, and all 8,780 mismatched square
+metres sat at 5.7m — the `gallery` prop, a steel walkway with handrails drawn
+along each aisle with no collision at all. It is deleted, not fixed: a
+walkway you stand on has to be a box standing on the floor, which means a
+solid mezzanine, and that is what the operating decks are. **Keep that probe
+in your pocket** — rasterising the drawn geometry and differencing it against
+`colliders` is the only way to catch this class of bug, and it caught four
+more during the rebuild.
+
+- **A turbine hall has two levels, and so does this.** The machines stand on
+  an OPERATING FLOOR (`deck`, 3.2m, one per unit); the GROUND FLOOR around it
+  carries the condensers and is where a casing is laid down. 3.2 is over
+  `CLIMB.maxRise` (2.7) **on purpose**: the stairs are the way up, which is
+  both how a real hall works and the only honest way to build a mezzanine out
+  of boxes that all stand on the floor. The condensers beside each deck are
+  2.6, so there is also a climb-climb route up for anyone who knows it.
+- **The middle is the reactor.** A bioshield deck (2.4 — one climb, from any
+  side), a ribbed stainless drum on it, a flanged lid, eight cable looms
+  sweeping off the lid to the deck. The resupply sits on that deck in the
+  walkway round the vessel: `resupply.y` lifts the marker ring (world.js), the
+  server's 5m test is 2D and unchanged. The vessel's radius is 3.1 so the
+  whole walkway falls inside that 5m — a fatter drum and the pickup would be
+  unreachable.
+- **NO HANDRAIL on the shield deck**, though every photograph has one. A rail
+  is a thing you cannot walk through, and the deck has to be climbable from
+  any side, so a drawn rail would be exactly the lie the galleries told. The
+  yellow nosing does that job and it is paint.
+- **A ROUND THING IS FIVE BOXES, not two.** Each box has its corners exactly
+  on the circle (half-extents `R·cosθ, R·sinθ` at θ = 9°, 27°, 45°, 63°, 81°),
+  so their union is a 20-sided rectilinear shape wholly inside the drawn drum
+  and within **43mm** of it all the way round. The obvious answer — one wide
+  box crossed with one deep one — is wrong by **0.92m** at the arm corners,
+  which is an invisible wall standing in clear air beside the tank. All but
+  the first box carry mat `hidden`; the first carries `r` so the prop knows
+  the radius (its own `w/2` is a touch under it).
+- **A dome on a box is an invisible wall.** The feedwater tanks had dished
+  tops: collision is a box of one height, so the drum stopped you at 6.5m
+  where the dome had already sloped away to 5.4. Flat-topped now, with a
+  0.18m taper. The vent runs all the way to the roof for the same reason — a
+  pipe that stops in mid-air reads as a ledge.
+- **Draw a box's FULL footprint.** The columns drew their steel 0.1m inside
+  the collision box on each side. Only 100mm, but a column is something you
+  hug, so it is the 100mm you feel.
+- **`axis: 'z'` lays a turbine down the hall** rather than across it, which is
+  how units are actually arranged (in a row, crane travelling parallel to
+  them). The prop is written in an along/across frame and the axis just
+  swaps which world coordinate is which. The casing is a cylinder of radius
+  2.2 about an axis at 5.6m and the map's four `hidden` steps are the widths
+  that cylinder really has at their heights — measured agreement 0.09m, bar
+  0.2m of crown above the top step, because a box cannot be round.
+- **Everything else in `props` is overhead** (crane, trusses, trays, steam
+  lines, busducts) at 9m and up, and **nothing up there is shaped like a
+  floor**. That is the test to apply before adding a prop.
+- **Five bays of rooflight, not one.** `lamps.reachX: 2`, 7m panels on a 24m
+  pitch, overcast daylight (`rgb`, `refl`, `show`), `gain: 0.95`. One strip
+  down the nave looked wonderful over the machines and left both aisles and
+  the entire roof in the black — and the aisles are where half the fight is.
+- **`LIT_NBOX` is 44, and `litUniformsFor` now skips `step` as well as
+  `column` and `hidden`.** The loop STOPS at the budget, so a map over it
+  does not slow down, it quietly drops its last boxes out of the floor's
+  shading. 107 boxes offer 60; the 24 stair treads alone would have pushed
+  the real plant off the end. Without them it offers 36 (+4 walls = 40).
+- **`mat` names what a box IS** and `LIT_DRAW` builds each kind: `deck` /
+  `step` / `tower` share `plinth` (concrete with a yellow nosing),
+  `bioshield` adds a hazard band, `tank` is a drum, `control` is a concrete
+  base with a glazing band and a parapet whose top IS the box's top,
+  `transformer` grows fins and bushings, `switch` is a cabinet row with
+  emissive status lamps. FLAT draws them all as plain boxes (`arenaMat`).
+- **Round geometry needs its own material** (`machineR`, `vessel`, define
+  `CX_ROUND`): the edge-wear shader treats a normal between two axes as a
+  worn bevel, and on a cylinder every normal is one.
+- **Brushed, not polished.** The vessel at roughness 0.17 / env 1.35 was a
+  mirror six metres across under a rooflight and came back as a white
+  silhouette with the shape burnt out of it — the same failure the Spartan
+  had on the menu. 0.34 / 0.88 / env 0.55 reads as heavy steel.
 - **The plant hums** (`Sfx.plant`, `stationHum` in hud.js): transformers at
-  100Hz and harmonics, turbines a low roar, each by distance from the camera,
+  100Hz and harmonics, turbines a low roar, by distance from the camera,
   silent at the menu and on a hidden tab. The level was chosen on paper, NOT
-  measured through an offline render like the other sounds, and nobody has
-  listened to it yet.
-- **It is a HALL, not Foundry with machines in it** (Jack, 2026-11-13: the
-  first cut "looks like a power station u build off my map"; he sent photos of
-  a real turbine hall). So: `wallH` 14, two rows of floor-to-roof steel columns
-  at x = 24 and -24 every 12.5m (mat `column`, real cover) making a nave and
-  two aisles, a `gallery` prop over each aisle at 5.4m with a handrail, the
-  crane and trays riding under the roof whatever its height, and a 44m
-  `window` sign of small panes on each end wall. A taller roof puts more
-  panels in reach of every point, so the map carries `gain: 0.5`; without it
-  the floor washed out. Glowing signs are drawn with `fog:false` or the end
-  window disappears into haze. 47 boxes now, `LIT_NBOX` 56. When Jack says
-  build something, design from the real thing, not his existing layout.
-- **The roof is a skylight and open trusses.** `lamps.reachX: 0` makes the
-  grid one row down the nave (10m by 20m panels, nearly continuous), with its
-  own colour (`rgb`, `refl`, `show`) so it is overcast daylight; `gain` is
-  0.95. A `truss` prop spans the nave on every column line. **Columns and
-  `hidden` steps are kept OUT of the floor shader list** (`litUniformsFor`):
-  it loops over that list twice per floor pixel, and with all 47 boxes in a
-  frame went from about 4ms to 12.6ms. With 27 it is 4.2 to 6.6ms at 720p
-  (the spread is the measurement, taken in a busy pane).
-- Measured: half-turn symmetry exact, no two objects closer than 1.2m, spawn
-  probe (`scratchpad/permap.js`) 20/20 on both maps, a multiplayer join lands
-  on `powerstation` with no errors, 4.3ms a frame at 1280x720 on the Intel Arc
-  machine, 28k triangles. Not checked: a real match, or the hum by ear.
+  measured, and nobody has listened to it yet.
+- Measured after the rebuild: 107 boxes, half-turn symmetry exact (every box
+  has its `(-x,-z)` twin), 62.5% of the floor clear for spawns, and the
+  drawn-vs-collision probe clean over the whole hall — **0** surfaces that
+  look standable and are not, **0** invisible collision bar the full-height
+  columns, whose tops are at the roof and have no drawn top face to see. Not
+  checked: a real multiplayer match, the frame cost, or the hum by ear.
 
 ## Agents
 
@@ -1144,7 +1177,7 @@ the load chain.
 purpose: player names and room codes (data, not copy), and the in-play kill
 feed and toasts, which are assembled from fragments at a dozen call sites.
 
-## The look (branch `jack/lighting`, not merged)
+## The look (merged to main 2026-11-13)
 
 Behind `SETTINGS.look` (LOOK: FLAT / LIT in the settings panel), so the two
 can be compared in one session rather than from memory, and `main` is

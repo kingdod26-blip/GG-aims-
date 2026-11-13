@@ -32,155 +32,265 @@
 
 const MAPS = {
 
-  /* The turbine hall of a power station, and the main arena. It is the old
-     Foundry rebuilt on its own skeleton: 120m across, open, long sightlines
-     down both axes, cover in a ring round a core that doubles as the
-     resupply pickup. What stood there as anonymous crates and walls is now
-     the plant: two turbine-generator units north and south, four
-     transformers round the core with a blast wall behind each pair,
-     switchgear in rows, the auxiliaries in two corners.
+  /* THE HALL. A two-unit station, drawn the way one is actually arranged:
+     a reactor in the middle of the building, a turbine-generator each side
+     of it, and everything else - condensers, feed pumps, switchgear, the
+     control room - where the plant it serves is.
 
-     Everything is symmetric under a half turn, (x, z) -> (-x, -z), so
-     neither end of the hall owns a better angle.
+     THE RULE THIS MAP IS BUILT ON: if it looks like a floor, it is one.
+     The hall this replaces had steel galleries drawn along both aisles at
+     5.7m with handrails on them, and no collision at all: 8,780 square
+     metres of walkway you could see, aim at, and fall straight through.
+     Nothing is drawn here that reads as standable and is not, and the only
+     geometry without collision is overhead - the crane, the roof trusses,
+     the cable trays - where nothing looks like a floor in the first place.
 
-     HOW A ROUND THING IS A BOX. Collision here is boxes that stand on the
-     floor, and a turbine casing is a cylinder. So a unit is FOUR boxes on
-     one footprint: the concrete pedestal, then three narrower, taller ones
-     inside it that step in the way the casing curves. Every box still
-     starts at the floor, which is all the server asks of one, and their
-     union follows the drawn cylinder to within about 0.2m. Those three
-     carry mat 'hidden': the lit arena draws the casing itself (the
-     `turbine` prop below) and must not also draw the staircase that stops
-     the bullets. The flat look, which has no props, draws the staircase.
+     THE TWO LEVELS a turbine hall has. The machines sit on a raised
+     OPERATING FLOOR; the GROUND FLOOR around it is where the condensers
+     are and where a casing is laid down to be overturned. So the decks are
+     3.2m of solid concrete, over climbing reach on purpose, and the stairs
+     are how you get up - which is also the only honest way to build a
+     mezzanine out of boxes that all stand on the floor.
 
-     `mat` names what a box IS, and the lit arena builds each kind its own
-     way: 'transformer' grows cooling fins and bushings from the box's own
-     size, 'switch' is a row of cabinets, 'plinth' and 'firewall' are
-     concrete, 'machine' is a painted steel enclosure. */
+     THE MIDDLE IS THE REACTOR. A drum on a bioshield deck, ribbed steel,
+     cable looms over the top of it, a handrail round the edge. The deck is
+     2.4m - one climb - and the resupply sits on it, in the walkway round
+     the vessel: the thing that powers the building is the thing that
+     supplies you, and it is the one piece of high ground everybody can see
+     everybody else from.
+
+     Everything is symmetric under a half turn, (x, z) -> (-x, -z).
+
+     HOW A ROUND THING IS A BOX. Collision is boxes standing on the floor,
+     and a vessel is a cylinder. So a drum is FIVE boxes, each with its
+     corners exactly on the circle, which puts their union wholly inside the
+     drawn surface and within 43mm of it all the way round. The obvious
+     answer - two crossed boxes, one wide, one deep - is wrong by 0.92m at
+     the arm corners, and that is an invisible wall standing in clear air
+     beside the tank. A turbine casing is the same trick on its side: four
+     steps at the widths the drum actually has at those heights, which the
+     prop is drawn to and agrees with to 0.09m.
+     All but the first box carry mat 'hidden': the prop draws the drum once,
+     and must not also draw the staircase that stops the bullets. */
   powerstation: {
     id: 'powerstation',
     name: 'POWER STATION',
-    blurb: 'Turbine hall. Two generator units, a transformer yard, long lines down both axes.',
+    blurb: 'Reactor hall. Two turbine floors, a shield deck in the middle, long aisles.',
     arena: 60,
-    /* A turbine hall is TALL. At 8m this was a warehouse with machines in it;
-       the height, the column rows and the galleries are what make it a hall. */
+    /* A turbine hall is TALL: the height, the column rows and the crane are
+       what stop it reading as a warehouse with machines in it. */
     wallH: 14,
     gain: 0.95,
-    /* High-bay panels on a grid, `reach` steps out from the centre in each
-       direction (2 -> a 5x5 grid at 24m spacing). They are the room's light:
-       lighting.js bakes from them. */
-    /* ONE row down the middle, each 10m wide and 20 long: a skylight the
-       length of the nave, in overcast daylight rather than lamp colour. The
-       aisles under the galleries fall away into shade, which is the point. */
-    lamps: { spacing: 24, reach: 2, reachX: 0, w: 10, d: 20, show: true,
+    /* Rooflights, in overcast daylight rather than lamp colour: this hall is
+       day-lit, which is why the steel reads cold and the shadows are soft.
+       FIVE BAYS ACROSS, not one. A single strip down the middle looked
+       wonderful over the machines and left both aisles, and the whole roof,
+       in the black - and the aisles are where half the fight happens. The
+       bays are narrow (7m on a 24m pitch) so the roof still reads as a roof
+       with glazing in it rather than a glass lid. lighting.js bakes from
+       these; nothing here is a real light. */
+    lamps: { spacing: 24, reach: 2, reachX: 2, w: 7, d: 18, show: true,
              rgb: [0.80, 0.90, 1.00], refl: [2.4, 2.8, 3.3] },
-    /* The resupply ring. The box it sits on is the first entry in `boxes`;
-       the server's RESUPPLY tests from here too. */
-    resupply: { x: 0, z: 0 },
+    /* On the shield deck, in the walkway round the vessel. `y` lifts the
+       marker ring onto the deck; the server's 5m test is 2D, so the ring is
+       exactly the ground you can take it from. */
+    resupply: { x: 0, z: 0, y: 2.4 },
     boxes: [
-      { x:   0, z:   0, w:   6, d:   6, h: 3,   mat: 'pillar' },        // the control core / resupply
 
-      { x:   0, z: -25, w:  18, d:   5, h: 1.0, mat: 'plinth' },        // UNIT 1: pedestal...
-      { x:   0, z: -25, w:  15, d: 3.4, h: 3.0, mat: 'hidden' },        // ...and the casing, in three steps
-      { x:   0, z: -25, w:  15, d: 2.6, h: 3.6, mat: 'hidden' },
-      { x:   0, z: -25, w:  15, d: 1.6, h: 4.0, mat: 'hidden' },
-      { x:   0, z:  25, w:  18, d:   5, h: 1.0, mat: 'plinth' },        // UNIT 2
-      { x:   0, z:  25, w:  15, d: 3.4, h: 3.0, mat: 'hidden' },
-      { x:   0, z:  25, w:  15, d: 2.6, h: 3.6, mat: 'hidden' },
-      { x:   0, z:  25, w:  15, d: 1.6, h: 4.0, mat: 'hidden' },
+      // the bioshield deck: a chamfered square,
+      { x:      0, z:      0, w:    22, d:    16, h:  2.4, mat: 'bioshield'    },
 
-      { x: -18, z: -12, w:   4, d:   4, h: 2.5, mat: 'transformer' },   // the transformer yard: climbable,
-      { x:  18, z: -12, w:   4, d:   4, h: 2.5, mat: 'transformer' },   // as the crates here always were
-      { x: -18, z:  12, w:   4, d:   4, h: 2.5, mat: 'transformer' },
-      { x:  18, z:  12, w:   4, d:   4, h: 2.5, mat: 'transformer' },
-      { x: -30, z:   0, w:   2, d:  12, h: 4,   mat: 'firewall' },      // blast walls, east and west
-      { x:  30, z:   0, w:   2, d:  12, h: 4,   mat: 'firewall' },
+      // two crossed boxes, climbable from any side
+      { x:      0, z:      0, w:    16, d:    22, h:  2.4, mat: 'bioshield'    },
 
-      { x:  12, z:   8, w: 2.5, d: 2.5, h: 1.5, mat: 'machine' },       // low steel enclosures by the core: shoot over these
-      { x: -12, z:  -8, w: 2.5, d: 2.5, h: 1.5, mat: 'machine' },
+      // the reactor vessel, as boxes; the prop draws the drum
+      { x:      0, z:      0, w: 6.124, d:  0.97, h:  7.0, mat: 'hidden'      , r: 3.1 },
+      { x:      0, z:      0, w: 5.524, d: 2.815, h:  7.0, mat: 'hidden'       },
+      { x:      0, z:      0, w: 4.384, d: 4.384, h:  7.0, mat: 'hidden'       },
+      { x:      0, z:      0, w: 2.815, d: 5.524, h:  7.0, mat: 'hidden'       },
+      { x:      0, z:      0, w:  0.97, d: 6.124, h:  7.0, mat: 'hidden'       },
 
-      { x: -34, z: -30, w:   5, d:   5, h: 3,   mat: 'pillar' },        // auxiliary housings, two corners
-      { x:  34, z:  30, w:   5, d:   5, h: 3,   mat: 'pillar' },
-      { x:  36, z: -36, w:  10, d: 1.4, h: 2.2, mat: 'switch' },        // switchgear: head-high, and a ledge
-      { x: -36, z:  36, w:  10, d: 1.4, h: 2.2, mat: 'switch' },
-      { x: -44, z:   0, w: 1.4, d:  10, h: 2.2, mat: 'switch' },
-      { x:  44, z:   0, w: 1.4, d:  10, h: 2.2, mat: 'switch' },
+      // steps up to the shield deck, east and west
+      { x:  -11.6, z:      0, w:   1.2, d:     6, h:  1.6, mat: 'step'         },
+      { x:   11.6, z:      0, w:   1.2, d:     6, h:  1.6, mat: 'step'         },
+      { x:  -12.8, z:      0, w:   1.2, d:     6, h:  0.8, mat: 'step'         },
+      { x:   12.8, z:      0, w:   1.2, d:     6, h:  0.8, mat: 'step'         },
 
-      { x: -14, z: -33, w:   3, d:   2, h: 1.2, mat: 'machine' },       // pump enclosures by each unit: waist-high
-      { x:  14, z:  33, w:   3, d:   2, h: 1.2, mat: 'machine' },
+      // THE OPERATING FLOOR: the deck the machine stands on
+      { x:      0, z:    -33, w:    26, d:    28, h:  3.2, mat: 'deck'         },
 
-      /* The structure: two rows of steel columns, floor to roof, that split
-         the hall into a nave and two side aisles. Real cover, every 12.5m. */
-      { x: -24, z: -50, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: -24, z: -37.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: -24, z: -25, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: -24, z: -12.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: -24, z: 0, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: -24, z: 12.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: -24, z: 25, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: -24, z: 37.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: -24, z: 50, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: 24, z: -50, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: 24, z: -37.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: 24, z: -25, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: 24, z: -12.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: 24, z: 0, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: 24, z: 12.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: 24, z: 25, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: 24, z: 37.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
-      { x: 24, z: 50, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      // the turbine-generator pedestal
+      { x:      0, z:    -33, w:   7.5, d:    24, h:  4.2, mat: 'plinth'       },
+
+      // and the casing, in four steps that follow the drum
+      { x:      0, z:    -33, w:   4.4, d:    20, h:  5.6, mat: 'hidden'       },
+      { x:      0, z:    -33, w:   4.0, d:    20, h:  6.3, mat: 'hidden'       },
+      { x:      0, z:    -33, w:   3.4, d:    20, h:  7.0, mat: 'hidden'       },
+      { x:      0, z:    -33, w:   1.9, d:    20, h:  7.6, mat: 'hidden'       },
+      { x:      0, z:     33, w:    26, d:    28, h:  3.2, mat: 'deck'         },
+      { x:      0, z:     33, w:   7.5, d:    24, h:  4.2, mat: 'plinth'       },
+      { x:      0, z:     33, w:   4.4, d:    20, h:  5.6, mat: 'hidden'       },
+      { x:      0, z:     33, w:   4.0, d:    20, h:  6.3, mat: 'hidden'       },
+      { x:      0, z:     33, w:   3.4, d:    20, h:  7.0, mat: 'hidden'       },
+      { x:      0, z:     33, w:   1.9, d:    20, h:  7.6, mat: 'hidden'       },
+
+      // stairs to the operating floor
+      { x:  -13.6, z:    -33, w:   1.2, d:     6, h:  2.4, mat: 'step'         },
+      { x: -14.799999999999999, z:    -33, w:   1.2, d:     6, h:  1.6, mat: 'step'         },
+      { x:  -16.0, z:    -33, w:   1.2, d:     6, h:  0.8, mat: 'step'         },
+      { x:   13.6, z:    -33, w:   1.2, d:     6, h:  2.4, mat: 'step'         },
+      { x: 14.799999999999999, z:    -33, w:   1.2, d:     6, h:  1.6, mat: 'step'         },
+      { x:   16.0, z:    -33, w:   1.2, d:     6, h:  0.8, mat: 'step'         },
+      { x:  -13.6, z:     33, w:   1.2, d:     6, h:  2.4, mat: 'step'         },
+      { x: -14.799999999999999, z:     33, w:   1.2, d:     6, h:  1.6, mat: 'step'         },
+      { x:  -16.0, z:     33, w:   1.2, d:     6, h:  0.8, mat: 'step'         },
+      { x:   13.6, z:     33, w:   1.2, d:     6, h:  2.4, mat: 'step'         },
+      { x: 14.799999999999999, z:     33, w:   1.2, d:     6, h:  1.6, mat: 'step'         },
+      { x:   16.0, z:     33, w:   1.2, d:     6, h:  0.8, mat: 'step'         },
+
+      // the column rows: floor to roof, every 12.5m
+      { x:    -26, z:  -50.0, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:     26, z:  -50.0, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:    -26, z:  -37.5, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:     26, z:  -37.5, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:    -26, z:  -25.0, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:     26, z:  -25.0, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:    -26, z:  -12.5, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:     26, z:  -12.5, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:    -26, z:    0.0, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:     26, z:    0.0, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:    -26, z:   12.5, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:     26, z:   12.5, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:    -26, z:   25.0, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:     26, z:   25.0, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:    -26, z:   37.5, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:     26, z:   37.5, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:    -26, z:   50.0, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+      { x:     26, z:   50.0, w:   1.2, d:   1.2, h:   14, mat: 'column'       },
+
+      // condensers, under the low-pressure end
+      { x:  -20.5, z:    -33, w:     6, d:    14, h:  2.6, mat: 'machine'      },
+      { x:   20.5, z:     33, w:     6, d:    14, h:  2.6, mat: 'machine'      },
+      { x:   20.5, z:    -33, w:     6, d:    14, h:  2.6, mat: 'machine'      },
+      { x:  -20.5, z:     33, w:     6, d:    14, h:  2.6, mat: 'machine'      },
+
+      // feed pumps: waist high, shoot over them
+      { x:    -21, z:    -14, w:   3.4, d:     3, h:  1.2, mat: 'machine'      },
+      { x:     21, z:     14, w:   3.4, d:     3, h:  1.2, mat: 'machine'      },
+      { x:     21, z:    -14, w:   3.4, d:     3, h:  1.2, mat: 'machine'      },
+      { x:    -21, z:     14, w:   3.4, d:     3, h:  1.2, mat: 'machine'      },
+
+      // control room west, electrical annexe east
+      { x:    -42, z:      0, w:    16, d:    12, h:  3.6, mat: 'control'      },
+      { x:     42, z:      0, w:    16, d:    12, h:  3.6, mat: 'control'      },
+
+      // and the stair up to it
+      { x:    -42, z:   -6.6, w:     6, d:   1.2, h:  2.4, mat: 'step'         },
+      { x:     42, z:    6.6, w:     6, d:   1.2, h:  2.4, mat: 'step'         },
+      { x:    -42, z:   -7.8, w:     6, d:   1.2, h:  1.2, mat: 'step'         },
+      { x:     42, z:    7.8, w:     6, d:   1.2, h:  1.2, mat: 'step'         },
+
+      // switchgear, in runs along the far walls
+      { x:    -56, z:    -26, w:   1.6, d:    16, h:  2.2, mat: 'switch'       },
+      { x:     56, z:     26, w:   1.6, d:    16, h:  2.2, mat: 'switch'       },
+      { x:    -56, z:     26, w:   1.6, d:    16, h:  2.2, mat: 'switch'       },
+      { x:     56, z:    -26, w:   1.6, d:    16, h:  2.2, mat: 'switch'       },
+
+      // feedwater tanks
+      { x:    -44, z:    -18, w: 6.914, d: 1.095, h:  6.5, mat: 'tank'        , r: 3.5 },
+      { x:     44, z:     18, w: 6.914, d: 1.095, h:  6.5, mat: 'tank'        , r: 3.5 },
+      { x:    -44, z:    -18, w: 6.237, d: 3.178, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:     18, w: 6.237, d: 3.178, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:    -18, w:  4.95, d:  4.95, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:     18, w:  4.95, d:  4.95, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:    -18, w: 3.178, d: 6.237, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:     18, w: 3.178, d: 6.237, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:    -18, w: 1.095, d: 6.914, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:     18, w: 1.095, d: 6.914, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:    -18, w: 6.914, d: 1.095, h:  6.5, mat: 'tank'        , r: 3.5 },
+      { x:    -44, z:     18, w: 6.914, d: 1.095, h:  6.5, mat: 'tank'        , r: 3.5 },
+      { x:     44, z:    -18, w: 6.237, d: 3.178, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:     18, w: 6.237, d: 3.178, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:    -18, w:  4.95, d:  4.95, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:     18, w:  4.95, d:  4.95, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:    -18, w: 3.178, d: 6.237, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:     18, w: 3.178, d: 6.237, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:    -18, w: 1.095, d: 6.914, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:     18, w: 1.095, d: 6.914, h:  6.5, mat: 'hidden'       },
+
+      // stair towers: the corners are the high ground
+      { x:    -52, z:    -52, w:    10, d:    10, h:  4.4, mat: 'tower'        },
+      { x:     52, z:     52, w:    10, d:    10, h:  4.4, mat: 'tower'        },
+      { x:     52, z:    -52, w:    10, d:    10, h:  4.4, mat: 'tower'        },
+      { x:    -52, z:     52, w:    10, d:    10, h:  4.4, mat: 'tower'        },
+
+      // with a landing you can climb onto
+      { x:    -52, z:  -45.5, w:    10, d:     3, h:  2.2, mat: 'step'         },
+      { x:     52, z:   45.5, w:    10, d:     3, h:  2.2, mat: 'step'         },
+      { x:     52, z:  -45.5, w:    10, d:     3, h:  2.2, mat: 'step'         },
+      { x:    -52, z:   45.5, w:    10, d:     3, h:  2.2, mat: 'step'         },
+
+      // the step-up transformers, in their own bay...
+      { x:    -14, z:    -54, w:   5.5, d:   4.5, h:  2.8, mat: 'transformer'  },
+      { x:     14, z:     54, w:   5.5, d:   4.5, h:  2.8, mat: 'transformer'  },
+      { x:     14, z:    -54, w:   5.5, d:   4.5, h:  2.8, mat: 'transformer'  },
+      { x:    -14, z:     54, w:   5.5, d:   4.5, h:  2.8, mat: 'transformer'  },
+
+      // ...behind a blast wall, as they are in a real plant
+      { x:    -14, z:    -50, w:     8, d:   1.2, h:    5, mat: 'firewall'     },
+      { x:     14, z:     50, w:     8, d:   1.2, h:    5, mat: 'firewall'     },
+      { x:     14, z:    -50, w:     8, d:   1.2, h:    5, mat: 'firewall'     },
+      { x:    -14, z:     50, w:     8, d:   1.2, h:    5, mat: 'firewall'     },
     ],
-    /* What the lit arena draws that is NOT one box: the turbine casings that
-       the 'hidden' steps above stand in for, and everything overhead. None
-       of it is collision. A casing is drawn where its steps are, so it stops
-       a bullet; the crane, the ducts and the trays hang at 4.6m and up, out
-       of reach of anything but a stray round, like the roof girders.
-       `dir` is which way a unit's generator end points along x. */
+    /* What the lit arena draws that is not one box: the reactor drum the
+       crossed boxes stand in for, the turbine casings, and everything
+       overhead. The drum and the casings are drawn where their boxes are,
+       so they stop a bullet. The crane and the roof steel are at 9m and up,
+       out of reach of anything but a stray round - and, unlike the galleries
+       this hall used to have, nothing up there is shaped like a floor. */
     props: [
-      { kind: 'turbine', x: 0, z: -25, dir:  1, unit: 1 },
-      { kind: 'turbine', x: 0, z:  25, dir: -1, unit: 2 },
-      { kind: 'crane',   z: -8 },
-      { kind: 'truss',   span: 24 },
-      { kind: 'gallery', x: -24 }, { kind: 'gallery', x: 24 },
-      { kind: 'tray',    x: -18 }, { kind: 'tray', x: 18 },
+      { kind: 'reactor', x: 0, z: 0, deck: 2.4 },
+      { kind: 'turbine', x: 0, z: -33, axis: 'z', dir:  1, unit: 1 },
+      { kind: 'turbine', x: 0, z:  33, axis: 'z', dir: -1, unit: 2 },
+      { kind: 'crane',   z: -33 }, { kind: 'crane', z: 33 },
+      { kind: 'truss',   span: 26 },
+      { kind: 'tray',    x: -30 }, { kind: 'tray', x: 30 },
     ],
     /* Paint on the floor, in metres. `walk` is a green pedestrian aisle,
-       `trench` a run of steel cable-trench covers, `hatch` a yellow keep-out
-       border round live plant, `text` a stencil. The aisles are routed
-       through open floor; nothing here is cover. */
+       `hatch` a yellow keep-out border round live plant, `text` a stencil.
+       The aisles run where the floor is open; none of this is cover. */
     paint: [
-      { k: 'trench', x0:   0, z0: -22.5, x1:   0, z1:  -3,   w: 1.4 },
-      { k: 'trench', x0:   0, z0:   3,   x1:   0, z1:  22.5, w: 1.4 },
-      { k: 'trench', x0: -29, z0:   0,   x1:  -3, z1:   0,   w: 1.4 },
-      { k: 'trench', x0:   3, z0:   0,   x1:  29, z1:   0,   w: 1.4 },
-      { k: 'walk',   x0: -26, z0: -56,   x1: -26, z1:  56,   w: 2.2 },
-      { k: 'walk',   x0:  26, z0: -56,   x1:  26, z1:  56,   w: 2.2 },
-      { k: 'walk',   x0: -56, z0: -17,   x1:  56, z1: -17,   w: 2.2 },
-      { k: 'walk',   x0: -56, z0:  17,   x1:  56, z1:  17,   w: 2.2 },
-      { k: 'hatch',  x: -18, z: -12, w: 6.6, d: 6.6 }, { k: 'hatch', x: 18, z: -12, w: 6.6, d: 6.6 },
-      { k: 'hatch',  x: -18, z:  12, w: 6.6, d: 6.6 }, { k: 'hatch', x: 18, z:  12, w: 6.6, d: 6.6 },
-      { k: 'hatch',  x:   0, z: -25, w: 20.6, d: 7.6 }, { k: 'hatch', x:  0, z: 25, w: 20.6, d: 7.6 },
-      { k: 'text',   x:   0, z: -19.6, s: 2.4, t: 'UNIT 1' },
-      { k: 'text',   x:   0, z:  19.6, s: 2.4, t: 'UNIT 2' },
-      { k: 'text',   x: -18, z: -16.6, s: 1.2, t: 'TX-1' }, { k: 'text', x: 18, z: -16.6, s: 1.2, t: 'TX-2' },
-      { k: 'text',   x: -18, z:  16.6, s: 1.2, t: 'TX-3' }, { k: 'text', x: 18, z:  16.6, s: 1.2, t: 'TX-4' },
+      { k: 'walk',  x0: -33, z0: -56, x1: -33, z1:  56, w: 2.2 },
+      { k: 'walk',  x0:  33, z0: -56, x1:  33, z1:  56, w: 2.2 },
+      { k: 'walk',  x0: -56, z0: -11, x1:  56, z1: -11, w: 2.2 },
+      { k: 'walk',  x0: -56, z0:  11, x1:  56, z1:  11, w: 2.2 },
+      { k: 'hatch', x: 0, z: 0, w: 24.6, d: 18.6 },
+      { k: 'hatch', x: 0, z: -33, w: 28.6, d: 30.6 },
+      { k: 'hatch', x: 0, z:  33, w: 28.6, d: 30.6 },
+      { k: 'hatch', x: -14, z: -54, w: 8.1, d: 7.1 }, { k: 'hatch', x: 14, z: -54, w: 8.1, d: 7.1 },
+      { k: 'hatch', x: -14, z:  54, w: 8.1, d: 7.1 }, { k: 'hatch', x: 14, z:  54, w: 8.1, d: 7.1 },
+      { k: 'text',  x: 0, z: -15.5, s: 2.6, t: 'REACTOR' },
+      { k: 'text',  x: 0, z:  15.5, s: 2.6, t: 'REACTOR' },
+      { k: 'text',  x: 0, z: -50.5, s: 2.4, t: 'UNIT 1' },
+      { k: 'text',  x: 0, z:  50.5, s: 2.4, t: 'UNIT 2' },
+      { k: 'text',  x: -36, z: -18, s: 1.2, t: 'FW-1' }, { k: 'text', x: 36, z: -18, s: 1.2, t: 'FW-2' },
+      { k: 'text',  x: -36, z:  18, s: 1.2, t: 'FW-3' }, { k: 'text', x: 36, z:  18, s: 1.2, t: 'FW-4' },
     ],
     /* Wall signage. `kind` picks the artwork (SIGN_ART in world.js owns the
        drawing and the panel size); `ry` is degrees, so the data stays free of
-       Math.PI. ±58.9 is just inside the wall at ±59. The two big boards hang
-       on the END walls: the crane's runway beams run down the long ones at
-       5.5m and would cut straight across anything hung there. */
+       Math.PI. The big boards hang on the END walls: the crane's runway beams
+       run down the long ones and would cut across anything hung there. */
     signs: [
       { kind: 'window',  x:     0, y: 9.6,  z: -58.92, ry:   0 },
       { kind: 'window',  x:     0, y: 9.6,  z:  58.92, ry: 180 },
       { kind: 'unit1',   x:     0, y: 4.2,  z: -58.9, ry:   0 },
       { kind: 'unit2',   x:     0, y: 4.2,  z:  58.9, ry: 180 },
-      { kind: 'control', x:   -29, y: 5.0,  z: -58.9, ry:   0 },
-      { kind: 'mimic',   x:   -28, y: 4.9,  z:  58.9, ry: 180 },
-      { kind: 'hv',      x: -58.9, y: 2.12, z:   -30, ry:  90 },
-      { kind: 'hv',      x: -58.9, y: 2.12, z:    30, ry:  90 },
-      { kind: 'hv',      x:  58.9, y: 2.12, z:   -30, ry: -90 },
-      { kind: 'hv',      x:  58.9, y: 2.12, z:    30, ry: -90 },
+      { kind: 'control', x:   -34, y: 5.0,  z: -58.9, ry:   0 },
+      { kind: 'mimic',   x:    34, y: 4.9,  z:  58.9, ry: 180 },
+      { kind: 'hv',      x: -58.9, y: 2.12, z:   -38, ry:  90 },
+      { kind: 'hv',      x: -58.9, y: 2.12, z:    38, ry:  90 },
+      { kind: 'hv',      x:  58.9, y: 2.12, z:   -38, ry: -90 },
+      { kind: 'hv',      x:  58.9, y: 2.12, z:    38, ry: -90 },
     ],
   },
 

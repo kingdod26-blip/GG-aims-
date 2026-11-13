@@ -216,7 +216,10 @@ function buildArena(map){
   resupplyRing = new THREE.Mesh(new THREE.RingGeometry(4.5, 5.0, 48),
     new THREE.MeshBasicMaterial({ color:0x27ff9e, transparent:true, opacity:0.35,
       side:THREE.DoubleSide, depthWrite:false }));
-  resupplyRing.rotation.x = -Math.PI/2; resupplyRing.position.set(rs.x, 0.03, rs.z);
+  /* `y` lifts the ring onto a deck. The power station's resupply is the
+     walkway round the reactor, 2.4m up, and a ring drawn on the floor there
+     would be inside the shield. The server's test is 2D and unchanged. */
+  resupplyRing.rotation.x = -Math.PI/2; resupplyRing.position.set(rs.x, (rs.y || 0) + 0.03, rs.z);
   resupplyRing.userData.ownMaterial = true;
   scene.add(resupplyRing); arenaParts.push(resupplyRing);
 

@@ -42,7 +42,7 @@
    These files are CLASSIC scripts sharing ONE global scope.
    ============================================================= */
 
-const LIT_NBOX = 56;       // cover plus the four perimeter walls: the shader's loops are this long
+const LIT_NBOX = 44;       // cover plus the four perimeter walls: the shader's loops are this long
 const LIT_DIR_OPEN  = '#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )';
 const LIT_RECT_OPEN = '#if ( NUM_RECT_AREA_LIGHTS > 0 )';
 /* The patch below rewrites one of Three's own shader chunks by finding two
@@ -460,6 +460,12 @@ function litBox(g, x0, y0, z0, x1, y1, z1, o){
     const xo = ex > 0 ? x1 : x0, xi = ex > 0 ? x1 - b : x0 + b, zo = ez > 0 ? z1 : z0, zi = ez > 0 ? z1 - b : z0 + b;
     litTri(g, [xo, yt, zi], [ex, 0, 0], [xi, y1, zi], Y, [xi, yt, zo], [0, 0, ez], 0, vt);
   }
+}
+/* A vertical pipe at a point on a machine's own along/across frame. Only
+   the turbine wants it, and only for the steam lines. */
+function CYL2(G, az, p, s, a, y0, c, y1, r){
+  const x = az ? (p.x + c) : (p.x + a * s), z = az ? (p.z + a * s) : (p.z + c);
+  litCyl(G('bus'), x, y0, z, x, y1, z, r, r, 12, 2, false, false);
 }
 /* A cylinder from point A to point B, with a radius at each end so it can
    taper. The casing of a turbine, a bushing, a pipe. `capA` / `capB` close
@@ -1179,11 +1185,27 @@ function litMaterial(name){
     case 'yellow': m = litPatch(new THREE.MeshStandardMaterial({ color: 0x584610, roughness: 0.58, metalness: 0.10 }), 'cover', 0.45); m.defines.CX_ROUND = ''; break;
     case 'porcelain': m = litPatch(new THREE.MeshStandardMaterial({ color: 0x33170e, roughness: 0.20, metalness: 0 }), 'cover', 1.20); m.defines.CX_ROUND = ''; break;
     case 'bus':    m = litPatch(new THREE.MeshStandardMaterial({ color: 0x70767e, roughness: 0.38, metalness: 0.85 }), 'cover', 1.00); m.defines.CX_ROUND = ''; break;
+    /* The reactor: BRUSHED stainless, not polished. Polished (roughness
+       0.17, env at 1.35) made a mirror of a six-metre drum standing under
+       a rooflight, and the whole vessel came back as a white silhouette
+       with the shape burnt out of it — the same failure the armour had on
+       the menu. Rougher, darker and reflecting less, it reads as the heavy
+       steel it is and the ribs come back. */
+    case 'vessel': m = litPatch(new THREE.MeshStandardMaterial({ color: 0x79828c, roughness: 0.34, metalness: 0.88 }), 'cover', 0.55); m.defines.CX_ROUND = ''; break;
+    /* The cable looms over it. Insulation, so matte and not metal at all —
+       and the only saturated colour in the room, which is why the eye goes
+       to the middle of the hall. */
+    case 'loomg': m = litPatch(new THREE.MeshStandardMaterial({ color: 0x1d6e2e, roughness: 0.62, metalness: 0 }), 'cover', 0.25); m.defines.CX_ROUND = ''; break;
+    case 'loomr': m = litPatch(new THREE.MeshStandardMaterial({ color: 0x7a1722, roughness: 0.62, metalness: 0 }), 'cover', 0.25); m.defines.CX_ROUND = ''; break;
+    /* Control room glazing: dark, smooth and quite reflective, so it reads
+       as glass by what it mirrors rather than by anything behind it. */
+    case 'glass':  m = litPatch(new THREE.MeshStandardMaterial({ color: 0x0d151c, roughness: 0.08, metalness: 0.42 }), 'cover', 1.60); break;
     default:       m = litPatch(new THREE.MeshStandardMaterial({ color: 0x8a8f99, roughness: 0.9 }), 'cover', 0.3);
   }
   return (LIT_MATS[name] = m);
 }
 const LIT_TILE = { crate: 2.5, block: 4, pillar: 3, machine: 3 };
+let LIT_H = 14;                   // the roof of the map being built, for LIT_DRAW
 
 /* ---------------------------------------------------------------------
    4b. THE PLANT — what a box becomes when it is a piece of a power station
@@ -1259,13 +1281,72 @@ const LIT_DRAW = {
     litBox(G('switch'), x0, 0, z0, x1, b.h, z1, { bevel: 0.03, seg: LIT.coverSeg, tile: 2.4, tileV: 2.2 });
   },
   transformer: litTransformer,
-  /* A column: riveted steel on a concrete foot, the full height of the hall. */
+  /* The operating floor, the shield deck, the stair treads and the towers
+     are all the same thing: a slab of concrete with a yellow nosing round
+     the top edge, at different sizes. `plinth` already draws exactly that,
+     so they share it rather than each growing a near-copy. */
+  deck: null, step: null, tower: null,          // filled in below from plinth
+  /* The bioshield gets a hazard band at the foot as well: it is the one
+     piece of concrete in the hall with something live inside it. */
+  bioshield(G, b, x0, z0, x1, z1){
+    const n = 0.14;
+    litBox(G('hazard'),   x0, 0, z0, x1, 0.45, z1, { seg: 3, tile: 0.8 });
+    litBox(G('concrete'), x0, 0.45, z0, x1, b.h - n, z1, { seg: LIT.coverSeg, tile: 120, tileV: 8, noTop: true });
+    litBox(G('yellow'),   x0, b.h - n, z0, x1, b.h, z1, { seg: 3, noTop: true });
+    litBox(G('concrete'), x0, 0, z0, x1, b.h, z1, { seg: LIT.coverSeg, tile: 120, tileV: 8, noSides: true });
+  },
+  /* A feedwater tank: a drum on a skirt, with a FLAT top.
+     It had a dished top, and a dome is a lie of the other kind: collision
+     is a box of one height, so the whole drum stopped you at 6.5m while the
+     dome had already sloped away to 5.4 — an invisible wall a metre deep,
+     all round the top. The roof is now a 0.18m taper, inside the tolerance,
+     and the surface you can see at the top of the tank is the surface you
+     stand on. The vent carries on to the roof for the same reason: a pipe
+     that stops in mid-air at 7.6m reads as a ledge, and a pipe that runs
+     into the roof reads as a pipe. */
+  tank(G, b, x0, z0, x1, z1){
+    /* `r` from the map, not w/2: the box this draws from is the widest of
+       the five that make the drum's collision, and its own half-width is a
+       touch under the radius. */
+    const R = b.r || b.w / 2, x = b.x, z = b.z, sk = 0.55, body = b.h - 0.18;
+    litCyl(G('steel'),    x, 0, z, x, sk, z, R * 0.88, R * 0.88, 16, 1.5, false, false);     // skirt
+    litCyl(G('machineR'), x, sk, z, x, body, z, R, R, 16, 2.4, true, false);                 // the drum
+    litCyl(G('machineR'), x, body, z, x, b.h, z, R, R * 0.93, 16, 2.4, false, true);         // and its roof, near enough flat
+    for (const y of [sk + 0.08, b.h * 0.42, body - 0.26]) litCyl(G('steel'), x, y, z, x, y + 0.16, z, R + 0.05, R + 0.05, 16, 1, false, false);
+    litCyl(G('bus'), x, b.h, z, x, LIT_H, z, 0.22, 0.22, 10, 2, false, false);               // the vent, all the way to the roof
+  },
+  /* The control room and, facing it across the hall, the electrical annexe:
+     a concrete base, a band of glazing at standing height so there is a
+     lit face looking into the hall, and a parapet. The parapet's top IS
+     the box's top, so the roof you can see is the roof you stand on. */
+  control(G, b, x0, z0, x1, z1){
+    const g0 = 1.15, g1 = 2.95, i = 0.09;
+    litBox(G('concrete'), x0, 0, z0, x1, g0, z1, { seg: LIT.coverSeg, tile: 120, tileV: 8, noTop: true });
+    litBox(G('glass'),    x0 + i, g0, z0 + i, x1 - i, g1, z1 - i, { seg: 2, noTop: true });
+    for (let x = x0 + 2; x < x1 - 0.5; x += 2)                                  // mullions
+      litBox(G('steel'), x - 0.07, g0, z0 - 0.02, x + 0.07, g1, z1 + 0.02, { seg: 3, noTop: true });
+    for (let z = z0 + 2; z < z1 - 0.5; z += 2)
+      litBox(G('steel'), x0 - 0.02, g0, z - 0.07, x1 + 0.02, g1, z + 0.07, { seg: 3, noTop: true });
+    litBox(G('concrete'), x0, g1, z0, x1, b.h, z1, { bevel: LIT.bevel, seg: LIT.coverSeg, tile: 120, tileV: 8 });
+  },
+  /* A column: riveted steel on a concrete foot, the full height of the hall.
+     The steel used to be drawn 0.1m inside its box on every side, which left
+     a shell of collision standing round thin air — only 100mm of it, but a
+     column is something you hug, so it is the 100mm you feel. It fills the
+     box now, and the bevel does the softening the inset was there for. */
   column(G, b, x0, z0, x1, z1){
     litBox(G('concrete'), x0, 0, z0, x1, 0.5, z1, { seg: 2, tile: 120, tileV: 8 });
-    litBox(G('girder'), x0 + 0.1, 0.5, z0 + 0.1, x1 - 0.1, b.h, z1 - 0.1, { bevel: 0.03, seg: 1.5, tile: 2, noTop: true });
+    litBox(G('girder'), x0, 0.5, z0, x1, b.h, z1, { bevel: 0.05, seg: 1.5, tile: 2, noTop: true });
   },
 };
-/* What a map's `props` become. None of it is collision. */
+LIT_DRAW.deck = LIT_DRAW.step = LIT_DRAW.tower = LIT_DRAW.plinth;
+
+/* What a map's `props` become. None of it is collision — so nothing in here
+   may be shaped like a floor. The hall used to have `gallery`, a steel deck
+   with handrails drawn along each aisle at 5.7m, and it was the one thing in
+   the room that looked walkable and was not. It is gone rather than fixed:
+   a walkway you can stand on has to be a box standing on the floor, which is
+   a solid mezzanine, and that is what the operating decks are. */
 const LIT_PROP = {
   /* A turbine-generator set, lying along x with its generator toward `dir`.
      It is drawn to the map's three 'hidden' steps, and the first cut of it
@@ -1280,37 +1361,58 @@ const LIT_PROP = {
      agree with it to within 0.15m, measured — and the generator is drawn AS
      the three steps, a stepped enclosure, so there it is exact. The split
      between the halves is the bolted flange a turbine has anyway. */
+  /* A turbine-generator set, standing on its pedestal on the operating
+     floor. `axis: 'z'` lays it down the hall rather than across it, which
+     is how units are actually arranged — in a row, with the crane running
+     parallel to them — and all a turn costs is swapping which coordinate
+     is "along the machine". Everything below is written in that frame:
+     `a` runs along the set toward `dir`, `c` across it.
+
+     IT IS DRAWN TO THE MAP'S FOUR 'hidden' STEPS. The casing is a cylinder
+     of radius 2.2 about an axis at 5.6m, and the steps are the widths that
+     cylinder actually has at their heights: 2.2, 2.0, 1.7, 0.95. Measured,
+     the drawn surface and the boxes agree to within 0.09m anywhere you can
+     put a crosshair — bar the crown, where 0.2m of casing sits above the
+     top step, because a box cannot be round. The generator end is drawn AS
+     those steps, so there it is exact. */
   turbine(G, p, D, H){
-    const s = p.dir || 1, y = 2.3, z = p.z, R = 1.7, X = (v) => p.x + v * s;
-    const lo = (a, b) => Math.min(X(a), X(b)), hi = (a, b) => Math.max(X(a), X(b));
-    const sec = (name, a, b, r, capA, capB) => litCyl(G(name), X(a), y, z, X(b), y, z, r, r, 24, 3, capA, capB);
-    litBox(G('machine'), lo(-7.5, 2.5), 1.0, z - R, hi(-7.5, 2.5), y, z + R, { bevel: 0.03, seg: LIT.coverSeg, tile: 3, noTop: true });   // lower casing
-    sec('machineR', -7.5, 2.5, R, true, false);                        // the upper halves: low, intermediate, high pressure
-    for (const fx of [-7.42, -4.9, -2.5, -0.1, 2.34]) sec('steel', fx - 0.08, fx + 0.08, R + 0.07, true, true);     // the flanges between them
-    for (const o of [-1, 1]){                                          // and the joint down each side
-      const zf = z + o * R;
-      litBox(G('steel'), lo(-7.5, 2.5), y - 0.07, Math.min(zf, zf + o * 0.07), hi(-7.5, 2.5), y + 0.07, Math.max(zf, zf + o * 0.07), { seg: 3, bottom: true });
+    const az = p.axis === 'z', s = p.dir || 1, R = 2.2, yAx = 5.6, ped = 4.2;
+    const A = (v) => (az ? p.z : p.x) + v * s, C = (v) => (az ? p.x : p.z) + v;
+    const BOX = (name, a0, y0, c0, a1, y1, c1, o) => {
+      const p0 = Math.min(A(a0), A(a1)), p1 = Math.max(A(a0), A(a1));
+      const q0 = Math.min(C(c0), C(c1)), q1 = Math.max(C(c0), C(c1));
+      az ? litBox(G(name), q0, y0, p0, q1, y1, p1, o) : litBox(G(name), p0, y0, q0, p1, y1, q1, o);
+    };
+    const CYL = (name, a0, y0, a1, y1, r0, r1, sides, tile, capA, capB) =>
+      az ? litCyl(G(name), C(0), y0, A(a0), C(0), y1, A(a1), r0, r1, sides, tile, capA, capB)
+         : litCyl(G(name), A(a0), y0, C(0), A(a1), y1, C(0), r0, r1, sides, tile, capA, capB);
+    /* The casing: square-sided below the joint, a half-drum above it. The
+       split is the bolted flange a real casing has there anyway. */
+    BOX('machine', -10, ped, -R, 1.5, yAx, R, { bevel: 0.03, seg: LIT.coverSeg, tile: 3, noTop: true });
+    CYL('machineR', -10, yAx, 1.5, yAx, R, R, 24, 3, true, false);
+    for (const f of [-9.9, -6.6, -3.4, -0.2, 1.4])                       // the flanges between the cylinders
+      CYL('steel', f - 0.09, yAx, f + 0.09, yAx, R + 0.08, R + 0.08, 24, 1, true, true);
+    for (const o of [-1, 1])                                             // and the joint down each side
+      BOX('steel', -10, yAx - 0.08, o * R, 1.5, yAx + 0.08, o * (R + 0.08), { seg: 3, bottom: true });
+    /* The generator: the map's own steps, stacked rather than nested so no
+       face is buried inside another. */
+    const gen = { bevel: 0.035, seg: LIT.coverSeg, tile: 3 };
+    BOX('machine', 1.5, ped, -2.2, 10, 5.6, 2.2, gen);
+    BOX('machine', 1.5, 5.6, -2.0, 10, 6.3, 2.0, gen);
+    BOX('machine', 1.5, 6.3, -1.7, 10, 7.0, 1.7, gen);
+    BOX('machine', 1.5, 7.0, -0.95, 10, 7.6, 0.95, gen);
+    /* Above the top step, and therefore not collision: the steam lines to
+       the roof and the generator's output going up into a busduct. */
+    for (const o of [-1.1, 1.1]){
+      CYL2(G, az, p, s, -7.5, 7.0, o, H, 0.24);
+      CYL2(G, az, p, s, -3.0, 7.0, o, H, 0.24);
     }
-    /* The generator: the map's steps themselves, stacked rather than nested
-       so no face is buried inside another. */
-    const g0 = lo(2.5, 7.5), g1 = hi(2.5, 7.5), gen = { bevel: 0.035, seg: LIT.coverSeg, tile: 3 };
-    litBox(G('machine'), g0, 1.0, z - 1.7, g1, 3.0, z + 1.7, gen);
-    litBox(G('machine'), g0, 3.0, z - 1.3, g1, 3.6, z + 1.3, gen);
-    litBox(G('machine'), g0, 3.6, z - 0.8, g1, 4.0, z + 0.8, gen);
-    /* Everything from here is above the top step (4.0m) and is not collision:
-       steam lines up to the roof, and the generator's output going up into a
-       busduct that runs out to the nearest end wall. */
-    for (const o of [-0.7, 0.7]){
-      litCyl(G('bus'), X(1.2), 3.55, z + o, X(1.2), H, z + o, 0.2, 0.2, 12, 2, false, false);
-      litCyl(G('steel'), X(1.2), 5.4, z + o, X(1.2), 5.52, z + o, 0.27, 0.27, 12, 2, true, true);
-    }
-    const xa = lo(4.3, 5.7), xb = hi(4.3, 5.7), xm = (xa + xb) / 2, far = Math.sign(z || 1) * D;
-    litBox(G('steel'), xa, 4.0, z - 0.5, xb, 4.3, z + 0.5, { seg: 4 });                             // terminal box
-    litBox(G('bus'), xm - 0.30, 4.3, z - 0.26, xm + 0.30, 6.6, z + 0.26, { seg: 4, noTop: true });  // riser, narrower than the duct so no two faces share a plane
-    litBox(G('bus'), xm - 0.34, 6.12, Math.min(z, far), xm + 0.34, 6.6, Math.max(z, far), { seg: 6, bottom: true });
-    for (let k = 1; k < 5; k++){ const hz = z + (far - z) * k / 5;                                  // hangers to the roof
-      litBox(G('steel'), xm - 0.4, 6.6, hz - 0.03, xm + 0.4, 6.66, hz + 0.03, { seg: 4 });
-      for (const o of [-0.38, 0.38]) litBox(G('steel'), xm + o - 0.02, 6.66, hz - 0.02, xm + o + 0.02, H, hz + 0.02, { seg: 4, noTop: true }); }
+    BOX('steel', 3.4, 7.6, -0.6, 5.2, 7.9, 0.6, { seg: 4 });             // terminal box
+    BOX('bus',   3.7, 7.9, -0.32, 4.9, 10.2, 0.32, { seg: 4, noTop: true });
+    const far = (az ? Math.sign(p.x || 1) : Math.sign(p.z || 1)) * D;
+    const c0 = Math.min(C(0.6), far), c1 = Math.max(C(0.6), far);
+    az ? litBox(G('bus'), c0, 9.7, A(3.7), c1, 10.2, A(4.9), { seg: 6, bottom: true })
+       : litBox(G('bus'), A(3.7), 9.7, c0, A(4.9), 10.2, c1, { seg: 6, bottom: true });
   },
   /* The overhead travelling crane every turbine hall has: two runway beams
      down the long walls, a pair of box girders bridging the hall, a trolley,
@@ -1327,17 +1429,6 @@ const LIT_PROP = {
     litBox(G('yellow'), tx - 0.28, 4.72 + up, z - 0.2, tx + 0.28, 5.15 + up, z + 0.2, { seg: 2, bottom: true });       // hook block
   },
   /* A cable tray the length of the hall, hung from the roof. */
-  /* The side galleries: a steel deck over each aisle, carried on the column
-     row, with a handrail along the open edge. 5.4m up, so out of reach and
-     not collision; what holds it up IS (the columns). */
-  gallery(G, p, D){
-    const s = Math.sign(p.x), xi = p.x - s * 0.9, xo = s * D, x0 = Math.min(xi, xo), x1 = Math.max(xi, xo);
-    litBox(G('girder'), x0, 5.4, -D, x1, 5.72, D, { seg: 5, tile: 2, bottom: true });
-    litBox(G('yellow'), Math.min(xi, xi + s * 0.14), 5.25, -D, Math.max(xi, xi + s * 0.14), 5.72, D, { seg: 6, bottom: true });   // the deck's edge beam
-    for (const y of [6.25, 6.8]) litBox(G('yellow'), xi - 0.03, y, -D, xi + 0.03, y + 0.06, D, { seg: 6, bottom: true });   // rails
-    for (let z = -D + 1; z < D; z += 2.5) litBox(G('yellow'), xi - 0.03, 5.72, z - 0.03, xi + 0.03, 6.86, z + 0.03, { seg: 4 });   // posts
-    for (let z = -D + 6.25; z < D; z += 12.5) litBox(G('girder'), x0, 5.0, z - 0.15, x1, 5.4, z + 0.15, { seg: 5, tile: 2, bottom: true });   // beams under the deck
-  },
   /* The roof's open steelwork: a truss across the nave on every column
      line. Two chords and a zigzag of diagonals between them, which is what
      the eye reads as an industrial roof. The diagonals are four-sided
@@ -1352,6 +1443,56 @@ const LIT_PROP = {
         litCyl(G('steel'), x, a, z, x + bay, b, z, 0.075, 0.075, 4, 1, false, false);
         litBox(G('steel'), x - 0.05, bot, z - 0.05, x + 0.05, top, z + 0.05, { seg: 4, noTop: true });
       }
+    }
+  },
+  /* THE REACTOR, and the reason the middle of this map is worth crossing.
+     A stainless drum on the bioshield deck, ribbed the way a wound vessel
+     is, with a flanged lid overhanging it and cable looms sweeping down off
+     the lid to the deck.
+
+     WHAT IS COLLISION AND WHAT IS NOT. The drum is: the map carries it as
+     two crossed boxes whose union is the octagon this circle is drawn
+     inside. Everything above the lid at 7m is not, and cannot be mistaken
+     for standing room — it is 4.6m over your head on a deck you are stood
+     on. The looms arc from 1.2m above the deck outward and up, so the only
+     part of them within reach is over the vessel's own footprint, which is
+     already solid.
+
+     NO HANDRAIL round the deck edge, though the photographs all have one.
+     A rail is a thing you cannot walk through, and this deck has to be
+     climbable from any side — so a drawn rail would be exactly the lie the
+     galleries used to tell. The yellow nosing on the deck does that job
+     instead, and it is paint. */
+  reactor(G, p, D, H){
+    const x = p.x || 0, z = p.z || 0, y0 = p.deck || 2.4, R = 3.1, top = 7.0;
+    litCyl(G('vessel'), x, y0, z, x, top, z, R, R, 16, 2.2, false, false);
+    for (let i = 0; i < 16; i++){                                   // the ribs of a wound vessel
+      const a = (i + 0.5) / 16 * Math.PI * 2, rx = x + Math.cos(a) * R, rz = z + Math.sin(a) * R;
+      litCyl(G('vessel'), rx, y0 + 0.15, rz, rx, top - 0.15, rz, 0.085, 0.085, 6, 1, false, false);
+    }
+    for (const y of [y0 + 0.5, (y0 + top) / 2, top - 0.5])          // and its hoops
+      litCyl(G('steel'), x, y - 0.07, z, x, y + 0.07, z, R + 0.06, R + 0.06, 16, 1, false, false);
+    litCyl(G('steel'),  x, top, z, x, top + 0.22, z, R + 0.18, R + 0.18, 16, 1, false, false);   // the lid's flange...
+    litCyl(G('vessel'), x, top + 0.22, z, x, top + 0.80, z, 4.5, 4.3, 16, 2, false, true);       // ...and the lid, overhanging
+    for (const o of [-1.75, 1.75]){                                 // the two ports on top of it
+      litCyl(G('steel'),  x + o, top + 0.80, z, x + o, top + 0.95, z, 0.62, 0.62, 12, 1, false, false);
+      litCyl(G('vessel'), x + o, top + 0.95, z, x + o, top + 2.30, z, 0.52, 0.52, 12, 1.6, false, true);
+    }
+    /* The looms. Each is a chain of straight segments following a quarter
+       sweep from the deck out at 6m radius up to the top of the lid, which
+       is the shape a heavy cable bundle actually hangs in. A box cannot lie
+       at an angle; a cylinder can, so these are cylinders. */
+    for (let i = 0; i < 8; i++){
+      const a = i / 8 * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+      const name = i % 2 ? 'loomr' : 'loomg', segs = 7;
+      const pt = (t) => { const r = 6.0 + (1.5 - 6.0) * t, y = y0 + 1.2 + (top + 1.9 - y0 - 1.2) * Math.sin(t * Math.PI / 2);
+                          return [x + ca * r, y, z + sa * r]; };
+      for (let k = 0; k < segs; k++){
+        const A0 = pt(k / segs), A1 = pt((k + 1) / segs);
+        litCyl(G(name), A0[0], A0[1], A0[2], A1[0], A1[1], A1[2], 0.17, 0.17, 8, 1, k === 0, k === segs - 1);
+      }
+      /* the bracket that carries it off the deck */
+      litCyl(G('steel'), x + ca * 6.0, y0, z + sa * 6.0, x + ca * 6.0, y0 + 1.25, z + sa * 6.0, 0.13, 0.13, 8, 1, false, true);
     }
   },
   tray(G, p, D, H){
@@ -1378,9 +1519,15 @@ function litUniformsFor(map){
   let n = 0;
   /* Not every box goes to the floor shader, which loops over this list twice
      for every pixel of floor. A column is too thin to shade the floor round
-     it or hide a lamp, and a casing's hidden steps stand inside a pedestal
-     that is already here. With all 47 in, a frame cost three times as much. */
-  for (const b of map.boxes){ if (b.mat === 'column' || b.mat === 'hidden') continue;
+     it or hide a lamp, a casing's hidden steps stand inside a pedestal that
+     is already here, and a stair tread is 1.2m of concrete 0.8m tall. With
+     all 47 of the old map in, a frame cost three times as much.
+     This matters more than it reads: the loop STOPS at the budget, so a map
+     over it does not slow down, it quietly drops its last few boxes out of
+     the floor's shading. The power station has 107 boxes and offers 60 — the
+     treads alone were 24 of them, which would have pushed the real plant off
+     the end of the list. Without them it offers 36. */
+  for (const b of map.boxes){ if (b.mat === 'column' || b.mat === 'hidden' || b.mat === 'step') continue;
     if (n >= LIT_NBOX - 4) break; box.set([b.x, b.z, b.w / 2, b.d / 2], n * 4); bh[n++] = b.h; }
   LITU.uLitCoverN.value = n;
   /* The perimeter joins the occlusion list (not the mirror's), with its
@@ -1406,6 +1553,7 @@ function litBuildArena(map, flatFloor, flatRoof){
   litMeshes.length = 0;
   if (!LIT_OK) return;
   const a = map.arena, H = map.wallH, D = a - 1, L = map.lamps;
+  LIT_H = H;                      // a box's draw gets no H; the ones that run pipework to the roof need it
   litUniformsFor(map);
   const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   for (const t of [flatFloor.map, flatFloor.normalMap, flatFloor.roughnessMap]) if (t) t.anisotropy = aniso;
