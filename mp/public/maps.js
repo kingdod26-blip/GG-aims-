@@ -96,8 +96,8 @@ const MAPS = {
       { x: -30, z:   0, w:   2, d:  12, h: 4,   mat: 'firewall' },      // blast walls, east and west
       { x:  30, z:   0, w:   2, d:  12, h: 4,   mat: 'firewall' },
 
-      { x:  12, z:   8, w: 2.5, d: 2.5, h: 1.5, mat: 'crate'  },        // low, by the core: shoot over these
-      { x: -12, z:  -8, w: 2.5, d: 2.5, h: 1.5, mat: 'crate'  },
+      { x:  12, z:   8, w: 2.5, d: 2.5, h: 1.5, mat: 'machine' },       // low steel enclosures by the core: shoot over these
+      { x: -12, z:  -8, w: 2.5, d: 2.5, h: 1.5, mat: 'machine' },
 
       { x: -34, z: -30, w:   5, d:   5, h: 3,   mat: 'pillar' },        // auxiliary housings, two corners
       { x:  34, z:  30, w:   5, d:   5, h: 3,   mat: 'pillar' },
@@ -108,10 +108,6 @@ const MAPS = {
 
       { x: -14, z: -33, w:   3, d:   2, h: 1.2, mat: 'machine' },       // pump enclosures by each unit: waist-high
       { x:  14, z:  33, w:   3, d:   2, h: 1.2, mat: 'machine' },
-      { x:  40, z: -22, w: 2.6, d: 2.6, h: 1.6, mat: 'crate'  },        // spares, crated
-      { x: -40, z:  22, w: 2.6, d: 2.6, h: 1.6, mat: 'crate'  },
-      { x:  -9, z: -42, w:   3, d:   3, h: 2,   mat: 'crate'  },
-      { x:   9, z:  42, w:   3, d:   3, h: 2,   mat: 'crate'  },
 
       /* The structure: two rows of steel columns, floor to roof, that split
          the hall into a nave and two side aisles. Real cover, every 12.5m. */
