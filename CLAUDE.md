@@ -715,6 +715,49 @@ and checks each against that map's own bound and geometry, which a server
 holding one global arena would fail. Measured: 20/20 inside the bound and
 none inside geometry, on both maps.
 
+### The power station (was Foundry)
+
+The main arena, id , is the old Foundry rebuilt on its own
+skeleton at Jack's request (2026-11-13): still 120m, open, long sightlines,
+resupply core dead centre, symmetric under a half turn. The id  no
+longer exists;  falls back to the default, so an old link, a saved
+ or  lands on the power station.
+
+- ** names what a box IS**, and the lit arena builds each kind its own
+  way ( in lighting.js):  grows fins, bushings and a
+  conservator from the box's own size,  is a cabinet row whose status
+  lamps are an emissive map,  /  are concrete,
+   is a painted enclosure. The FLAT look draws them all as plain
+  boxes in a stand-in material ().
+- **A round thing is several boxes.** A turbine unit is a pedestal plus three
+  narrower, taller boxes on the same footprint, mat : every box still
+  stands on the floor, which is all the server asks. The lit arena does not
+  draw  boxes; the  entry in the map's  draws the
+  casing where they stand.
+- **Boxes on the floor cannot make an overhang.** The first casing was a plain
+  cylinder, which is 0.6m NARROWER than the bottom step where it meets the
+  pedestal: you walked into nothing a pace short of it. It is now square below
+  its centre line (exactly the bottom step), a half-cylinder above (within
+  0.15m of the steps, measured by ray), and the generator is drawn as the
+  steps themselves. Design round plant that way round.
+- **Anything in  that is not on a box's footprint hangs at 4.6m or
+  more** (crane, busducts, trays, steam lines) and is not collision, like the
+  roof girders. Bushings above a transformer's lid are the one exception:
+  thin, over head height, and not shaped like cover.
+- **** is the map's floor markings (aisles, trench covers, hatched
+  borders, stencils). The aisle green is kept grey and thin: the crosshair is
+  green.  is 40 now; the map has 29 boxes plus four walls.
+- **The crane's runway beams run down the long walls at 5.5m**, so the big
+  wall boards hang on the END walls.
+- **The plant hums** (,  in hud.js): transformers at
+  100Hz and harmonics, turbines a low roar, each by distance from the camera,
+  silent at the menu and on a hidden tab. The level was set by ear on paper,
+  NOT measured through an offline render like the other sounds, and nobody
+  has listened to it yet.
+- Measured: half-turn symmetry exact, no two objects closer than 1.2m, spawn
+  probe () 20/20 on both maps, 4.3ms a frame at
+  1280x720 on the Intel Arc machine, 28k triangles.
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,

@@ -11,7 +11,7 @@
    Run from mp/ with the server up:  node scratchpad/permap.js
 */
 const { io } = require('socket.io-client');
-const { mapById, mapRects, mapWallRects } = require('../public/maps.js');
+const { MAP_IDS, mapById, mapRects, mapWallRects } = require('../public/maps.js');
 
 const URL = process.env.URL || 'http://localhost:8200';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -36,7 +36,7 @@ const insideAny = (rects, x, z) =>
   rects.some(r => x > r.minx - 1 && x < r.maxx + 1 && z > r.minz - 1 && z < r.maxz + 1);
 
 (async () => {
-  for (const id of ['foundry', 'substation']) {
+  for (const id of MAP_IDS) {
     const map = mapById(id);
     const rects = mapRects(map).concat(mapWallRects(map));
     const bound = map.arena - 6;

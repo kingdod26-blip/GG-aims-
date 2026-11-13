@@ -227,8 +227,12 @@ function drawMapThumb(){
   g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = 1;
   g.strokeRect(px(-A), pz(-A), A*2*s, A*2*s);
   for(const b of currentMap.boxes){
+    /* Walls crimson, crates orange, plant white. A casing's 'hidden' steps
+       are drawn faint: three of them sit on one pedestal, and at full
+       strength the stack read as a solid white bar. */
     g.fillStyle = b.mat === 'crate' ? 'rgba(255,154,90,.6)'
-                : b.mat === 'block' ? 'rgba(255,45,74,.5)'
+                : (b.mat === 'block' || b.mat === 'firewall') ? 'rgba(255,45,74,.5)'
+                : b.mat === 'hidden' ? 'rgba(255,255,255,.13)'
                 : 'rgba(255,255,255,.34)';
     g.fillRect(px(b.x - b.w/2), pz(b.z - b.d/2), b.w*s, b.d*s);
   }

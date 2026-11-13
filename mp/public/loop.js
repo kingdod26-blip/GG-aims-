@@ -461,6 +461,7 @@ function loop(){ requestAnimationFrame(loop);
      is on; with both off this falls back to the plain render, which is
      what the Performance preset is for. */
   litFrame();                                                      // the shadow box rides with the camera (lighting.js)
+  stationHum(dt);                                                  // the plant, by how near you are to it (hud.js)
   if (gradePass) gradePass.uniforms.uTime.value = nowMs * 0.001;   // the grain has to move
   if (composer && (SETTINGS.bloom || SETTINGS.look)) composer.render(); else renderer.render(scene,camera);
 }

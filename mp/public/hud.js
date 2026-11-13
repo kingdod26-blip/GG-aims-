@@ -419,6 +419,32 @@ const Sfx = (()=>{
     noiseBuf = c.createBuffer(1, c.sampleRate * 2, c.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for(let i=0;i<d.length;i++) d[i] = Math.random()*2 - 1;
+    plant = null;                            // it belonged to the context this one replaces
+  }
+  /* The plant's own noise: the one sound here that never stops, so it is
+     built once and only its LEVEL is moved.
+     A transformer hums at twice the mains frequency, because the core is
+     squeezed once on each half of the wave: 100Hz for a 50Hz grid, with
+     its harmonics, and a second 100Hz a fraction off so the two beat slowly
+     the way two real units side by side do. A turbine is a low roar with a
+     thin whine riding it, and the shaft itself at 50 turns a second.
+     The fundamentals are below what a laptop speaker can make, so most of
+     what carries on one is the 200 to 400Hz partials and the whine. */
+  let plant = null;
+  function plantBuild(){
+    const c = ensure(), tx = c.createGain(), tb = c.createGain();
+    tx.gain.value = 0; tb.gain.value = 0; tx.connect(master); tb.connect(master);
+    [[100,1],[200,0.5],[300,0.26],[400,0.1],[100.6,0.5]].forEach(([f,a])=>{
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine'; o.frequency.value = f; g.gain.value = a*0.3; o.connect(g).connect(tx); o.start(); });
+    const n = c.createBufferSource(); n.buffer = noiseBuf; n.loop = true;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 170;
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1250; bp.Q.value = 9;
+    const gw = c.createGain(); gw.gain.value = 0.10;
+    n.connect(lp).connect(tb); n.connect(bp).connect(gw).connect(tb); n.start();
+    const so = c.createOscillator(), sg = c.createGain();
+    so.frequency.value = 50; sg.gain.value = 0.35; so.connect(sg).connect(tb); so.start();
+    plant = { tx, tb };
   }
   const ensure = ()=>{ if(!ctx) build(new (window.AudioContext||window.webkitAudioContext)()); return ctx; };
 
@@ -541,11 +567,54 @@ const Sfx = (()=>{
       nz(dest,'lowpass',500,0.55,0.34,0,1400); osc(dest,'sine',90,60,0.25,0.22); }),
     hiss: safe((at)=>{ const dest = bus(at, 16); if(!dest) return;
       nz(dest,'highpass',1700,0.75,0.20); osc(dest,'sine',120,70,0.12,0.25); }),
+    /* How loud the plant is from where you stand, 0..1 for each of its two
+       voices. Nothing is built until there is something to hear, so a map
+       with no plant costs nothing. The levels glide: this is called a few
+       times a second, and a hum that steps is a hum you notice. */
+    plant: safe((tx, turbine)=>{
+      if(!plant){ if(!(tx > 0.003 || turbine > 0.003)) return; plantBuild(); }
+      const t = ctx.currentTime;
+      plant.tx.gain.setTargetAtTime(Math.max(0, tx) * 0.05, t, 0.3);
+      plant.tb.gain.setTargetAtTime(Math.max(0, turbine) * 0.055, t, 0.3);
+    }),
     /* For tests only: swap in another context (an OfflineAudioContext, say)
        so a sound can be rendered and measured instead of merely not throwing. */
     _use(c){ build(c); },
   };
 })();
+
+/* ---- The plant, heard from where you stand ----
+   A map's transformers and turbines are found in its own data (a box with
+   mat 'transformer', a prop of kind 'turbine'), so a map with neither is
+   silent without being told to be. Each adds by distance; a turbine is
+   measured to the nearest point of its 15m length, not to its middle, or
+   walking along one would make it fade and swell.
+   It listens from the CAMERA, so someone watching a match after being
+   eliminated hears the hall the player they are following is standing in.
+   Called every frame and does its work about eight times a second. */
+let humAcc = 0, humMap = null, humTx = [], humTb = [], humOn = false;
+function stationHum(dt){
+  humAcc += dt; if(humAcc < 0.12) return; humAcc = 0;
+  if(humMap !== currentMap){ humMap = currentMap;
+    humTx = ((currentMap && currentMap.boxes) || []).filter(b => b.mat === 'transformer');
+    humTb = ((currentMap && currentMap.props) || []).filter(p => p.kind === 'turbine'); }
+  let tx = 0, tb = 0;
+  if(gameState === 'playing' && !paused){
+    const px = camera.position.x, pz = camera.position.z;
+    for(const b of humTx) tx += 1 / (1 + Math.pow(Math.hypot(px - b.x, pz - b.z) / 9, 2));
+    for(const p of humTb) tb += 1 / (1 + Math.pow(Math.hypot(Math.max(0, Math.abs(px - p.x) - 7.5), pz - p.z) / 15, 2));
+  }
+  /* Nothing to play and nothing playing: do not touch the audio at all. At
+     the menu this would otherwise open an AudioContext before the first
+     click, which the browser refuses and complains about. */
+  const want = tx > 0.003 || tb > 0.003;
+  if(!want && !humOn) return;
+  humOn = want;
+  Sfx.plant(Math.min(1, tx), Math.min(1, tb));
+}
+/* A hidden tab stops running the loop above, and a hum that was playing
+   would simply carry on at whatever level it had. */
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden && humOn){ humOn = false; Sfx.plant(0, 0); } });
 
 /* Character voice line — speaks "Reloading!" on reload. */
 const Voice = (()=>{

@@ -81,7 +81,8 @@ Then open <http://localhost:8123/fps-game.html>.
 
 **Presentation**
 - Photoscanned PBR materials (colour + normal + roughness)
-- Indoor arena: ceiling, lamp panels, and a dark backdrop with matched fog
+- Two arenas. The main one is a power station turbine hall: generator units, transformers, switchgear, an overhead crane
+- Baked lighting with soft shadows and lamp reflections in the floor (LOOK: LIT), or the original flat look
 - Bloom post-processing and soft shadows
 - Flaming crossbow bolts that leave a burning pool on the ground
 - Smoke bolts that tag opponents caught inside, shown through walls to the thrower

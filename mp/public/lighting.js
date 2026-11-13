@@ -42,7 +42,7 @@
    These files are CLASSIC scripts sharing ONE global scope.
    ============================================================= */
 
-const LIT_NBOX = 24;       // cover plus the four perimeter walls: the shader's loops are this long
+const LIT_NBOX = 40;       // cover plus the four perimeter walls: the shader's loops are this long
 const LIT_DIR_OPEN  = '#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )';
 const LIT_RECT_OPEN = '#if ( NUM_RECT_AREA_LIGHTS > 0 )';
 /* The patch below rewrites one of Three's own shader chunks by finding two
@@ -427,24 +427,27 @@ function litTri(g, p0, n0, p1, n1, p2, n2, u, v){
    faces stay on exactly the planes the collision box has — a bevel only
    removes a few centimetres of corner. */
 function litBox(g, x0, y0, z0, x1, y1, z1, o){
-  const b = o.bevel || 0, s = o.seg || 1, t = o.tile || 1;
+  /* `tile` is metres per repeat of the texture; `tileV` lets the upright
+     repeat differ, for art drawn to a set height (a 2.2m cabinet door). */
+  const b = o.bevel || 0, s = o.seg || 1, t = o.tile || 1, tv = o.tileV || t;
   const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
-  if (!o.noTop)  litGrid(g, x0 + b, y1, z0 + b,  0,0,1,  1,0,0,  dz - 2*b, dx - 2*b,  0,1,0,  s, s, t, t, z0 + b, x0 + b);
-  if (o.bottom)  litGrid(g, x0, y0, z0,          1,0,0,  0,0,1,  dx, dz,              0,-1,0, s, s, t, t, x0, z0);
-  litGrid(g, x1, y0, z1 - b,  0,0,-1,  0,1,0,  dz - 2*b, dy - b,   1,0,0,  s, s, t, t, 0, y0);
-  litGrid(g, x0, y0, z0 + b,  0,0,1,   0,1,0,  dz - 2*b, dy - b,  -1,0,0,  s, s, t, t, 0, y0);
-  litGrid(g, x0 + b, y0, z1,  1,0,0,   0,1,0,  dx - 2*b, dy - b,   0,0,1,  s, s, t, t, 0, y0);
-  litGrid(g, x1 - b, y0, z0,  -1,0,0,  0,1,0,  dx - 2*b, dy - b,   0,0,-1, s, s, t, t, 0, y0);
+  if (!o.noTop)  litGrid(g, x0 + b, y1, z0 + b,  0,0,1,  1,0,0,  dz - 2*b, dx - 2*b,  0,1,0,  s, s, t, tv, z0 + b, x0 + b);
+  if (o.bottom)  litGrid(g, x0, y0, z0,          1,0,0,  0,0,1,  dx, dz,              0,-1,0, s, s, t, tv, x0, z0);
+  if (o.noSides) return;
+  litGrid(g, x1, y0, z1 - b,  0,0,-1,  0,1,0,  dz - 2*b, dy - b,   1,0,0,  s, s, t, tv, 0, y0);
+  litGrid(g, x0, y0, z0 + b,  0,0,1,   0,1,0,  dz - 2*b, dy - b,  -1,0,0,  s, s, t, tv, 0, y0);
+  litGrid(g, x0 + b, y0, z1,  1,0,0,   0,1,0,  dx - 2*b, dy - b,   0,0,1,  s, s, t, tv, 0, y0);
+  litGrid(g, x1 - b, y0, z0,  -1,0,0,  0,1,0,  dx - 2*b, dy - b,   0,0,-1, s, s, t, tv, 0, y0);
   if (b <= 0) return;
-  const yt = y1 - b, vt = yt / t, sz = Math.max(1, Math.ceil((dz - 2*b) / s)), sx = Math.max(1, Math.ceil((dx - 2*b) / s)),
+  const yt = y1 - b, vt = yt / tv, sz = Math.max(1, Math.ceil((dz - 2*b) / s)), sx = Math.max(1, Math.ceil((dx - 2*b) / s)),
         sy = Math.max(1, Math.ceil((dy - b) / s)), X = [1,0,0], XN = [-1,0,0], Y = [0,1,0], Z = [0,0,1], ZN = [0,0,-1];
   // the four top edges
-  litStrip(g, [x1, yt, z1 - b], [x1, yt, z0 + b], X,  [x1 - b, y1, z1 - b], [x1 - b, y1, z0 + b], Y, sz, 0, vt, (dz - 2*b) / t, vt, 0, b / t);
-  litStrip(g, [x0, yt, z0 + b], [x0, yt, z1 - b], XN, [x0 + b, y1, z0 + b], [x0 + b, y1, z1 - b], Y, sz, 0, vt, (dz - 2*b) / t, vt, 0, b / t);
-  litStrip(g, [x0 + b, yt, z1], [x1 - b, yt, z1], Z,  [x0 + b, y1, z1 - b], [x1 - b, y1, z1 - b], Y, sx, 0, vt, (dx - 2*b) / t, vt, 0, b / t);
-  litStrip(g, [x1 - b, yt, z0], [x0 + b, yt, z0], ZN, [x1 - b, y1, z0 + b], [x0 + b, y1, z0 + b], Y, sx, 0, vt, (dx - 2*b) / t, vt, 0, b / t);
+  litStrip(g, [x1, yt, z1 - b], [x1, yt, z0 + b], X,  [x1 - b, y1, z1 - b], [x1 - b, y1, z0 + b], Y, sz, 0, vt, (dz - 2*b) / t, vt, 0, b / tv);
+  litStrip(g, [x0, yt, z0 + b], [x0, yt, z1 - b], XN, [x0 + b, y1, z0 + b], [x0 + b, y1, z1 - b], Y, sz, 0, vt, (dz - 2*b) / t, vt, 0, b / tv);
+  litStrip(g, [x0 + b, yt, z1], [x1 - b, yt, z1], Z,  [x0 + b, y1, z1 - b], [x1 - b, y1, z1 - b], Y, sx, 0, vt, (dx - 2*b) / t, vt, 0, b / tv);
+  litStrip(g, [x1 - b, yt, z0], [x0 + b, yt, z0], ZN, [x1 - b, y1, z0 + b], [x0 + b, y1, z0 + b], Y, sx, 0, vt, (dx - 2*b) / t, vt, 0, b / tv);
   // the four uprights
-  const v0 = y0 / t;
+  const v0 = y0 / tv;
   litStrip(g, [x1, y0, z1 - b], [x1, yt, z1 - b], X,  [x1 - b, y0, z1], [x1 - b, yt, z1], Z,  sy, 0, v0, 0, vt, -b / t, 0);
   litStrip(g, [x1, y0, z0 + b], [x1, yt, z0 + b], X,  [x1 - b, y0, z0], [x1 - b, yt, z0], ZN, sy, 0, v0, 0, vt, -b / t, 0);
   litStrip(g, [x0, y0, z1 - b], [x0, yt, z1 - b], XN, [x0 + b, y0, z1], [x0 + b, yt, z1], Z,  sy, 0, v0, 0, vt, -b / t, 0);
@@ -454,6 +457,39 @@ function litBox(g, x0, y0, z0, x1, y1, z1, o){
     const xo = ex > 0 ? x1 : x0, xi = ex > 0 ? x1 - b : x0 + b, zo = ez > 0 ? z1 : z0, zi = ez > 0 ? z1 - b : z0 + b;
     litTri(g, [xo, yt, zi], [ex, 0, 0], [xi, y1, zi], Y, [xi, yt, zo], [0, 0, ez], 0, vt);
   }
+}
+/* A cylinder from point A to point B, with a radius at each end so it can
+   taper. The casing of a turbine, a bushing, a pipe. `capA` / `capB` close
+   the ends; most are left open because they sit against something.
+   The basis is built so that u x v points along the axis, which is what
+   makes the winding below come out facing outward rather than in. */
+function litCyl(g, ax, ay, az, bx, by, bz, r0, r1, sides, tile, capA, capB){
+  let dx = bx - ax, dy = by - ay, dz = bz - az; const len = Math.hypot(dx, dy, dz) || 1;
+  dx /= len; dy /= len; dz /= len;
+  // u = h x d for a helper h that is not parallel to the axis; v = d x u
+  let ux, uy, uz;
+  if (Math.abs(dy) < 0.9){ ux = dz; uy = 0; uz = -dx; } else { ux = 0; uy = -dz; uz = dy; }
+  const ul = Math.hypot(ux, uy, uz) || 1; ux /= ul; uy /= ul; uz /= ul;
+  const vx = dy*uz - dz*uy, vy = dz*ux - dx*uz, vz = dx*uy - dy*ux;
+  const base = g.p.length / 3, t = tile || 1, round = Math.PI * (r0 + r1);
+  for (let i = 0; i <= sides; i++){
+    const th = i / sides * Math.PI * 2, c = Math.cos(th), s = Math.sin(th);
+    const nx = ux*c + vx*s, ny = uy*c + vy*s, nz = uz*c + vz*s, u = i / sides * round / t;
+    g.p.push(ax + nx*r0, ay + ny*r0, az + nz*r0); g.n.push(nx, ny, nz); g.uv.push(u, 0);
+    g.p.push(bx + nx*r1, by + ny*r1, bz + nz*r1); g.n.push(nx, ny, nz); g.uv.push(u, len / t);
+  }
+  for (let i = 0; i < sides; i++){ const q = base + i * 2;      // q: a_i, q+1: b_i, q+2: a_i+1, q+3: b_i+1
+    g.i.push(q, q + 2, q + 1,  q + 2, q + 3, q + 1); }
+  const cap = (px, py, pz, r, sgn) => {
+    const c0 = g.p.length / 3;
+    g.p.push(px, py, pz); g.n.push(dx*sgn, dy*sgn, dz*sgn); g.uv.push(0.5, 0.5);
+    for (let i = 0; i <= sides; i++){ const th = i / sides * Math.PI * 2, c = Math.cos(th), s = Math.sin(th);
+      g.p.push(px + (ux*c + vx*s)*r, py + (uy*c + vy*s)*r, pz + (uz*c + vz*s)*r);
+      g.n.push(dx*sgn, dy*sgn, dz*sgn); g.uv.push(0.5 + c*0.5, 0.5 + s*0.5); }
+    for (let i = 0; i < sides; i++) if (sgn > 0) g.i.push(c0, c0 + 1 + i, c0 + 2 + i); else g.i.push(c0, c0 + 2 + i, c0 + 1 + i);
+  };
+  if (capA) cap(ax, ay, az, r0, -1);
+  if (capB) cap(bx, by, bz, r1, 1);
 }
 function litGeoDone(g){
   const geo = new THREE.BufferGeometry(), n = g.p.length / 3;
@@ -511,21 +547,25 @@ function litRand(seed){ let s = seed >>> 0; return () => { s = (Math.imul(s, 166
 /* The long barriers. One tile is 4m: panel seams every 2m, a hazard band
    along the foot, a dark cap. Height and roughness are drawn alongside the
    colour so a seam is a groove that catches light, not a grey line. */
-function litBlockTextures(){
-  const S = 512, m = S / 4, rnd = litRand(7);
+function litBlockTextures(o){
+  /* `o` re-skins the same panelled steel for other plant: the base paint,
+     whether it wears a hazard band along the foot, what is stencilled on. */
+  o = o || {};
+  const S = 512, m = S / 4, rnd = litRand(o.seed || 7), band = o.band !== false;
+  const text = o.text || ['CX', 'BALLISTIC BARRIER  ·  TYPE 4', 'DO NOT CLIMB'];
   const alb = litCanvas(S, S, (g) => {
     /* Nearly neutral on purpose. These colours are decoded from sRGB, which
        stretches the gap between channels: a paint that reads as slate in a
        colour picker (65,75,89) came out royal blue in the room. */
-    g.fillStyle = '#4b4f56'; g.fillRect(0, 0, S, S);
+    g.fillStyle = o.base || '#4b4f56'; g.fillRect(0, 0, S, S);
     litGrime(g, S, 46, rnd);
     for (let i = 0; i < 110; i++){                                   // run-off streaks
       const x = rnd() * S, y = rnd() * S * 0.7, h = 30 + rnd() * 200;
       const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, 'rgba(6,8,11,0.22)'); gr.addColorStop(1, 'rgba(6,8,11,0)');
       g.fillStyle = gr; g.fillRect(x, y, 1 + rnd() * 2.5, h);
     }
-    g.fillStyle = '#24272c'; g.fillRect(0, 0, S, 20);               // cap
-    const by = S - 0.44 * m;                                         // hazard band, 0.44m tall
+    g.fillStyle = o.cap || '#24272c'; g.fillRect(0, 0, S, 20);      // cap
+    const by = band ? S - 0.44 * m : S + 8;                          // hazard band, 0.44m tall (or none)
     g.save(); g.beginPath(); g.rect(0, by, S, S - by); g.clip();
     g.fillStyle = '#14161a'; g.fillRect(0, by, S, S - by);
     g.fillStyle = '#b9811f';
@@ -546,9 +586,9 @@ function litBlockTextures(){
       }
     }
     g.font = '700 30px "Arial Narrow", Arial, sans-serif'; g.fillStyle = 'rgba(214,222,232,0.50)';
-    g.fillText('CX', 30, 78); g.fillText('CX', S / 2 + 30, 78);
+    g.fillText(text[0], 30, 78); g.fillText(text[0], S / 2 + 30, 78);
     g.font = '700 13px Arial, sans-serif'; g.fillStyle = 'rgba(214,222,232,0.36)';
-    g.fillText('BALLISTIC BARRIER  ·  TYPE 4', 30, 98); g.fillText('DO NOT CLIMB', S / 2 + 30, 98);
+    g.fillText(text[1], 30, 98); g.fillText(text[2], S / 2 + 30, 98);
     for (let i = 0; i < 520; i++){                                   // fine scratches
       const x = rnd() * S, y = rnd() * S, l = 3 + rnd() * 22, a = rnd() * 6.28;
       g.strokeStyle = rnd() < 0.5 ? `rgba(200,212,228,${0.04 + rnd() * 0.10})` : `rgba(4,6,9,${0.08 + rnd() * 0.16})`;
@@ -561,13 +601,13 @@ function litBlockTextures(){
     for (let i = 0; i < 60; i++){ const x = r2() * S, y = r2() * S, r = 20 + r2() * 90, v = 105 + r2() * 110;
       litWrap(S, x, y, r, (px, py) => { const gr = g.createRadialGradient(px, py, 0, px, py, r);
         gr.addColorStop(0, `rgba(0,${v | 0},0,0.5)`); gr.addColorStop(1, 'rgba(0,150,0,0)'); g.fillStyle = gr; g.fillRect(px - r, py - r, r * 2, r * 2); }); }
-    g.fillStyle = 'rgb(0,120,0)'; g.fillRect(0, S - 0.44 * m, S, 0.44 * m);
+    if (band){ g.fillStyle = 'rgb(0,120,0)'; g.fillRect(0, S - 0.44 * m, S, 0.44 * m); }
     g.fillStyle = 'rgb(0,235,0)'; for (const x of [0, S / 2]) g.fillRect(x - 2, 0, 4, S); g.fillRect(0, S / 2 - 2, S, 4);
   });
   const height = litCanvas(S, S, (g) => {
     g.fillStyle = 'rgb(128,128,128)'; g.fillRect(0, 0, S, S);
     g.fillStyle = 'rgb(40,40,40)'; for (const x of [0, S / 2]){ g.fillRect(x - 2, 0, 4, S); } g.fillRect(0, S / 2 - 2, S, 4);
-    g.fillRect(0, S - 0.44 * m - 3, S, 3);
+    if (band) g.fillRect(0, S - 0.44 * m - 3, S, 3);
     g.fillStyle = 'rgb(150,150,150)'; g.fillRect(0, 0, S, 20);
     g.fillStyle = 'rgb(225,225,225)';
     for (const px of [0, S / 2]) for (const py of [20, S / 2])
@@ -635,6 +675,88 @@ function litPillarTextures(){
   return { map: litTexOf(alb, true), roughnessMap: litTexOf(rough, false), normalMap: litNormalFrom(height, 2.4) };
 }
 
+/* Switchgear: a row of cabinets. One tile is three doors, 2.4m wide and
+   drawn to a 2.2m cabinet. Each door has a meter window, a label plate,
+   a handle, louvres at the foot — and three status lamps, which are also
+   drawn into a fourth picture, the EMISSIVE one, so they are the only part
+   of the cabinet that makes its own light. A hall full of small coloured
+   lamps is most of what says "this plant is running". Which lamps are lit
+   comes from the seeded generator, so every player sees the same board. */
+function litSwitchTextures(){
+  const S = 512, D = S / 3, rnd = litRand(41);
+  const lamps = [];                                   // [x, y, colour] for both pictures
+  for (let d = 0; d < 3; d++) for (let k = 0; k < 3; k++){
+    const on = rnd() < 0.72, col = k === 0 ? '#ff3b30' : k === 1 ? '#30e070' : '#ffb020';
+    lamps.push([d * D + D * 0.30 + k * 26, 150, on ? col : null]);
+  }
+  const doors = (g, body, line, hi) => {
+    g.fillStyle = body; g.fillRect(0, 0, S, S);
+    for (let d = 0; d < 3; d++){ const x = d * D;
+      g.fillStyle = line; g.fillRect(x - 1.5, 0, 3, S);                               // the gap between doors
+      if (hi){ g.fillStyle = hi; g.fillRect(x + 1.5, 0, 1, S); }
+    }
+    g.fillStyle = line; g.fillRect(0, 0, S, 14); g.fillRect(0, S - 26, S, 26);        // top rail and plinth
+  };
+  const alb = litCanvas(S, S, (g) => {
+    doors(g, '#5a5d61', 'rgba(8,9,11,0.95)', 'rgba(255,255,255,0.08)');
+    litGrime(g, S, 30, rnd);
+    for (let d = 0; d < 3; d++){ const x = d * D;
+      g.fillStyle = '#0b0d10'; g.fillRect(x + 28, 44, D - 56, 70);                    // meter window
+      g.strokeStyle = 'rgba(190,200,214,0.5)'; g.lineWidth = 1.5; g.strokeRect(x + 28, 44, D - 56, 70);
+      g.strokeStyle = 'rgba(120,200,220,0.55)'; g.lineWidth = 2;                       // the dial's arc and needle
+      g.beginPath(); g.arc(x + D / 2, 118, 44, Math.PI * 1.22, Math.PI * 1.78); g.stroke();
+      const a = Math.PI * (1.28 + rnd() * 0.44);
+      g.strokeStyle = 'rgba(240,244,250,0.8)'; g.beginPath(); g.moveTo(x + D / 2, 118); g.lineTo(x + D / 2 + Math.cos(a) * 46, 118 + Math.sin(a) * 46); g.stroke();
+      g.fillStyle = '#c9ccd1'; g.fillRect(x + 30, 176, D - 60, 20);                   // label plate
+      g.fillStyle = '#1a1c20'; g.font = '700 12px Arial, sans-serif'; g.fillText('BAY ' + (d + 1) + '  ·  11 kV', x + 36, 190);
+      g.fillStyle = '#0d0f12'; g.fillRect(x + D - 34, 232, 9, 78);                    // handle
+      g.fillStyle = 'rgba(255,255,255,0.14)'; g.fillRect(x + D - 34, 232, 2, 78);
+      for (let y = 400; y < 470; y += 11){ g.fillStyle = '#0a0b0d'; g.fillRect(x + 30, y, D - 60, 5);      // louvres
+        g.fillStyle = 'rgba(255,255,255,0.07)'; g.fillRect(x + 30, y + 5, D - 60, 1); }
+      g.fillStyle = '#b9811f'; g.beginPath(); g.moveTo(x + 46, 250); g.lineTo(x + 62, 278); g.lineTo(x + 30, 278); g.closePath(); g.fill();   // a warning triangle
+      g.fillStyle = '#14161a'; g.fillRect(x + 44.5, 259, 3, 11); g.fillRect(x + 44.5, 272, 3, 3);
+    }
+    for (const [x, y, col] of lamps){                                                  // lamp bezels, and the lamp if lit
+      g.fillStyle = '#0c0d10'; g.beginPath(); g.arc(x, y, 8, 0, 7); g.fill();
+      g.fillStyle = col || '#2a2c30'; g.beginPath(); g.arc(x, y, 5.2, 0, 7); g.fill();
+    }
+    for (let i = 0; i < 300; i++){ const x = rnd() * S, y = rnd() * S, l = 3 + rnd() * 16, a = rnd() * 6.28;
+      g.strokeStyle = rnd() < 0.5 ? `rgba(220,226,236,${0.03 + rnd() * 0.07})` : `rgba(4,6,9,${0.06 + rnd() * 0.12})`;
+      g.lineWidth = 0.6 + rnd() * 0.6; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
+  });
+  const glow = litCanvas(S, S, (g) => {
+    g.fillStyle = '#000'; g.fillRect(0, 0, S, S);
+    for (const [x, y, col] of lamps) if (col){
+      const gr = g.createRadialGradient(x, y, 0, x, y, 11); gr.addColorStop(0, col); gr.addColorStop(0.45, col); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr; g.fillRect(x - 12, y - 12, 24, 24); }
+    for (let d = 0; d < 3; d++){ g.fillStyle = 'rgba(40,110,130,0.55)'; g.fillRect(d * D + 30, 46, D - 60, 66); }   // the meters' own backlight
+  });
+  const rough = litCanvas(S, S, (g) => {
+    doors(g, 'rgb(0,118,0)', 'rgb(0,230,0)', null);
+    for (let d = 0; d < 3; d++){ g.fillStyle = 'rgb(0,30,0)'; g.fillRect(d * D + 28, 44, D - 56, 70); }              // glass is smooth
+  });
+  const height = litCanvas(S, S, (g) => {
+    doors(g, 'rgb(132,132,132)', 'rgb(34,34,34)', null);
+    for (let d = 0; d < 3; d++){ const x = d * D;
+      g.fillStyle = 'rgb(96,96,96)'; g.fillRect(x + 28, 44, D - 56, 70);
+      g.fillStyle = 'rgb(224,224,224)'; g.fillRect(x + D - 34, 232, 9, 78);
+      g.fillStyle = 'rgb(40,40,40)'; for (let y = 400; y < 470; y += 11) g.fillRect(x + 30, y, D - 60, 5); }
+    g.fillStyle = 'rgb(210,210,210)'; for (const [x, y] of lamps){ g.beginPath(); g.arc(x, y, 8, 0, 7); g.fill(); }
+  });
+  return { map: litTexOf(alb, true), emissiveMap: litTexOf(glow, true), roughnessMap: litTexOf(rough, false), normalMap: litNormalFrom(height, 2.2) };
+}
+/* Yellow and black, at 45 degrees. One tile is 0.8m; it wraps both ways. */
+function litHazardTexture(){
+  const S = 128;
+  return litTexOf(litCanvas(S, S, (g) => {
+    g.fillStyle = '#15161a'; g.fillRect(0, 0, S, S);
+    g.fillStyle = '#b9811f';
+    for (let x = -S; x < S * 2; x += S / 2){ g.beginPath(); g.moveTo(x, S); g.lineTo(x + S / 4, S); g.lineTo(x + S / 4 + S, 0); g.lineTo(x + S, 0); g.closePath(); g.fill(); }
+    const rnd = litRand(5);
+    for (let i = 0; i < 90; i++){ g.fillStyle = `rgba(18,19,22,${0.2 + rnd() * 0.45})`; g.fillRect(rnd() * S, rnd() * S, 1 + rnd() * 7, 1 + rnd() * 2); }
+  }), true);
+}
+
 /* What is painted on the floor, as one picture laid over the whole arena.
    The grid of labels is the useful part: a lamp sits at the middle of every
    cell, so "C3" names a pool of light two players can both see. Drawn
@@ -654,8 +776,56 @@ function litMarksTexture(map){
     const m = 2.6;                                                                    // the boundary line
     g.strokeStyle = 'rgba(206,36,58,0.80)'; g.lineWidth = 0.20 * k; g.setLineDash([6 * k, 0.9 * k]);
     g.strokeRect(X(-D + m), Z(-D + m), (2 * D - 2 * m) * k, (2 * D - 2 * m) * k); g.setLineDash([]);
-    g.strokeStyle = 'rgba(214,220,228,0.30)'; g.lineWidth = 0.07 * k;                 // a keep-clear line round all cover
-    for (const b of map.boxes) g.strokeRect(X(b.x - b.w / 2 - 0.5), Z(b.z - b.d / 2 - 0.5), (b.w + 1) * k, (b.d + 1) * k);
+    /* A map's own paint (`paint` in maps.js), laid in an order that reads
+       right where things cross: aisles first, then the trench covers that
+       cut through them, then the keep-out borders, then lettering on top. */
+    const P = map.paint || [], of = (kind) => P.filter(p => p.k === kind);
+    const run = (p, fn) => {                    // a straight run as a rectangle: x, z, width, depth in px
+      const horiz = Math.abs(p.x1 - p.x0) > Math.abs(p.z1 - p.z0);
+      const x = Math.min(p.x0, p.x1) - (horiz ? 0 : p.w / 2), z = Math.min(p.z0, p.z1) - (horiz ? p.w / 2 : 0);
+      const w = horiz ? Math.abs(p.x1 - p.x0) : p.w, d = horiz ? p.w : Math.abs(p.z1 - p.z0);
+      fn(X(x), Z(z), w * k, d * k, horiz);
+    };
+    /* An aisle is a yellow bar with its middle cut out and filled green.
+       Cutting ALL the middles after ALL the bars is what makes a crossing
+       clean: drawn one aisle at a time, each one's edge lines ran straight
+       across the other and every junction was a noughts-and-crosses board.
+       The green is kept grey and thin on purpose. The crosshair is green,
+       and a floor of the same green under it is a floor you cannot aim at. */
+    const edge = 0.10 * k;
+    for (const p of of('walk')) run(p, (x, z, w, d) => { g.fillStyle = 'rgba(160,124,36,0.56)'; g.fillRect(x, z, w, d); });
+    for (const p of of('walk')) run(p, (x, z, w, d, horiz) => {
+      const ix = horiz ? x : x + edge, iz = horiz ? z + edge : z, iw = horiz ? w : w - 2 * edge, id = horiz ? d - 2 * edge : d;
+      g.clearRect(ix, iz, iw, id); g.fillStyle = 'rgba(44,80,68,0.27)'; g.fillRect(ix, iz, iw, id); });
+    for (const p of of('trench')) run(p, (x, z, w, d, horiz) => {
+      g.fillStyle = 'rgba(46,50,56,0.94)'; g.fillRect(x, z, w, d);                    // steel covers...
+      g.fillStyle = 'rgba(150,160,172,0.30)'; const e = 0.06 * k;                     // ...in a lighter angle frame...
+      if (horiz){ g.fillRect(x, z, w, e); g.fillRect(x, z + d - e, w, e); } else { g.fillRect(x, z, e, d); g.fillRect(x + w - e, z, e, d); }
+      g.fillStyle = 'rgba(8,9,11,0.80)';                                               // ...one plate a metre
+      for (let t = k; t < (horiz ? w : d); t += k){ if (horiz) g.fillRect(x + t, z, 1.5, d); else g.fillRect(x, z + t, w, 1.5); }
+      g.fillStyle = 'rgba(190,198,208,0.16)';                                          // and a lifting slot in each
+      for (let t = k / 2; t < (horiz ? w : d); t += k){ if (horiz) g.fillRect(x + t - 2, z + d / 2 - 0.09 * k, 4, 0.18 * k); else g.fillRect(x + w / 2 - 0.09 * k, z + t - 2, 0.18 * k, 4); }
+    });
+    for (const p of of('hatch')){                                                      // a striped border round live plant
+      const x0 = X(p.x - p.w / 2), z0 = Z(p.z - p.d / 2), w = p.w * k, d = p.d * k, t = 0.42 * k;
+      g.save(); g.beginPath(); g.rect(x0, z0, w, d); g.rect(x0 + t, z0 + t, w - 2 * t, d - 2 * t); g.clip('evenodd');
+      g.fillStyle = 'rgba(16,17,20,0.88)'; g.fillRect(x0, z0, w, d);
+      g.fillStyle = 'rgba(196,148,30,0.90)'; const s = 0.4 * k;
+      for (let q = -d; q < w + d; q += s * 2){ g.beginPath(); g.moveTo(x0 + q, z0 + d); g.lineTo(x0 + q + s, z0 + d); g.lineTo(x0 + q + s + d, z0); g.lineTo(x0 + q + d, z0); g.closePath(); g.fill(); }
+      g.restore();
+    }
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (const p of of('text')){
+      g.font = `700 ${(p.s * k) | 0}px "Arial Narrow", Arial, sans-serif`; g.fillStyle = 'rgba(226,231,238,0.62)';
+      g.fillText(p.t, X(p.x), Z(p.z));
+    }
+    g.textAlign = 'start'; g.textBaseline = 'alphabetic';
+    /* A keep-clear line round ordinary cover. Not round the plant that has a
+       striped border of its own, and not round the 'hidden' steps of a
+       casing, which would draw four boxes inside each other on the floor. */
+    g.strokeStyle = 'rgba(214,220,228,0.30)'; g.lineWidth = 0.07 * k;
+    for (const b of map.boxes){ if (b.mat === 'hidden' || b.mat === 'plinth' || b.mat === 'transformer') continue;
+      g.strokeRect(X(b.x - b.w / 2 - 0.5), Z(b.z - b.d / 2 - 0.5), (b.w + 1) * k, (b.d + 1) * k); }
     const rs = map.resupply || { x: 0, z: 0 }, core = map.boxes[0];                   // hazard frame round the resupply core
     if (core){
       const o = core.w / 2 + 1.1, i = core.w / 2 + 0.62;
@@ -839,9 +1009,14 @@ const LIT_FRAG_ALBEDO = `
     vec3 litLid = mapTexelToLinear( texture2D( map, vUv, 9.0 ) ).rgb * diffuse;
     diffuseColor.rgb = mix( diffuseColor.rgb, litLid * 0.9, smoothstep( 0.6, 0.9, vLitN.y ) );
   #endif
-  #ifdef CX_COVER
+  #ifdef CX_GREY
+    float litGl = dot( diffuseColor.rgb, vec3( 0.30, 0.55, 0.15 ) );                  // poured concrete: the wall's scan, greyed like the wall
+    diffuseColor.rgb = mix( diffuseColor.rgb, litGl * vec3( 0.90, 0.97, 1.08 ), 0.80 );
+  #endif
+  #if defined( CX_COVER ) && ! defined( CX_ROUND )
     /* A bevel's normal sits between two axes, so this is zero on a face
-       and rises across the edge: paint rubbed thin where things get knocked. */
+       and rises across the edge: paint rubbed thin where things get knocked.
+       Not on anything round, where EVERY normal sits between two axes. */
     float litEdge = 1.0 - max( max( abs( vLitN.x ), abs( vLitN.y ) ), abs( vLitN.z ) );
     diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * 1.7 + 0.035, smoothstep( 0.03, 0.24, litEdge ) * 0.6 );
   #endif
@@ -968,11 +1143,186 @@ function litMaterial(name){
     case 'wall':   m = litPatch(litShare(arenaMat('wall'), { roughness: 0.96, metalness: 0, color: 0x9aa1aa }), 'wall', 0.20); break;
     case 'fixture':m = litPatch(new THREE.MeshStandardMaterial({ color: 0x2a3038, roughness: 0.5, metalness: 0.65 }), 'ceil', 0.70); break;
     case 'lamp':   m = new THREE.MeshBasicMaterial({ color: new THREE.Color().fromArray(LIT.lampShow), fog: false }); break;
+    /* The power station's plant. `machine` is the block's panelled steel in
+       a machinery green with no hazard band and no stencil. */
+    case 'machine':t = litBlockTextures({ base: '#4e5650', cap: '#272c29', band: false, seed: 17, text: ['', '', ''] });
+                   m = litPatch(new THREE.MeshStandardMaterial(Object.assign(t, { roughness: 1, metalness: 0.35 })), 'cover', 0.90);
+                   m.defines.CX_PLAINTOP = ''; break;
+    /* The same paint on something ROUND. It has to be its own material: on a
+       box a normal that sits between two axes means a worn edge, and on a
+       cylinder every normal does, so the edge wear striped the whole casing. */
+    case 'machineR': t = litMaterial('machine');
+                   m = litPatch(new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normalMap, roughnessMap: t.roughnessMap, roughness: 1, metalness: 0.35 }), 'cover', 0.90);
+                   m.defines.CX_ROUND = ''; break;
+    case 'switch': t = litSwitchTextures();
+                   m = litPatch(new THREE.MeshStandardMaterial(Object.assign(t, { roughness: 1, metalness: 0.40, emissive: 0xffffff, emissiveIntensity: 2.4 })), 'cover', 0.90);
+                   m.defines.CX_PLAINTOP = ''; break;
+    /* Poured concrete: the wall's own scan, greyed the way the wall is. Its
+       texture carries the wall's repeat (12 by 1.2), so a tile of 120 by 8
+       metres here comes out at the same ten metres a panel as the walls. */
+    case 'concrete': m = litPatch(litShare(arenaMat('wall'), { roughness: 0.95, metalness: 0, color: 0x848a92 }), 'cover', 0.15);
+                   m.defines.CX_GREY = ''; break;
+    case 'hazard': m = litPatch(new THREE.MeshStandardMaterial({ map: litHazardTexture(), roughness: 0.62, metalness: 0.1 }), 'cover', 0.40); break;
+    /* Plain paints and metals, for the parts too small to want a texture.
+       All round or thin, so none of them takes the edge wear. */
+    case 'steel':  m = litPatch(new THREE.MeshStandardMaterial({ color: 0x363b42, roughness: 0.48, metalness: 0.70 }), 'cover', 0.90); m.defines.CX_ROUND = ''; break;
+    /* Safety yellow, kept dull. At a brighter value the crane bridge was one
+       unbroken bar of pure colour across every view of the hall and nothing
+       else in the room could compete with it. */
+    case 'yellow': m = litPatch(new THREE.MeshStandardMaterial({ color: 0x584610, roughness: 0.58, metalness: 0.10 }), 'cover', 0.45); m.defines.CX_ROUND = ''; break;
+    case 'porcelain': m = litPatch(new THREE.MeshStandardMaterial({ color: 0x33170e, roughness: 0.20, metalness: 0 }), 'cover', 1.20); m.defines.CX_ROUND = ''; break;
+    case 'bus':    m = litPatch(new THREE.MeshStandardMaterial({ color: 0x70767e, roughness: 0.38, metalness: 0.85 }), 'cover', 1.00); m.defines.CX_ROUND = ''; break;
     default:       m = litPatch(new THREE.MeshStandardMaterial({ color: 0x8a8f99, roughness: 0.9 }), 'cover', 0.3);
   }
   return (LIT_MATS[name] = m);
 }
-const LIT_TILE = { crate: 2.5, block: 4, pillar: 3 };
+const LIT_TILE = { crate: 2.5, block: 4, pillar: 3, machine: 3 };
+
+/* ---------------------------------------------------------------------
+   4b. THE PLANT — what a box becomes when it is a piece of a power station
+   --------------------------------------------------------------------- */
+/* A transformer, grown from its collision box so the two cannot differ:
+   the tank fills the middle, the radiator banks take the last 0.55m on two
+   sides and stop exactly at the box's faces, the lid is the box's top.
+   What rises above the lid — the bushings and the conservator — is thin,
+   is over head height, and is NOT collision; it is not shaped like cover
+   and should not be mistaken for it.
+   `face: 'z'` in the map turns the banks to the other pair of sides. A box
+   stays a box when its axes are swapped, so that is all a turn has to do. */
+function litTransformer(G, b){
+  const swap = b.face === 'z';
+  const hw = (swap ? b.d : b.w) / 2, hd = (swap ? b.w : b.d) / 2, H = b.h;
+  const box = (name, ax, y0, az, bx, y1, bz, o) => swap
+    ? litBox(G(name), b.x + az, y0, b.z + ax, b.x + bz, y1, b.z + bx, o)
+    : litBox(G(name), b.x + ax, y0, b.z + az, b.x + bx, y1, b.z + bz, o);
+  const cyl = (name, ax, ay, az, bx, by, bz, r0, r1, sides, capA, capB) => swap
+    ? litCyl(G(name), b.x + az, ay, b.z + ax, b.x + bz, by, b.z + bx, r0, r1, sides, 1, capA, capB)
+    : litCyl(G(name), b.x + ax, ay, b.z + az, b.x + bx, by, b.z + bz, r0, r1, sides, 1, capA, capB);
+  const tw = hw - 0.55;                                                              // the tank's half-width
+  box('steel',   -tw - 0.1, 0, -hd, tw + 0.1, 0.16, hd, { seg: 4 });                 // skid
+  box('machine', -tw, 0.16, -hd, tw, H - 0.12, hd, { bevel: 0.03, seg: LIT.coverSeg, tile: 3, noTop: true });
+  box('steel',   -tw - 0.06, H - 0.12, -hd, tw + 0.06, H, hd, { seg: 4 });           // lid
+  for (const s of [-1, 1]){                                                           // a radiator bank each side
+    const xa = s > 0 ? tw + 0.06 : -hw + 0.02, xb = s > 0 ? hw - 0.02 : -tw - 0.06, span = 2 * hd - 0.3;
+    const n = Math.max(3, Math.floor(span / 0.2));
+    for (let i = 0; i < n; i++){ const z = -hd + 0.15 + span * (i + 0.5) / n;
+      box('steel', xa, 0.44, z - 0.025, xb, H - 0.44, z + 0.025, { seg: 9, bottom: true }); }
+    const xm = (xa + xb) / 2;                                                        // the headers they hang between
+    box('steel', xm - 0.09, H - 0.44, -hd + 0.08, xm + 0.09, H - 0.30, hd - 0.08, { seg: 4, bottom: true });
+    box('steel', xm - 0.09, 0.30, -hd + 0.08, xm + 0.09, 0.44, hd - 0.08, { seg: 4, bottom: true });
+  }
+  for (const k of [-1, 0, 1]){                                                        // three high-voltage bushings
+    const x = -tw * 0.45, z = hd * 0.55 * k;
+    cyl('steel', x, H, z, x, H + 0.2, z, 0.20, 0.17, 10, false, true);
+    cyl('porcelain', x, H + 0.2, z, x, H + 1.25, z, 0.125, 0.08, 10, false, false);
+    /* The skirts ("sheds") that make an insulator look like one: each a
+       shallow cone, widest at the bottom, getting smaller up the stack. */
+    for (let j = 0; j < 6; j++){ const y = H + 0.30 + j * 0.155, r = 0.215 - j * 0.014;
+      cyl('porcelain', x, y, z, x, y + 0.05, z, r, r * 0.72, 10, true, true); }
+    cyl('steel', x, H + 1.25, z, x, H + 1.40, z, 0.06, 0.06, 8, false, true);
+  }
+  for (const k of [-1, 0, 1]){                                                        // and three low-voltage, smaller
+    const x = tw * 0.52, z = hd * 0.38 * k;
+    cyl('porcelain', x, H, z, x, H + 0.5, z, 0.075, 0.05, 8, false, true);
+    for (let j = 0; j < 3; j++){ const y = H + 0.10 + j * 0.13, r = 0.125 - j * 0.012;
+      cyl('porcelain', x, y, z, x, y + 0.04, z, r, r * 0.72, 8, true, true); }
+  }
+  const cy = H + 1.02, cl = hd * 0.68;                                                // the conservator, on two posts
+  cyl('machineR', tw * 0.03, cy, -cl, tw * 0.03, cy, cl, 0.33, 0.33, 14, true, true);
+  for (const s of [-1, 1]) box('steel', tw * 0.03 - 0.04, H, s * hd * 0.5 - 0.04, tw * 0.03 + 0.04, cy - 0.26, s * hd * 0.5 + 0.04, { seg: 4 });
+}
+/* How each kind of box in a map is drawn. A kind not listed here is a plain
+   bevelled box in the material of the same name. */
+const LIT_DRAW = {
+  hidden(){},                                   // collision only: a prop draws what stands here
+  /* Poured concrete with a yellow nosing round the top edge. The nosing is
+     the upper 13cm of the SAME footprint in another material, not a strip
+     stuck on the face: two faces in one plane flicker. */
+  plinth(G, b, x0, z0, x1, z1){
+    const n = 0.13;
+    litBox(G('concrete'), x0, 0, z0, x1, b.h - n, z1, { seg: LIT.coverSeg, tile: 120, tileV: 8, noTop: true });
+    litBox(G('yellow'),   x0, b.h - n, z0, x1, b.h, z1, { seg: 3, noTop: true });
+    litBox(G('concrete'), x0, 0, z0, x1, b.h, z1, { seg: LIT.coverSeg, tile: 120, tileV: 8, noSides: true });
+  },
+  firewall(G, b, x0, z0, x1, z1){
+    litBox(G('hazard'),   x0, 0, z0, x1, 0.4, z1, { seg: 3, tile: 0.8 });
+    litBox(G('concrete'), x0, 0.4, z0, x1, b.h, z1, { bevel: LIT.bevel, seg: LIT.coverSeg, tile: 120, tileV: 8 });
+  },
+  switch(G, b, x0, z0, x1, z1){
+    litBox(G('switch'), x0, 0, z0, x1, b.h, z1, { bevel: 0.03, seg: LIT.coverSeg, tile: 2.4, tileV: 2.2 });
+  },
+  transformer: litTransformer,
+};
+/* What a map's `props` become. None of it is collision. */
+const LIT_PROP = {
+  /* A turbine-generator set, lying along x with its generator toward `dir`.
+     It is drawn to the map's three 'hidden' steps, and the first cut of it
+     was not: a plain cylinder, which is 0.6m narrower than the bottom step
+     where it meets the pedestal. You walked into nothing a pace short of
+     the casing, and a shot stopped in mid-air beside it.
+
+     So the shape is the one a real casing has, which happens to be the one
+     boxes can follow. BELOW the centre line it is a square-sided lower
+     casing, exactly as wide as the bottom step. ABOVE it the turbine is a
+     half-cylinder of radius 1.7 — the three steps stand inside that arc and
+     agree with it to within 0.15m, measured — and the generator is drawn AS
+     the three steps, a stepped enclosure, so there it is exact. The split
+     between the halves is the bolted flange a turbine has anyway. */
+  turbine(G, p, D, H){
+    const s = p.dir || 1, y = 2.3, z = p.z, R = 1.7, X = (v) => p.x + v * s;
+    const lo = (a, b) => Math.min(X(a), X(b)), hi = (a, b) => Math.max(X(a), X(b));
+    const sec = (name, a, b, r, capA, capB) => litCyl(G(name), X(a), y, z, X(b), y, z, r, r, 24, 3, capA, capB);
+    litBox(G('machine'), lo(-7.5, 2.5), 1.0, z - R, hi(-7.5, 2.5), y, z + R, { bevel: 0.03, seg: LIT.coverSeg, tile: 3, noTop: true });   // lower casing
+    sec('machineR', -7.5, 2.5, R, true, false);                        // the upper halves: low, intermediate, high pressure
+    for (const fx of [-7.42, -4.9, -2.5, -0.1, 2.34]) sec('steel', fx - 0.08, fx + 0.08, R + 0.07, true, true);     // the flanges between them
+    for (const o of [-1, 1]){                                          // and the joint down each side
+      const zf = z + o * R;
+      litBox(G('steel'), lo(-7.5, 2.5), y - 0.07, Math.min(zf, zf + o * 0.07), hi(-7.5, 2.5), y + 0.07, Math.max(zf, zf + o * 0.07), { seg: 3, bottom: true });
+    }
+    /* The generator: the map's steps themselves, stacked rather than nested
+       so no face is buried inside another. */
+    const g0 = lo(2.5, 7.5), g1 = hi(2.5, 7.5), gen = { bevel: 0.035, seg: LIT.coverSeg, tile: 3 };
+    litBox(G('machine'), g0, 1.0, z - 1.7, g1, 3.0, z + 1.7, gen);
+    litBox(G('machine'), g0, 3.0, z - 1.3, g1, 3.6, z + 1.3, gen);
+    litBox(G('machine'), g0, 3.6, z - 0.8, g1, 4.0, z + 0.8, gen);
+    /* Everything from here is above the top step (4.0m) and is not collision:
+       steam lines up to the roof, and the generator's output going up into a
+       busduct that runs out to the nearest end wall. */
+    for (const o of [-0.7, 0.7]){
+      litCyl(G('bus'), X(1.2), 3.55, z + o, X(1.2), H, z + o, 0.2, 0.2, 12, 2, false, false);
+      litCyl(G('steel'), X(1.2), 5.4, z + o, X(1.2), 5.52, z + o, 0.27, 0.27, 12, 2, true, true);
+    }
+    const xa = lo(4.3, 5.7), xb = hi(4.3, 5.7), xm = (xa + xb) / 2, far = Math.sign(z || 1) * D;
+    litBox(G('steel'), xa, 4.0, z - 0.5, xb, 4.3, z + 0.5, { seg: 4 });                             // terminal box
+    litBox(G('bus'), xm - 0.30, 4.3, z - 0.26, xm + 0.30, 6.6, z + 0.26, { seg: 4, noTop: true });  // riser, narrower than the duct so no two faces share a plane
+    litBox(G('bus'), xm - 0.34, 6.12, Math.min(z, far), xm + 0.34, 6.6, Math.max(z, far), { seg: 6, bottom: true });
+    for (let k = 1; k < 5; k++){ const hz = z + (far - z) * k / 5;                                  // hangers to the roof
+      litBox(G('steel'), xm - 0.4, 6.6, hz - 0.03, xm + 0.4, 6.66, hz + 0.03, { seg: 4 });
+      for (const o of [-0.38, 0.38]) litBox(G('steel'), xm + o - 0.02, 6.66, hz - 0.02, xm + o + 0.02, H, hz + 0.02, { seg: 4, noTop: true }); }
+  },
+  /* The overhead travelling crane every turbine hall has: two runway beams
+     down the long walls, a pair of box girders bridging the hall, a trolley,
+     and the hook block left hanging. All of it is 4.7m up or more. */
+  crane(G, p, D){
+    const z = p.z, y0 = 5.95, y1 = 6.85, tx = 11;
+    for (const s of [-1, 1]){
+      litBox(G('steel'),  s > 0 ? D - 1.3 : -D + 0.5, 5.45, -D, s > 0 ? D - 0.5 : -D + 1.3, 5.83, D, { seg: 6, bottom: true });
+      litBox(G('steel'),  s > 0 ? D - 1.5 : -D + 0.4, 5.83, z - 1.7, s > 0 ? D - 0.4 : -D + 1.5, 6.45, z + 1.7, { seg: 4, bottom: true });
+      litBox(G('yellow'), -D + 0.5, y0, z + s * 0.9 - 0.25, D - 0.5, y1, z + s * 0.9 + 0.25, { seg: 6, bottom: true });
+    }
+    litBox(G('steel'),  tx - 1.3, y1, z - 1.25, tx + 1.3, y1 + 0.38, z + 1.25, { seg: 4, bottom: true });   // trolley
+    litBox(G('steel'),  tx - 0.04, 5.15, z - 0.04, tx + 0.04, y1, z + 0.04, { seg: 4, noTop: true });        // rope
+    litBox(G('yellow'), tx - 0.28, 4.72, z - 0.2, tx + 0.28, 5.15, z + 0.2, { seg: 2, bottom: true });       // hook block
+  },
+  /* A cable tray the length of the hall, hung from the roof. */
+  tray(G, p, D, H){
+    const x = p.x;
+    litBox(G('steel'), x - 0.36, 6.92, -D, x + 0.36, 6.97, D, { seg: 6, bottom: true });
+    for (const o of [-0.34, 0.34]) litBox(G('steel'), x + o - 0.02, 6.97, -D, x + o + 0.02, 7.07, D, { seg: 6 });
+    for (let z = -D + 4; z < D; z += 8) for (const o of [-0.34, 0.34])
+      litBox(G('steel'), x + o - 0.015, 7.07, z - 0.015, x + o + 0.015, H, z + 0.015, { seg: 4, noTop: true });
+  },
+};
 
 /* ---------------------------------------------------------------------
    5. BUILDING IT
@@ -1030,14 +1380,18 @@ function litBuildArena(map, flatFloor, flatRoof){
   const roof = new THREE.Mesh(litGeoDone(g), litPatch(litShare(flatRoof, { roughness: 0.97, metalness: 0, color: 0x6a727c }), 'ceil', 0.15));
   roof.userData.ownMaterial = true; litAdd(roof, true);
 
-  /* Cover: one mesh per material, so seventeen boxes are three draw calls. */
-  const byMat = {};
+  /* Cover and plant. Everything is gathered by MATERIAL, so a whole map is
+     one mesh and one draw call per material however many pieces it has.
+     `G(name)` is that material's geometry, made the first time it is asked
+     for. A box is drawn by its kind (LIT_DRAW), or as a plain bevelled box. */
+  const geos = {}, G = (name) => geos[name] || (geos[name] = litGeo());
   for (const b of map.boxes){
-    const gg = byMat[b.mat] || (byMat[b.mat] = litGeo());
-    litBox(gg, b.x - b.w / 2, 0, b.z - b.d / 2, b.x + b.w / 2, b.h, b.z + b.d / 2,
-           { bevel: LIT.bevel, seg: LIT.coverSeg, tile: LIT_TILE[b.mat] || 3 });
+    const x0 = b.x - b.w / 2, z0 = b.z - b.d / 2, x1 = b.x + b.w / 2, z1 = b.z + b.d / 2, draw = LIT_DRAW[b.mat];
+    if (draw) draw(G, b, x0, z0, x1, z1);
+    else litBox(G(b.mat), x0, 0, z0, x1, b.h, z1, { bevel: LIT.bevel, seg: LIT.coverSeg, tile: LIT_TILE[b.mat] || 3 });
   }
-  for (const name in byMat) litAdd(new THREE.Mesh(litGeoDone(byMat[name]), litMaterial(name)), true);
+  for (const p of (map.props || [])){ const draw = LIT_PROP[p.kind]; if (draw) draw(G, p, D, H); }
+  for (const name in geos) litAdd(new THREE.Mesh(litGeoDone(geos[name]), litMaterial(name)), true);
 
   /* Fixtures. Each panel gets a housing to hang in, and the roof gets a
      grid of girders between the rows of lamps: without structure up there

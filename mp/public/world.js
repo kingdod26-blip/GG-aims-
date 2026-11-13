@@ -83,6 +83,13 @@ function arenaMat(name){
                      { metalness:0.25, roughness:0.62 }, { metalness:0, roughness:0.95 }); break;
     case 'wall':   m = lookTag(pbr('wall', 12, 1.2),                        // real scanned concrete
                      { metalness:0,    roughness:0.88 }, { metalness:0, roughness:1 }); break;
+    /* The power station's kinds. Only the FLAT look reads these: it draws
+       every box as a plain box and has no plant to put on it, so concrete
+       is the wall's concrete and everything else is one of the two painted
+       steels. The lit arena builds each kind properly (LIT_DRAW). */
+    case 'plinth': case 'firewall':                    m = arenaMat('wall');   break;
+    case 'transformer': case 'switch': case 'machine': m = arenaMat('pillar'); break;
+    case 'hidden':                                     m = arenaMat('block');  break;
     default:       m = new THREE.MeshLambertMaterial({ color: 0x8a8f99 });
   }
   return (MAT_CACHE[name] = m);
@@ -426,10 +433,87 @@ const SIGN_ART = {
   b2: { w:3, h:1.5, transparent:true, draw:(g,w,h)=>{
     g.clearRect(0,0,w,h); g.fillStyle='#d9b23a'; g.font='bold 170px Arial'; g.textAlign='center'; g.fillText('B-2 →', w/2, h/2+60);
   }},
+
+  /* ---- The power station's ---- */
+  unit1: unitBoard(1), unit2: unitBoard(2),
+  /* The sign every substation fence carries. */
+  hv: { w:1.5, h:1.5, cw:256, ch:256, draw:(g,w,h)=>{
+    g.fillStyle='#14161a'; g.fillRect(0,0,w,h);
+    g.fillStyle='#d2a51f'; g.fillRect(8,8,w-16,h-16);
+    g.fillStyle='#14161a'; g.beginPath(); g.moveTo(w/2,26); g.lineTo(w-52,150); g.lineTo(52,150); g.closePath(); g.fill();
+    g.fillStyle='#d2a51f'; g.beginPath();                                    // the bolt
+    g.moveTo(w/2+10,52); g.lineTo(w/2-20,104); g.lineTo(w/2-2,104); g.lineTo(w/2-14,140); g.lineTo(w/2+22,90); g.lineTo(w/2+4,90); g.closePath(); g.fill();
+    g.fillStyle='#14161a'; g.textAlign='center'; g.font='bold 34px Arial'; g.fillText('DANGER', w/2, 192);
+    g.font='bold 21px Arial'; g.fillText('HIGH VOLTAGE', w/2, 222);
+  }},
+  /* The control room, seen from the hall floor as a band of lit windows high
+     on the wall. `glow` draws it unlit, at its own brightness: a window is a
+     light, not something the hall's lamps shine on. */
+  control: { w:18, h:2.8, cw:1024, ch:160, glow:true, draw:(g,w,h)=>{
+    g.fillStyle='#07080a'; g.fillRect(0,0,w,h);
+    const bays=6, bw=(w-20)/bays;
+    for(let i=0;i<bays;i++){ const x=10+i*bw+5, ww=bw-10;
+      const room=g.createLinearGradient(0,14,0,h-14);
+      room.addColorStop(0,'#7b6a4a'); room.addColorStop(0.55,'#4f4634'); room.addColorStop(1,'#1c1a16');
+      g.fillStyle=room; g.fillRect(x,14,ww,h-28);
+      g.fillStyle='rgba(255,236,190,0.55)'; g.fillRect(x+ww*0.12,18,ww*0.76,5);            // a strip light in the ceiling
+      for(let m=0;m<3;m++){ const mx=x+ww*(0.12+m*0.28), my=h*0.42;                         // monitors on the desk
+        g.fillStyle='#08090b'; g.fillRect(mx-2,my-2,ww*0.22+4,30+4);
+        g.fillStyle = (i+m)%3===0 ? '#2fc7a0' : (i+m)%3===1 ? '#3aa0d8' : '#c9a23a'; g.fillRect(mx,my,ww*0.22,30);
+        g.fillStyle='rgba(0,0,0,0.35)'; for(let r=0;r<4;r++) g.fillRect(mx+3,my+4+r*7,ww*0.22-6-(r*9%17),2); }
+      g.fillStyle='#0b0c0e'; g.fillRect(x,h-14-34,ww,34);                                   // the desk, in silhouette
+      g.fillStyle='rgba(255,255,255,0.05)'; g.fillRect(x,14,ww*0.35,h-28);                  // a reflection in the glass
+    }
+    g.fillStyle='#101216'; for(let i=0;i<=bays;i++) g.fillRect(10+i*bw-5,0,10,h);          // mullions
+    g.fillRect(0,0,w,14); g.fillRect(0,h-14,w,14);
+  }},
+  /* The mimic board: the station's single-line diagram, lit. Generators on
+     the left, their transformers, a double busbar, feeders out to the four
+     yard transformers. A closed breaker is red and an open one green, which
+     is the convention, and the reverse of what anyone expects. */
+  mimic: { w:14, h:3.5, cw:1024, ch:256, glow:true, draw:(g,w,h)=>{
+    g.fillStyle='#090b0e'; g.fillRect(0,0,w,h);
+    g.strokeStyle='#2a2f37'; g.lineWidth=6; g.strokeRect(3,3,w-6,h-6);
+    g.fillStyle='#8a94a2'; g.font='bold 15px Arial'; g.fillText('STATION SINGLE-LINE DIAGRAM  ·  220 / 15.75 kV', 22, 28);
+    const line=(x0,y0,x1,y1,c,lw)=>{ g.strokeStyle=c; g.lineWidth=lw||3; g.beginPath(); g.moveTo(x0,y0); g.lineTo(x1,y1); g.stroke(); };
+    const brk=(x,y,closed)=>{ g.fillStyle=closed?'#ff3b30':'#30e070'; g.fillRect(x-7,y-7,14,14); };
+    const B1=96, B2=126;                                                       // the two busbars
+    line(250,B1,w-40,B1,'#e8a020',5); line(250,B2,w-40,B2,'#e8a020',5);
+    g.fillStyle='#e8a020'; g.font='bold 12px Arial'; g.fillText('BUS A', w-88, B1-9); g.fillText('BUS B', w-88, B2+20);
+    [[70,'G1',B1],[190,'G2',B2]].forEach(([y,name,bus],i)=>{                   // generator, its transformer, onto a bus
+      const gy = i ? 200 : 62;
+      g.strokeStyle='#dfe6ee'; g.lineWidth=3; g.beginPath(); g.arc(60,gy,20,0,7); g.stroke();
+      g.fillStyle='#dfe6ee'; g.font='bold 16px Arial'; g.fillText(name,49,gy+6);
+      line(80,gy,128,gy,'#dfe6ee'); g.beginPath(); g.arc(142,gy,14,0,7); g.stroke(); g.beginPath(); g.arc(160,gy,14,0,7); g.stroke();
+      line(174,gy,214,gy,'#dfe6ee'); brk(214,gy,true); line(221,gy,268+i*26,gy,'#dfe6ee'); line(268+i*26,gy,268+i*26,bus,'#dfe6ee');
+    });
+    for(let i=0;i<4;i++){ const x=380+i*150, up=i%2===0, y=up?40:212;         // four feeders to the yard
+      line(x,up?B1:B2,x,y+(up?34:-34),'#dfe6ee'); brk(x,up?B1-28:B2+28,i!==2);
+      g.strokeStyle='#dfe6ee'; g.lineWidth=3; g.beginPath(); g.arc(x,y+(up?22:-22),12,0,7); g.stroke(); g.beginPath(); g.arc(x,y+(up?6:-6),12,0,7); g.stroke();
+      g.fillStyle='#8a94a2'; g.font='bold 13px Arial'; g.fillText('TX-'+(i+1), x+20, y+(up?12:-4));
+      g.fillStyle='#3aa0d8'; g.font='12px Arial'; g.fillText(i===2?'0 MW':(48+i*7)+' MW', x+20, y+(up?28:12));
+    }
+    line(330,B1,330,B2,'#dfe6ee'); brk(330,(B1+B2)/2,true);                    // bus coupler
+  }},
 };
+/* A unit's name board, hung on the end wall behind its machine. */
+function unitBoard(n){
+  return { w:10, h:2.5, cw:1024, ch:256, draw:(g,w,h)=>{
+    g.fillStyle='#14171b'; g.fillRect(0,0,w,h);
+    g.strokeStyle='#2c313a'; g.lineWidth=10; g.strokeRect(5,5,w-10,h-10);
+    g.fillStyle='#c0263c'; g.fillRect(34,40,14,h-80);
+    g.fillStyle='#f0f3f6'; g.font='bold 150px Arial'; g.fillText('UNIT '+n, 70, 178);
+    g.fillStyle='#aeb6c0'; g.font='bold 30px Arial'; g.fillText('TURBINE-GENERATOR SET', 600, 100);
+    g.font='26px Arial'; g.fillStyle='#8a94a2';
+    g.fillText('220 MW  ·  3000 RPM', 600, 146); g.fillText('15.75 kV  ·  50 Hz', 600, 184);
+  }};
+}
 function addSign(s){
   const art = SIGN_ART[s.kind]; if (!art) return;
-  const m = signMesh(art.draw, art.w, art.h);
+  const m = signMesh(art.draw, art.w, art.h, art.cw, art.ch);
+  if (art.glow) {                                  // self-lit: swap the lit material for an unlit one on the same picture
+    const lit = m.material; m.material = new THREE.MeshBasicMaterial({ map: lit.map }); lit.dispose();
+  }
   m.position.set(s.x, s.y, s.z);
   m.rotation.y = (s.ry || 0) * Math.PI / 180;
   if (art.transparent) m.material.transparent = true;
