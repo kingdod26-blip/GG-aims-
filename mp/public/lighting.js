@@ -42,7 +42,7 @@
    These files are CLASSIC scripts sharing ONE global scope.
    ============================================================= */
 
-const LIT_NBOX = 40;       // cover plus the four perimeter walls: the shader's loops are this long
+const LIT_NBOX = 56;       // cover plus the four perimeter walls: the shader's loops are this long
 const LIT_DIR_OPEN  = '#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )';
 const LIT_RECT_OPEN = '#if ( NUM_RECT_AREA_LIGHTS > 0 )';
 /* The patch below rewrites one of Three's own shader chunks by finding two
@@ -824,7 +824,7 @@ function litMarksTexture(map){
        striped border of its own, and not round the 'hidden' steps of a
        casing, which would draw four boxes inside each other on the floor. */
     g.strokeStyle = 'rgba(214,220,228,0.30)'; g.lineWidth = 0.07 * k;
-    for (const b of map.boxes){ if (b.mat === 'hidden' || b.mat === 'plinth' || b.mat === 'transformer') continue;
+    for (const b of map.boxes){ if (b.mat === 'hidden' || b.mat === 'plinth' || b.mat === 'transformer' || b.mat === 'column') continue;
       g.strokeRect(X(b.x - b.w / 2 - 0.5), Z(b.z - b.d / 2 - 0.5), (b.w + 1) * k, (b.d + 1) * k); }
     const rs = map.resupply || { x: 0, z: 0 }, core = map.boxes[0];                   // hazard frame round the resupply core
     if (core){
@@ -1162,6 +1162,9 @@ function litMaterial(name){
        metres here comes out at the same ten metres a panel as the walls. */
     case 'concrete': m = litPatch(litShare(arenaMat('wall'), { roughness: 0.95, metalness: 0, color: 0x848a92 }), 'cover', 0.15);
                    m.defines.CX_GREY = ''; break;
+    /* Structural steel: the block's riveted plate, darker, no band, a plate a metre. */
+    case 'girder': t = litBlockTextures({ base: '#6a6e75', cap: '#3a3d42', band: false, seed: 29, text: ['', '', ''] });
+                   m = litPatch(new THREE.MeshStandardMaterial(Object.assign(t, { roughness: 1, metalness: 0.25 })), 'cover', 0.80); break;
     case 'hazard': m = litPatch(new THREE.MeshStandardMaterial({ map: litHazardTexture(), roughness: 0.62, metalness: 0.1 }), 'cover', 0.40); break;
     /* Plain paints and metals, for the parts too small to want a texture.
        All round or thin, so none of them takes the edge wear. */
@@ -1252,6 +1255,11 @@ const LIT_DRAW = {
     litBox(G('switch'), x0, 0, z0, x1, b.h, z1, { bevel: 0.03, seg: LIT.coverSeg, tile: 2.4, tileV: 2.2 });
   },
   transformer: litTransformer,
+  /* A column: riveted steel on a concrete foot, the full height of the hall. */
+  column(G, b, x0, z0, x1, z1){
+    litBox(G('concrete'), x0, 0, z0, x1, 0.5, z1, { seg: 2, tile: 120, tileV: 8 });
+    litBox(G('girder'), x0 + 0.1, 0.5, z0 + 0.1, x1 - 0.1, b.h, z1 - 0.1, { bevel: 0.03, seg: 1.5, tile: 2, noTop: true });
+  },
 };
 /* What a map's `props` become. None of it is collision. */
 const LIT_PROP = {
@@ -1303,24 +1311,35 @@ const LIT_PROP = {
   /* The overhead travelling crane every turbine hall has: two runway beams
      down the long walls, a pair of box girders bridging the hall, a trolley,
      and the hook block left hanging. All of it is 4.7m up or more. */
-  crane(G, p, D){
-    const z = p.z, y0 = 5.95, y1 = 6.85, tx = 11;
+  crane(G, p, D, H){
+    const z = p.z, up = H - 8, y0 = 5.95 + up, y1 = 6.85 + up, tx = 11;
     for (const s of [-1, 1]){
-      litBox(G('steel'),  s > 0 ? D - 1.3 : -D + 0.5, 5.45, -D, s > 0 ? D - 0.5 : -D + 1.3, 5.83, D, { seg: 6, bottom: true });
-      litBox(G('steel'),  s > 0 ? D - 1.5 : -D + 0.4, 5.83, z - 1.7, s > 0 ? D - 0.4 : -D + 1.5, 6.45, z + 1.7, { seg: 4, bottom: true });
+      litBox(G('steel'),  s > 0 ? D - 1.3 : -D + 0.5, 5.45 + up, -D, s > 0 ? D - 0.5 : -D + 1.3, 5.83 + up, D, { seg: 6, bottom: true });
+      litBox(G('steel'),  s > 0 ? D - 1.5 : -D + 0.4, 5.83 + up, z - 1.7, s > 0 ? D - 0.4 : -D + 1.5, 6.45 + up, z + 1.7, { seg: 4, bottom: true });
       litBox(G('yellow'), -D + 0.5, y0, z + s * 0.9 - 0.25, D - 0.5, y1, z + s * 0.9 + 0.25, { seg: 6, bottom: true });
     }
     litBox(G('steel'),  tx - 1.3, y1, z - 1.25, tx + 1.3, y1 + 0.38, z + 1.25, { seg: 4, bottom: true });   // trolley
-    litBox(G('steel'),  tx - 0.04, 5.15, z - 0.04, tx + 0.04, y1, z + 0.04, { seg: 4, noTop: true });        // rope
-    litBox(G('yellow'), tx - 0.28, 4.72, z - 0.2, tx + 0.28, 5.15, z + 0.2, { seg: 2, bottom: true });       // hook block
+    litBox(G('steel'),  tx - 0.04, 5.15 + up, z - 0.04, tx + 0.04, y1, z + 0.04, { seg: 4, noTop: true });        // rope
+    litBox(G('yellow'), tx - 0.28, 4.72 + up, z - 0.2, tx + 0.28, 5.15 + up, z + 0.2, { seg: 2, bottom: true });       // hook block
   },
   /* A cable tray the length of the hall, hung from the roof. */
+  /* The side galleries: a steel deck over each aisle, carried on the column
+     row, with a handrail along the open edge. 5.4m up, so out of reach and
+     not collision; what holds it up IS (the columns). */
+  gallery(G, p, D){
+    const s = Math.sign(p.x), xi = p.x - s * 0.9, xo = s * D, x0 = Math.min(xi, xo), x1 = Math.max(xi, xo);
+    litBox(G('girder'), x0, 5.4, -D, x1, 5.72, D, { seg: 5, tile: 2, bottom: true });
+    litBox(G('yellow'), Math.min(xi, xi + s * 0.14), 5.25, -D, Math.max(xi, xi + s * 0.14), 5.72, D, { seg: 6, bottom: true });   // the deck's edge beam
+    for (const y of [6.25, 6.8]) litBox(G('yellow'), xi - 0.03, y, -D, xi + 0.03, y + 0.06, D, { seg: 6, bottom: true });   // rails
+    for (let z = -D + 1; z < D; z += 2.5) litBox(G('yellow'), xi - 0.03, 5.72, z - 0.03, xi + 0.03, 6.86, z + 0.03, { seg: 4 });   // posts
+    for (let z = -D + 6.25; z < D; z += 12.5) litBox(G('girder'), x0, 5.0, z - 0.15, x1, 5.4, z + 0.15, { seg: 5, tile: 2, bottom: true });   // beams under the deck
+  },
   tray(G, p, D, H){
-    const x = p.x;
-    litBox(G('steel'), x - 0.36, 6.92, -D, x + 0.36, 6.97, D, { seg: 6, bottom: true });
-    for (const o of [-0.34, 0.34]) litBox(G('steel'), x + o - 0.02, 6.97, -D, x + o + 0.02, 7.07, D, { seg: 6 });
+    const x = p.x, up = H - 8;
+    litBox(G('steel'), x - 0.36, 6.92 + up, -D, x + 0.36, 6.97 + up, D, { seg: 6, bottom: true });
+    for (const o of [-0.34, 0.34]) litBox(G('steel'), x + o - 0.02, 6.97 + up, -D, x + o + 0.02, 7.07 + up, D, { seg: 6 });
     for (let z = -D + 4; z < D; z += 8) for (const o of [-0.34, 0.34])
-      litBox(G('steel'), x + o - 0.015, 7.07, z - 0.015, x + o + 0.015, H, z + 0.015, { seg: 4, noTop: true });
+      litBox(G('steel'), x + o - 0.015, 7.07 + up, z - 0.015, x + o + 0.015, H, z + 0.015, { seg: 4, noTop: true });
   },
 };
 
@@ -1348,6 +1367,9 @@ function litUniformsFor(map){
   LITU.uLitArena.value = a; LITU.uLitWallD.value = a - 1; LITU.uLitWallH.value = map.wallH;
   LITU.uLitLampY.value = map.wallH - LIT.lampDrop; LITU.uLitLampS.value = L.spacing; LITU.uLitLampK.value = L.reach;
   LITU.uLitLampHalf.value.set(L.w / 2, L.d / 2);
+  /* A taller hall has more panels in reach of every point, so the same unit
+     of light adds up to more. `gain` in the map trims it back. */
+  LITU.uLitGain.value = LIT.gain * (map.gain || 1);
   LITU.uLitMarks.value = litMarksTexture(map);
   LITU.uLitTex.value = LIT_BLANK;                      // until this map's bake lands
 }

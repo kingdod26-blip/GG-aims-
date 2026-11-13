@@ -757,6 +757,17 @@ longer exists; `mapById` falls back to the default, so an old link, a saved
   silent at the menu and on a hidden tab. The level was chosen on paper, NOT
   measured through an offline render like the other sounds, and nobody has
   listened to it yet.
+- **It is a HALL, not Foundry with machines in it** (Jack, 2026-11-13: the
+  first cut "looks like a power station u build off my map"; he sent photos of
+  a real turbine hall). So: `wallH` 14, two rows of floor-to-roof steel columns
+  at x = 24 and -24 every 12.5m (mat `column`, real cover) making a nave and
+  two aisles, a `gallery` prop over each aisle at 5.4m with a handrail, the
+  crane and trays riding under the roof whatever its height, and a 44m
+  `window` sign of small panes on each end wall. A taller roof puts more
+  panels in reach of every point, so the map carries `gain: 0.5`; without it
+  the floor washed out. Glowing signs are drawn with `fog:false` or the end
+  window disappears into haze. 47 boxes now, `LIT_NBOX` 56. When Jack says
+  build something, design from the real thing, not his existing layout.
 - Measured: half-turn symmetry exact, no two objects closer than 1.2m, spawn
   probe (`scratchpad/permap.js`) 20/20 on both maps, a multiplayer join lands
   on `powerstation` with no errors, 4.3ms a frame at 1280x720 on the Intel Arc

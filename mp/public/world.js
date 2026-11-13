@@ -89,7 +89,7 @@ function arenaMat(name){
        steels. The lit arena builds each kind properly (LIT_DRAW). */
     case 'plinth': case 'firewall':                    m = arenaMat('wall');   break;
     case 'transformer': case 'switch': case 'machine': m = arenaMat('pillar'); break;
-    case 'hidden':                                     m = arenaMat('block');  break;
+    case 'hidden': case 'column':                      m = arenaMat('block');  break;
     default:       m = new THREE.MeshLambertMaterial({ color: 0x8a8f99 });
   }
   return (MAT_CACHE[name] = m);
@@ -435,6 +435,16 @@ const SIGN_ART = {
   }},
 
   /* ---- The power station's ---- */
+  /* The end window: a wall of small panes in a steel grid, daylight behind
+     it. It is drawn unlit and bright, so the bloom makes it glare the way a
+     window at the end of a dark hall does. */
+  window: { w:44, h:8, cw:1024, ch:256, glow:true, draw:(g,w,h)=>{
+    const sky=g.createLinearGradient(0,0,0,h); sky.addColorStop(0,'#f4f8ff'); sky.addColorStop(0.7,'#cfdcec'); sky.addColorStop(1,'#93a6ba');
+    g.fillStyle=sky; g.fillRect(0,0,w,h);
+    for(let i=0;i<260;i++){ g.fillStyle=`rgba(40,52,66,${Math.random()*0.22})`; g.fillRect(((Math.random()*44)|0)*w/44, ((Math.random()*10)|0)*h/10, w/44, h/10); }   // dirty and replaced panes
+    g.fillStyle='#0c0e11'; for(let i=0;i<=44;i++) g.fillRect(i*w/44-1,0,2,h); for(let j=0;j<=10;j++) g.fillRect(0,j*h/10-1,w,2);
+    for(let i=0;i<=44;i+=4) g.fillRect(i*w/44-4,0,8,h); g.fillRect(0,0,w,6); g.fillRect(0,h-6,w,6); g.fillRect(0,h/2-3,w,6);
+  }},
   unit1: unitBoard(1), unit2: unitBoard(2),
   /* The sign every substation fence carries. */
   hv: { w:1.5, h:1.5, cw:256, ch:256, draw:(g,w,h)=>{
@@ -512,7 +522,7 @@ function addSign(s){
   const art = SIGN_ART[s.kind]; if (!art) return;
   const m = signMesh(art.draw, art.w, art.h, art.cw, art.ch);
   if (art.glow) {                                  // self-lit: swap the lit material for an unlit one on the same picture
-    const lit = m.material; m.material = new THREE.MeshBasicMaterial({ map: lit.map }); lit.dispose();
+    const lit = m.material; m.material = new THREE.MeshBasicMaterial({ map: lit.map, fog: false }); lit.dispose();
   }
   m.position.set(s.x, s.y, s.z);
   m.rotation.y = (s.ry || 0) * Math.PI / 180;

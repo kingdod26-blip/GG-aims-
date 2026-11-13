@@ -62,11 +62,14 @@ const MAPS = {
     name: 'POWER STATION',
     blurb: 'Turbine hall. Two generator units, a transformer yard, long lines down both axes.',
     arena: 60,
-    wallH: 8,
+    /* A turbine hall is TALL. At 8m this was a warehouse with machines in it;
+       the height, the column rows and the galleries are what make it a hall. */
+    wallH: 14,
+    gain: 0.5,
     /* High-bay panels on a grid, `reach` steps out from the centre in each
        direction (2 -> a 5x5 grid at 24m spacing). They are the room's light:
        lighting.js bakes from them. */
-    lamps: { spacing: 24, reach: 2, w: 6, d: 2.4 },
+    lamps: { spacing: 24, reach: 2, w: 8, d: 4 },
     /* The resupply ring. The box it sits on is the first entry in `boxes`;
        the server's RESUPPLY tests from here too. */
     resupply: { x: 0, z: 0 },
@@ -105,6 +108,27 @@ const MAPS = {
       { x: -40, z:  22, w: 2.6, d: 2.6, h: 1.6, mat: 'crate'  },
       { x:  -9, z: -42, w:   3, d:   3, h: 2,   mat: 'crate'  },
       { x:   9, z:  42, w:   3, d:   3, h: 2,   mat: 'crate'  },
+
+      /* The structure: two rows of steel columns, floor to roof, that split
+         the hall into a nave and two side aisles. Real cover, every 12.5m. */
+      { x: -24, z: -50, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: -24, z: -37.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: -24, z: -25, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: -24, z: -12.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: -24, z: 0, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: -24, z: 12.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: -24, z: 25, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: -24, z: 37.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: -24, z: 50, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: 24, z: -50, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: 24, z: -37.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: 24, z: -25, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: 24, z: -12.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: 24, z: 0, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: 24, z: 12.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: 24, z: 25, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: 24, z: 37.5, w: 1.2, d: 1.2, h: 14, mat: 'column' },
+      { x: 24, z: 50, w: 1.2, d: 1.2, h: 14, mat: 'column' },
     ],
     /* What the lit arena draws that is NOT one box: the turbine casings that
        the 'hidden' steps above stand in for, and everything overhead. None
@@ -116,7 +140,8 @@ const MAPS = {
       { kind: 'turbine', x: 0, z: -25, dir:  1, unit: 1 },
       { kind: 'turbine', x: 0, z:  25, dir: -1, unit: 2 },
       { kind: 'crane',   z: -8 },
-      { kind: 'tray',    x: -20 }, { kind: 'tray', x: 20 },
+      { kind: 'gallery', x: -24 }, { kind: 'gallery', x: 24 },
+      { kind: 'tray',    x: -18 }, { kind: 'tray', x: 18 },
     ],
     /* Paint on the floor, in metres. `walk` is a green pedestrian aisle,
        `trench` a run of steel cable-trench covers, `hatch` a yellow keep-out
@@ -145,8 +170,10 @@ const MAPS = {
        on the END walls: the crane's runway beams run down the long ones at
        5.5m and would cut straight across anything hung there. */
     signs: [
-      { kind: 'unit1',   x:     0, y: 5.0,  z: -58.9, ry:   0 },
-      { kind: 'unit2',   x:     0, y: 5.0,  z:  58.9, ry: 180 },
+      { kind: 'window',  x:     0, y: 9.6,  z: -58.92, ry:   0 },
+      { kind: 'window',  x:     0, y: 9.6,  z:  58.92, ry: 180 },
+      { kind: 'unit1',   x:     0, y: 4.2,  z: -58.9, ry:   0 },
+      { kind: 'unit2',   x:     0, y: 4.2,  z:  58.9, ry: 180 },
       { kind: 'control', x:   -29, y: 5.0,  z: -58.9, ry:   0 },
       { kind: 'mimic',   x:   -28, y: 4.9,  z:  58.9, ry: 180 },
       { kind: 'hv',      x: -58.9, y: 2.12, z:   -30, ry:  90 },
