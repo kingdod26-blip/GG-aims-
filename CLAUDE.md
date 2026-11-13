@@ -768,6 +768,14 @@ longer exists; `mapById` falls back to the default, so an old link, a saved
   the floor washed out. Glowing signs are drawn with `fog:false` or the end
   window disappears into haze. 47 boxes now, `LIT_NBOX` 56. When Jack says
   build something, design from the real thing, not his existing layout.
+- **The roof is a skylight and open trusses.** `lamps.reachX: 0` makes the
+  grid one row down the nave (10m by 20m panels, nearly continuous), with its
+  own colour (`rgb`, `refl`, `show`) so it is overcast daylight; `gain` is
+  0.95. A `truss` prop spans the nave on every column line. **Columns and
+  `hidden` steps are kept OUT of the floor shader list** (`litUniformsFor`):
+  it loops over that list twice per floor pixel, and with all 47 boxes in a
+  frame went from about 4ms to 12.6ms. With 27 it is 4.2 to 6.6ms at 720p
+  (the spread is the measurement, taken in a busy pane).
 - Measured: half-turn symmetry exact, no two objects closer than 1.2m, spawn
   probe (`scratchpad/permap.js`) 20/20 on both maps, a multiplayer join lands
   on `powerstation` with no errors, 4.3ms a frame at 1280x720 on the Intel Arc

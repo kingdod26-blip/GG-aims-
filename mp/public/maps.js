@@ -65,11 +65,15 @@ const MAPS = {
     /* A turbine hall is TALL. At 8m this was a warehouse with machines in it;
        the height, the column rows and the galleries are what make it a hall. */
     wallH: 14,
-    gain: 0.5,
+    gain: 0.95,
     /* High-bay panels on a grid, `reach` steps out from the centre in each
        direction (2 -> a 5x5 grid at 24m spacing). They are the room's light:
        lighting.js bakes from them. */
-    lamps: { spacing: 24, reach: 2, w: 8, d: 4 },
+    /* ONE row down the middle, each 10m wide and 20 long: a skylight the
+       length of the nave, in overcast daylight rather than lamp colour. The
+       aisles under the galleries fall away into shade, which is the point. */
+    lamps: { spacing: 24, reach: 2, reachX: 0, w: 10, d: 20, show: true,
+             rgb: [0.80, 0.90, 1.00], refl: [2.4, 2.8, 3.3] },
     /* The resupply ring. The box it sits on is the first entry in `boxes`;
        the server's RESUPPLY tests from here too. */
     resupply: { x: 0, z: 0 },
@@ -140,6 +144,7 @@ const MAPS = {
       { kind: 'turbine', x: 0, z: -25, dir:  1, unit: 1 },
       { kind: 'turbine', x: 0, z:  25, dir: -1, unit: 2 },
       { kind: 'crane',   z: -8 },
+      { kind: 'truss',   span: 24 },
       { kind: 'gallery', x: -24 }, { kind: 'gallery', x: 24 },
       { kind: 'tray',    x: -18 }, { kind: 'tray', x: 18 },
     ],

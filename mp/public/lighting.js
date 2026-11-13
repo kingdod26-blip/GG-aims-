@@ -109,7 +109,10 @@ function litContext(map){
   const L = map.lamps || { spacing: 24, reach: 0, w: 6, d: 2.4 };
   const lampY = map.wallH - LIT.lampDrop;
   const lamps = [];
-  for (let gx = -L.reach; gx <= L.reach; gx++)
+  /* `reachX` lets the grid be narrower than it is long: 0 is a single row
+     down the middle of the hall, which is a skylight. */
+  const rx = L.reachX != null ? L.reachX : L.reach;
+  for (let gx = -rx; gx <= rx; gx++)
     for (let gz = -L.reach; gz <= L.reach; gz++) lamps.push(gx * L.spacing, gz * L.spacing);
   const nb = map.boxes.length, boxes = new Float32Array(nb * 5);
   map.boxes.forEach((b, i) => boxes.set([b.x - b.w/2, b.x + b.w/2, b.z - b.d/2, b.z + b.d/2, b.h], i * 5));
@@ -133,7 +136,7 @@ function litContext(map){
   }
   e0 = e0 * area / 18;
   return { lamps: Float32Array.from(lamps), nLamps: lamps.length / 2, lampY, lampHx: hx, lampHz: hz,
-           lampArea: area, lampL: 1 / e0, cull2: 38 * 38,
+           lampArea: area, lampL: 1 / e0, cull2: 38 * 38, lampRGB: L.rgb || LIT.lampRGB,
            boxes, nBoxes: nb,
            strips: Float32Array.from(strips), nStrips: strips.length / 5,
            stripDA: st * LIT.stripHalf * 2, stripCull2: 17 * 17 };
@@ -198,7 +201,7 @@ function litDirect(c, px, py, pz, nx, ny, nz, seed, out){
         acc += cs * vy / (r2 * r2);
       }
       const w = acc * c.lampArea / (nu * nv) * c.lampL;
-      r += w * LIT.lampRGB[0]; g += w * LIT.lampRGB[1]; b += w * LIT.lampRGB[2];
+      r += w * c.lampRGB[0]; g += w * c.lampRGB[1]; b += w * c.lampRGB[2];
     }
   }
   /* The strip is an ACCENT. Left at full strength on what faces down it
@@ -868,7 +871,7 @@ const LITU = {
   uLitShadow:{ value: LIT.shadow },
   uLitBox:   { value: new Float32Array(LIT_NBOX * 4) }, uLitBoxH: { value: new Float32Array(LIT_NBOX) },
   uLitBoxN:  { value: 0 }, uLitCoverN: { value: 0 },
-  uLitLampY: { value: 7.6 }, uLitLampS: { value: 24 }, uLitLampK: { value: 2 },
+  uLitLampY: { value: 7.6 }, uLitLampS: { value: 24 }, uLitLampK: { value: new THREE.Vector2(2, 2) },
   uLitLampHalf: { value: new THREE.Vector2(3, 1.2) }, uLitLampCol: { value: new THREE.Vector3().fromArray(LIT.lampRefl) },
   uLitWallD: { value: 59 }, uLitWallH: { value: 8 }, uLitDado: { value: LIT.dado },
   uLitStripY:{ value: LIT.stripY }, uLitStripHalf: { value: LIT.stripHalf },
@@ -910,8 +913,8 @@ const LIT_FRAG_PARS = `
     uniform sampler2D uLitTex; uniform sampler2D uLitMarks; uniform float uLitArena;
     uniform vec4 uLitBox[ CX_NBOX ]; uniform float uLitBoxH[ CX_NBOX ];
     uniform int uLitBoxN; uniform int uLitCoverN;
-    uniform float uLitLampY, uLitLampS, uLitLampK, uLitRefl, uLitEnvKeep, uLitAOK;
-    uniform vec2 uLitLampHalf; uniform vec3 uLitLampCol;
+    uniform float uLitLampY, uLitLampS, uLitRefl, uLitEnvKeep, uLitAOK;
+    uniform vec2 uLitLampHalf, uLitLampK; uniform vec3 uLitLampCol;
     /* How much of the sky a point on the floor has lost to the boxes round
        it. For an endless wall of height h at distance d that is
        (1 - d/sqrt(d2+h2))/2; a short box blocks less, in proportion to how
@@ -1072,7 +1075,7 @@ const LIT_FRAG_SPEC = `
     if ( litR.y > 0.003 ) {
       float litT2 = ( uLitLampY - vLitW.y ) / litR.y;
       vec2 litHit = vLitW.xz + litR.xz * litT2;
-      vec2 litCell = clamp( floor( litHit / uLitLampS + 0.5 ), vec2( - uLitLampK ), vec2( uLitLampK ) );
+      vec2 litCell = clamp( floor( litHit / uLitLampS + 0.5 ), - uLitLampK, uLitLampK );
       vec2 litQ = abs( litHit - litCell * uLitLampS ) - uLitLampHalf;
       /* A rough floor smears a reflection TOWARD you far more than across:
          the lower the ray leaves the floor, the longer the streak. So the
@@ -1143,6 +1146,7 @@ function litMaterial(name){
     case 'wall':   m = litPatch(litShare(arenaMat('wall'), { roughness: 0.96, metalness: 0, color: 0x9aa1aa }), 'wall', 0.20); break;
     case 'fixture':m = litPatch(new THREE.MeshStandardMaterial({ color: 0x2a3038, roughness: 0.5, metalness: 0.65 }), 'ceil', 0.70); break;
     case 'lamp':   m = new THREE.MeshBasicMaterial({ color: new THREE.Color().fromArray(LIT.lampShow), fog: false }); break;
+    case 'sky':    m = new THREE.MeshBasicMaterial({ color: new THREE.Color(4.6, 5.4, 6.4), fog: false }); break;   // a skylight: overcast daylight, not a lamp
     /* The power station's plant. `machine` is the block's panelled steel in
        a machinery green with no hazard band and no stencil. */
     case 'machine':t = litBlockTextures({ base: '#4e5650', cap: '#272c29', band: false, seed: 17, text: ['', '', ''] });
@@ -1334,6 +1338,22 @@ const LIT_PROP = {
     for (let z = -D + 1; z < D; z += 2.5) litBox(G('yellow'), xi - 0.03, 5.72, z - 0.03, xi + 0.03, 6.86, z + 0.03, { seg: 4 });   // posts
     for (let z = -D + 6.25; z < D; z += 12.5) litBox(G('girder'), x0, 5.0, z - 0.15, x1, 5.4, z + 0.15, { seg: 5, tile: 2, bottom: true });   // beams under the deck
   },
+  /* The roof's open steelwork: a truss across the nave on every column
+     line. Two chords and a zigzag of diagonals between them, which is what
+     the eye reads as an industrial roof. The diagonals are four-sided
+     tubes, because a box here can only lie along an axis. */
+  truss(G, p, D, H){
+    const span = p.span || 24, top = H - 0.35, bot = H - 2.7, bay = 4;
+    for (let z = -Math.floor((D - 2) / 12.5) * 12.5; z <= D - 2; z += 12.5){
+      litBox(G('girder'), -span, bot - 0.14, z - 0.11, span, bot + 0.14, z + 0.11, { seg: 6, tile: 2, bottom: true });
+      litBox(G('girder'), -span, top - 0.14, z - 0.11, span, top + 0.14, z + 0.11, { seg: 6, tile: 2, bottom: true });
+      for (let x = -span, i = 0; x < span - 0.01; x += bay, i++){
+        const a = i % 2 ? top : bot, b = i % 2 ? bot : top;
+        litCyl(G('steel'), x, a, z, x + bay, b, z, 0.075, 0.075, 4, 1, false, false);
+        litBox(G('steel'), x - 0.05, bot, z - 0.05, x + 0.05, top, z + 0.05, { seg: 4, noTop: true });
+      }
+    }
+  },
   tray(G, p, D, H){
     const x = p.x, up = H - 8;
     litBox(G('steel'), x - 0.36, 6.92 + up, -D, x + 0.36, 6.97 + up, D, { seg: 6, bottom: true });
@@ -1356,7 +1376,12 @@ function litUniformsFor(map){
   const a = map.arena, L = map.lamps || { spacing: 24, reach: 0, w: 6, d: 2.4 };
   const box = LITU.uLitBox.value, bh = LITU.uLitBoxH.value; box.fill(0); bh.fill(0);
   let n = 0;
-  for (const b of map.boxes){ if (n >= LIT_NBOX - 4) break; box.set([b.x, b.z, b.w / 2, b.d / 2], n * 4); bh[n++] = b.h; }
+  /* Not every box goes to the floor shader, which loops over this list twice
+     for every pixel of floor. A column is too thin to shade the floor round
+     it or hide a lamp, and a casing's hidden steps stand inside a pedestal
+     that is already here. With all 47 in, a frame cost three times as much. */
+  for (const b of map.boxes){ if (b.mat === 'column' || b.mat === 'hidden') continue;
+    if (n >= LIT_NBOX - 4) break; box.set([b.x, b.z, b.w / 2, b.d / 2], n * 4); bh[n++] = b.h; }
   LITU.uLitCoverN.value = n;
   /* The perimeter joins the occlusion list (not the mirror's), with its
      height capped: at the full 8m a wall would dim the floor for eight
@@ -1365,7 +1390,8 @@ function litUniformsFor(map){
     box.set([(w.minx + w.maxx) / 2, (w.minz + w.maxz) / 2, (w.maxx - w.minx) / 2, (w.maxz - w.minz) / 2], n * 4); bh[n++] = Math.min(2.6, w.maxy); }
   LITU.uLitBoxN.value = n;
   LITU.uLitArena.value = a; LITU.uLitWallD.value = a - 1; LITU.uLitWallH.value = map.wallH;
-  LITU.uLitLampY.value = map.wallH - LIT.lampDrop; LITU.uLitLampS.value = L.spacing; LITU.uLitLampK.value = L.reach;
+  LITU.uLitLampY.value = map.wallH - LIT.lampDrop; LITU.uLitLampS.value = L.spacing; LITU.uLitLampK.value.set(L.reachX != null ? L.reachX : L.reach, L.reach);
+  LITU.uLitLampCol.value.fromArray(L.refl || LIT.lampRefl);
   LITU.uLitLampHalf.value.set(L.w / 2, L.d / 2);
   /* A taller hall has more panels in reach of every point, so the same unit
      of light adds up to more. `gain` in the map trims it back. */
@@ -1420,7 +1446,8 @@ function litBuildArena(map, flatFloor, flatRoof){
      a ceiling is a flat lid and the room has no scale. */
   if (L){
     const fx = litGeo(), em = litGeo(), y0 = H - LIT.lampDrop;
-    for (let gx = -L.reach; gx <= L.reach; gx++) for (let gz = -L.reach; gz <= L.reach; gz++){
+    const rx = L.reachX != null ? L.reachX : L.reach;
+    for (let gx = -rx; gx <= rx; gx++) for (let gz = -L.reach; gz <= L.reach; gz++){
       const x = gx * L.spacing, z = gz * L.spacing, w = L.w / 2 + 0.22, d = L.d / 2 + 0.22;
       litBox(fx, x - w, y0, z - d, x + w, H, z + d, { seg: 3, noTop: true, bottom: true });
       litGrid(em, x - L.w / 2, y0 - 0.012, z - L.d / 2,  1,0,0,  0,0,1, L.w, L.d,  0,-1,0, 99, 99, 1, 1);
@@ -1431,7 +1458,7 @@ function litBuildArena(map, flatFloor, flatRoof){
       litBox(fx, -D, H - 0.42, c - 0.15, D, H, c + 0.15, { seg: 4, noTop: true, bottom: true });     // purlins, east-west
     }
     litAdd(new THREE.Mesh(litGeoDone(fx), litMaterial('fixture')), true);
-    const lampMesh = litAdd(new THREE.Mesh(litGeoDone(em), litMaterial('lamp')), false);
+    const lampMesh = litAdd(new THREE.Mesh(litGeoDone(em), litMaterial(L.show ? 'sky' : 'lamp')), false);
     lampMesh.receiveShadow = false;
   }
   litBakeStart(map);
