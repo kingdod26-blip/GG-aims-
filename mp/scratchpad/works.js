@@ -4,7 +4,9 @@
    new is the ground between them and the plant on it. */
 const fs = require('fs');
 const path = require('path').join(__dirname, '..', 'public', 'maps.js');
-const M = require(path);
+/* The three it is built from live beside this file, not in the game's own
+   map table: `works` is the only map the game ships now. */
+const M = require('./retired-maps.js');
 
 const HALL_DX = 56;     // the turbine hall, east
 const SUB_DX = -62;     // the substation compound, west
@@ -225,10 +227,12 @@ ${lines.join('\n')}
 
 `;
 
+/* Replace the whole of `works` in maps.js, between its own comment and the
+   close of MAPS. It is the only entry there, so there is no next map to
+   anchor on any more. */
 let src = fs.readFileSync(path, 'utf8');
-const anchor = '  /* THE WHOLE STATION';
-const had = src.indexOf('  /* THE WORKS');
-const end = src.indexOf(anchor);
-src = had >= 0 ? src.slice(0, had) + body + src.slice(end) : src.slice(0, end) + body + src.slice(end);
-fs.writeFileSync(path, src);
+const a = src.indexOf('  /* THE WORKS');
+const b = src.indexOf('\n};\n\nconst DEFAULT_MAP');
+if (a < 0 || b < a) { console.error('maps.js: cannot find where `works` starts and MAPS ends'); process.exit(1); }
+fs.writeFileSync(path, src.slice(0, a) + body.replace(/\n+$/, '\n') + src.slice(b + 1));
 console.log('works built:', out.filter(o => !o.note).length, 'boxes,', P.length, 'props');

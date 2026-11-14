@@ -284,6 +284,10 @@ byId('cardMode').onclick  = ()=>{
   renderLobbyCards(); Sfx.swap();
 };
 byId('cardMap').onclick   = ()=>{
+  /* With one map in the list the card has nothing to cycle TO: without this
+     it rebuilds the same arena and plays the swap sound, which reads as a
+     broken button rather than as "there is only one map". */
+  if (MAP_IDS.length < 2) return;
   const i = MAP_IDS.indexOf(pickedMap);
   pickedMap = MAP_IDS[(i + 1) % MAP_IDS.length];
   try{ localStorage.setItem('cx.map', pickedMap); }catch(e){}

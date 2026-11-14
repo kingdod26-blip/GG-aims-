@@ -702,12 +702,29 @@ that stopped a bullet on one side and not the other. Deriving the mesh from
 the rect makes the box you see the box that is tested, by construction.
 Measured: all 21 rects match on both maps, where four did not before.
 
-**The maps.** `powerstation` (below; it replaced `foundry`) is 120m across, open, long sightlines
-down both axes, which is what a scoped sniper wants. `substation` is 88m with
-the middle walled into three lanes — the two long dividers and two cross
-walls break every diagonal, the corner towers are the only high ground, and
-the core is where the lanes meet. It is symmetric under a 180-degree turn so
-neither spawn half owns a better angle.
+**THE GAME SHIPS ONE MAP: `works`.** Jack asked for the list trimmed to it
+(2026-11-14) once it combined the other three. `MAP_IDS` therefore has one
+entry, `DEFAULT_MAP` is `works`, and the MAP card returns early rather than
+cycling to itself — a card that rebuilds the same arena and plays the swap
+sound reads as a broken button.
+
+**The other three are not deleted: they are in
+`mp/scratchpad/retired-maps.js`.** That file is outside `mp/public`, so it is
+never served to a browser and never required by the server; nothing in it has
+any effect until `scratchpad/works.js` reads it. Two reasons to keep it: the
+combined map is BUILT from those boxes, so without the file it could only be
+hand-edited, never regenerated; and they are three finished maps, a paste
+from bringing one back.
+
+`mapById` falls back to the default for an id it does not know, which is what
+makes the trim safe: a saved `cx.map` of `powerstation`, an old `?room=` link
+on another arena, or `MAP=substation` all land on `works` rather than on
+nothing. Verified by setting `cx.map` to `powerstation` and reloading.
+
+The three, for reference: `powerstation` is the 120m turbine hall (its own
+section below), `substation` is 88m with the middle walled into three lanes,
+and `station` is the first outdoor site. All three now exist inside `works` —
+the hall and the compound as themselves, the site as the ground between.
 
 `scratchpad/permap.js` is the proof that a room really simulates its own
 arena rather than just reporting its name: it samples twenty spawns per room
