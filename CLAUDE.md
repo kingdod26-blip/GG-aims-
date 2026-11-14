@@ -1774,6 +1774,27 @@ the one above. **Substation gets all of this for free and has not been tuned**
 (2026-11-13), so nothing here should be read as a judgement that it looks
 right.
 
+## Feel (`feel.js`)
+
+Loaded after hud.js, unnumbered. Nothing in it changes a hit or a packet. It
+wraps `addTracer` (every shot calls it), so a shot gets a muzzle flash, sparks
+where it lands and, for your own, a camera kick; `feelFrame(dt)` runs from
+`loop()` after the camera and gun are posed and lays a spring on the weapon.
+
+- **One flash light, made once and left in the scene at zero.** A light per
+  shot would change the light count and recompile every material.
+- **The floor is not in `wallMeshes`**, so a round into it reports full range;
+  the hook meets the floor itself or floor shots throw no sparks.
+- **Practice targets patrol now** (3.2m out and back at 1.3 m/s, turning at
+  geometry). This reverses "bots are stationary by design": Jack asked for
+  better gameplay with a free hand (2026-11-14). They still do not shoot.
+- **The mix has a room** (hud.js `build`): a 16% send through a generated
+  1.5s impulse response, joined before the compressor.
+- Checked by driving frames: flash peaks then is 0 after 30 frames, 9 sparks
+  live then 0, the spring settles to 0.0001, all 8 targets moved and none
+  ended inside geometry. NOT checked: how any of it looks or sounds to a
+  person, or multiplayer.
+
 ## Sound
 
 All of it is synthesised in `Sfx` (`hud.js`); there are no audio files. The

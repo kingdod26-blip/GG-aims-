@@ -448,6 +448,19 @@ const Sfx = (()=>{
     post.curve = curve; post.oversample = '2x';
     const pre = c.createGain(); pre.gain.value = 1/3;                        // map +-3 onto the curve
     master.connect(comp).connect(pre).connect(post).connect(c.destination);
+    /* The room. Everything was dry: a shot ended the instant its envelope
+       did, as if fired in a field. This sends a share of the mix through one
+       generated impulse response, 1.5s of noise dying away with its top
+       rolled off, which is roughly what a big hard hall gives back. It joins
+       before the compressor so the tail ducks under the next shot. */
+    try {
+      const len = Math.floor(c.sampleRate * 1.5), ir = c.createBuffer(2, len, c.sampleRate);
+      for(let ch=0; ch<2; ch++){ const d = ir.getChannelData(ch); let lp = 0;
+        for(let i=0;i<len;i++){ const t = i/len; lp += ((Math.random()*2-1) - lp) * (0.55 - 0.45*t); d[i] = lp * Math.pow(1-t, 2.6); } }
+      const verb = c.createConvolver(); verb.buffer = ir;
+      const send = c.createGain(); send.gain.value = 0.16;
+      master.connect(send).connect(verb).connect(comp);
+    } catch(e){}
     noiseBuf = c.createBuffer(1, c.sampleRate * 2, c.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for(let i=0;i<d.length;i++) d[i] = Math.random()*2 - 1;

@@ -463,6 +463,7 @@ function loop(){ requestAnimationFrame(loop);
   litFrame();                                                      // the shadow box rides with the camera (lighting.js)
   drawMinimap(nowMs);                                              // where you are (hud.js); throttles itself
   if (!byId('bigmap').classList.contains('hidden')) drawBigMap();
+  feelFrame(dt);                                                   // flash, sparks, kick and the weapon spring (feel.js)
   stationHum(dt);                                                  // the plant, by how near you are to it (hud.js)
   if (gradePass) gradePass.uniforms.uTime.value = nowMs * 0.001;   // the grain has to move
   if (composer && (SETTINGS.bloom || SETTINGS.look)) composer.render(); else renderer.render(scene,camera);
