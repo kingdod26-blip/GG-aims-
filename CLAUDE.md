@@ -1511,6 +1511,14 @@ look can be read, tuned or reverted as a unit.
   rate, range, accuracy, magazine) each against the best gun on that axis
   (`gunBars`). Accuracy is the AIMED cone on a LOG scale: the cones run forty
   to one, and on a straight scale every gun but the sniper read empty.
+- **Never give a button a 3D transform AND a clip-path/filter.** The old
+  look floated every `.btn` 40px forward with `translateZ` inside the menus'
+  perspective stage; this layer added a notched `clip-path` and a
+  drop-shadow `filter`. Together the button was DRAWN in one place and
+  HIT-TESTED in another - clicking the middle of RESUME landed on the
+  container behind it, so resume did nothing. `.btn` is `transform:none`
+  now. Check a button with `document.elementFromPoint` at its centre and
+  edges, not by looking at it: it looked perfect.
 - **A trap this hit:** `byId` is a `const` declared ~line 310 of session.js,
   and the settings renderer runs at load from ~line 240. The new settings
   code called `byId` and threw, which aborted the rest of session.js and

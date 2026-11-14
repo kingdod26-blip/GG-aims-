@@ -662,6 +662,14 @@ kbd { font-family:var(--f-num); font-size:11px; font-weight:700; line-height:1; 
   box-shadow:none; filter:drop-shadow(0 6px 18px rgba(213,15,46,.35)); }
 .btn:hover, .lb-prepare:hover, .set-done:hover { filter:drop-shadow(0 8px 24px rgba(255,45,74,.55)) brightness(1.1); }
 .btn { letter-spacing:.28em; font-size:20px; }
+/* FLAT, NOT FLOATED. The old look lifted every .btn 40px toward the viewer
+   with translateZ inside the menus' perspective stage, and lifted it further
+   on hover. Add this layer's notched clip-path and drop-shadow filter to the
+   same element and the button is DRAWN in one place while the browser
+   hit-tests it in another: clicking the middle of RESUME landed on the
+   container behind it, so resume did nothing. A flat button needs no depth,
+   so the transform goes - which is also what makes it read as flat. */
+.btn, .btn:hover, .btn.small, .btn.small:hover { transform:none; }
 .btn.ghost { background:rgba(255,255,255,.07); clip-path:none; border:1px solid var(--ln2); filter:none; border-radius:var(--r); }
 .btn.ghost:hover { background:rgba(255,255,255,.13); }
 .link { font-family:var(--f-ui); font-size:14px; letter-spacing:.2em; text-transform:uppercase; }
