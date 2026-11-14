@@ -70,8 +70,8 @@ const MAPS = {
      `roofY` each do. `roofY` is 80 here, over the stack. */
   works: {
     id: 'works',
-    name: 'THE WORKS',
-    blurb: 'The whole site. Turbine hall, substation compound, cooling towers, the stack.',
+    name: 'POWER STATION',
+    blurb: 'The whole site. Turbine hall, switchyard, cooling towers, the stack.',
     arena: 120,
     wallH: 11,
     sky: true,
@@ -238,26 +238,62 @@ const MAPS = {
       { x:     8.5, z:   59.75, w:      23, d:     1.5, h:   16, mat: 'cladding'    },
       { x:    71.5, z:   59.75, w:      87, d:     1.5, h:   16, mat: 'cladding'    },
 
-      // THE SUBSTATION — the whole of that map, moved west. It was always an
-      // outdoor shape (three walled lanes, four corner towers, a core), so
-      // it needs no roof: it becomes the compound it always looked like.
-      { x:     -62, z:       0, w:       7, d:       7, h:    3, mat: 'pillar'      },
-      { x:     -78, z:       0, w:       2, d:      26, h:    4, mat: 'block'       },
-      { x:     -46, z:       0, w:       2, d:      26, h:    4, mat: 'block'       },
-      { x:     -62, z:     -26, w:      26, d:       2, h:    4, mat: 'block'       },
-      { x:     -62, z:      26, w:      26, d:       2, h:    4, mat: 'block'       },
-      { x:     -92, z:     -30, w:       6, d:       6, h:    4, mat: 'pillar'      },
-      { x:     -32, z:      30, w:       6, d:       6, h:    4, mat: 'pillar'      },
-      { x:     -32, z:     -30, w:       6, d:       6, h:    4, mat: 'pillar'      },
-      { x:     -92, z:      30, w:       6, d:       6, h:    4, mat: 'pillar'      },
-      { x:     -86, z:       0, w:       4, d:       4, h:  2.4, mat: 'crate'       },
-      { x:     -38, z:       0, w:       4, d:       4, h:  2.4, mat: 'crate'       },
-      { x:     -71, z:      -9, w:       3, d:       3, h:  1.6, mat: 'crate'       },
-      { x:     -53, z:       9, w:       3, d:       3, h:  1.6, mat: 'crate'       },
-      { x:     -53, z:      -9, w:       3, d:       3, h:  1.6, mat: 'crate'       },
-      { x:     -71, z:       9, w:       3, d:       3, h:  1.6, mat: 'crate'       },
-      { x:     -62, z:     -13, w:       5, d:       2, h:    2, mat: 'crate'       },
-      { x:     -62, z:      13, w:       5, d:       2, h:    2, mat: 'crate'       },
+      // THE SWITCHYARD: four bays of HV plant, transmission towers at the
+      // corners, portal gantries over the top. This was the substation
+      // map; Jack sent a photograph of a real yard and asked for that.
+      { x:     -62, z:       0, w:      11, d:       8, h:  4.5, mat: 'control'     },
+      { x:     -62, z:    -4.6, w:      11, d:     1.2, h:    3, mat: 'step'        },
+      { x:     -62, z:    -5.8, w:      11, d:     1.2, h:  1.5, mat: 'step'        },
+      { x:     -92, z:     -34, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -92, z:     -22, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -92, z:     -10, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -92, z:      10, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -92, z:      22, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -92, z:      34, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -77, z:     -34, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -77, z:     -22, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -77, z:     -10, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -77, z:      10, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -77, z:      22, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -77, z:      34, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -47, z:     -34, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -47, z:     -22, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -47, z:     -10, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -47, z:      10, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -47, z:      22, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -47, z:      34, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -32, z:     -34, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -32, z:     -22, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -32, z:     -10, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -32, z:      10, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -32, z:      22, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:     -32, z:      34, w:     7.2, d:     3.2, h:  2.2, mat: 'capbank'     },
+      { x:   -84.5, z:     -28, w:     3.4, d:       3, h:  2.4, mat: 'gear'        },
+      { x:   -84.5, z:     -16, w:     3.4, d:       3, h:  2.4, mat: 'gear'        },
+      { x:   -84.5, z:      16, w:     3.4, d:       3, h:  2.4, mat: 'gear'        },
+      { x:   -84.5, z:      28, w:     3.4, d:       3, h:  2.4, mat: 'gear'        },
+      { x:   -39.5, z:     -28, w:     3.4, d:       3, h:  2.4, mat: 'gear'        },
+      { x:   -39.5, z:     -16, w:     3.4, d:       3, h:  2.4, mat: 'gear'        },
+      { x:   -39.5, z:      16, w:     3.4, d:       3, h:  2.4, mat: 'gear'        },
+      { x:   -39.5, z:      28, w:     3.4, d:       3, h:  2.4, mat: 'gear'        },
+      { x:     -70, z:     -40, w:       4, d:     2.6, h:  2.6, mat: 'kiosk'       },
+      { x:     -54, z:     -40, w:       4, d:     2.6, h:  2.6, mat: 'kiosk'       },
+      { x:     -70, z:      40, w:       4, d:     2.6, h:  2.6, mat: 'kiosk'       },
+      { x:     -54, z:      40, w:       4, d:     2.6, h:  2.6, mat: 'kiosk'       },
+      { x:    -100, z:       0, w:       4, d:     2.6, h:  2.6, mat: 'kiosk'       },
+      { x:     -24, z:       0, w:       4, d:     2.6, h:  2.6, mat: 'kiosk'       },
+      { x:     -77, z:       0, w:     1.2, d:     0.9, h:  1.5, mat: 'firebox'     },
+      { x:     -47, z:       0, w:     1.2, d:     0.9, h:  1.5, mat: 'firebox'     },
+      { x:     -92, z:     -42, w:     1.2, d:     0.9, h:  1.5, mat: 'firebox'     },
+      { x:     -32, z:      42, w:     1.2, d:     0.9, h:  1.5, mat: 'firebox'     },
+      { x:    -100, z:     -40, w:     4.2, d:     4.2, h:   26, mat: 'hvtower'     },
+      { x:    -100, z:      40, w:     4.2, d:     4.2, h:   26, mat: 'hvtower'     },
+      { x:     -24, z:     -40, w:     4.2, d:     4.2, h:   26, mat: 'hvtower'     },
+      { x:     -24, z:      40, w:     4.2, d:     4.2, h:   26, mat: 'hvtower'     },
+      { x:    -102, z:     -24, w:     1.6, d:     1.6, h:   12, mat: 'lattice'     },
+      { x:    -102, z:      24, w:     1.6, d:     1.6, h:   12, mat: 'lattice'     },
+      { x:     -22, z:     -24, w:     1.6, d:     1.6, h:   12, mat: 'lattice'     },
+      { x:     -22, z:      24, w:     1.6, d:     1.6, h:   12, mat: 'lattice'     },
 
       // with a compound wall and its gates — the gates are on the centre lines
       // of the compound, not of the map, which is where that arithmetic
@@ -380,20 +416,15 @@ const MAPS = {
       // resupply — the one piece of ground every route crosses
       { x:     -14, z:     -11, w:       7, d:     5.5, h:  3.2, mat: 'transformer' },
       { x:     -14, z:      11, w:       7, d:     5.5, h:  3.2, mat: 'transformer' },
-      { x:     -24, z:       0, w:     1.4, d:      16, h:    5, mat: 'firewall'    },
 
-      // and cover on the open ground, so the yard is crossable
-      { x:     -40, z:     -40, w:       3, d:      16, h:  2.6, mat: 'pipe'        },
-      { x:     -40, z:      40, w:       3, d:      16, h:  2.6, mat: 'pipe'        },
-      { x:     -14, z:     -40, w:      16, d:       3, h:  2.2, mat: 'pipe'        },
-      { x:     -14, z:      40, w:      16, d:       3, h:  2.2, mat: 'pipe'        },
-      { x:      30, z:     -70, w:       7, d:       7, h:    3, mat: 'pipe'        },
+      // and cover on the open ground, so it is crossable - checked against
+      // everything else, because the first list ran through half the site
+      { x:     -12, z:     -35, w:       3, d:      12, h:  2.6, mat: 'pipe'        },
+      { x:     -12, z:      35, w:       3, d:      12, h:  2.6, mat: 'pipe'        },
+      { x:       8, z:     -75, w:      16, d:       3, h:  2.2, mat: 'pipe'        },
+      { x:     -62, z:     -56, w:      16, d:       3, h:  2.2, mat: 'pipe'        },
       { x:     -60, z:      60, w:       7, d:       7, h:    3, mat: 'pipe'        },
       { x:      20, z:      70, w:      16, d:       3, h:  2.2, mat: 'pipe'        },
-      { x:     -96, z:     -30, w:       6, d:      14, h:  3.4, mat: 'pipe'        },
-      { x:     -96, z:      30, w:       6, d:      14, h:  3.4, mat: 'pipe'        },
-      { x:      96, z:      40, w:       6, d:      14, h:  3.4, mat: 'pipe'        },
-      { x:      96, z:     -40, w:       6, d:      14, h:  3.4, mat: 'pipe'        },
       { x:     -50, z:    -112, w:      16, d:       3, h:  2.2, mat: 'pipe'        },
       { x:       0, z:    -112, w:      16, d:       3, h:  2.2, mat: 'pipe'        },
 
@@ -522,6 +553,22 @@ const MAPS = {
           {
                 kind: 'busbars',
                 z: 94
+          },
+          {
+                kind: 'gantry',
+                z: -24,
+                y: 12,
+                x0: -102,
+                x1: -22,
+                to: 24,
+                sag: 3
+          },
+          {
+                kind: 'gantry',
+                z: 24,
+                y: 12,
+                x0: -102,
+                x1: -22
           }
     ],
     paint: [
@@ -533,7 +580,10 @@ const MAPS = {
       { k: 'hatch', x: -74, z: -90, w: 27.4, d: 27.4 },
       { k: 'hatch', x: -24, z: -90, w: 27.4, d: 27.4 },
       { k: 'text',  x: -14, z: 24, s: 2.6, t: 'HV YARD' },
-      { k: 'text',  x: -62, z: 52, s: 2.6, t: 'SUBSTATION' },
+      { k: 'text',  x: -62, z: 52, s: 2.6, t: 'SWITCHYARD' },
+      { k: 'walk',  x0: -62, z0: -44, x1: -62, z1: 44, w: 3.0 },
+      { k: 'hatch', x: -100, z: -40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z: -40, w: 5.6, d: 5.6 },
+      { k: 'hatch', x: -100, z:  40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z:  40, w: 5.6, d: 5.6 },
       { k: 'text',  x: 56, z: 70, s: 2.6, t: 'TURBINE HALL' },
     ],
     signs: [],

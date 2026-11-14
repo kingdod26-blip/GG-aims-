@@ -73,12 +73,43 @@ wallN(HZ1 + HW / 2, HX0, 20, HH, 'cladding');
 wallN(HZ1 + HW / 2, 28, HX1, HH, 'cladding');
 
 /* ===================================================================== */
-/* 2. THE SUBSTATION, verbatim, as a walled compound                     */
+/* 2. THE SWITCHYARD                                                     */
 /* ===================================================================== */
-note('THE SUBSTATION — the whole of that map, moved west. It was always an\n' +
-     '      outdoor shape (three walled lanes, four corner towers, a core), so\n' +
-     '      it needs no roof: it becomes the compound it always looked like.');
-for (const b of M.MAPS.substation.boxes) box(b.x + SUB_DX, b.z, b.w, b.d, b.h, b.mat);
+/* It began as the `substation` map moved west - three walled lanes and four
+   corner towers - and Jack sent a photograph of a real HV yard and asked for
+   that instead: rows of white porcelain on galvanised racks, lattice
+   transmission towers, portal gantries with the lines swept between them,
+   grey kiosks, red fire cabinets, all on a concrete apron.
+
+   The layout still has to be a place to fight, so the plant is arranged the
+   way a yard actually is AND the way a map wants: four bays running
+   north-south with aisles between them, which gives long lanes along the
+   bays and chest-high cover across them. The old lane walls are gone; the
+   bays do that job now and look like what they are.
+
+   Everything a player can touch is a box. The porcelain above the racks, the
+   crossarms and every conductor are overhead and drawn only. */
+note('THE SWITCHYARD: four bays of HV plant, transmission towers at the\n' +
+     '      corners, portal gantries over the top. This was the substation\n' +
+     '      map; Jack sent a photograph of a real yard and asked for that.');
+const SUBX = SUB_DX;
+box(SUBX, 0, 11, 8, 4.5, 'control');                         // the control building
+box(SUBX, -4.6, 11, 1.2, 3.0, 'step');                       // and its stair
+box(SUBX, -5.8, 11, 1.2, 1.5, 'step');
+for (const bx of [SUBX - 30, SUBX - 15, SUBX + 15, SUBX + 30])   // four bays of capacitor racks
+  for (const bz of [-34, -22, -10, 10, 22, 34])
+    box(bx, bz, 7.2, 3.2, 2.2, 'capbank');
+for (const bx of [SUBX - 22.5, SUBX + 22.5])                 // breakers in the aisles between them
+  for (const bz of [-28, -16, 16, 28]) box(bx, bz, 3.4, 3.0, 2.4, 'gear');
+for (const k of [[SUBX - 8, -40], [SUBX + 8, -40], [SUBX - 8, 40],
+                 [SUBX + 8, 40], [SUBX - 38, 0], [SUBX + 38, 0]])
+  box(k[0], k[1], 4.0, 2.6, 2.6, 'kiosk');                   // marshalling kiosks
+for (const f of [[SUBX - 15, 0], [SUBX + 15, 0], [SUBX - 30, -42], [SUBX + 30, 42]])
+  box(f[0], f[1], 1.2, 0.9, 1.5, 'firebox');
+for (const tx of [SUBX - 38, SUBX + 38]) for (const tz of [-40, 40])
+  box(tx, tz, 4.2, 4.2, 26, 'hvtower');                      // the transmission towers
+for (const gx of [SUBX - 40, SUBX + 40]) for (const gz of [-24, 24])
+  box(gx, gz, 1.6, 1.6, 12, 'lattice');                      // the gantry legs
 
 const SX0 = SUB_DX - 42, SX1 = SUB_DX + 42, SZ0 = -46, SZ1 = 46, SWH = 5, SW = 1.4;
 const subN = (z, x0, x1) => { if (x1 - x0 > 0.01) box((x0 + x1) / 2, z, x1 - x0, SW, SWH, 'firewall'); };
@@ -121,16 +152,28 @@ note('The step-up transformers, between the hall and the compound, round the\n' 
      '      resupply — the one piece of ground every route crosses');
 box(-14, -11, 7, 5.5, 3.2, 'transformer');
 box(-14, 11, 7, 5.5, 3.2, 'transformer');
-box(-24, 0, 1.4, 16, 5, 'firewall');
+/* No blast wall of their own: the switchyard's east wall stands right
+   behind them and is the blast wall. There used to be one at x -24, placed
+   when that ground was open yard - once the compound sat over it, it stood
+   4.7m INSIDE the switchyard behind its main gate and ran straight through
+   a kiosk. The probe found it as a ledge beside a cabinet. */
 
-note('and cover on the open ground, so the yard is crossable');
+/* Cover on ground that is ACTUALLY open. This list was written for the
+   first outdoor layout, before the switchyard and the boiler house moved
+   onto that ground, and it was never revisited - so pipe bridges ran
+   through the compound walls, through capacitor racks, through a
+   transmission tower and through the corner of the boiler house, and two
+   stood inside the turbine hall. Eleven boxes interpenetrating, found by
+   testing every pair of drawn boxes for overlap rather than by looking.
+   Every one of these is checked against everything else on the site. */
+note('and cover on the open ground, so it is crossable - checked against\n' +
+     '      everything else, because the first list ran through half the site');
 for (const [x, z, w, d, h] of [
-  [-40, -40, 3, 16, 2.6], [-40, 40, 3, 16, 2.6],
-  [-14, -40, 16, 3, 2.2], [-14, 40, 16, 3, 2.2],
-  [30, -70, 7, 7, 3.0], [-60, 60, 7, 7, 3.0], [20, 70, 16, 3, 2.2],
-  [-96, -30, 6, 14, 3.4], [-96, 30, 6, 14, 3.4],
-  [96, 40, 6, 14, 3.4], [96, -40, 6, 14, 3.4],
-  [-50, -112, 16, 3, 2.2], [0, -112, 16, 3, 2.2],
+  [-12, -35, 3, 12, 2.6], [-12, 35, 3, 12, 2.6],   // the yard between hall and switchyard
+  [8, -75, 16, 3, 2.2],                             // north, between the towers and the boiler house
+  [-62, -56, 16, 3, 2.2],                           // outside the switchyard's north gate
+  [-60, 60, 7, 7, 3.0], [20, 70, 16, 3, 2.2],       // south, toward the quay
+  [-50, -112, 16, 3, 2.2], [0, -112, 16, 3, 2.2],   // the north fence line
 ]) box(x, z, w, d, h, 'pipe');
 
 note('a workshop or two');
@@ -153,6 +196,9 @@ P.push({ kind: 'coolingtower', x: -24, z: -90, basin: 13, basinH: 2.6, beam: +sh
 P.push({ kind: 'stack', x: 96, z: -96, r: 3, h: 68, n: 9 });
 P.push({ kind: 'busbars', z: 78 });
 P.push({ kind: 'busbars', z: 94 });
+/* The yard's two gantries, with the lines swept from one to the other. */
+P.push({ kind: 'gantry', z: -24, y: 12, x0: SUB_DX - 40, x1: SUB_DX + 40, to: 24, sag: 3.0 });
+P.push({ kind: 'gantry', z:  24, y: 12, x0: SUB_DX - 40, x1: SUB_DX + 40 });
 
 /* ---------------------------------------------------------------- emit -- */
 const lines = [];
@@ -194,8 +240,8 @@ const body = `  /* THE WORKS — all three maps on one site.
      \`roofY\` each do. \`roofY\` is 80 here, over the stack. */
   works: {
     id: 'works',
-    name: 'THE WORKS',
-    blurb: 'The whole site. Turbine hall, substation compound, cooling towers, the stack.',
+    name: 'POWER STATION',
+    blurb: 'The whole site. Turbine hall, switchyard, cooling towers, the stack.',
     arena: ${A},
     wallH: 11,
     sky: true,
@@ -224,7 +270,10 @@ ${lines.join('\n')}
       { k: 'hatch', x: -74, z: -90, w: 27.4, d: 27.4 },
       { k: 'hatch', x: -24, z: -90, w: 27.4, d: 27.4 },
       { k: 'text',  x: -14, z: 24, s: 2.6, t: 'HV YARD' },
-      { k: 'text',  x: -62, z: 52, s: 2.6, t: 'SUBSTATION' },
+      { k: 'text',  x: -62, z: 52, s: 2.6, t: 'SWITCHYARD' },
+      { k: 'walk',  x0: -62, z0: -44, x1: -62, z1: 44, w: 3.0 },
+      { k: 'hatch', x: -100, z: -40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z: -40, w: 5.6, d: 5.6 },
+      { k: 'hatch', x: -100, z:  40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z:  40, w: 5.6, d: 5.6 },
       { k: 'text',  x: 56, z: 70, s: 2.6, t: 'TURBINE HALL' },
     ],
     signs: [],

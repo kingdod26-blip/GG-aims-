@@ -40,6 +40,7 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyG') switchWeapon(agent().g);
   if(e.code==='KeyX'){ const x = agent().x; if(x === 'zone') startZone(); else switchWeapon(x); }
   if(e.code==='KeyF') switchWeapon(BLADE);              // equip the blade
+  if(e.code==='KeyM' && !e.repeat){ e.preventDefault(); toggleBigMap(); }
   if(e.code==='KeyV' && !e.repeat){ if(agent().v === 'dash') startDash(); else startRoll(); }
   if(e.code==='KeyC'){
     // sprinting -> slide; otherwise it's the normal crouch toggle

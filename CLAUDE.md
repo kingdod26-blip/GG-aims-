@@ -961,7 +961,11 @@ ring beam's top left undrawn.
 
 Not checked: a real multiplayer match, and the frame cost.
 
-## The works (`works`) — all three maps on one site
+## The works (`works`, shown as POWER STATION) — all three maps on one site
+
+**Renamed POWER STATION on the card (2026-11-14); the id stays `works`.** Ids
+are internal and stable — saved `cx.map` values, room links and `MAP=` all
+key off them — so the display name changed and nothing else did.
 
 Jack: *"combind the three map ... as big as u can and as big as u want as big
 as you need"*. So 240 metres square, with the turbine hall and the substation
@@ -1000,6 +1004,58 @@ What had to change for them to fit together:
 
 **The yard between the two is the only ground every route crosses**, so the
 step-up transformers and the resupply are in it.
+
+### The switchyard
+
+The west compound was the `substation` map moved over: three walled lanes and
+four corner towers. Jack sent a photograph of a real HV yard and asked for
+that instead, so it is one now — four bays of `capbank` (galvanised racks
+with white porcelain insulator stacks: the thing a yard is recognised by),
+`gear` breakers in the aisles, grey `kiosk`s, red `firebox`es, an `hvtower`
+transmission tower at each corner and two `gantry` props carrying the lines
+across, with the conductors drawn as a catenary because a cylinder can only
+be straight. The bays run north-south with aisles between, which is how a
+yard is actually laid out and also what a map wants: long lanes along the
+bays, chest-high cover across them. The old lane walls are gone; the bays do
+that job and look like what they are.
+
+- **Porcelain is white here, not brown** (`hvwhite`). Transformer bushings
+  are glazed brown; outdoor HV insulators are white or pale grey, and that
+  colour is most of why the photo reads as a switchyard.
+- **An `hvtower` is ONE box and its steel stays inside it** at every height:
+  legs splayed to the box's corners at the foot, drawing in to a narrow mast.
+  The crossarms reach outside the box, at 16m and up, where nothing stands.
+  It is skipped by the floor shader (`SKIP_FLOOR`): a 4m footprint that is
+  four legs and some bracing would otherwise lay a solid shadow nothing casts.
+
+## The map on screen (hud.js)
+
+Jack: *"add a map for inside the map, so I can see where I am located"*.
+`#mapPanel` is a 240px plan in the top-left, always up while playing, and
+**M** opens the whole site (`#bigmap`). One function, `drawMapPlan`, draws
+both from `currentMap` — the data the geometry and the server's collision are
+built from — so neither can show a room the match is not playing.
+
+- **North-up, not rotating.** The compass already says which way you face,
+  and a plan that spins under you is much harder to read a POSITION off,
+  which is the question being asked. The arrow turns instead: north is -z
+  (what the compass calls N) and the canvas has +z downward, so they agree by
+  construction; the forward vector for yaw is `(-sin, -cos)`, which makes the
+  canvas rotation `-yaw`.
+- **The corner map shows 130m**, a quarter of a 240m site — enough to place
+  yourself against the nearest building, not so much the plant is porridge.
+  The full map shows the whole site with the floor stencils as labels, so the
+  names on the plan are the names painted on the ground.
+- **Under a roof is tinted** (from `roofRects`), which is the one cue that
+  says you are inside the hall.
+- **It is a plan, not a radar.** It shows the bots on the range and the room
+  in a match, all of them, all the time — which in a match is information the
+  game does not otherwise give you. Worth deciding deliberately before it
+  matters; it was built for "where am I", not "where are they".
+- Throttled to ~11Hz: canvas 2D over three hundred boxes, and nothing on it
+  moves fast enough to want 60.
+- Strings `map.title` / `map.close` are in both language packs. Adding markup
+  with `data-i18n` and no strings shows the raw keys, which it did at first.
 
 ### Three things that were clipping (2026-11-14)
 
@@ -1041,6 +1097,23 @@ depth.
   wall poked a centimetre through the ceiling along its whole length.
 
 Re-checked after: **0** coplanar drawn tops anywhere in the map.
+
+**Then a wider test, and it found more.** Same-height overlap is only one
+kind of clipping; any two drawn boxes standing through each other is
+another. Testing every pair found eleven: the yard's pipe bridges had been
+placed as cover on the first outdoor layout's open ground, and when the
+switchyard and the boiler house moved onto that ground the list was never
+revisited — so pipes ran through compound walls, through capacitor racks,
+through a transmission tower and the corner of the boiler house, and two
+stood inside the turbine hall. A blast wall placed the same way stood 4.7m
+inside the switchyard's main gate and through a kiosk. All replaced or
+removed; **the only interpenetrating pairs left are the two turbine
+pedestals standing on their operating floors, which is the design.**
+**Run the pairwise overlap test after any layout change**, not just the
+same-height one — a generator that composes old layouts will keep placing
+things on ground that is no longer empty. And the new plant was drawn flush
+to its boxes from the start: the capacitor racks were inset 6cm and the
+cabinet lids overhung by 5-7cm, both the column mistake again.
 
 ### Measured
 

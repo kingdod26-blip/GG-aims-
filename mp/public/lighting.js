@@ -1507,6 +1507,16 @@ function litMaterial(name){
     /* The boundary. Nearly matte, barely reflective: a treeline that caught
        the sky the way the concrete does read as a painted backdrop. */
     case 'treeline': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litTreeTexture(), true), roughness: 1, metalness: 0 }), 'wall', 0.06); break;
+    /* Switchyard porcelain is WHITE, not the brown of a transformer bushing:
+       outdoor HV insulators are glazed white or pale grey, and they are the
+       thing that makes a yard read as a yard from across the site. */
+    case 'hvwhite': m = litPatch(new THREE.MeshStandardMaterial({ color: 0xd4d7d6, roughness: 0.28, metalness: 0 }), 'cover', 0.85); m.defines.CX_ROUND = ''; break;
+    /* Galvanised steel: the lattice, the racks, the gantries. Brighter and
+       less blue than `steel`, which is a dark machined grey. */
+    case 'galv':   m = litPatch(new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.52, metalness: 0.55 }), 'cover', 0.80); m.defines.CX_ROUND = ''; break;
+    /* The fire cabinets. The one saturated colour in the yard, which is
+       exactly what it is for. */
+    case 'firered': m = litPatch(new THREE.MeshStandardMaterial({ color: 0x8c1a18, roughness: 0.6, metalness: 0.1 }), 'cover', 0.45); break;
     /* Profiled metal sheet, which is what every building on a site like this
        is clad in. The ribs are in the normal map rather than the geometry:
        a 48m wall of real ribs is forty thousand triangles for something you
@@ -1641,6 +1651,89 @@ const LIT_DRAW = {
   shed(G, b, x0, z0, x1, z1){
     litBox(G('cladding'), x0, 0, z0, x1, b.h - 0.45, z1, { seg: LIT.coverSeg, tile: 3.2, tileV: 3.2, noTop: true });
     litBox(G('roofblue'), x0 - 0.35, b.h - 0.45, z0 - 0.35, x1 + 0.35, b.h, z1 + 0.35, { seg: 3, tile: 3.2, tileV: 3.2 });
+  },
+  /* A CAPACITOR / CVT BAY - the rows of white porcelain stacks that fill a
+     real switchyard and are the first thing you recognise in a photograph
+     of one. A galvanised rack the height of the box, and three insulator
+     columns standing on it. The RACK is the box: it is what stops you, and
+     its top is the box's top. The columns are thin, round and over head
+     height, so they are drawn and not collided - the same rule the
+     transformer bushings and the breaker stacks already follow. */
+  capbank(G, b, x0, z0, x1, z1){
+    litBox(G('concrete'), x0, 0, z0, x1, 0.35, z1, { seg: 2, tile: 120, tileV: 8 });
+    /* Flush to the box, not inset: an inset leaves a band of collision
+       standing round the rack in clear air, which is the column mistake. */
+    litBox(G('galv'), x0, 0.35, z0, x1, b.h, z1, { bevel: 0.04, seg: LIT.coverSeg, tile: 1.6 });
+    const n = 3, span = (x1 - x0) - 0.9;
+    for (let i = 0; i < n; i++){
+      const px = x0 + 0.45 + span * (i + 0.5) / n, pz = b.z;
+      litCyl(G('galv'), px, b.h, pz, px, b.h + 0.22, pz, 0.17, 0.15, 10, 1, false, true);
+      /* A stack of sheds, widest at the bottom - an insulator's silhouette
+         is the sheds, not the column. */
+      for (let j = 0; j < 9; j++){ const y = b.h + 0.3 + j * 0.19, r = 0.30 - j * 0.009;
+        litCyl(G('hvwhite'), px, y, pz, px, y + 0.07, pz, r, r * 0.70, 10, 1, true, true); }
+      litCyl(G('hvwhite'), px, b.h + 0.22, pz, px, b.h + 2.1, pz, 0.14, 0.12, 10, 1.4, false, false);
+      litCyl(G('galv'), px, b.h + 2.1, pz, px, b.h + 2.3, pz, 0.2, 0.2, 10, 1, true, true);
+    }
+  },
+  /* A control or marshalling kiosk: the grey cabinets standing between the
+     bays. Louvred doors, a lid with a lip. */
+  kiosk(G, b, x0, z0, x1, z1){
+    litBox(G('concrete'), x0, 0, z0, x1, 0.25, z1, { seg: 2, tile: 120, tileV: 8 });
+    litBox(G('machine'), x0, 0.25, z0, x1, b.h - 0.12, z1, { bevel: 0.03, seg: LIT.coverSeg, tile: 2 });
+    litBox(G('galv'), x0, b.h - 0.12, z0, x1, b.h, z1, { seg: 3, tile: 2 });   // flush: a lip is a ledge you can't stand on
+  },
+  /* A fire cabinet. Small, red, and everywhere in the photographs. */
+  firebox(G, b, x0, z0, x1, z1){
+    /* The lid is the top 10cm of the box, flush - it overhung by 5cm and
+       sat above the collision, which the probe found as four cabinets with
+       a ledge round them that was not there. */
+    litBox(G('firered'), x0, 0, z0, x1, b.h - 0.1, z1, { bevel: 0.03, seg: LIT.coverSeg, tile: 1.2, noTop: true });
+    litBox(G('galv'), x0, b.h - 0.1, z0, x1, b.h, z1, { seg: 2, tile: 1 });
+  },
+  /* A TRANSMISSION TOWER. One box, and the steel stays inside it at every
+     height: four legs splayed to the box's own corners at the bottom,
+     drawing in to a narrow mast, with bracing between. The crossarms reach
+     outside the box - they are at 16m and up, which is nothing anybody
+     stands on, and they are what makes the silhouette read. */
+  hvtower(G, b, x0, z0, x1, z1){
+    const cx = b.x, cz = b.z, H = b.h, hw = b.w / 2, hd = b.d / 2;
+    const waist = 0.42, legR = 0.13;
+    const at = (y) => {           // half-width of the tower body at height y
+      const t = Math.min(1, y / (H * 0.62));
+      return { x: hw * (1 - t) + waist * t, z: hd * (1 - t) + waist * t };
+    };
+    litBox(G('concrete'), x0, 0, z0, x1, 0.5, z1, { seg: 2, tile: 120, tileV: 8 });
+    const STEP = 12;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]){
+      for (let i = 0; i < STEP; i++){
+        const ya = 0.5 + (H - 0.5) * i / STEP, yb = 0.5 + (H - 0.5) * (i + 1) / STEP;
+        const a = at(ya), c = at(yb);
+        litCyl(G('galv'), cx + sx * (a.x - legR), ya, cz + sz * (a.z - legR),
+                          cx + sx * (c.x - legR), yb, cz + sz * (c.z - legR), legR, legR, 4, 2, false, false);
+      }
+    }
+    /* Bracing: a zigzag across each face, which is the whole of what a
+       lattice looks like from any distance. */
+    for (let i = 0; i < STEP; i++){
+      const ya = 0.5 + (H - 0.5) * i / STEP, yb = 0.5 + (H - 0.5) * (i + 1) / STEP;
+      const a = at(ya), c = at(yb), f = i % 2 ? -1 : 1;
+      for (const s of [-1, 1]){
+        litCyl(G('galv'), cx - f * a.x, ya, cz + s * a.z, cx + f * c.x, yb, cz + s * c.z, 0.055, 0.055, 4, 1, false, false);
+        litCyl(G('galv'), cx + s * a.x, ya, cz - f * a.z, cx + s * c.x, yb, cz + f * c.z, 0.055, 0.055, 4, 1, false, false);
+      }
+    }
+    /* Crossarms, and the insulator strings hanging off them. */
+    for (const [y, reach] of [[H * 0.62, 5.2], [H * 0.78, 4.4], [H * 0.92, 3.2]]){
+      for (const s of [-1, 1]){
+        litCyl(G('galv'), cx, y, cz, cx + s * reach, y + 0.5, cz, 0.13, 0.09, 4, 2, false, false);
+        litCyl(G('galv'), cx, y + 0.9, cz, cx + s * reach, y + 0.5, cz, 0.07, 0.05, 4, 2, false, false);
+        for (let j = 0; j < 7; j++)   // the string
+          litCyl(G('hvwhite'), cx + s * reach, y + 0.42 - j * 0.17, cz,
+                               cx + s * reach, y + 0.36 - j * 0.17, cz, 0.15, 0.15, 8, 1, true, true);
+      }
+    }
+    litCyl(G('galv'), cx, H, cz, cx, H + 1.6, cz, 0.08, 0.05, 4, 1, false, true);   // the earth peak
   },
   /* A switchyard portal leg: four angles and a zigzag of bracing, which is
      all a lattice tower is. Thin enough that the bracing is the shape. */
@@ -2017,6 +2110,36 @@ const LIT_PROP = {
       litCyl(G('girder'), x, y, z, x, y + 0.22, z, r + 0.85, r + 0.85, 20, 2, true, true);
     litCyl(G('steel'), x, h, z, x, h + 0.6, z, r + 0.15, r + 0.15, 20, 1, false, false);   // the cap
   },
+  /* A PORTAL GANTRY across the yard, and the conductors it carries. The
+     beam is a lattice box girder at `y`; the lines sag from it in a
+     catenary, which is drawn as a chain of straight segments because that
+     is what a cylinder can be. All of it is overhead and none of it is
+     collision - the legs under it are boxes in the map. */
+  gantry(G, p, D, H){
+    const z = p.z, y = p.y || 12, x0 = p.x0, x1 = p.x1;
+    litBox(G('galv'), x0, y, z - 0.9, x1, y + 1.5, z + 0.9, { seg: 5, tile: 2, bottom: true });
+    for (let x = x0 + 2; x < x1 - 1; x += 4){        // the beam's own bracing
+      litCyl(G('galv'), x, y, z - 0.9, x + 2, y + 1.5, z - 0.9, 0.07, 0.07, 4, 1, false, false);
+      litCyl(G('galv'), x, y + 1.5, z + 0.9, x + 2, y, z + 0.9, 0.07, 0.07, 4, 1, false, false);
+    }
+    /* Three phases, hanging from strings, sagging to the next gantry. */
+    for (const o of [-1, 0, 1]){
+      const px = (x0 + x1) / 2 + o * (x1 - x0) * 0.3;
+      for (let j = 0; j < 5; j++)
+        litCyl(G('hvwhite'), px, y - 0.1 - j * 0.18, z, px, y - 0.16 - j * 0.18, z, 0.16, 0.16, 8, 1, true, true);
+    }
+    if (p.to == null) return;
+    const sag = p.sag || 2.6, za = z, zb = p.to, segs = 9, yTop = y - 1.1;
+    for (const o of [-1, 0, 1]){
+      const px = (x0 + x1) / 2 + o * (x1 - x0) * 0.3;
+      for (let i = 0; i < segs; i++){
+        const t0 = i / segs, t1 = (i + 1) / segs;
+        const yy = (t) => yTop - sag * 4 * t * (1 - t);
+        litCyl(G('steel'), px, yy(t0), za + (zb - za) * t0,
+                           px, yy(t1), za + (zb - za) * t1, 0.055, 0.055, 6, 1, false, false);
+      }
+    }
+  },
   /* The busbars: the beam across each row of portals and the conductors
      strung between them. All of it 11m up, and none of it collision - the
      legs that hold it up are. */
@@ -2090,7 +2213,10 @@ function litUniformsFor(map){
      the floor's shading. The power station has 107 boxes and offers 60 — the
      treads alone were 24 of them, which would have pushed the real plant off
      the end of the list. Without them it offers 36. */
-  const SKIP_FLOOR = { column: 1, hidden: 1, step: 1, lattice: 1 };   // too thin to shade the floor or hide a panel
+  const SKIP_FLOOR = { column: 1, hidden: 1, step: 1, lattice: 1, hvtower: 1 };
+  /* ^ too thin to shade the floor or hide a panel. A transmission tower
+     has a 4m footprint but is four legs and some bracing: treating it as
+     a solid 4m block would lay a shadow under it that nothing casts. */
   /* THE BIGGEST ONES, not the first ones. The loop used to take boxes in map
      order and stop at the budget, so a map that offered more than it could
      hold silently dropped whatever happened to be written last - on the

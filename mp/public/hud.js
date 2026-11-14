@@ -750,3 +750,136 @@ function drawCompass(){
   cg.fillStyle='#fff'; cg.beginPath(); cg.moveTo(W/2,26); cg.lineTo(W/2-4,30); cg.lineTo(W/2+4,30); cg.closePath(); cg.fill();
 }
 let prevHp=100;
+
+
+/* =======================================================================
+   WHERE YOU ARE  —  the corner map, and the whole site on M
+   =======================================================================
+   Both are drawn by ONE function from `currentMap`, the same data the
+   arena's geometry and the server's collision are built from, so the plan
+   cannot show a room the match is not playing. The lobby's map card
+   (drawMapThumb, session.js) draws from it too; this is the in-play twin.
+
+   NORTH-UP, not rotating. The compass already says which way you face, and
+   a plan that spins under you is much harder to read a POSITION off —
+   which is what Jack asked for. The arrow turns instead.
+
+   North is -z, which is what the compass already calls N, and the canvas
+   has +z downward, so -z is up and the two agree by construction.          */
+const MAPC = {
+  /* How much ground the corner map shows, in metres across. A quarter of a
+     240m site: enough to place yourself against the nearest building,
+     little enough that the plant does not turn into porridge. */
+  span: 130,
+  floor:  '#13161a',
+  indoor: 'rgba(120,140,170,.11)',    // under a roof
+  wall:   '#aeb6bf',                  // buildings and barriers
+  plant:  '#737c88',                  // machinery
+  thin:   '#4e555f',                  // lattice, steps, columns
+  grid:   'rgba(255,255,255,.045)',
+  you:    '#ff2d4a',
+  them:   '#ff6274',
+  supply: '#27ff9e',
+};
+/* Which of those three a box is drawn in. A kind not named here is plant,
+   which is the right default: most of a power station is machinery. */
+const MAPC_WALL = { cladding:1, firewall:1, block:1, wall:1, boiler:1, shed:1,
+                    hall:1, control:1, intake:1, tower:1, annex:1, pillar:1 };
+const MAPC_THIN = { lattice:1, column:1, step:1, hvtower:1, firebox:1 };
+
+/* `o` = { cx, cz, span, labels }. Everything else is read live. */
+function drawMapPlan(g, W, H, o){
+  const map = (typeof currentMap !== 'undefined') ? currentMap : null;
+  if (!map) return;
+  const A = map.arena, span = o.span, s = Math.min(W, H) / span;
+  const px = x => W / 2 + (x - o.cx) * s, pz = z => H / 2 + (z - o.cz) * s;
+
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = MAPC.floor; g.fillRect(0, 0, W, H);
+
+  /* A 20m grid, so distance on the plan means something. */
+  g.strokeStyle = MAPC.grid; g.lineWidth = 1;
+  g.beginPath();
+  for (let x = Math.ceil((o.cx - span) / 20) * 20; x <= o.cx + span; x += 20){
+    g.moveTo(px(x), 0); g.lineTo(px(x), H); }
+  for (let z = Math.ceil((o.cz - span) / 20) * 20; z <= o.cz + span; z += 20){
+    g.moveTo(0, pz(z)); g.lineTo(W, pz(z)); }
+  g.stroke();
+
+  /* Under a roof. Drawn first and faint: it is a region, not a thing, and
+     it is the one cue that says "you are inside the hall". */
+  for (const r of (map.roofRects || [])){
+    g.fillStyle = MAPC.indoor;
+    g.fillRect(px(r.minx), pz(r.minz), (r.maxx - r.minx) * s, (r.maxz - r.minz) * s);
+  }
+
+  /* The site boundary. */
+  g.strokeStyle = 'rgba(255,255,255,.17)'; g.lineWidth = 1.5;
+  g.strokeRect(px(-A), pz(-A), A * 2 * s, A * 2 * s);
+
+  /* The plant. `hidden` boxes are skipped: they stand inside something the
+     prop already draws, so on a plan they only thicken what is there. */
+  for (const b of map.boxes){
+    if (b.mat === 'hidden') continue;
+    const x0 = px(b.x - b.w / 2), z0 = pz(b.z - b.d / 2), w = b.w * s, d = b.d * s;
+    if (x0 + w < 0 || z0 + d < 0 || x0 > W || z0 > H) continue;     // off this view
+    g.fillStyle = MAPC_WALL[b.mat] ? MAPC.wall : MAPC_THIN[b.mat] ? MAPC.thin : MAPC.plant;
+    g.fillRect(x0, z0, Math.max(1, w), Math.max(1, d));
+  }
+
+  /* The resupply, in the green it has everywhere else. */
+  const rs = map.resupply || { x: 0, z: 0 };
+  g.strokeStyle = MAPC.supply; g.lineWidth = 1.5;
+  g.beginPath(); g.arc(px(rs.x), pz(rs.z), Math.max(3, 5 * s), 0, Math.PI * 2); g.stroke();
+
+  /* Labels, from the map's own floor stencils — so the names on the plan
+     are the names painted on the ground. */
+  if (o.labels){
+    g.fillStyle = 'rgba(255,255,255,.5)';
+    g.font = '600 11px ui-monospace,monospace'; g.textAlign = 'center';
+    for (const p of (map.paint || [])) if (p.k === 'text')
+      g.fillText(p.t, px(p.x), pz(p.z));
+    g.textAlign = 'left';
+  }
+
+  /* Everyone else. Bots in the range are local; in a match `others` is the
+     room. Nobody is drawn through anything — this is a plan, not a radar,
+     and it shows what the map shows, not what you can see. */
+  const dot = (x, z, col, r) => { g.fillStyle = col; g.beginPath();
+    g.arc(px(x), pz(z), r, 0, Math.PI * 2); g.fill(); };
+  if (typeof others !== 'undefined' && others)
+    for (const p of others.values()) if (p.alive !== false) dot(p.bx != null ? p.bx : p.tx, p.bz != null ? p.bz : p.tz, MAPC.them, 3);
+  if (typeof localBots !== 'undefined' && localBots)
+    for (const b of localBots) if (b.alive) dot(b.x, b.z, MAPC.them, 3);
+
+  /* You, as an arrow. Base points up (north); canvas rotate is clockwise,
+     and the forward vector for yaw is (-sin, -cos), so the angle is -yaw. */
+  g.save(); g.translate(px(me.x), pz(me.z)); g.rotate(-me.yaw);
+  g.fillStyle = MAPC.you;
+  g.beginPath(); g.moveTo(0, -8); g.lineTo(5.5, 6); g.lineTo(0, 3); g.lineTo(-5.5, 6);
+  g.closePath(); g.fill();
+  g.restore();
+}
+
+/* The corner map, centred on you. Throttled: it is canvas 2D over a couple
+   of hundred boxes, and nothing on it moves fast enough to want 60Hz. */
+let mapAt = 0;
+function drawMinimap(now){
+  const c = byId('minimap'); if (!c || gameState !== 'playing') return;
+  if (now - mapAt < 90) return; mapAt = now;
+  drawMapPlan(c.getContext('2d'), c.width, c.height,
+              { cx: me.x, cz: me.z, span: MAPC.span, labels: false });
+}
+/* The whole site, on M. Centred on the arena rather than on you, because
+   the question it answers is "where am I in all this". */
+function toggleBigMap(){
+  const el = byId('bigmap'); if (!el) return;
+  const show = el.classList.contains('hidden');
+  el.classList.toggle('hidden', !show);
+  if (show) drawBigMap();
+}
+function drawBigMap(){
+  const c = byId('bigmapCv'); if (!c || typeof currentMap === 'undefined' || !currentMap) return;
+  drawMapPlan(c.getContext('2d'), c.width, c.height,
+              { cx: 0, cz: 0, span: currentMap.arena * 2 + 8, labels: true });
+}

@@ -45,8 +45,18 @@
     <div><span id="magNum">30</span> <span id="reserveNum">/ 120</span></div>
     <div id="fireMode"><span id="modeLbl">AUTO</span> <span class="pips">▮▮▮▮</span></div>
   </div>
+  <!-- Where you are. The corner map is always up; M opens the whole site. -->
+  <div id="mapPanel">
+    <canvas id="minimap" width="240" height="240"></canvas>
+    <div id="mapN">N</div>
+    <div id="mapKey">M</div>
+  </div>
   <canvas id="compass" width="380" height="30"></canvas>
-  <div id="zoneFx"></div>
+  <div id="bigmap" class="hidden">
+  <canvas id="bigmapCv" width="900" height="900"></canvas>
+  <div id="bigmapFoot"><b data-i18n="map.title">SITE PLAN</b> <span data-i18n="map.close">M to close</span></div>
+</div>
+<div id="zoneFx"></div>
   <div id="hurtDir"></div>
   <div id="specTag"></div>
   <div id="stance"><span data-i18n="hud.stance">STANCE:</span> <b id="stanceVal">STANDING</b></div>
