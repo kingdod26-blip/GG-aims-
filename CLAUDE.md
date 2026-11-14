@@ -755,14 +755,32 @@ more during the rebuild.
   is a thing you cannot walk through, and the deck has to be climbable from
   any side, so a drawn rail would be exactly the lie the galleries told. The
   yellow nosing does that job and it is paint.
-- **A ROUND THING IS FIVE BOXES, not two.** Each box has its corners exactly
-  on the circle (half-extents `R·cosθ, R·sinθ` at θ = 9°, 27°, 45°, 63°, 81°),
-  so their union is a 20-sided rectilinear shape wholly inside the drawn drum
-  and within **43mm** of it all the way round. The obvious answer — one wide
-  box crossed with one deep one — is wrong by **0.92m** at the arm corners,
-  which is an invisible wall standing in clear air beside the tank. All but
-  the first box carry mat `hidden`; the first carries `r` so the prop knows
-  the radius (its own `w/2` is a touch under it).
+- **A ROUND THING IS A STAIRCASE — AND IT IS DRAWN AS ONE.** ~~43mm~~. That
+  figure, in the commit that introduced it, was wrong, and it is worth
+  keeping the mistake written down because it is so easy to make again: the
+  staircase's OUTER corners do sit exactly on the circle, and those are what
+  I measured. The INNER corners between them do not, and those are the
+  error. Measured properly:
+
+  | | reactor R=3.1 | feedwater R=3.5 | cooling tower R=13 |
+  |---|---|---|---|
+  | 5 steps, uniform | 0.50m | 0.56m | 2.08m |
+  | 5 steps, equal-area | 0.33m | 0.37m | 1.37m |
+  | 9 steps, equal-area | 0.18m | 0.20m | 0.74m |
+
+  Half a metre of vessel you could walk into, at eight places round each.
+  More steps only buy a smaller fraction of the same mistake — the error
+  falls as 1/N, so a cooling tower would want twenty-odd boxes a band. So
+  the drums stopped being approximated: **within reach of a player a drum is
+  DRAWN as the rectilinear prism its own collision boxes make** (`litDrumPrism`),
+  36 sides, which reads as round from two metres and *is* the collision, by
+  construction. Above reach it goes back to a smooth cylinder, where nothing
+  can touch it to find out. `litDrumSteps` holds the step formula and the
+  map generator uses the same one, so the two cannot drift.
+  Equal-area spacing (`θ = asin √((i+½)/N)`) packs the steps toward the
+  diagonal, where the error is, rather than spreading them evenly — a third
+  off the worst case for nothing.
+  All but the first box carry mat `hidden`; the first carries `r` and `n`.
 - **A dome on a box is an invisible wall.** The feedwater tanks had dished
   tops: collision is a box of one height, so the drum stopped you at 6.5m
   where the dome had already sloped away to 5.4. Flat-topped now, with a
@@ -813,6 +831,118 @@ more during the rebuild.
   look standable and are not, **0** invisible collision bar the full-height
   columns, whose tops are at the roof and have no drawn top face to see. Not
   checked: a real multiplayer match, the frame cost, or the hum by ear.
+- Re-probed after the drum fix above: **0 and 0** over the whole hall, at 1m
+  spacing, with 127 boxes.
+
+## The station (`station`) — the site, outdoors
+
+Jack sent an aerial photograph of a two-unit thermal station and asked for it
+as a map; then, while it was being built, said what he actually wanted was
+the two put together — *"what you already build is for indoors, and the map
+is to help you build the outdoor part"*. So `station` is one map with both:
+two natural-draught cooling towers, a switchyard, the boiler house and its
+stack, an oil tank farm, a quay — and a turbine hall in the middle of it that
+you walk into through a door.
+
+`powerstation` is untouched and still the full-size indoor hall. This one's
+hall is smaller, because it has to fit on a site.
+
+### A roof over walkable space (`roofRects`)
+
+This is the piece that makes a building you can enter possible at all. A
+collision box stands on the floor, so **no box can ever be a roof** — give
+the hall's roof one and the hall fills up solid. But a roof never has to stop
+a *player*: you walk under it, not on it. It only has to stop a *bullet*. And
+the arena has had exactly that primitive since it has had a ceiling — a rect
+with its own `miny`, in the 3D ray tests and out of the 2D movement tests.
+
+`mapRoofRects(map)` generalises it. The server concatenates them into
+`rayBoxes` and nowhere else; the client draws a slab and pushes it into
+`wallMeshes` only. The walls are ordinary boxes with the doors simply left
+out of the map.
+
+### Open sky
+
+Three flags, and nothing else in the engine knows or cares:
+
+- **`sky: true`** — no roof drawn, no light fittings, a sky box instead, the
+  perimeter drawn as a treeline, and the outdoor haze (`skyFogNear/Far`,
+  `fogSky`). The sky box is unlit, unfogged, `depthWrite: false`,
+  `renderOrder -1`, and deliberately NOT in `litMeshes`: it has no `cxBake`
+  attribute and the vertex pass dies on it.
+- **`skyY`** — where the bake puts its light. An overcast sky **is** one
+  enormous soft source, so it is baked as the very same grid of rectangles a
+  roof uses, lifted to 46m and spread wide enough to be continuous (7×7 of
+  26m). That buys the thing a directional light cannot: real contact
+  darkening under the pipe bridges and inside the tower basins. No new
+  machinery at all.
+- **`roofY`** — the lid a bullet stops at, at 76m, over the stack. Without it
+  every long shot would stop dead at the height of the site fence, because
+  the ceiling rect used to sit at `wallH`.
+
+**The bloom has to be re-aimed outdoors**, in `litLights`. Indoors the only
+thing over the threshold is a ceiling panel: a few hundred bright pixels in a
+dark room, which is what a bloom is for. Open the roof and half the screen is
+sky, all of it over that threshold, and the pass lays a flat glow over
+everything — measured, **100% of pixels clipped to white with bloom on and
+none with it off**. `LIT.bloomSky` puts the threshold above the sky's own
+brightness. This cost an hour of chasing the wrong thing, because the first
+symptom looks exactly like over-exposure.
+
+**`buildArena` now calls `applySettings()` at the end.** The look and the post
+chain depend on which map is up, and nothing re-applied them on a map change
+— only on a settings click.
+
+### The bake got a broadphase
+
+`litBlocked` is the whole cost of the bake and it used to try every box
+against every shadow ray. The early reject is five comparisons, which sounds
+free until you count: ten million rays against a hundred-odd boxes is six
+billion comparisons. The site is cut into 10m cells, each told which boxes
+overlap it (CSR-style, two typed arrays), and a ray walks only the cells it
+crosses with a DDA. **8.3s → 2.5s** on the station, and it is what makes a
+143-box outdoor map affordable at all.
+
+`litUniformsFor` also picks **the biggest** boxes for the floor shader rather
+than the first ones — the loop stops at the budget, so map order silently
+decided which plant got to shade the ground.
+
+### The site
+
+- **Cooling towers.** A hyperboloid of one sheet, `r(y) = rt·√(1+((y−yt)/a)²)`,
+  which is what one actually is. Two drums of collision, not five: the
+  **basin** (R 13, 2.6m — one climb, and the 2.5m of rim left outside the
+  shell is a walkway all the way round) and the **ring beam** above it
+  (R 10.54 to 5.6m, a straight section where the shell leaves the basin,
+  which a real tower has there anyway). Both drawn as exactly their own
+  boxes. The hyperboloid starts at 5.6m, out of reach from a 2.6m rim with a
+  2.7m climb, so above the ring beam it can be a smooth curve safely.
+- **The stack** is 68m of collision box. A box standing on the floor may be
+  as tall as it likes, so there is no height at which it stops being there.
+- **The hall** is 48×50 inside, two units on 3.0m operating floors with 12m
+  of laydown bay between them. At 20m deep the decks left 4m and the bay came
+  out a corridor.
+- Switchyard portals are `lattice` (four angles and a zigzag of bracing);
+  `gear` is a breaker with insulator stacks; `pipe` bridges are the only
+  cover on open ground.
+- **Not symmetric, and it does not need to be**: spawns are random and spread,
+  there are no sides, so the map can be the shape the photograph is.
+
+### Measured
+
+143 boxes, 147 colliders, 127k triangles, bake 2.5–3.1s, 72% of the floor
+clear for spawns. Drawn-vs-collision probe over the whole site at 2m spacing:
+**2** surfaces that look standable and are not (both insulator stacks on top
+of switchgear — thin, round, and nobody reads porcelain as a floor), and
+**27** cells of invisible collision, all of them the 0.4m gaps *between* the
+three pipes on a pipe bridge, where you stand on the pipes. Nothing else.
+Four real faults it caught on the way, all fixed: drum tops wound inside-out
+(u and v swapped — for an upward normal the winding is z-then-x, as
+`litBox`'s own top face is), switchgear and pipe bridges drawn 0.5m short of
+their collision, the switchgear cabinet inset 0.3m inside its box, and the
+ring beam's top left undrawn.
+
+Not checked: a real multiplayer match, and the frame cost.
 
 ## Agents
 

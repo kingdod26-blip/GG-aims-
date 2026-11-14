@@ -94,7 +94,18 @@ const LIT = {
   /* the key light only draws dynamic shadows now, so it follows the camera */
   shadowHalf: 34,
   fogNear: 58, fogFar: 205,
+  /* Outdoors you can see a long way and the haze is bright, not dark. The
+     colour is the bottom stop of the sky gradient, so the two meet cleanly. */
+  skyFogNear: 90, skyFogFar: 420, fogSky: 0xdfe4e7,
   bloom: [0.62, 0.72, 0.80],       // strength, radius, threshold
+  /* OUTDOORS THE BLOOM HAS TO BE RE-AIMED. Indoors the only thing over the
+     threshold is a ceiling panel: a few hundred bright pixels in a dark
+     room, which is what a bloom is for. Open the roof and half the screen is
+     sky, all of it over that threshold, and the pass lays a flat glow over
+     the whole frame - measured, 100% of pixels clipped to white with bloom
+     on and none with it off. Above the sky's own brightness it goes back to
+     doing the job it was added for: the rooflights, the plume, a flash. */
+  bloomSky: [0.15, 0.80, 1.75],
   dynFill: 0.62, dynKey: 1.05,     // the two real lights, which only reach moving things in this look
   rim: [0.40, 0.46, 0.56],         // the outline light on players
 };
@@ -105,9 +116,17 @@ const LIT = {
 
 /* Everything the bake needs about one map, in flat typed arrays: this is
    called from the innermost loop a few million times. */
+/* OUTDOORS the sky is the light. There is no second machinery for it: an
+   overcast sky IS a very large, very broad, very high panel, so it is baked
+   as the same grid of rectangles the roof uses, just lifted to `skyY` and
+   spread wide enough to be continuous. What that buys is the thing a
+   directional light cannot give — real contact darkening under and inside
+   everything on the site, and soft-edged shadows that widen with distance
+   from whatever casts them. The sun on top of it is the ordinary
+   directional light, with its own shadow map, exactly as indoors. */
 function litContext(map){
   const L = map.lamps || { spacing: 24, reach: 0, w: 6, d: 2.4 };
-  const lampY = map.wallH - LIT.lampDrop;
+  const lampY = map.skyY != null ? map.skyY : map.wallH - LIT.lampDrop;
   const lamps = [];
   /* `reachX` lets the grid be narrower than it is long: 0 is a single row
      down the middle of the hall, which is a skylight. */
@@ -116,10 +135,41 @@ function litContext(map){
     for (let gz = -L.reach; gz <= L.reach; gz++) lamps.push(gx * L.spacing, gz * L.spacing);
   const nb = map.boxes.length, boxes = new Float32Array(nb * 5);
   map.boxes.forEach((b, i) => boxes.set([b.x - b.w/2, b.x + b.w/2, b.z - b.d/2, b.z + b.d/2, b.h], i * 5));
+  /* A BROADPHASE over the boxes, because `litBlocked` is the whole cost of
+     the bake and it used to try every box in the map against every shadow
+     ray. The early reject is five comparisons, which sounds free until you
+     count: a 120-box map fires something like ten million rays, so that is
+     six billion comparisons and about eight seconds of a frozen tab.
+
+     So the site is cut into cells and each cell is told which boxes overlap
+     it. A ray then walks the cells it actually crosses and tests six boxes
+     instead of a hundred and twenty. Stored CSR-style in two typed arrays -
+     `cellAt[c]` is where cell c's indices start in `cellBox` - because a
+     hundred small arrays allocate and this is the hot path.
+
+     The one subtlety is that a ray must not test the same box twice when it
+     crosses two of that box's cells; `seen` is a stamp buffer for that, and
+     it is per-context rather than per-call so it is not reallocated ten
+     million times. */
+  const cs = 10, gw = Math.max(1, Math.ceil(2 * map.arena / cs) + 2), g0 = -map.arena - cs;
+  const cellN = new Int32Array(gw * gw);
+  const cellOf = (v) => Math.max(0, Math.min(gw - 1, Math.floor((v - g0) / cs)));
+  for (let i = 0; i < nb; i++){ const o = i * 5;
+    for (let cx = cellOf(boxes[o]); cx <= cellOf(boxes[o+1]); cx++)
+      for (let cz = cellOf(boxes[o+2]); cz <= cellOf(boxes[o+3]); cz++) cellN[cz * gw + cx]++; }
+  const cellAt = new Int32Array(gw * gw + 1);
+  for (let c = 0; c < gw * gw; c++) cellAt[c + 1] = cellAt[c] + cellN[c];
+  const cellBox = new Int32Array(cellAt[gw * gw]), fill = new Int32Array(gw * gw);
+  for (let i = 0; i < nb; i++){ const o = i * 5;
+    for (let cx = cellOf(boxes[o]); cx <= cellOf(boxes[o+1]); cx++)
+      for (let cz = cellOf(boxes[o+2]); cz <= cellOf(boxes[o+3]); cz++){
+        const c = cz * gw + cx; cellBox[cellAt[c] + fill[c]++] = i; } }
   /* The strip is thin and very long, so it is sampled as a row of points
      along each wall's inner face, each standing for stripStep metres. */
+  /* The crimson wall strips are a room's accent: a site boundary is an
+     embankment with trees on it, and lighting that red would be absurd. */
   const D = map.arena - 1, st = LIT.stripStep, strips = [];
-  for (let t = -D + st/2; t < D; t += st){
+  for (let t = -D + st/2; !map.sky && t < D; t += st){
     strips.push( t, LIT.stripY, -D,  0,  1);     // north wall, facing +z
     strips.push( t, LIT.stripY,  D,  0, -1);     // south
     strips.push(-D, LIT.stripY,  t,  1,  0);     // west
@@ -138,30 +188,59 @@ function litContext(map){
   return { lamps: Float32Array.from(lamps), nLamps: lamps.length / 2, lampY, lampHx: hx, lampHz: hz,
            lampArea: area, lampL: 1 / e0, cull2: 38 * 38, lampRGB: L.rgb || LIT.lampRGB,
            boxes, nBoxes: nb,
+           cs, gw, g0, cellAt, cellBox, seen: new Int32Array(nb), stamp: 0,
            strips: Float32Array.from(strips), nStrips: strips.length / 5,
            stripDA: st * LIT.stripHalf * 2, stripCull2: 17 * 17 };
 }
 
-/* Is the straight line from p to s cut by any cover? Slab test per box, with
-   a cheap reject first: most boxes are nowhere near most rays. Cover stands
-   on the floor, so its y slab is [0, maxy]. */
+/* Is the straight line from p to s cut by any cover? A slab test per box,
+   but only against the boxes in the grid cells the ray actually crosses -
+   walked with a DDA, which is the same march a software rasteriser does
+   along a line. Cover stands on the floor, so its y slab is [0, maxy]. */
 function litBlocked(c, px, py, pz, sx, sy, sz){
-  const B = c.boxes, n = c.nBoxes;
+  const B = c.boxes;
   const dx = sx - px, dy = sy - py, dz = sz - pz;
-  for (let i = 0; i < n; i++){
-    const o = i * 5, minx = B[o], maxx = B[o+1], minz = B[o+2], maxz = B[o+3], maxy = B[o+4];
-    if ((px < minx && sx < minx) || (px > maxx && sx > maxx) ||
-        (pz < minz && sz < minz) || (pz > maxz && sz > maxz) || (py > maxy && sy > maxy)) continue;
-    let t0 = 0, t1 = 1, a, b, t;
-    if (dx !== 0){ a = (minx - px) / dx; b = (maxx - px) / dx; if (a > b){ t = a; a = b; b = t; }
-      if (a > t0) t0 = a; if (b < t1) t1 = b; if (t0 > t1) continue; }
-    if (dz !== 0){ a = (minz - pz) / dz; b = (maxz - pz) / dz; if (a > b){ t = a; a = b; b = t; }
-      if (a > t0) t0 = a; if (b < t1) t1 = b; if (t0 > t1) continue; }
-    if (dy !== 0){ a = -py / dy; b = (maxy - py) / dy; if (a > b){ t = a; a = b; b = t; }
-      if (a > t0) t0 = a; if (b < t1) t1 = b; if (t0 > t1) continue; }
-    return true;
+  const gw = c.gw, cs = c.cs, g0 = c.g0, cellAt = c.cellAt, cellBox = c.cellBox, seen = c.seen;
+  const stamp = ++c.stamp;
+  /* The cells, from p to s. Step one axis at a time, whichever boundary is
+     nearer, exactly as a line walk does. */
+  let cx = Math.floor((px - g0) / cs), cz = Math.floor((pz - g0) / cs);
+  const ex = Math.floor((sx - g0) / cs), ez = Math.floor((sz - g0) / cs);
+  const stepX = dx > 0 ? 1 : -1, stepZ = dz > 0 ? 1 : -1;
+  const tdx = dx !== 0 ? Math.abs(cs / dx) : Infinity, tdz = dz !== 0 ? Math.abs(cs / dz) : Infinity;
+  let tmx = dx !== 0 ? Math.abs(((dx > 0 ? (cx + 1) * cs + g0 : cx * cs + g0) - px) / dx) : Infinity;
+  let tmz = dz !== 0 ? Math.abs(((dz > 0 ? (cz + 1) * cs + g0 : cz * cs + g0) - pz) / dz) : Infinity;
+  for (let guard = 0; guard < 96; guard++){
+    if (cx >= 0 && cx < gw && cz >= 0 && cz < gw){
+      const cell = cz * gw + cx, end = cellAt[cell + 1];
+      for (let k = cellAt[cell]; k < end; k++){
+        const i = cellBox[k];
+        if (seen[i] === stamp) continue;
+        seen[i] = stamp;
+        if (litBlockedBox(B, i, px, py, pz, dx, dy, dz, sx, sz)) return true;
+      }
+    }
+    if (cx === ex && cz === ez) break;
+    if (tmx < tmz){ cx += stepX; tmx += tdx; } else { cz += stepZ; tmz += tdz; }
   }
   return false;
+}
+/* One box against the ray. Lifted out of the loop above so the grid walk
+   reads as a grid walk; the slab test itself is unchanged. */
+function litBlockedBox(B, i, px, py, pz, dx, dy, dz, sx, sz){
+  {
+    const o = i * 5, minx = B[o], maxx = B[o+1], minz = B[o+2], maxz = B[o+3], maxy = B[o+4];
+    if ((px < minx && sx < minx) || (px > maxx && sx > maxx) ||
+        (pz < minz && sz < minz) || (pz > maxz && sz > maxz) || (py > maxy && py + dy > maxy)) return false;
+    let t0 = 0, t1 = 1, a, b, t;
+    if (dx !== 0){ a = (minx - px) / dx; b = (maxx - px) / dx; if (a > b){ t = a; a = b; b = t; }
+      if (a > t0) t0 = a; if (b < t1) t1 = b; if (t0 > t1) return false; }
+    if (dz !== 0){ a = (minz - pz) / dz; b = (maxz - pz) / dz; if (a > b){ t = a; a = b; b = t; }
+      if (a > t0) t0 = a; if (b < t1) t1 = b; if (t0 > t1) return false; }
+    if (dy !== 0){ a = -py / dy; b = (maxy - py) / dy; if (a > b){ t = a; a = b; b = t; }
+      if (a > t0) t0 = a; if (b < t1) t1 = b; if (t0 > t1) return false; }
+    return true;
+  }
 }
 
 /* Light arriving at a point with normal n, straight from the fixtures.
@@ -467,6 +546,95 @@ function CYL2(G, az, p, s, a, y0, c, y1, r){
   const x = az ? (p.x + c) : (p.x + a * s), z = az ? (p.z + a * s) : (p.z + c);
   litCyl(G('bus'), x, y0, z, x, y1, z, r, r, 12, 2, false, false);
 }
+/* ---------------------------------------------------------------------
+   A DRUM, DRAWN AS EXACTLY THE BOXES THAT STOP YOU
+   ---------------------------------------------------------------------
+   A collision box is axis-aligned, so a circle has to be approximated by a
+   staircase of them. The tempting measurement is the staircase's OUTER
+   corners, which sit exactly on the circle - and that is what made the
+   power station claim 43mm. It is the wrong corners. Between two outer
+   corners the boundary steps INWARD, and that inner corner is the error:
+
+        5 uniform steps     R=3.1 vessel 0.50m    R=13 tower 2.08m
+        5 equal-area steps  R=3.1 vessel 0.33m    R=13 tower 1.37m
+        9 equal-area steps  R=3.1 vessel 0.18m    R=13 tower 0.74m
+
+   Half a metre of drum you can walk into, at eight places round it. On a
+   26m cooling tower, two.
+
+   More steps will not fix it: the error falls as 1/N, so a tower would want
+   twenty-odd boxes per band. The answer is to stop approximating. Within
+   reach of a player, a drum is DRAWN as the rectilinear prism its own
+   collision boxes make - a 36-sided concrete shape that reads as round from
+   two metres away and IS the collision, exactly, by construction. Above
+   reach it goes back to being a smooth cylinder, where nothing can touch it.
+
+   `litDrumSteps` is the one place the staircase is defined. The map's boxes
+   are generated from the same formula, so the two cannot drift.           */
+function litDrumSteps(R, N){
+  const e = [];
+  for (let i = 0; i < N; i++){
+    /* Equal-area spacing: the error is worst at 45 degrees and zero on the
+       axes, so the steps are packed toward the diagonal rather than spread
+       evenly round the quadrant. That alone is a third off the worst case. */
+    const th = Math.asin(Math.sqrt((i + 0.5) / N));
+    e.push([R * Math.cos(th), R * Math.sin(th)]);
+  }
+  return e;                                     // [[hx, hz], ...] hx falling, hz rising
+}
+/* The outline of that staircase, as a closed loop of axis-aligned segments,
+   walked anticlockwise from (hx0, 0). */
+function litDrumOutline(e){
+  const q = [[e[0][0], 0]];
+  for (let i = 0; i < e.length; i++){
+    q.push([e[i][0], e[i][1]]);
+    if (i + 1 < e.length) q.push([e[i+1][0], e[i][1]]);
+  }
+  q.push([0, e[e.length-1][1]]);
+  const out = q.slice();
+  for (let i = q.length - 2; i >= 0; i--) out.push([-q[i][0],  q[i][1]]);   // quadrant 2
+  for (let i = 1;             i < q.length; i++) out.push([-q[i][0], -q[i][1]]);  // 3
+  for (let i = q.length - 2; i >= 1; i--) out.push([ q[i][0], -q[i][1]]);   // 4
+  return out;
+}
+/* The prism itself: the wall all the way round, and optionally the top,
+   which is cut into disjoint bands so no two coplanar faces overlap and
+   fight. `inner` leaves the middle of the top open, for a basin whose shell
+   stands in it. */
+function litDrumPrism(g, cx, cz, R, N, y0, y1, o){
+  o = o || {};
+  const e = litDrumSteps(R, N), loop = litDrumOutline(e), dy = y1 - y0;
+  const tile = o.tile || 4, tv = o.tileV || tile;
+  for (let i = 0; i < loop.length; i++){
+    const a = loop[i], b = loop[(i + 1) % loop.length];
+    const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.abs(dx) + Math.abs(dz);
+    if (len < 1e-6) continue;
+    const ux = dx / len, uz = dz / len;
+    /* Outward is to the RIGHT of travel for an anticlockwise loop in a
+       left-handed xz frame: (uz, -ux) points away from the centre. */
+    let nx = uz, nz = -ux;
+    if ((a[0] + b[0]) * nx + (a[1] + b[1]) * nz < 0){ nx = -nx; nz = -nz; }
+    litGrid(g, cx + a[0], y0, cz + a[1], ux, 0, uz, 0, 1, 0, len, dy,
+            nx, 0, nz, o.seg || LIT.coverSeg, o.seg || LIT.coverSeg, tile, tv, 0, y0);
+  }
+  if (!o.top) return;
+  const r0 = o.inner || 0;
+  for (let i = 0; i < e.length; i++){
+    const z0 = i ? e[i-1][1] : 0, z1 = e[i][1], hx = e[i][0];
+    if (z1 - z0 < 1e-6) continue;
+    for (const sgn of (i ? [1, -1] : [1])){
+      const za = i ? (sgn > 0 ? z0 : -z1) : -z1, zb = i ? (sgn > 0 ? z1 : -z0) : z1;
+      /* u is +z and v is +x, NOT the other way round: for an upward normal
+         the winding has to be z-then-x, as litBox's own top face is. With
+         the two swapped every drum's top came out inside-out - invisible
+         from above, and the probe read the basins and ring beams as 5.6m of
+         collision standing under nothing at all. */
+      litGrid(g, cx - hx, y1, cz + za, 0,0,1, 1,0,0, zb - za, 2*hx, 0,1,0,
+              o.seg || LIT.coverSeg, o.seg || LIT.coverSeg, tile, tile, cz + za, cx - hx);
+    }
+  }
+}
+
 /* A cylinder from point A to point B, with a radius at each end so it can
    taper. The casing of a turbine, a bushing, a pipe. `capA` / `capB` close
    the ends; most are left open because they sit against something.
@@ -755,6 +923,118 @@ function litSwitchTextures(){
   return { map: litTexOf(alb, true), emissiveMap: litTexOf(glow, true), roughnessMap: litTexOf(rough, false), normalMap: litNormalFrom(height, 2.2) };
 }
 /* Yellow and black, at 45 degrees. One tile is 0.8m; it wraps both ways. */
+/* The sky: a vertical gradient on a tall thin canvas, stretched round the
+   box. The bottom of it is LIT.fogSky, the same colour the fog is set to for
+   an outdoor map, so the haze and the horizon are the same colour and there
+   is no seam where one stops. The band of cloud is there to stop a clear
+   gradient banding on an 8-bit display; the grade's dither finishes the job. */
+function litSkyTexture(){
+  const c = litCanvas(8, 256, (g, w, h) => {
+    const sky = g.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0.00, '#8fb4d8');          // overhead
+    sky.addColorStop(0.42, '#b9cfe2');
+    sky.addColorStop(0.62, '#d4dee6');
+    sky.addColorStop(0.78, '#dfe4e7');          // the horizon, = LIT.fogSky
+    sky.addColorStop(1.00, '#dfe4e7');
+    g.fillStyle = sky; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 40; i++){               // a little cloud, to break the ramp
+      const y = 20 + Math.random() * 150;
+      g.fillStyle = 'rgba(255,255,255,' + (0.03 + Math.random() * 0.05).toFixed(3) + ')';
+      g.fillRect(0, y, w, 2 + Math.random() * 9);
+    }
+  });
+  const t = litTexOf(c, true); t.wrapS = THREE.RepeatWrapping; return t;
+}
+/* The site boundary: an embankment of trees, which is what is actually round
+   a station of this kind and is the one honest way to make a 10m wall nobody
+   questions. Drawn as a silhouette band rather than trees — at the distance
+   you ever see it from, a ragged dark edge against the sky is all that
+   reads, and anything more detailed is tiling you can count. */
+function litTreeTexture(){
+  return litCanvas(512, 256, (g, w, h) => {
+    const sky = g.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#2e3b2b'); sky.addColorStop(0.55, '#1d2a1d'); sky.addColorStop(1, '#141d14');
+    g.fillStyle = sky; g.fillRect(0, 0, w, h);
+    const rnd = litRand(7);
+    for (let i = 0; i < 150; i++){               // crowns against the top edge
+      const x = rnd() * w, r = 10 + rnd() * 30, y = 18 + rnd() * 44;
+      g.fillStyle = 'rgba(10,18,10,' + (0.25 + rnd() * 0.5).toFixed(3) + ')';
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    }
+    for (let i = 0; i < 220; i++){               // and foliage noise below
+      const x = rnd() * w, y = 30 + rnd() * (h - 30), r = 4 + rnd() * 16;
+      g.fillStyle = (rnd() < 0.5 ? 'rgba(52,70,44,' : 'rgba(12,20,12,') + (0.10 + rnd() * 0.25).toFixed(3) + ')';
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    }
+    g.fillStyle = '#20251f'; g.fillRect(0, h - 26, w, 26);     // the foot of the bank
+  });
+}
+/* Profiled sheet: a flat colour with a ribbed normal and a little streaking.
+   `litNormalFrom` turns a height canvas into the normal map, so the ribs cost
+   one more canvas and no geometry at all. */
+function litCladTextures(base, dirt){
+  const S = 256;
+  const col = litCanvas(S, S, (g, w, h) => {
+    g.fillStyle = base; g.fillRect(0, 0, w, h);
+    const rnd = litRand(31);
+    for (let x = 0; x < w; x += 16){                       // the shadow in each rib
+      g.fillStyle = 'rgba(0,0,0,0.10)'; g.fillRect(x, 0, 3, h);
+      g.fillStyle = 'rgba(255,255,255,0.07)'; g.fillRect(x + 7, 0, 2, h);
+    }
+    for (let i = 0; i < 70; i++){                          // weather streaks, downward
+      const x = rnd() * w, y = rnd() * h, l = 12 + rnd() * 70;
+      g.fillStyle = 'rgba(40,46,52,' + (0.02 + rnd() * 0.05 * dirt).toFixed(3) + ')';
+      g.fillRect(x, y, 1 + rnd() * 2, l);
+    }
+    g.fillStyle = 'rgba(0,0,0,0.16)'; g.fillRect(0, S - 10, w, 10);   // the dirty bottom edge
+  });
+  const hgt = litCanvas(S, S, (g, w, h) => {
+    g.fillStyle = '#808080'; g.fillRect(0, 0, w, h);
+    for (let x = 0; x < w; x += 16){
+      const r = g.createLinearGradient(x, 0, x + 16, 0);
+      r.addColorStop(0, '#303030'); r.addColorStop(0.45, '#d8d8d8'); r.addColorStop(1, '#303030');
+      g.fillStyle = r; g.fillRect(x, 0, 16, h);
+    }
+  });
+  return { map: litTexOf(col, true), normalMap: litNormalFrom(hgt, 1.1) };
+}
+/* A cooling tower shell. Precast panels in courses, every one of them
+   streaked: that staining is most of what makes the thing read as concrete
+   a hundred metres tall rather than a grey cone. */
+function litTowerTexture(){
+  return litCanvas(512, 512, (g, w, h) => {
+    g.fillStyle = '#9ea099'; g.fillRect(0, 0, w, h);
+    const rnd = litRand(11);
+    for (let y = 0; y < h; y += 32){                        // the lift joints
+      g.fillStyle = 'rgba(60,62,58,0.30)'; g.fillRect(0, y, w, 2);
+      for (let x = (y / 32 % 2) * 24; x < w; x += 48){      // and the panel joints, staggered
+        g.fillStyle = 'rgba(60,62,58,0.18)'; g.fillRect(x, y, 1.5, 32); }
+    }
+    for (let i = 0; i < 260; i++){                          // staining, always downward
+      const x = rnd() * w, y = rnd() * h * 0.8, l = 20 + rnd() * 180;
+      g.fillStyle = (rnd() < 0.45 ? 'rgba(74,76,68,' : 'rgba(176,178,170,') + (0.03 + rnd() * 0.10).toFixed(3) + ')';
+      g.fillRect(x, y, 1 + rnd() * 4, l);
+    }
+    litGrime(g, w, 90, rnd);
+  });
+}
+/* The stack: white and aviation red, in bands, with the dirt a stack gets. */
+function litStackTexture(){
+  return litCanvas(64, 512, (g, w, h) => {
+    const band = h / 7;
+    for (let i = 0; i < 7; i++){
+      g.fillStyle = i % 2 ? '#a8392c' : '#d8d8d2';
+      g.fillRect(0, h - (i + 1) * band, w, band + 1);
+    }
+    const rnd = litRand(5);
+    for (let i = 0; i < 90; i++){
+      const y = rnd() * h;
+      g.fillStyle = 'rgba(40,36,34,' + (0.02 + rnd() * 0.07).toFixed(3) + ')';
+      g.fillRect(rnd() * w, y, 1 + rnd() * 3, 10 + rnd() * 60);
+    }
+    g.fillStyle = 'rgba(30,28,26,0.35)'; g.fillRect(0, 0, w, 22);     // soot at the top
+  });
+}
 function litHazardTexture(){
   const S = 128;
   return litTexOf(litCanvas(S, S, (g) => {
@@ -1200,6 +1480,34 @@ function litMaterial(name){
     /* Control room glazing: dark, smooth and quite reflective, so it reads
        as glass by what it mirrors rather than by anything behind it. */
     case 'glass':  m = litPatch(new THREE.MeshStandardMaterial({ color: 0x0d151c, roughness: 0.08, metalness: 0.42 }), 'cover', 1.60); break;
+    /* The sky. Painted, not lit: a vertical gradient from a pale hazy
+       horizon to a deeper blue overhead, with the horizon band matching the
+       fog colour so the two meet without a seam. */
+    case 'skydome': m = new THREE.MeshBasicMaterial({ map: litSkyTexture(), side: THREE.BackSide, fog: false, depthWrite: false }); break;
+    /* The boundary. Nearly matte, barely reflective: a treeline that caught
+       the sky the way the concrete does read as a painted backdrop. */
+    case 'treeline': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litTreeTexture(), true), roughness: 1, metalness: 0 }), 'wall', 0.06); break;
+    /* Profiled metal sheet, which is what every building on a site like this
+       is clad in. The ribs are in the normal map rather than the geometry:
+       a 48m wall of real ribs is forty thousand triangles for something you
+       read as a texture from five metres away. */
+    case 'cladding': t = litCladTextures('#a8b2bb', 0.55);
+                   m = litPatch(new THREE.MeshStandardMaterial(Object.assign(t, { roughness: 0.62, metalness: 0.42 })), 'cover', 0.75);
+                   m.defines.CX_PLAINTOP = ''; break;
+    case 'roofblue': t = litCladTextures('#2d5f93', 0.75);
+                   m = litPatch(new THREE.MeshStandardMaterial(Object.assign(t, { roughness: 0.55, metalness: 0.38 })), 'cover', 0.85);
+                   m.defines.CX_PLAINTOP = ''; break;
+    /* The cooling tower's shell: weathered precast concrete, streaked down
+       the way every one of them is. Round, so it needs CX_ROUND. */
+    case 'towerskin': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litTowerTexture(), true), roughness: 0.94, metalness: 0 }), 'wall', 0.10);
+                   m.defines.CX_ROUND = ''; break;
+    /* The stack, in its aviation bands. */
+    case 'stackband': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litStackTexture(), true), roughness: 0.82, metalness: 0.05 }), 'wall', 0.12);
+                   m.defines.CX_ROUND = ''; break;
+    /* The plume. Painted, not lit, and it takes the fog so it sits in the
+       same air as everything else. */
+    case 'plume':  m = new THREE.MeshBasicMaterial({ color: 0xf2f6f8, transparent: true, opacity: 0.30,
+                       depthWrite: false, side: THREE.DoubleSide }); break;
     default:       m = litPatch(new THREE.MeshStandardMaterial({ color: 0x8a8f99, roughness: 0.9 }), 'cover', 0.3);
   }
   return (LIT_MATS[name] = m);
@@ -1281,6 +1589,98 @@ const LIT_DRAW = {
     litBox(G('switch'), x0, 0, z0, x1, b.h, z1, { bevel: 0.03, seg: LIT.coverSeg, tile: 2.4, tileV: 2.2 });
   },
   transformer: litTransformer,
+  /* Collision and floor-shading only; a prop draws what stands here. The
+     difference from `hidden` is that the floor shader is TOLD about these -
+     a cooling tower shades the ground round it and hides a whole panel of
+     sky, and `hidden` exists to keep a casing step inside its own pedestal
+     out of that list. */
+  mass(){},
+  /* A clad building: profiled sheet, a plinth it stands on, and a parapet.
+     The hall's walls are these, with the doors simply left out of the map. */
+  cladding(G, b, x0, z0, x1, z1){
+    litBox(G('concrete'), x0, 0, z0, x1, 0.9, z1, { seg: 3, tile: 120, tileV: 8, noTop: true });
+    litBox(G('cladding'), x0, 0.9, z0, x1, b.h - 0.5, z1, { seg: LIT.coverSeg, tile: 3.2, tileV: 3.2, noTop: true });
+    litBox(G('girder'),   x0 - 0.08, b.h - 0.5, z0 - 0.08, x1 + 0.08, b.h, z1 + 0.08, { seg: 3, tile: 2 });
+  },
+  /* The boiler house: the same sheet, but banded by its floor levels and
+     with a frame showing at the corners, which is what stops a 28m box
+     reading as a 28m box. */
+  boiler(G, b, x0, z0, x1, z1){
+    litBox(G('concrete'), x0, 0, z0, x1, 1.4, z1, { seg: 3, tile: 120, tileV: 8, noTop: true });
+    litBox(G('cladding'), x0, 1.4, z0, x1, b.h - 0.6, z1, { seg: LIT.coverSeg, tile: 3.2, tileV: 3.2, noTop: true });
+    for (let y = 7; y < b.h - 2; y += 7)                                   // the floor bands
+      litBox(G('girder'), x0 - 0.1, y, z0 - 0.1, x1 + 0.1, y + 0.45, z1 + 0.1, { seg: 4, tile: 2 });
+    litBox(G('girder'), x0 - 0.1, b.h - 0.6, z0 - 0.1, x1 + 0.1, b.h, z1 + 0.1, { seg: 4, tile: 2 });
+    for (const ex of [-1, 1]) for (const ez of [-1, 1]){                   // corner columns
+      const cx = ex > 0 ? x1 : x0, cz = ez > 0 ? z1 : z0;
+      litBox(G('girder'), cx - 0.45, 1.4, cz - 0.45, cx + 0.45, b.h, cz + 0.45, { seg: 3, tile: 2, noTop: true });
+    }
+  },
+  /* A workshop or a screen house: clad walls, blue roof. Every low building
+     in the photograph has one. */
+  shed(G, b, x0, z0, x1, z1){
+    litBox(G('cladding'), x0, 0, z0, x1, b.h - 0.45, z1, { seg: LIT.coverSeg, tile: 3.2, tileV: 3.2, noTop: true });
+    litBox(G('roofblue'), x0 - 0.35, b.h - 0.45, z0 - 0.35, x1 + 0.35, b.h, z1 + 0.35, { seg: 3, tile: 3.2, tileV: 3.2 });
+  },
+  /* A switchyard portal leg: four angles and a zigzag of bracing, which is
+     all a lattice tower is. Thin enough that the bracing is the shape. */
+  lattice(G, b, x0, z0, x1, z1){
+    const i = 0.07;
+    for (const ex of [-1, 1]) for (const ez of [-1, 1]){
+      const cx = ex > 0 ? x1 - i : x0 + i, cz = ez > 0 ? z1 - i : z0 + i;
+      litBox(G('girder'), cx - i, 0, cz - i, cx + i, b.h, cz + i, { seg: 2, tile: 2, noTop: true });
+    }
+    for (let y = 0.5; y < b.h - 0.4; y += 1.6){                            // the bracing, both faces
+      for (const ez of [z0 + i, z1 - i])
+        litCyl(G('steel'), x0 + i, y, ez, x1 - i, y + 1.6, ez, 0.05, 0.05, 4, 1, false, false);
+      for (const ex of [x0 + i, x1 - i])
+        litCyl(G('steel'), ex, y, z0 + i, ex, y + 1.6, z1 - i, 0.05, 0.05, 4, 1, false, false);
+    }
+  },
+  /* Switchyard gear: a plinth, a steel frame and three insulator stacks -
+     a circuit breaker, more or less, and the thing the yard is full of. */
+  gear(G, b, x0, z0, x1, z1){
+    litBox(G('concrete'), x0, 0, z0, x1, 0.35, z1, { seg: 2, tile: 120, tileV: 8 });
+    /* To b.h, not b.h - 0.5: the cabinet is what stops you, so its top has
+       to be the box's top. The insulators above it are thin and round and
+       nobody reads them as standing room. */
+    /* Filling the box, not inset 0.3m inside it: the inset left a border of
+       collision all round each cabinet standing over nothing but the plinth,
+       which is the same mistake the columns made. */
+    litBox(G('machine'), x0, 0.35, z0, x1, b.h, z1, { bevel: 0.05, seg: LIT.coverSeg, tile: 2 });
+    const cx = b.x, cz = b.z;
+    for (const o of [-1, 0, 1]){
+      const px = cx + o * (b.w / 2 - 0.5);
+      litCyl(G('porcelain'), px, b.h, cz, px, b.h + 1.1, cz, 0.13, 0.10, 10, 1, false, true);
+      for (let j = 0; j < 5; j++){ const y = b.h + 0.15 + j * 0.26, r = 0.23 - j * 0.015;
+        litCyl(G('porcelain'), px, y, cz, px, y + 0.07, cz, r, r * 0.7, 10, 1, true, true); }
+    }
+  },
+  /* The intake house on the quay: concrete, with the screen gates in it. */
+  intake(G, b, x0, z0, x1, z1){
+    litBox(G('concrete'), x0, 0, z0, x1, b.h, z1, { bevel: LIT.bevel, seg: LIT.coverSeg, tile: 120, tileV: 8 });
+    for (let x = x0 + 3; x < x1 - 2; x += 6)                               // gate openings on the water face
+      litBox(G('steel'), x, 0.5, z1 - 0.06, x + 3.4, b.h - 0.9, z1 + 0.04, { seg: 3, noTop: true });
+    litBox(G('yellow'), x0, b.h, z0, x1, b.h + 0.12, z1, { seg: 3 });      // the handrail kerb
+  },
+  /* A pipe bridge: a concrete plinth with lagged pipes lying along its
+     longer axis. Cover on open ground, and the only cover in the yard. */
+  pipe(G, b, x0, z0, x1, z1){
+    /* The plinth's top IS the box's top. It used to stop 0.5m short and let
+       the pipes make up the difference, which left half a metre of collision
+       standing in clear air all along it. */
+    /* The pipes' CROWNS are the box's top, and the plinth stops a pipe's
+       diameter below. Sat on top of a full-height plinth they stood 0.39m
+       proud of their own collision - which is what you would walk through. */
+    const alongZ = (z1 - z0) >= (x1 - x0), r = 0.2;
+    litBox(G('concrete'), x0, 0, z0, x1, b.h - 2 * r, z1, { seg: LIT.coverSeg, tile: 120, tileV: 8 });
+    const n = 3, span = alongZ ? (x1 - x0) : (z1 - z0);
+    for (let i = 0; i < n; i++){
+      const t = span * (i + 0.5) / n;
+      if (alongZ) litCyl(G('bus'), x0 + t, b.h - r, z0, x0 + t, b.h - r, z1, r, r, 10, 2, false, false);
+      else        litCyl(G('bus'), x0, b.h - r, z0 + t, x1, b.h - r, z0 + t, r, r, 10, 2, false, false);
+    }
+  },
   /* The operating floor, the shield deck, the stair treads and the towers
      are all the same thing: a slab of concrete with a yellow nosing round
      the top edge, at different sizes. `plinth` already draws exactly that,
@@ -1308,9 +1708,12 @@ const LIT_DRAW = {
     /* `r` from the map, not w/2: the box this draws from is the widest of
        the five that make the drum's collision, and its own half-width is a
        touch under the radius. */
-    const R = b.r || b.w / 2, x = b.x, z = b.z, sk = 0.55, body = b.h - 0.18;
-    litCyl(G('steel'),    x, 0, z, x, sk, z, R * 0.88, R * 0.88, 16, 1.5, false, false);     // skirt
-    litCyl(G('machineR'), x, sk, z, x, body, z, R, R, 16, 2.4, true, false);                 // the drum
+    const R = b.r || b.w / 2, N = b.n || 9, x = b.x, z = b.z, sk = 0.55, body = b.h - 0.18;
+    litDrumPrism(G('steel'), x, z, R * 0.88, N, 0, sk, { tile: 2 });                          // skirt
+    /* The drum itself is the STAIRCASE its collision boxes make, not a
+       cylinder standing in for them - see litDrumSteps. Thirty-six sides
+       reads as round from two metres, and it is exactly what stops you. */
+    litDrumPrism(G('machine'), x, z, R, N, sk, body, { tile: 2.6 });
     litCyl(G('machineR'), x, body, z, x, b.h, z, R, R * 0.93, 16, 2.4, false, true);         // and its roof, near enough flat
     for (const y of [sk + 0.08, b.h * 0.42, body - 0.26]) litCyl(G('steel'), x, y, z, x, y + 0.16, z, R + 0.05, R + 0.05, 16, 1, false, false);
     litCyl(G('bus'), x, b.h, z, x, LIT_H, z, 0.22, 0.22, 10, 2, false, false);               // the vent, all the way to the roof
@@ -1465,9 +1868,13 @@ const LIT_PROP = {
      instead, and it is paint. */
   reactor(G, p, D, H){
     const x = p.x || 0, z = p.z || 0, y0 = p.deck || 2.4, R = 3.1, top = 7.0;
-    litCyl(G('vessel'), x, y0, z, x, top, z, R, R, 16, 2.2, false, false);
-    for (let i = 0; i < 16; i++){                                   // the ribs of a wound vessel
-      const a = (i + 0.5) / 16 * Math.PI * 2, rx = x + Math.cos(a) * R, rz = z + Math.sin(a) * R;
+    /* The drum is the staircase its boxes make, not a cylinder standing in
+       for them: the whole of it is within reach from the deck, so the
+       surface you see has to BE the surface that stops you. */
+    litDrumPrism(G('vessel'), x, z, R, p.n || 9, y0, top, { tile: 2.2 });
+    const steps = litDrumSteps(R, p.n || 9);
+    for (const e of steps) for (const sx of [-1, 1]) for (const sz of [-1, 1]){   // ribs, on the staircase corners
+      const rx = x + sx * e[0], rz = z + sz * e[1];
       litCyl(G('vessel'), rx, y0 + 0.15, rz, rx, top - 0.15, rz, 0.085, 0.085, 6, 1, false, false);
     }
     for (const y of [y0 + 0.5, (y0 + top) / 2, top - 0.5])          // and its hoops
@@ -1494,6 +1901,117 @@ const LIT_PROP = {
       /* the bracket that carries it off the deck */
       litCyl(G('steel'), x + ca * 6.0, y0, z + sa * 6.0, x + ca * 6.0, y0 + 1.25, z + sa * 6.0, 0.13, 0.13, 8, 1, false, true);
     }
+  },
+  /* A NATURAL-DRAUGHT COOLING TOWER, and the biggest single thing on the
+     site. Three parts, and the first two are drawn from exactly the profile
+     the map's collision boxes were generated from:
+
+       r(y) = rt * sqrt(1 + ((y - yt) / a)^2)
+
+     a hyperboloid of one sheet, which is what the shell of one of these
+     actually is - the reason it is that shape is that it can be built from
+     straight bars, and the reason it is drawn from the same equation the
+     boxes came from is that otherwise the two drift apart and you get an
+     invisible wall round the base.
+
+     The BASIN is a ring wall you can climb (2.6m, one climb) and the 2m of
+     rim left outside the shell is a walkway all the way round. That rim is
+     real floor: the basin's collision drum is wider than the shell's.
+
+     The X-BRACED INLET at the foot is what the air goes through. It is drawn
+     and it is not collision, which is the one liberty taken here - but it is
+     a diagonal lattice in front of a solid shell, and nobody mistakes a strut
+     for a doorway.
+
+     The PLUME is painted, not lit, and takes the fog like everything else. */
+  coolingtower(G, p, D, H){
+    const x = p.x, z = p.z, y1 = p.y1, rt = p.rt, yt = p.yt, a = p.a;
+    const rb = p.basin, bh = p.basinH, rk = p.beam, yk = p.y0, N = p.n || 9;
+    const R = (y) => rt * Math.sqrt(1 + ((y - yt) / a) * ((y - yt) / a));
+    /* EVERYTHING A PLAYER CAN TOUCH IS DRAWN AS ITS OWN COLLISION BOXES.
+       The basin wall and the ring beam are the two staircase drums the map
+       carries; thirty-six sides apiece, which from the ground reads as a
+       round concrete structure and from the physics is exactly itself.
+       Only above the ring beam - 5.6m, and the rim you would stand on is
+       2.6m with a 2.7m climb - does it become a smooth hyperboloid, where
+       nothing can reach it to find out. */
+    litDrumPrism(G('concrete'), x, z, rb, N, 0, bh, { tile: 6, top: true });
+    litDrumPrism(G('yellow'),   x, z, rb + 0.05, N, bh, bh + 0.12, { tile: 2 });   // the rim's kerb
+    /* `top` because the beam is SOLID: its boxes fill the disc from the
+       floor up, so there is a concrete surface at 5.6m whether or not
+       anything can reach it, and the basin floor drawn underneath is inside
+       the solid and must not be what a ray down the throat finds. */
+    litDrumPrism(G('towerskin'), x, z, rk, N, bh, yk, { tile: 6, top: true });     // the ring beam
+    /* The shell above: a stack of frusta following the curve. Twelve is
+       enough that the silhouette reads as a curve and not a cone. */
+    const segs = 12;
+    for (let i = 0; i < segs; i++){
+      const ya = yk + (y1 - yk) * i / segs, yb = yk + (y1 - yk) * (i + 1) / segs;
+      litCyl(G('towerskin'), x, ya, z, x, yb, z, R(ya), R(yb), 28, 6, false, false);
+    }
+    litCyl(G('concrete'), x, y1, z, x, y1 + 0.5, z, R(y1) + 0.22, R(y1) + 0.22, 28, 3, false, false);  // the cap ring
+    /* Buttresses up the ring beam, on the staircase's own corners so they
+       sit on the surface rather than hovering off it. */
+    for (const e of litDrumSteps(rk, N)) for (const sx of [-1, 1]) for (const sz of [-1, 1]){
+      const bx = x + sx * e[0], bz = z + sz * e[1];
+      litCyl(G('concrete'), bx, bh, bz, bx, yk, bz, 0.3, 0.24, 5, 2, false, false);
+    }
+    /* The plume, leaning with the wind. Widening, rising, fading. */
+    const pl = G('plume'), drift = 0.55;
+    for (let i = 0; i < 7; i++){
+      const ya = y1 + i * 4.6, yb = ya + 4.6, f = i / 7;
+      const ra = R(y1) * (0.92 + f * 1.5), rbb = R(y1) * (0.92 + (f + 0.14) * 1.5);
+      litCyl(pl, x + f * drift * 10, ya, z + f * drift * 6,
+                 x + (f + 0.14) * drift * 10, yb, z + (f + 0.14) * drift * 6,
+                 ra, rbb, 14, 1, false, false);
+    }
+  },
+  /* The stack. Its collision is 68m of boxes, so the drawn surface simply
+     follows them: a straight shell in aviation bands, a cap, and the
+     platforms a real one carries. No taper, deliberately - a taper would
+     have to be matched band for band in the collision and buys nothing you
+     can see from the ground. */
+  stack(G, p, D, H){
+    const x = p.x, z = p.z, r = p.r, h = p.h, N = p.n || 9;
+    litDrumPrism(G('stackband'), x, z, r, N, 0, h, { tile: 2, tileV: h / 7 });
+    litCyl(G('concrete'), x, 0, z, x, 2.2, z, r + 0.5, r + 0.35, 20, 2, false, false);   // the foot
+    for (let y = 12; y < h - 6; y += 13)                                                  // maintenance platforms
+      litCyl(G('girder'), x, y, z, x, y + 0.22, z, r + 0.85, r + 0.85, 20, 2, true, true);
+    litCyl(G('steel'), x, h, z, x, h + 0.6, z, r + 0.15, r + 0.15, 20, 1, false, false);   // the cap
+  },
+  /* The busbars: the beam across each row of portals and the conductors
+     strung between them. All of it 11m up, and none of it collision - the
+     legs that hold it up are. */
+  busbars(G, p, D, H){
+    const z = p.z, y = 11.4;
+    litBox(G('girder'), -D + 4, y, z - 0.32, D - 4, y + 0.7, z + 0.32, { seg: 5, tile: 2, bottom: true });
+    for (const o of [-1.4, 0, 1.4])                       // three phases
+      litCyl(G('bus'), -D + 4, y - 1.0, z + o * 0.55, D - 4, y - 1.0, z + o * 0.55, 0.11, 0.11, 8, 2, false, false);
+    for (let x = -D + 6; x < D - 4; x += 13)              // and the insulators they hang from
+      for (const o of [-1.4, 0, 1.4]){
+        const px = x, pz = z + o * 0.55;
+        for (let j = 0; j < 4; j++){ const yy = y - 0.9 + j * 0.2;
+          litCyl(G('porcelain'), px, yy, pz, px, yy + 0.06, pz, 0.17 - j * 0.012, 0.12, 8, 1, true, true); }
+      }
+  },
+  /* The hall's roof, from the outside and from underneath. It is a
+     `roofRect`, so it stops a bullet and not a player; what is drawn here is
+     the slab, the glazing that explains why the inside is daylit, and the
+     steel under it. */
+  hallroof(G, p, D, H){
+    const { x0, x1, z0, z1, y } = p;
+    /* Blue on top, grey decking underneath. One box with `bottom` painted
+       the inside of the hall the colour of the outside of the roof, which
+       no building has. */
+    litBox(G('roofblue'), x0, y, z0, x1, y + 0.55, z1, { seg: 4, tile: 3.2, tileV: 3.2 });
+    litGrid(G('cladding'), x0, y - 0.01, z0, 1,0,0, 0,0,1, x1 - x0, z1 - z0, 0,-1,0, 4, 4, 3.2, 3.2, x0, z0);
+    for (let x = x0 + 8; x < x1 - 6; x += 12){            // rooflight strips, both sides of the slab
+      litGrid(G('sky'), x, y + 0.57, z0 + 3, 1,0,0, 0,0,1, 5, (z1 - z0) - 6, 0,1,0, 99, 99, 1, 1);
+      litGrid(G('sky'), x + 5, y - 0.02, z0 + 3, -1,0,0, 0,0,1, 5, (z1 - z0) - 6, 0,-1,0, 99, 99, 1, 1);
+    }
+    for (let z = z0 + 6; z < z1 - 4; z += 9)              // the trusses you see from inside
+      litBox(G('girder'), x0 + 1, y - 1.5, z - 0.16, x1 - 1, y - 1.2, z + 0.16, { seg: 5, tile: 2, bottom: true });
+    litBox(G('girder'), x0 - 0.3, y + 0.55, z0 - 0.3, x1 + 0.3, y + 0.95, z1 + 0.3, { seg: 4, tile: 2 });
   },
   tray(G, p, D, H){
     const x = p.x, up = H - 8;
@@ -1527,8 +2045,18 @@ function litUniformsFor(map){
      the floor's shading. The power station has 107 boxes and offers 60 — the
      treads alone were 24 of them, which would have pushed the real plant off
      the end of the list. Without them it offers 36. */
-  for (const b of map.boxes){ if (b.mat === 'column' || b.mat === 'hidden' || b.mat === 'step') continue;
-    if (n >= LIT_NBOX - 4) break; box.set([b.x, b.z, b.w / 2, b.d / 2], n * 4); bh[n++] = b.h; }
+  const SKIP_FLOOR = { column: 1, hidden: 1, step: 1, lattice: 1 };   // too thin to shade the floor or hide a panel
+  /* THE BIGGEST ONES, not the first ones. The loop used to take boxes in map
+     order and stop at the budget, so a map that offered more than it could
+     hold silently dropped whatever happened to be written last - on the
+     station that was the yard's pipe bridges one run and the cooling towers
+     the next, depending on nothing but the order of the file. Sorting by
+     footprint first makes the choice mean something: a tower shades the
+     ground round it and hides a whole panel of sky, a 3m plinth does
+     neither, and if something has to go it should be the plinth. */
+  const floorBoxes = map.boxes.filter(b => !SKIP_FLOOR[b.mat])
+    .sort((p, q) => (q.w * q.d) - (p.w * p.d)).slice(0, LIT_NBOX - 4);
+  for (const b of floorBoxes){ box.set([b.x, b.z, b.w / 2, b.d / 2], n * 4); bh[n++] = b.h; }
   LITU.uLitCoverN.value = n;
   /* The perimeter joins the occlusion list (not the mirror's), with its
      height capped: at the full 8m a wall would dim the floor for eight
@@ -1537,7 +2065,7 @@ function litUniformsFor(map){
     box.set([(w.minx + w.maxx) / 2, (w.minz + w.maxz) / 2, (w.maxx - w.minx) / 2, (w.maxz - w.minz) / 2], n * 4); bh[n++] = Math.min(2.6, w.maxy); }
   LITU.uLitBoxN.value = n;
   LITU.uLitArena.value = a; LITU.uLitWallD.value = a - 1; LITU.uLitWallH.value = map.wallH;
-  LITU.uLitLampY.value = map.wallH - LIT.lampDrop; LITU.uLitLampS.value = L.spacing; LITU.uLitLampK.value.set(L.reachX != null ? L.reachX : L.reach, L.reach);
+  LITU.uLitLampY.value = map.skyY != null ? map.skyY : map.wallH - LIT.lampDrop; LITU.uLitLampS.value = L.spacing; LITU.uLitLampK.value.set(L.reachX != null ? L.reachX : L.reach, L.reach);
   LITU.uLitLampCol.value.fromArray(L.refl || LIT.lampRefl);
   LITU.uLitLampHalf.value.set(L.w / 2, L.d / 2);
   /* A taller hall has more panels in reach of every point, so the same unit
@@ -1558,6 +2086,7 @@ function litBuildArena(map, flatFloor, flatRoof){
   const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   for (const t of [flatFloor.map, flatFloor.normalMap, flatFloor.roughnessMap]) if (t) t.anisotropy = aniso;
 
+  const sky = !!map.sky;
   const fm = litPatch(litShare(flatFloor, { roughness: 0.66, metalness: 0, color: 0xd6d9dc }), 'floor', 1);
   const fl = new THREE.Mesh(new THREE.PlaneGeometry(a * 2, a * 2), fm);
   fl.rotation.x = -Math.PI / 2; fl.userData.ownMaterial = true; litAdd(fl, false);
@@ -1569,12 +2098,28 @@ function litBuildArena(map, flatFloor, flatRoof){
   litGrid(g,  D, 0,  D, -1,0,0,  0,1,0, 2*D, H,  0,0,-1, LIT.wallSegU, LIT.wallSegV, 2*D, H);
   litGrid(g, -D, 0,  D,  0,0,-1, 0,1,0, 2*D, H,  1,0,0,  LIT.wallSegU, LIT.wallSegV, 2*D, H);
   litGrid(g,  D, 0, -D,  0,0,1,  0,1,0, 2*D, H, -1,0,0,  LIT.wallSegU, LIT.wallSegV, 2*D, H);
-  litAdd(new THREE.Mesh(litGeoDone(g), litMaterial('wall')), true);
+  litAdd(new THREE.Mesh(litGeoDone(g), litMaterial(sky ? 'treeline' : 'wall')), true);
 
-  g = litGeo();                                                         // roof
-  litGrid(g, -D, H, -D,  1,0,0,  0,0,1, 2*D, 2*D,  0,-1,0, LIT.roofSeg, LIT.roofSeg, 2*D, 2*D);
-  const roof = new THREE.Mesh(litGeoDone(g), litPatch(litShare(flatRoof, { roughness: 0.97, metalness: 0, color: 0x6a727c }), 'ceil', 0.15));
-  roof.userData.ownMaterial = true; litAdd(roof, true);
+  if (!sky){
+    g = litGeo();                                                       // roof
+    litGrid(g, -D, H, -D,  1,0,0,  0,0,1, 2*D, 2*D,  0,-1,0, LIT.roofSeg, LIT.roofSeg, 2*D, 2*D);
+    const roof = new THREE.Mesh(litGeoDone(g), litPatch(litShare(flatRoof, { roughness: 0.97, metalness: 0, color: 0x6a727c }), 'ceil', 0.15));
+    roof.userData.ownMaterial = true; litAdd(roof, true);
+  } else {
+    /* The sky, as a box the site sits inside: a dome would be nicer and is
+       not worth the geometry, because the only part of it ever on screen is
+       a band above the boundary. Unlit, unfogged, drawn first and never
+       written to the depth buffer, so everything else is simply in front of
+       it however big the site gets. */
+    const sg = new THREE.BoxGeometry(2*a + 40, 150, 2*a + 40);
+    const dome = new THREE.Mesh(sg, litMaterial('skydome'));
+    dome.position.y = 50; dome.renderOrder = -1; dome.frustumCulled = false;
+    dome.userData.ownMaterial = true;
+    /* `false`: it is painted, not lit, so the vertex pass must not visit it
+       — it has no `cxBake` attribute to write into and the bake dies on it. */
+    litAdd(dome, false);
+    dome.receiveShadow = false;
+  }
 
   /* Cover and plant. Everything is gathered by MATERIAL, so a whole map is
      one mesh and one draw call per material however many pieces it has.
@@ -1592,7 +2137,7 @@ function litBuildArena(map, flatFloor, flatRoof){
   /* Fixtures. Each panel gets a housing to hang in, and the roof gets a
      grid of girders between the rows of lamps: without structure up there
      a ceiling is a flat lid and the room has no scale. */
-  if (L){
+  if (L && !sky){
     const fx = litGeo(), em = litGeo(), y0 = H - LIT.lampDrop;
     const rx = L.reachX != null ? L.reachX : L.reach;
     for (let gx = -rx; gx <= rx; gx++) for (let gz = -L.reach; gz <= L.reach; gz++){
@@ -1623,7 +2168,14 @@ function litApplyLook(on){
   const lit = on && LIT_OK, sc = sun.shadow.camera, R = lit ? LIT.shadowHalf : 70;
   if (sc.right !== R){ sc.left = -R; sc.right = R; sc.top = R; sc.bottom = -R; sc.updateProjectionMatrix(); }
   litLights();
-  scene.fog.near = lit ? LIT.fogNear : 42; scene.fog.far = lit ? LIT.fogFar : 135;
+  /* An outdoor map takes the sky's haze in BOTH looks: with the flat look
+     and an indoor fog, the site vanished into a dark grey wall forty metres
+     out and the far half of it could not be seen at all. */
+  const out = !!(currentMap && currentMap.sky);
+  scene.fog.color.setHex(out ? LIT.fogSky : BACKDROP);
+  scene.background.setHex(out ? LIT.fogSky : BACKDROP);
+  scene.fog.near = out ? LIT.skyFogNear : (lit ? LIT.fogNear : 42);
+  scene.fog.far  = out ? LIT.skyFogFar  : (lit ? LIT.fogFar  : 135);
   if (typeof arenaVis === 'function') arenaVis();
 }
 /* The hemisphere and the key no longer touch the room at all — a lit surface
@@ -1645,7 +2197,9 @@ function litLights(){
   /* A panel that is the only thing in the room over white should glow like
      it. The menu and the flat look keep the gentler bloom they were tuned
      with. */
-  if (bloomPass){ const b = play ? LIT.bloom : [0.32, 0.55, 0.82];
+  if (bloomPass){
+    const out = !!(currentMap && currentMap.sky && !menuBackdropOn);
+    const b = out ? LIT.bloomSky : (play ? LIT.bloom : [0.32, 0.55, 0.82]);
     bloomPass.strength = b[0]; bloomPass.radius = b[1]; bloomPass.threshold = b[2]; }
   /* The outline light on players (models.js): on in the arena only. */
   if (typeof RIMU !== 'undefined'){ if (play) RIMU.uRim.value.fromArray(LIT.rim); else RIMU.uRim.value.set(0, 0, 0); }

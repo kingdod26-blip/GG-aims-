@@ -309,6 +309,9 @@ function applySettings(){
      fell back to a direct render), which would silently take the grade
      with it. It switches its own pass now, and the loop uses the composer
      when either wants it. */
+  /* Only whether it runs. What it is AIMED AT belongs to litLights(), which
+     sets strength/radius/threshold per look and per map and would otherwise
+     overwrite anything decided here. */
   if(bloomPass) bloomPass.enabled = !!SETTINGS.bloom;
   applyLook();
   try { localStorage.setItem('botstrike.gfx', JSON.stringify(SETTINGS)); } catch(e){}

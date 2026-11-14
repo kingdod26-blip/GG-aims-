@@ -87,7 +87,7 @@ const PORT = process.env.PORT || 8200;
    made every shot you took miss. Movement and spawn checks are still
    deliberately 2D (they only ever run at ground level). */
 const { MAPS, MAP_IDS, DEFAULT_MAP, mapById,
-        mapRects, mapWallRects, mapCeilingRect } = require('./public/maps.js');
+        mapRects, mapWallRects, mapCeilingRect, mapRoofRects } = require('./public/maps.js');
 /* What a room gets when nobody asks for a map. The env var is a way to make
    a whole server default to something other than foundry. */
 const DEFAULT_MAP_ID = mapById(process.env.MAP || DEFAULT_MAP).id;
@@ -102,7 +102,9 @@ function arenaOf(map) {
   const rects = mapRects(map).concat(mapWallRects(map));
   return { map, arena: map.arena, wallH: map.wallH,
            resupply: { x: map.resupply.x, z: map.resupply.z },
-           rects, rayBoxes: rects.concat([mapCeilingRect(map)]) };
+           /* A roof stops a bullet but not a player, so it is in the ray
+              list and NOT in `rects`, exactly like the ceiling. */
+           rects, rayBoxes: rects.concat(mapRoofRects(map), [mapCeilingRect(map)]) };
 }
 
 /* ------------------------------- Geometry --------------------------------- */

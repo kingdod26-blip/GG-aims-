@@ -179,9 +179,14 @@ function buildArena(map){
   /* Roof. castShadow is deliberately left OFF — a shadow-casting lid between
      the key light and the arena would drop the whole room into black. It is the
      walls and crates that cast, not the ceiling. */
+  /* OUTDOORS the lid is still here and still stops a bullet — it is just
+     not a ceiling any more, so it is invisible and sits at `roofY`, over
+     the top of the cooling towers rather than at the height of the site
+     fence. See mapRoofY. */
   ceiling = new THREE.Mesh(new THREE.PlaneGeometry(span, span),
     pbr('wall', texRepeat(span, 6), texRepeat(span, 6), { roughness:0.95, metalness:0.0, color:0x6a7079 }));
-  ceiling.rotation.x = Math.PI/2; ceiling.position.y = WH;
+  ceiling.rotation.x = Math.PI/2; ceiling.position.y = mapRoofY(map);
+  if (map.sky) ceiling.visible = false;
   ceiling.userData.ownMaterial = true;
   ceiling.userData.flat = true;
   scene.add(ceiling); arenaParts.push(ceiling);
@@ -193,7 +198,7 @@ function buildArena(map){
      room's light without adding a single real light to the scene — which is the
      point, because with no tone mapping a grid of point lights would burn the
      floor to white. */
-  const L = map.lamps;
+  const L = map.sky ? null : map.lamps;        // the sky is not a row of light fittings
   if (L) {
     const lampMat = MAT_CACHE.lamp || (MAT_CACHE.lamp = new THREE.MeshBasicMaterial({ color:0xffe8cc }));
     const lampGeo = new THREE.PlaneGeometry(L.w, L.d);
@@ -223,6 +228,19 @@ function buildArena(map){
   resupplyRing.userData.ownMaterial = true;
   scene.add(resupplyRing); arenaParts.push(resupplyRing);
 
+  /* The roofs that are not the roof. Drawn as a plain slab in the flat look
+     (the lit arena gives them glazing), and pushed into `wallMeshes` so a
+     shot stops at one - which is the same list, and the same reason, as the
+     ceiling three blocks up. They are deliberately NOT in `colliders`: walk
+     under a roof, not on it. */
+  for (const r of mapRoofRects(map)) {
+    const rw = r.maxx - r.minx, rd = r.maxz - r.minz;
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(rw, 0.6, rd), arenaMat('block'));
+    slab.position.set((r.minx + r.maxx)/2, r.miny + 0.3, (r.minz + r.maxz)/2);
+    slab.userData.flat = true;
+    scene.add(slab); arenaParts.push(slab); wallMeshes.push(slab);
+  }
+
   for (const s of (map.signs || [])) addSign(s);
   /* The lit twin of everything above (lighting.js). It is handed the flat
      floor and roof materials so it can reuse their textures, which already
@@ -232,6 +250,11 @@ function buildArena(map){
      change from the menu would drop the arena back in behind the panels
      unless this has the last word. */
   arenaVis();
+  /* The look and the post chain depend on WHICH map is up: an outdoor one
+     takes a brighter, further fog and a differently aimed bloom. Until now
+     nothing re-applied them on a map change, only on a settings click.
+     Guarded, because this also runs before core.js has finished at boot. */
+  if (typeof applySettings === 'function') applySettings();
 }
 
 /* Which arena is on screen: none at the menu, otherwise the flat one or the

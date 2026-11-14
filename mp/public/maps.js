@@ -81,15 +81,10 @@ const MAPS = {
        what stop it reading as a warehouse with machines in it. */
     wallH: 14,
     gain: 0.95,
-    /* Rooflights, in overcast daylight rather than lamp colour: this hall is
-       day-lit, which is why the steel reads cold and the shadows are soft.
-       FIVE BAYS ACROSS, not one. A single strip down the middle looked
-       wonderful over the machines and left both aisles, and the whole roof,
-       in the black - and the aisles are where half the fight happens. The
-       bays are narrow (7m on a 24m pitch) so the roof still reads as a roof
-       with glazing in it rather than a glass lid. lighting.js bakes from
-       these; nothing here is a real light. */
-    lamps: { spacing: 24, reach: 2, reachX: 2, w: 7, d: 18, show: true,
+    /* ONE row of rooflights down the middle, in overcast daylight rather
+       than lamp colour, so the machines are lit and the aisles under the
+       column rows fall away into shade. lighting.js bakes from these. */
+    lamps: { spacing: 24, reach: 2, reachX: 0, w: 10, d: 20, show: true,
              rgb: [0.80, 0.90, 1.00], refl: [2.4, 2.8, 3.3] },
     /* On the shield deck, in the walkway round the vessel. `y` lifts the
        marker ring onto the deck; the server's 5m test is 2D, so the ring is
@@ -104,11 +99,15 @@ const MAPS = {
       { x:      0, z:      0, w:    16, d:    22, h:  2.4, mat: 'bioshield'    },
 
       // the reactor vessel, as boxes; the prop draws the drum
-      { x:      0, z:      0, w: 6.124, d:  0.97, h:  7.0, mat: 'hidden'      , r: 3.1 },
-      { x:      0, z:      0, w: 5.524, d: 2.815, h:  7.0, mat: 'hidden'       },
+      { x:      0, z:      0, w: 6.025, d: 1.461, h:  7.0, mat: 'hidden'      , r: 3.1, n: 9 },
+      { x:      0, z:      0, w:  5.66, d: 2.531, h:  7.0, mat: 'hidden'       },
+      { x:      0, z:      0, w: 5.269, d: 3.268, h:  7.0, mat: 'hidden'       },
+      { x:      0, z:      0, w: 4.847, d: 3.866, h:  7.0, mat: 'hidden'       },
       { x:      0, z:      0, w: 4.384, d: 4.384, h:  7.0, mat: 'hidden'       },
-      { x:      0, z:      0, w: 2.815, d: 5.524, h:  7.0, mat: 'hidden'       },
-      { x:      0, z:      0, w:  0.97, d: 6.124, h:  7.0, mat: 'hidden'       },
+      { x:      0, z:      0, w: 3.866, d: 4.847, h:  7.0, mat: 'hidden'       },
+      { x:      0, z:      0, w: 3.268, d: 5.269, h:  7.0, mat: 'hidden'       },
+      { x:      0, z:      0, w: 2.531, d:  5.66, h:  7.0, mat: 'hidden'       },
+      { x:      0, z:      0, w: 1.461, d: 6.025, h:  7.0, mat: 'hidden'       },
 
       // steps up to the shield deck, east and west
       { x:  -11.6, z:      0, w:   1.2, d:     6, h:  1.6, mat: 'step'         },
@@ -197,26 +196,42 @@ const MAPS = {
       { x:     56, z:    -26, w:   1.6, d:    16, h:  2.2, mat: 'switch'       },
 
       // feedwater tanks
-      { x:    -44, z:    -18, w: 6.914, d: 1.095, h:  6.5, mat: 'tank'        , r: 3.5 },
-      { x:     44, z:     18, w: 6.914, d: 1.095, h:  6.5, mat: 'tank'        , r: 3.5 },
-      { x:    -44, z:    -18, w: 6.237, d: 3.178, h:  6.5, mat: 'hidden'       },
-      { x:     44, z:     18, w: 6.237, d: 3.178, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:    -18, w: 6.803, d:  1.65, h:  6.5, mat: 'tank'        , r: 3.5, n: 9 },
+      { x:     44, z:     18, w: 6.803, d:  1.65, h:  6.5, mat: 'tank'        , r: 3.5, n: 9 },
+      { x:    -44, z:    -18, w:  6.39, d: 2.858, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:     18, w:  6.39, d: 2.858, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:    -18, w: 5.949, d: 3.689, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:     18, w: 5.949, d: 3.689, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:    -18, w: 5.472, d: 4.365, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:     18, w: 5.472, d: 4.365, h:  6.5, mat: 'hidden'       },
       { x:    -44, z:    -18, w:  4.95, d:  4.95, h:  6.5, mat: 'hidden'       },
       { x:     44, z:     18, w:  4.95, d:  4.95, h:  6.5, mat: 'hidden'       },
-      { x:    -44, z:    -18, w: 3.178, d: 6.237, h:  6.5, mat: 'hidden'       },
-      { x:     44, z:     18, w: 3.178, d: 6.237, h:  6.5, mat: 'hidden'       },
-      { x:    -44, z:    -18, w: 1.095, d: 6.914, h:  6.5, mat: 'hidden'       },
-      { x:     44, z:     18, w: 1.095, d: 6.914, h:  6.5, mat: 'hidden'       },
-      { x:     44, z:    -18, w: 6.914, d: 1.095, h:  6.5, mat: 'tank'        , r: 3.5 },
-      { x:    -44, z:     18, w: 6.914, d: 1.095, h:  6.5, mat: 'tank'        , r: 3.5 },
-      { x:     44, z:    -18, w: 6.237, d: 3.178, h:  6.5, mat: 'hidden'       },
-      { x:    -44, z:     18, w: 6.237, d: 3.178, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:    -18, w: 4.365, d: 5.472, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:     18, w: 4.365, d: 5.472, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:    -18, w: 3.689, d: 5.949, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:     18, w: 3.689, d: 5.949, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:    -18, w: 2.858, d:  6.39, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:     18, w: 2.858, d:  6.39, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:    -18, w:  1.65, d: 6.803, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:     18, w:  1.65, d: 6.803, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:    -18, w: 6.803, d:  1.65, h:  6.5, mat: 'tank'        , r: 3.5, n: 9 },
+      { x:    -44, z:     18, w: 6.803, d:  1.65, h:  6.5, mat: 'tank'        , r: 3.5, n: 9 },
+      { x:     44, z:    -18, w:  6.39, d: 2.858, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:     18, w:  6.39, d: 2.858, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:    -18, w: 5.949, d: 3.689, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:     18, w: 5.949, d: 3.689, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:    -18, w: 5.472, d: 4.365, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:     18, w: 5.472, d: 4.365, h:  6.5, mat: 'hidden'       },
       { x:     44, z:    -18, w:  4.95, d:  4.95, h:  6.5, mat: 'hidden'       },
       { x:    -44, z:     18, w:  4.95, d:  4.95, h:  6.5, mat: 'hidden'       },
-      { x:     44, z:    -18, w: 3.178, d: 6.237, h:  6.5, mat: 'hidden'       },
-      { x:    -44, z:     18, w: 3.178, d: 6.237, h:  6.5, mat: 'hidden'       },
-      { x:     44, z:    -18, w: 1.095, d: 6.914, h:  6.5, mat: 'hidden'       },
-      { x:    -44, z:     18, w: 1.095, d: 6.914, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:    -18, w: 4.365, d: 5.472, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:     18, w: 4.365, d: 5.472, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:    -18, w: 3.689, d: 5.949, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:     18, w: 3.689, d: 5.949, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:    -18, w: 2.858, d:  6.39, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:     18, w: 2.858, d:  6.39, h:  6.5, mat: 'hidden'       },
+      { x:     44, z:    -18, w:  1.65, d: 6.803, h:  6.5, mat: 'hidden'       },
+      { x:    -44, z:     18, w:  1.65, d: 6.803, h:  6.5, mat: 'hidden'       },
 
       // stair towers: the corners are the high ground
       { x:    -52, z:    -52, w:    10, d:    10, h:  4.4, mat: 'tower'        },
@@ -249,7 +264,7 @@ const MAPS = {
        out of reach of anything but a stray round - and, unlike the galleries
        this hall used to have, nothing up there is shaped like a floor. */
     props: [
-      { kind: 'reactor', x: 0, z: 0, deck: 2.4 },
+      { kind: 'reactor', x: 0, z: 0, deck: 2.4, n: 9 },
       { kind: 'turbine', x: 0, z: -33, axis: 'z', dir:  1, unit: 1 },
       { kind: 'turbine', x: 0, z:  33, axis: 'z', dir: -1, unit: 2 },
       { kind: 'crane',   z: -33 }, { kind: 'crane', z: 33 },
@@ -292,6 +307,286 @@ const MAPS = {
       { kind: 'hv',      x:  58.9, y: 2.12, z:   -38, ry: -90 },
       { kind: 'hv',      x:  58.9, y: 2.12, z:    38, ry: -90 },
     ],
+  },
+
+  /* THE WHOLE STATION: the site, and the turbine hall standing on it.
+     Jack sent an aerial photograph of a two-unit thermal station - two
+     natural-draught cooling towers steaming, a switchyard, the boiler house
+     and its stack, an oil tank farm - and then said what he actually wanted
+     was the two put together: "what you already build is for indoors, and
+     the map is to help you build the outdoor part". So this is one map. You
+     walk out of the hall into the yard.
+
+     A ROOF OVER WALKABLE SPACE, which is the thing that makes it possible.
+     A collision box stands on the floor, so no box can ever be a roof - give
+     the hall's roof one and the hall fills up solid. But a roof only has to
+     stop a BULLET, never a player, and the arena has had exactly that since
+     it has had a ceiling: a rect with its own miny that joins the 3D ray
+     tests and stays out of the 2D movement tests. `roofRects` is that,
+     generalised. The walls are ordinary boxes with doors left between them.
+
+     IT IS OPEN TO THE SKY outside, which no arena here has been:
+       `sky: true`   no roof drawn, no light fittings, a sky box instead, a
+                     treeline for the boundary, and the outdoor haze.
+       `skyY`        where the bake puts its light. An overcast sky IS one
+                     enormous soft source, so it is baked as the same grid of
+                     panels a roof uses, lifted to 46m and spread wide enough
+                     to be continuous. That is what darkens the ground under
+                     the pipe bridges and inside the tower basins, which a
+                     directional light cannot do at all.
+       `roofY`       the lid a bullet stops at, at 76m - over the stack.
+                     Without it every long shot would stop dead at the height
+                     of the site fence.
+     The hall's roof is NOT in the bake's occluder list (that list is boxes,
+     and a roof is not a box), so the inside is lit as though the roof were
+     glazed - which is why it is drawn glazed. A daylit turbine hall is what
+     the indoor map already is.
+
+     NOT SYMMETRIC, and it does not need to be: spawns are random and spread
+     (`randomSpawn`, `spreadSpawns`), there are no sides, so the map can be
+     the shape the photograph is rather than the shape fairness would demand.
+
+     THE SAME RULE AS INDOORS: if it looks like a floor, it is one. The tower
+     basins are 2.6m - one climb - and the walkway round each is the 2m of
+     rim left outside the shell. The shell above is four bands of boxes whose
+     radius is the hyperboloid's radius at the TOP of each band, so collision
+     is never wider than the surface you can see. */
+  station: {
+    id: 'station',
+    name: 'STATION',
+    blurb: 'The whole site. Cooling towers, switchyard, the stack - and the hall to fight inside.',
+    arena: 78,
+    /* The boundary is an embankment of trees, which is what is actually round
+       a site like this and the one honest way to build a wall this tall that
+       nobody questions. */
+    wallH: 11,
+    sky: true,
+    skyY: 46,
+    roofY: 76,
+    gain: 0.45,
+    /* The sky as the bake sees it: 7 by 7 panels of 26m at 46m, continuous
+       from anywhere on the ground. `show` is off - there is a sky box to look
+       at, and a grid of glowing rectangles over the site is not it. */
+    lamps: { spacing: 26, reach: 3, w: 26, d: 26, show: false,
+             rgb: [0.74, 0.84, 1.00], refl: [1.5, 1.8, 2.3] },
+    /* In the yard between the step-up transformers, out in the open between
+       the towers and the hall: the one place every route meets. */
+    resupply: { x: 0, z: 0 },
+    /* The hall's roof. Bullets only - see mapRoofRects. */
+    roofRects: [
+      { minx: 24, maxx: 72, minz: -25, maxz: 25, y: 16 },
+    ],
+    boxes: [
+
+      // THE HALL ITSELF: cladding, with doors left in it
+      { x:   24.6, z:  -19.5, w:    1.2, d:   11.0, h: 16.0, mat: 'cladding'    },
+      { x:   24.6, z:    0.0, w:    1.2, d:   16.0, h: 16.0, mat: 'cladding'    },
+      { x:   24.6, z:   19.5, w:    1.2, d:   11.0, h: 16.0, mat: 'cladding'    },
+      { x:   71.4, z:    0.0, w:    1.2, d:   50.0, h: 16.0, mat: 'cladding'    },
+      { x:   35.0, z:  -24.4, w:   22.0, d:    1.2, h: 16.0, mat: 'cladding'    },
+      { x:   63.0, z:  -24.4, w:   18.0, d:    1.2, h: 16.0, mat: 'cladding'    },
+      { x:   31.0, z:   24.4, w:   14.0, d:    1.2, h: 16.0, mat: 'cladding'    },
+      { x:   57.0, z:   24.4, w:   30.0, d:    1.2, h: 16.0, mat: 'cladding'    },
+
+      // the operating floors, inside
+      { x:     48, z:    -14, w:     22, d:     16, h:  3.0, mat: 'deck'        },
+      { x:     48, z:    -14, w:      7, d:     14, h:  4.0, mat: 'plinth'      },
+      { x:     48, z:    -14, w:    4.4, d:     12, h:  5.4, mat: 'hidden'      },
+      { x:     48, z:    -14, w:    4.0, d:     12, h:  6.1, mat: 'hidden'      },
+      { x:     48, z:    -14, w:    3.4, d:     12, h:  6.8, mat: 'hidden'      },
+      { x:     48, z:    -14, w:    1.9, d:     12, h:  7.4, mat: 'hidden'      },
+
+      // and the stairs up to them
+      { x:   36.4, z:    -14, w:    1.2, d:      6, h:  2.4, mat: 'step'        },
+      { x:   35.2, z:    -14, w:    1.2, d:      6, h:  1.6, mat: 'step'        },
+      { x:   34.0, z:    -14, w:    1.2, d:      6, h:  0.8, mat: 'step'        },
+
+      // condensers at ground level
+      { x:     64, z:    -14, w:      5, d:     12, h:  2.6, mat: 'machine'     },
+      { x:     48, z:     14, w:     22, d:     16, h:  3.0, mat: 'deck'        },
+      { x:     48, z:     14, w:      7, d:     14, h:  4.0, mat: 'plinth'      },
+      { x:     48, z:     14, w:    4.4, d:     12, h:  5.4, mat: 'hidden'      },
+      { x:     48, z:     14, w:    4.0, d:     12, h:  6.1, mat: 'hidden'      },
+      { x:     48, z:     14, w:    3.4, d:     12, h:  6.8, mat: 'hidden'      },
+      { x:     48, z:     14, w:    1.9, d:     12, h:  7.4, mat: 'hidden'      },
+      { x:   36.4, z:     14, w:    1.2, d:      6, h:  2.4, mat: 'step'        },
+      { x:   35.2, z:     14, w:    1.2, d:      6, h:  1.6, mat: 'step'        },
+      { x:   34.0, z:     14, w:    1.2, d:      6, h:  0.8, mat: 'step'        },
+      { x:     64, z:     14, w:      5, d:     12, h:  2.6, mat: 'machine'     },
+
+      // the laydown bay between the units
+      { x:     48, z:      0, w:      6, d:      4, h:  1.2, mat: 'machine'     },
+
+      // COOLING TOWER 1: basin you can climb, then the shell in four bands
+      { x:    -40, z:    -20, w: 25.267, d:  6.128, h:  2.6, mat: 'mass'       , r: 13.0, n: 9 },
+      { x:    -40, z:    -20, w: 23.735, d: 10.614, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w: 22.096, d: 13.703, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w: 20.325, d: 16.214, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w: 18.385, d: 18.385, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w: 16.214, d: 20.325, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w: 13.703, d: 22.096, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w: 10.614, d: 23.735, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w:  6.128, d: 25.267, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w: 20.486, d:  4.969, h:  5.6, mat: 'hidden'     , r: 10.54, n: 9 },
+      { x:    -40, z:    -20, w: 19.243, d:  8.606, h:  5.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w: 17.915, d:  11.11, h:  5.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w: 16.479, d: 13.146, h:  5.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w: 14.906, d: 14.906, h:  5.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w: 13.146, d: 16.479, h:  5.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w:  11.11, d: 17.915, h:  5.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w:  8.606, d: 19.243, h:  5.6, mat: 'hidden'      },
+      { x:    -40, z:    -20, w:  4.969, d: 20.486, h:  5.6, mat: 'hidden'      },
+
+      // COOLING TOWER 2
+      { x:    -40, z:     22, w: 25.267, d:  6.128, h:  2.6, mat: 'mass'       , r: 13.0, n: 9 },
+      { x:    -40, z:     22, w: 23.735, d: 10.614, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w: 22.096, d: 13.703, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w: 20.325, d: 16.214, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w: 18.385, d: 18.385, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w: 16.214, d: 20.325, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w: 13.703, d: 22.096, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w: 10.614, d: 23.735, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w:  6.128, d: 25.267, h:  2.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w: 20.486, d:  4.969, h:  5.6, mat: 'hidden'     , r: 10.54, n: 9 },
+      { x:    -40, z:     22, w: 19.243, d:  8.606, h:  5.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w: 17.915, d:  11.11, h:  5.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w: 16.479, d: 13.146, h:  5.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w: 14.906, d: 14.906, h:  5.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w: 13.146, d: 16.479, h:  5.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w:  11.11, d: 17.915, h:  5.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w:  8.606, d: 19.243, h:  5.6, mat: 'hidden'      },
+      { x:    -40, z:     22, w:  4.969, d: 20.486, h:  5.6, mat: 'hidden'      },
+
+      // THE BOILER HOUSE, north of the hall and taller than it
+      { x:     50, z:    -42, w:     40, d:     24, h:   28, mat: 'boiler'      },
+
+      // THE STACK. 68m of box, so there is no height at which it stops being there.
+      { x:     68, z:    -64, w:  5.831, d:  1.414, h: 68.0, mat: 'mass'       , r: 3.0, n: 9 },
+      { x:     68, z:    -64, w:  5.477, d:  2.449, h: 68.0, mat: 'hidden'      },
+      { x:     68, z:    -64, w:  5.099, d:  3.162, h: 68.0, mat: 'hidden'      },
+      { x:     68, z:    -64, w:   4.69, d:  3.742, h: 68.0, mat: 'hidden'      },
+      { x:     68, z:    -64, w:  4.243, d:  4.243, h: 68.0, mat: 'hidden'      },
+      { x:     68, z:    -64, w:  3.742, d:   4.69, h: 68.0, mat: 'hidden'      },
+      { x:     68, z:    -64, w:  3.162, d:  5.099, h: 68.0, mat: 'hidden'      },
+      { x:     68, z:    -64, w:  2.449, d:  5.477, h: 68.0, mat: 'hidden'      },
+      { x:     68, z:    -64, w:  1.414, d:  5.831, h: 68.0, mat: 'hidden'      },
+
+      // the oil tanks
+      { x:    -68, z:     48, w: 11.662, d:  2.828, h: 10.0, mat: 'tank'       , r: 6, r: 6.0, n: 9 },
+      { x:    -68, z:     48, w: 10.954, d:  4.899, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     48, w: 10.198, d:  6.325, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     48, w:  9.381, d:  7.483, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     48, w:  8.485, d:  8.485, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     48, w:  7.483, d:  9.381, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     48, w:  6.325, d: 10.198, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     48, w:  4.899, d: 10.954, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     48, w:  2.828, d: 11.662, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     62, w: 11.662, d:  2.828, h: 10.0, mat: 'tank'       , r: 6, r: 6.0, n: 9 },
+      { x:    -68, z:     62, w: 10.954, d:  4.899, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     62, w: 10.198, d:  6.325, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     62, w:  9.381, d:  7.483, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     62, w:  8.485, d:  8.485, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     62, w:  7.483, d:  9.381, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     62, w:  6.325, d: 10.198, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     62, w:  4.899, d: 10.954, h: 10.0, mat: 'hidden'      },
+      { x:    -68, z:     62, w:  2.828, d: 11.662, h: 10.0, mat: 'hidden'      },
+      { x:    -54, z:     58, w: 11.662, d:  2.828, h: 10.0, mat: 'tank'       , r: 6, r: 6.0, n: 9 },
+      { x:    -54, z:     58, w: 10.954, d:  4.899, h: 10.0, mat: 'hidden'      },
+      { x:    -54, z:     58, w: 10.198, d:  6.325, h: 10.0, mat: 'hidden'      },
+      { x:    -54, z:     58, w:  9.381, d:  7.483, h: 10.0, mat: 'hidden'      },
+      { x:    -54, z:     58, w:  8.485, d:  8.485, h: 10.0, mat: 'hidden'      },
+      { x:    -54, z:     58, w:  7.483, d:  9.381, h: 10.0, mat: 'hidden'      },
+      { x:    -54, z:     58, w:  6.325, d: 10.198, h: 10.0, mat: 'hidden'      },
+      { x:    -54, z:     58, w:  4.899, d: 10.954, h: 10.0, mat: 'hidden'      },
+      { x:    -54, z:     58, w:  2.828, d: 11.662, h: 10.0, mat: 'hidden'      },
+
+      // the step-up transformers; the resupply sits between them
+      { x:    -10, z:      0, w:      7, d:    5.5, h:  3.2, mat: 'transformer' },
+      { x:     10, z:      0, w:      7, d:    5.5, h:  3.2, mat: 'transformer' },
+
+      // and their blast wall
+      { x:      0, z:     -9, w:     16, d:    1.4, h:    5, mat: 'firewall'    },
+
+      // SWITCHYARD: two rows of portals...
+      { x:    -62, z:    -62, w:    1.4, d:    1.4, h:   13, mat: 'lattice'     },
+      { x:    -49, z:    -62, w:    1.4, d:    1.4, h:   13, mat: 'lattice'     },
+      { x:    -36, z:    -62, w:    1.4, d:    1.4, h:   13, mat: 'lattice'     },
+      { x:    -23, z:    -62, w:    1.4, d:    1.4, h:   13, mat: 'lattice'     },
+      { x:    -10, z:    -62, w:    1.4, d:    1.4, h:   13, mat: 'lattice'     },
+      { x:      3, z:    -62, w:    1.4, d:    1.4, h:   13, mat: 'lattice'     },
+      { x:     16, z:    -62, w:    1.4, d:    1.4, h:   13, mat: 'lattice'     },
+      { x:    -62, z:    -48, w:    1.4, d:    1.4, h:   13, mat: 'lattice'     },
+      { x:    -49, z:    -48, w:    1.4, d:    1.4, h:   13, mat: 'lattice'     },
+      { x:    -36, z:    -48, w:    1.4, d:    1.4, h:   13, mat: 'lattice'     },
+      { x:    -23, z:    -48, w:    1.4, d:    1.4, h:   13, mat: 'lattice'     },
+      { x:    -10, z:    -48, w:    1.4, d:    1.4, h:   13, mat: 'lattice'     },
+      { x:      3, z:    -48, w:    1.4, d:    1.4, h:   13, mat: 'lattice'     },
+      { x:     16, z:    -48, w:    1.4, d:    1.4, h:   13, mat: 'lattice'     },
+
+      // ...and the gear in rows beneath them
+      { x:    -60, z:    -55, w:    3.4, d:    3.0, h:  2.4, mat: 'gear'        },
+      { x:    -47, z:    -55, w:    3.4, d:    3.0, h:  2.4, mat: 'gear'        },
+      { x:    -34, z:    -55, w:    3.4, d:    3.0, h:  2.4, mat: 'gear'        },
+      { x:    -21, z:    -55, w:    3.4, d:    3.0, h:  2.4, mat: 'gear'        },
+      { x:     -8, z:    -55, w:    3.4, d:    3.0, h:  2.4, mat: 'gear'        },
+      { x:      5, z:    -55, w:    3.4, d:    3.0, h:  2.4, mat: 'gear'        },
+
+      // the switchyard control room
+      { x:    -20, z:    -40, w:     11, d:      8, h:  4.5, mat: 'control'     },
+      { x:    -20, z:  -35.4, w:     11, d:    1.2, h:  3.0, mat: 'step'        },
+      { x:    -20, z:  -34.2, w:     11, d:    1.2, h:  1.5, mat: 'step'        },
+
+      // THE INTAKE HOUSE on the quay
+      { x:      6, z:     68, w:     26, d:      9, h:  4.0, mat: 'intake'      },
+      { x:    -22, z:     70, w:      8, d:      5, h:  2.2, mat: 'gear'        },
+      { x:     34, z:     70, w:      8, d:      5, h:  2.2, mat: 'gear'        },
+
+      // the screen house
+      { x:    -50, z:     70, w:     12, d:      8, h:  5.0, mat: 'shed'        },
+
+      // the workshops
+      { x:     60, z:     46, w:     14, d:     10, h:  6.0, mat: 'shed'        },
+      { x:    -66, z:    -10, w:     12, d:     10, h:  6.0, mat: 'shed'        },
+
+      // pipe bridges and plinths: cover on open ground
+      { x:    -18, z:    -30, w:      3, d:     16, h:  2.6, mat: 'pipe'        },
+      { x:     14, z:    -30, w:      3, d:     16, h:  2.6, mat: 'pipe'        },
+      { x:    -14, z:     40, w:     16, d:      3, h:  2.2, mat: 'pipe'        },
+      { x:     14, z:     40, w:     16, d:      3, h:  2.2, mat: 'pipe'        },
+      { x:      0, z:     52, w:      7, d:      7, h:  3.0, mat: 'pipe'        },
+      { x:    -24, z:      6, w:      4, d:      4, h:  1.4, mat: 'pipe'        },
+      { x:     24, z:      8, w:      4, d:      4, h:  1.4, mat: 'pipe'        },
+      { x:     -4, z:    -22, w:      5, d:      5, h:  1.8, mat: 'pipe'        },
+      { x:    -62, z:     26, w:      6, d:     14, h:  3.4, mat: 'pipe'        },
+    ],
+    /* Overhead, and none of it collision: the plumes over the towers, the
+       busbars strung between the switchyard portals, the hall's own roof.
+       Nothing up there is shaped like a floor. */
+    props: [
+      /* The towers, drawn from the profile their collision boxes were
+         generated from: a hyperboloid of one sheet, r = rt*sqrt(1+((y-yt)/a)^2),
+         which is what a natural-draught tower actually is. */
+      { kind: 'coolingtower', x: -40, z: -20, basin: 13, basinH: 2.6, beam: 10.54, n: 9,
+        y0: 5.6, y1: 33, rt: 7.3, yt: 26, a: 19.6 },
+      { kind: 'coolingtower', x: -40, z:  22, basin: 13, basinH: 2.6, beam: 10.54, n: 9,
+        y0: 5.6, y1: 33, rt: 7.3, yt: 26, a: 19.6 },
+      { kind: 'stack',   x: 68, z: -64, r: 3, h: 68, n: 9 },
+      { kind: 'busbars', z: -62 }, { kind: 'busbars', z: -48 },
+      { kind: 'hallroof', x0: 24, x1: 72, z0: -25, z1: 25, y: 16 },
+    ],
+    paint: [
+      { k: 'walk',  x0: -74, z0: -33, x1:  20, z1: -33, w: 3.0 },
+      { k: 'walk',  x0: -74, z0:  36, x1:  74, z1:  36, w: 3.0 },
+      { k: 'walk',  x0:  18, z0: -74, x1:  18, z1:  74, w: 3.0 },
+      { k: 'walk',  x0: -74, z0: -74, x1: -74, z1:  74, w: 3.0 },
+      { k: 'hatch', x: -10, z: 0, w: 8.6, d: 7.1 }, { k: 'hatch', x: 10, z: 0, w: 8.6, d: 7.1 },
+      { k: 'hatch', x: -40, z: -20, w: 27.4, d: 27.4 },
+      { k: 'hatch', x: -40, z:  22, w: 27.4, d: 27.4 },
+      { k: 'text',  x: 0, z: 12, s: 2.4, t: 'HV YARD' },
+      { k: 'text',  x: -40, z: 1, s: 2.2, t: 'CT 1' },
+      { k: 'text',  x: 10, z: 30, s: 2.0, t: 'TURBINE HALL' },
+    ],
+    signs: [],
   },
 
   /* A second arena, and a deliberately different fight. The power station is 120m
@@ -370,15 +665,37 @@ function mapWallRects(map) {
 /* The roof. Deliberately kept apart from the wall rects: those also drive the
    2D movement tests, and a box covering the whole arena there would shove
    every player sideways out of the map. Bullets and arrows must still stop at
-   it, so it belongs to the 3D ray tests only. */
+   it, so it belongs to the 3D ray tests only.
+
+   OUTDOORS it is the lid of the world rather than a ceiling: `roofY` puts it
+   well above the tallest thing on the site, so a shot arcing over a cooling
+   tower behaves, and nothing is drawn there. Without it the lid would sit at
+   `wallH` — the height of the site's own boundary — and every long shot would
+   stop dead in clear air. */
+function mapRoofY(map) { return map.roofY != null ? map.roofY : map.wallH; }
+
+/* ROOFS OVER WALKABLE SPACE. A collision box stands on the floor, so a box
+   can never be a roof: give the turbine hall's roof a box and the hall fills
+   up solid. But a roof does not need to stop a PLAYER - you walk under it,
+   never on it - it only needs to stop a BULLET. And the arena has had exactly
+   that for as long as it has had a ceiling: a rect with its own miny and maxy
+   that joins the 3D ray tests and stays out of the 2D movement tests.
+   `roofRects` is that, generalised, which is the whole of what it takes to
+   put a building you can walk into on an outdoor map.
+   Each is { minx, maxx, minz, maxz, y } - `y` being its underside. */
+function mapRoofRects(map) {
+  return (map.roofRects || []).map(r => ({
+    minx: r.minx, maxx: r.maxx, minz: r.minz, maxz: r.maxz,
+    miny: r.y,    maxy: r.y + 1,
+  }));
+}
 function mapCeilingRect(map) {
-  const a = map.arena;
-  return { minx: -a-1, minz: -a-1, maxx: a+1, maxz: a+1,
-           miny: map.wallH, maxy: map.wallH + 1 };
+  const a = map.arena, y = mapRoofY(map);
+  return { minx: -a-1, minz: -a-1, maxx: a+1, maxz: a+1, miny: y, maxy: y + 1 };
 }
 
 /* Node (the server) takes these by require; the browser just gets the globals
    from the script tag. Guarded so the same file works as both. */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { MAPS, MAP_IDS, DEFAULT_MAP, mapById, mapRects, mapWallRects, mapCeilingRect };
+  module.exports = { MAPS, MAP_IDS, DEFAULT_MAP, mapById, mapRects, mapWallRects, mapCeilingRect, mapRoofY, mapRoofRects };
 }
