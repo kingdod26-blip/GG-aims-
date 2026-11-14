@@ -557,9 +557,11 @@
    North-up, not rotating: the compass already tells you which way you face,
    and a map that spins under you is harder to read a position off. The
    player arrow turns instead. */
-#mapPanel{ position:fixed; top:18px; left:18px; width:240px; height:240px;
+#mapPanel{ position:fixed; top:18px; left:18px; width:150px; height:150px;
   border:1px solid rgba(255,45,74,.38); border-radius:10px; overflow:hidden;
-  background:rgba(8,9,12,.72); box-shadow:0 6px 26px rgba(0,0,0,.5); }
+  background:rgba(8,9,12,.72); box-shadow:0 6px 26px rgba(0,0,0,.5);
+  transition:width .18s ease, height .18s ease; }
+#mapPanel.big{ width:340px; height:340px; }
 #minimap{ display:block; width:100%; height:100%; }
 #mapN{ position:absolute; top:4px; left:50%; transform:translateX(-50%);
   font:700 10px/1 ui-monospace,monospace; letter-spacing:.14em; color:var(--t3); opacity:.7; }

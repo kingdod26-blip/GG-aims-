@@ -1030,9 +1030,19 @@ that job and look like what they are.
 
 ## The map on screen (hud.js)
 
-Jack: *"add a map for inside the map, so I can see where I am located"*.
-`#mapPanel` is a 240px plan in the top-left, always up while playing, and
-**M** opens the whole site (`#bigmap`). One function, `drawMapPlan`, draws
+Jack: *"add a map for inside the map, so I can see where I am located"*,
+then *"make the map smaller and make it extendable"*, and to keep the bots on
+it. `#mapPanel` is a **150px** plan in the top-left while playing, and **M
+steps it up**: small → large (340px, labelled) → the whole site (`#bigmap`)
+→ back to small. One key, three answers, from a glance to a plan. The corner
+size is remembered (`cx.mapsize`); the site plan never reopens on its own.
+**Both corner sizes draw at the same scale** (~1.8px a metre), so growing it
+shows more ground round you instead of zooming the same ground — you keep
+your bearings through the change. The canvas is sized to the panel in real
+pixels (capped at 2x) and drawn through a transform, so it is sharp at either
+size and `drawMapPlan` keeps working in CSS pixels. The resize is a CSS
+transition, which **freezes in a pane that is not painting** — measure the
+size with the transition switched off, or it reads the old width. One function, `drawMapPlan`, draws
 both from `currentMap` — the data the geometry and the server's collision are
 built from — so neither can show a room the match is not playing.
 
@@ -1042,16 +1052,14 @@ built from — so neither can show a room the match is not playing.
   (what the compass calls N) and the canvas has +z downward, so they agree by
   construction; the forward vector for yaw is `(-sin, -cos)`, which makes the
   canvas rotation `-yaw`.
-- **The corner map shows 130m**, a quarter of a 240m site — enough to place
-  yourself against the nearest building, not so much the plant is porridge.
-  The full map shows the whole site with the floor stencils as labels, so the
+- The full map shows the whole site with the floor stencils as labels, so the
   names on the plan are the names painted on the ground.
 - **Under a roof is tinted** (from `roofRects`), which is the one cue that
   says you are inside the hall.
-- **It is a plan, not a radar.** It shows the bots on the range and the room
-  in a match, all of them, all the time — which in a match is information the
-  game does not otherwise give you. Worth deciding deliberately before it
-  matters; it was built for "where am I", not "where are they".
+- **It shows everyone**, the bots on the range and the room in a match.
+  Asked whether a match should hide opponents, Jack said keep them
+  (2026-11-14). That is information the game does not otherwise give, so it
+  is a balance decision that has been made, not an oversight.
 - Throttled to ~11Hz: canvas 2D over three hundred boxes, and nothing on it
   moves fast enough to want 60.
 - Strings `map.title` / `map.close` are in both language packs. Adding markup

@@ -767,10 +767,6 @@ let prevHp=100;
    North is -z, which is what the compass already calls N, and the canvas
    has +z downward, so -z is up and the two agree by construction.          */
 const MAPC = {
-  /* How much ground the corner map shows, in metres across. A quarter of a
-     240m site: enough to place yourself against the nearest building,
-     little enough that the plant does not turn into porridge. */
-  span: 130,
   floor:  '#13161a',
   indoor: 'rgba(120,140,170,.11)',    // under a roof
   wall:   '#aeb6bf',                  // buildings and barriers
@@ -861,22 +857,49 @@ function drawMapPlan(g, W, H, o){
   g.restore();
 }
 
-/* The corner map, centred on you. Throttled: it is canvas 2D over a couple
-   of hundred boxes, and nothing on it moves fast enough to want 60Hz. */
+/* The corner map, centred on you, at two sizes. Jack: "make the map
+   smaller and make it extendable". It starts SMALL, and M steps it up:
+   small -> large -> the whole site -> back to small. One key, three answers
+   to "where am I", from glance to plan.
+
+   Both corner sizes draw at the SAME SCALE (about 1.8px a metre), so
+   growing it shows more ground round you rather than zooming in on the
+   same ground - you keep your bearings through the change.
+
+   The canvas is sized to the panel in real pixels (capped at 2x) and drawn
+   with a transform, so it stays sharp on a high-DPI screen at either size
+   and drawMapPlan can keep working in CSS pixels. Throttled: canvas 2D over
+   three hundred boxes, and nothing on it moves fast enough to want 60Hz. */
+const MAP_SIZES = [ { px: 150, span: 84 }, { px: 340, span: 190 } ];
+let mapSize = (() => { try { return localStorage.getItem('cx.mapsize') === '1' ? 1 : 0; } catch (e) { return 0; } })();
 let mapAt = 0;
+function setMapSize(i){
+  mapSize = i; mapAt = 0;                                   // redraw on the next frame, not in 90ms
+  const p = byId('mapPanel'); if (p) p.classList.toggle('big', i === 1);
+  try { localStorage.setItem('cx.mapsize', String(i)); } catch (e) {}
+}
+/* A remembered LARGE map has to be large from the first frame. */
+{ const p = byId('mapPanel'); if (p) p.classList.toggle('big', mapSize === 1); }
 function drawMinimap(now){
   const c = byId('minimap'); if (!c || gameState !== 'playing') return;
   if (now - mapAt < 90) return; mapAt = now;
-  drawMapPlan(c.getContext('2d'), c.width, c.height,
-              { cx: me.x, cz: me.z, span: MAPC.span, labels: false });
+  const sz = MAP_SIZES[mapSize], r = Math.min(2, window.devicePixelRatio || 1);
+  const want = Math.round(sz.px * r);
+  if (c.width !== want){ c.width = want; c.height = want; }
+  const g = c.getContext('2d');
+  g.setTransform(want / sz.px, 0, 0, want / sz.px, 0, 0);
+  drawMapPlan(g, sz.px, sz.px, { cx: me.x, cz: me.z, span: sz.span, labels: mapSize === 1 });
+  g.setTransform(1, 0, 0, 1, 0, 0);
 }
-/* The whole site, on M. Centred on the arena rather than on you, because
-   the question it answers is "where am I in all this". */
-function toggleBigMap(){
-  const el = byId('bigmap'); if (!el) return;
-  const show = el.classList.contains('hidden');
-  el.classList.toggle('hidden', !show);
-  if (show) drawBigMap();
+/* M: small -> large -> the whole site -> small. The site plan is centred on
+   the arena rather than on you, because the question it answers is "where
+   am I in all this". Leaving it drops back to the SMALL map, so the cycle
+   always comes round to where it started. */
+function cycleMap(){
+  const big = byId('bigmap'); if (!big) return;
+  if (!big.classList.contains('hidden')){ big.classList.add('hidden'); setMapSize(0); return; }
+  if (mapSize === 0){ setMapSize(1); return; }
+  big.classList.remove('hidden'); drawBigMap();
 }
 function drawBigMap(){
   const c = byId('bigmapCv'); if (!c || typeof currentMap === 'undefined' || !currentMap) return;
