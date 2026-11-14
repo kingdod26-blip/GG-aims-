@@ -95,7 +95,9 @@ function abilityTick(){
 }
 function resetAbilities(){
   for(const slot of ABILITY_SLOTS){ abilityCharges[slot] = WEAPONS[slot].charges; abilityRecharge[slot] = []; }
-  ricochet = false;
+  /* Whether bolts start out banking, from the ABILITIES tab. Right-click
+     still flips it in play; this is only where each round begins. */
+  ricochet = !!(typeof SETTINGS !== 'undefined' && SETTINGS.ricochetStart);
 }
 const STANCE_ID = { stand:0, crouch:1, prone:2 };
 const STANCE_BY_ID = ['stand','crouch','prone'];

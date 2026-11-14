@@ -1473,6 +1473,32 @@ multiplayer only.
   parent sat at 0, which reads like a transform bug and is not one. `clip`
   means there is no scroll container to scroll.
 
+## Settings (O)
+
+**SETTINGS, in three tabs** (2026-11-14). It was one list headed GRAPHICS &
+HUD with gameplay and practice rows mixed in under the frame cap; Jack asked
+for it to be split into graphics, gameplay and abilities. Each `SET_DEFS` row
+carries a `tab`; the last tab you used is remembered (`cx.settab`).
+
+- **GRAPHICS** — presets, frame cap, resolution, shadows, bloom, look, the FPS
+  readout and the heat notes.
+- **GAMEPLAY** — **sensitivity** (new: `SETTINGS.sens` scales the 0.0022
+  rad/count that mouse look always used, so 1x is exactly the old feel), hit
+  marker, map size, and on the range only the practice aids.
+- **ABILITIES** — **bolts start straight/ricochet** (new: `ricochetStart`,
+  applied in `resetAbilities`; right-click still flips it in play; shown only
+  to Aseed, because Blast's grenade bounces regardless), practice cooldown,
+  and a card per ability for BOTH agents, yours first and marked YOU. **The
+  card numbers are read live** from `ROLL`, `DASH`, `ZONE` and each ability
+  weapon's own `charges` / `cooldownMs`, so the page cannot advertise a
+  cooldown the game does not have. Hearing's 40m / 4s / 30s are written into
+  the copy, because those live on the server.
+- **A row can be backed by something other than SETTINGS** via `get`/`set`.
+  The MAP row reads and writes `mapSize` through `setMapSize`, the same path
+  the M key takes, so the panel and the key cannot disagree.
+- The tab labels and ability cards are in both language packs. The row
+  labels are still English-only, as they were before.
+
 ## Language
 
 English and 简体中文, picked in the top bar and remembered as `cx.lang`;

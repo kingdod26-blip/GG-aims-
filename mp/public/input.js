@@ -111,7 +111,9 @@ function startSlide(){
 }
 addEventListener('keyup',e=> keys[e.code]=false);
 addEventListener('mousemove',e=>{ if(!pointerLocked) return;
-  const sens = 0.0022*(1 - ads*0.65);            // slower, steadier aim while ADS
+  /* SETTINGS.sens scales it (GAMEPLAY tab). 0.0022 rad a count is the 1x it
+     always was, so nobody's aim moves unless they ask for it to. */
+  const sens = 0.0022*(SETTINGS.sens || 1)*(1 - ads*0.65);   // slower, steadier aim while ADS
   me.yaw-=e.movementX*sens; me.pitch-=e.movementY*sens;
   const l=Math.PI/2-0.05; me.pitch=Math.max(-l,Math.min(l,me.pitch)); });
 addEventListener('mousedown',e=>{

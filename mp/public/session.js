@@ -58,33 +58,103 @@ addEventListener('mousedown', (e)=>{
 addEventListener('mouseup', ()=>{ if(dragging){ dragging=false; document.body.style.cursor=''; } });
 
 /* ---- Graphics settings panel ---- */
+/* THE SETTINGS PANEL, IN THREE TABS. It was one list headed GRAPHICS & HUD
+   with gameplay and training rows mixed in under the frame cap; Jack asked
+   for it to be SETTINGS, split into graphics, gameplay and abilities.
+   `tab` says which page a row lives on. A row with `get`/`set` is backed by
+   something other than SETTINGS (the map size has its own key, `cx.mapsize`,
+   and the M key changes it in play), so the panel reads and writes it the
+   same way the game does rather than keeping a second copy. */
 const SET_DEFS = [
-  { key:'fpsCap',   label:'FRAME CAP',  opts:[[30,'30'],[60,'60'],[120,'120'],[0,'UNCAPPED']] },
-  { key:'resScale', label:'RESOLUTION', opts:[[0.75,'75%'],[1,'100%'],[1.5,'150%'],[2,'200%']] },
-  { key:'shadows',  label:'SHADOWS',    opts:[[0,'OFF'],[1024,'MEDIUM'],[2048,'HIGH']] },
-  { key:'bloom',    label:'BLOOM GLOW', opts:[[0,'OFF'],[1,'ON']] },
+  { tab:'graphics', key:'fpsCap',   label:'FRAME CAP',  opts:[[30,'30'],[60,'60'],[120,'120'],[0,'UNCAPPED']] },
+  { tab:'graphics', key:'resScale', label:'RESOLUTION', opts:[[0.75,'75%'],[1,'100%'],[1.5,'150%'],[2,'200%']] },
+  { tab:'graphics', key:'shadows',  label:'SHADOWS',    opts:[[0,'OFF'],[1024,'MEDIUM'],[2048,'HIGH']] },
+  { tab:'graphics', key:'bloom',    label:'BLOOM GLOW', opts:[[0,'OFF'],[1,'ON']] },
   /* The whole lighting change behind one row, so the two looks can be
      compared in the same session rather than from memory. */
-  { key:'look',     label:'LOOK',       opts:[[0,'FLAT'],[1,'LIT']] },
-  { key:'hitZone',  label:'HIT MARKER', opts:[[0,'PLAIN'],[1,'SHOW ZONE']] },
+  { tab:'graphics', key:'look',     label:'LOOK',       opts:[[0,'FLAT'],[1,'LIT']] },
+
+  { tab:'gameplay', key:'sens',     label:'SENSITIVITY', opts:[[0.5,'0.5x'],[0.75,'0.75x'],[1,'1x'],[1.25,'1.25x'],[1.5,'1.5x'],[2,'2x']] },
+  { tab:'gameplay', key:'hitZone',  label:'HIT MARKER', opts:[[0,'PLAIN'],[1,'SHOW ZONE']] },
+  { tab:'gameplay', key:'mapSize',  label:'MAP',        opts:[[0,'SMALL'],[1,'LARGE']],
+    get:()=> (typeof mapSize !== 'undefined' ? mapSize : 0), set:(v)=> setMapSize(v) },
   /* practice:true rows never appear in multiplayer. training() already
      refuses to honour them there, so showing them would only advertise
      options that quietly do nothing — and read as cheats to everyone else
      in the room. */
-  { key:'showBoxes',label:'HITBOXES',   opts:[[0,'HIDDEN'],[1,'SHOW']], practice:true },
-  { key:'infAmmo',   label:'PRACTICE AMMO',     opts:[[0,'NORMAL'],[1,'UNLIMITED']], practice:true },
-  { key:'noCooldown',label:'PRACTICE COOLDOWN', opts:[[0,'NORMAL'],[1,'NONE']], practice:true },
-  { key:'noSpread',  label:'PRACTICE SPREAD',   opts:[[0,'NORMAL'],[1,'NONE']], practice:true },
+  { tab:'gameplay', key:'showBoxes',label:'HITBOXES',   opts:[[0,'HIDDEN'],[1,'SHOW']], practice:true },
+  { tab:'gameplay', key:'infAmmo',   label:'PRACTICE AMMO',   opts:[[0,'NORMAL'],[1,'UNLIMITED']], practice:true },
+  { tab:'gameplay', key:'noSpread',  label:'PRACTICE SPREAD', opts:[[0,'NORMAL'],[1,'NONE']], practice:true },
+
+  /* Only Aseed's bolts bank: the crossbow and the smoke tag both take it.
+     Blast's grenade bounces whatever, so the row is not shown to Blast. */
+  { tab:'abilities', key:'ricochetStart', label:'BOLTS START', opts:[[0,'STRAIGHT'],[1,'RICOCHET']], agent:'aseed' },
+  { tab:'abilities', key:'noCooldown',label:'PRACTICE COOLDOWN', opts:[[0,'NORMAL'],[1,'NONE']], practice:true },
 ];
+let setTab = (()=>{ try { const v = localStorage.getItem('cx.settab'); return ['graphics','gameplay','abilities'].includes(v) ? v : 'graphics'; }
+                    catch(e){ return 'graphics'; } })();
 function renderSettingsUI(){
-  const host=document.getElementById('setRows'); if(!host) return;
-  const rows = SET_DEFS.filter(d => !(d.practice && gameMode === 'mp'));
-  host.innerHTML = rows.map(d=>`<div class="srow"><label>${d.label}</label><div class="seg" data-key="${d.key}">`+
-    d.opts.map(([v,l])=>`<button data-v="${v}" class="${Number(SETTINGS[d.key])===Number(v)?'on':''}">${l}</button>`).join('')+
-    `</div></div>`).join('');
-  host.querySelectorAll('.seg button').forEach(btn=>{
-    btn.onclick = ()=>{ SETTINGS[btn.closest('.seg').dataset.key] = Number(btn.dataset.v); applySettings(); renderSettingsUI(); };
+  const panel = document.getElementById('settings'); if(!panel) return;
+  /* The tabs. Remembered, so reopening the panel lands where you left it. */
+  panel.querySelectorAll('.settab').forEach(b => {
+    b.classList.toggle('on', b.dataset.tab === setTab);
+    b.onclick = () => { setTab = b.dataset.tab; try{ localStorage.setItem('cx.settab', setTab); }catch(e){}
+                        renderSettingsUI(); Sfx.swap(); };
   });
+  panel.querySelectorAll('.setpage').forEach(p => p.classList.toggle('hidden', p.dataset.page !== setTab));
+
+  const val = d => d.get ? d.get() : SETTINGS[d.key];
+  for (const tab of ['graphics','gameplay','abilities']){
+    const host = document.getElementById('setRows-' + tab); if(!host) continue;
+    const rows = SET_DEFS.filter(d => d.tab === tab
+      && !(d.practice && gameMode === 'mp')
+      && !(d.agent && d.agent !== myAgent));
+    host.innerHTML = rows.map(d=>`<div class="srow"><label>${d.label}</label><div class="seg" data-key="${d.key}">`+
+      d.opts.map(([v,l])=>`<button data-v="${v}" class="${Number(val(d))===Number(v)?'on':''}">${l}</button>`).join('')+
+      `</div></div>`).join('');
+    host.querySelectorAll('.seg button').forEach(btn=>{
+      btn.onclick = ()=>{
+        const d = SET_DEFS.find(x => x.key === btn.closest('.seg').dataset.key), v = Number(btn.dataset.v);
+        if (d.set) d.set(v); else { SETTINGS[d.key] = v; applySettings(); }
+        renderSettingsUI();
+      };
+    });
+  }
+  renderAbilityCards();
+}
+
+/* THE ABILITIES PAGE: what each agent's kit does, with the numbers read
+   live from the same constants the game runs on - ROLL, DASH, ZONE and each
+   ability weapon's own `charges` and `cooldownMs` - so the page cannot
+   advertise a cooldown the game does not have. Your agent first; the other
+   one under it, dimmed, because "different abilities" is a comparison as
+   much as a reference. You CHANGE agent in OPERATORS, not here. */
+function renderAbilityCards(){
+  const host = document.getElementById('abilityCards'); if(!host) return;
+  const sec = ms => (ms / 1000 % 1 ? (ms / 1000).toFixed(1) : String(ms / 1000));
+  const fill = (k, o) => Object.keys(o).reduce((s, n) => s.split('{' + n + '}').join(o[n]), t(k));
+  const ch = slot => ({ n: WEAPONS[slot].charges, cd: sec(WEAPONS[slot].cooldownMs) });
+  const kit = {
+    aseed: [
+      ['P', t('ab.hearing'), fill('ab.hearing.d', {})],
+      ['V', t('ab.roll'),    fill('ab.roll.d',  { cd: sec(ROLL.cdMs) })],
+      ['G', t('ab.xbow'),    fill('ab.xbow.d',  ch(XBOW))],
+      ['X', t('ab.smoke'),   fill('ab.smoke.d', ch(SMOKE))],
+    ],
+    blast: [
+      ['P', t('ab.djump'),   fill('ab.djump.d', {})],
+      ['V', t('ab.dash'),    fill('ab.dash.d',  { cd: sec(DASH.cdMs) })],
+      ['G', t('ab.gren'),    fill('ab.gren.d',  ch(GRENADE))],
+      ['X', t('ab.zone'),    fill('ab.zone.d',  { dur: sec(ZONE.ms), cd: sec(ZONE.cdMs), hp: ZONE.regen })],
+    ],
+  };
+  const order = [myAgent].concat(Object.keys(kit).filter(a => a !== myAgent));
+  host.innerHTML = order.map(a => `
+    <div class="abagent ${a === myAgent ? 'mine' : ''}">
+      <div class="abhead"><b>${AGENTS[a].name}</b>${a === myAgent ? `<span>${t('ab.you')}</span>` : ''}</div>
+      ${kit[a].map(([k, n, d]) => `<div class="abrow"><kbd>${k === 'P' ? t('ab.passive') : k}</kbd>
+        <div><b>${n}</b><p>${d}</p></div></div>`).join('')}
+    </div>`).join('');
 }
 /* ---- Pause menu + quit to menu ---- */
 let paused=false;

@@ -193,18 +193,37 @@
 <div id="settings" class="overlay hidden">
   <div class="stage">
     <div class="setpanel glass layer">
-      <h2 data-i18n="set.title">GRAPHICS &amp; HUD</h2>
-      <p class="lead" data-i18n="set.lead">Lower settings = cooler machine and quieter fans.</p>
-      <div class="presets">
-        <div class="preset" data-preset="performance" data-i18n="set.performance">PERFORMANCE</div>
-        <div class="preset" data-preset="balanced" data-i18n="set.balanced">BALANCED</div>
-        <div class="preset" data-preset="quality" data-i18n="set.quality">QUALITY</div>
+      <h2 data-i18n="set.title">SETTINGS</h2>
+      <div class="settabs">
+        <button class="settab" data-tab="graphics"  data-i18n="set.tab.graphics">GRAPHICS</button>
+        <button class="settab" data-tab="gameplay"  data-i18n="set.tab.gameplay">GAMEPLAY</button>
+        <button class="settab" data-tab="abilities" data-i18n="set.tab.abilities">ABILITIES</button>
       </div>
-      <div id="setRows"></div>
-      <div class="fpsread"><span data-i18n="set.current">CURRENT:</span> <b id="fpsNow">--</b> FPS</div>
-      <div class="setnote">
-        <b>Frame cap</b> is the biggest heat saver — 60 looks smooth and halves the work of an uncapped 144Hz.<br>
-        <b>Resolution</b> at 200% renders 4× the pixels; 100% usually looks nearly identical.
+
+      <div class="setpage" data-page="graphics">
+        <p class="lead" data-i18n="set.lead">Lower settings = cooler machine and quieter fans.</p>
+        <div class="presets">
+          <div class="preset" data-preset="performance" data-i18n="set.performance">PERFORMANCE</div>
+          <div class="preset" data-preset="balanced" data-i18n="set.balanced">BALANCED</div>
+          <div class="preset" data-preset="quality" data-i18n="set.quality">QUALITY</div>
+        </div>
+        <div id="setRows-graphics"></div>
+        <div class="fpsread"><span data-i18n="set.current">CURRENT:</span> <b id="fpsNow">--</b> FPS</div>
+        <div class="setnote">
+          <b>Frame cap</b> is the biggest heat saver — 60 looks smooth and halves the work of an uncapped 144Hz.<br>
+          <b>Resolution</b> at 200% renders 4× the pixels; 100% usually looks nearly identical.
+        </div>
+      </div>
+
+      <div class="setpage hidden" data-page="gameplay">
+        <p class="lead" data-i18n="set.lead.gameplay">How it handles. Practice rows only appear on the range.</p>
+        <div id="setRows-gameplay"></div>
+      </div>
+
+      <div class="setpage hidden" data-page="abilities">
+        <p class="lead" data-i18n="set.lead.abilities">What each agent carries. Change agent in OPERATORS.</p>
+        <div id="setRows-abilities"></div>
+        <div id="abilityCards"></div>
       </div>
       <div style="text-align:center"><button class="btn" id="setClose" data-i18n="set.done">DONE</button></div>
     </div>

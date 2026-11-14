@@ -268,7 +268,8 @@ try {
 // only settings panel, and it saves with the rest. The presets below leave
 // it alone on purpose — picking PERFORMANCE shouldn't change your HUD.
 const SET_DEFAULTS = { fpsCap:60, resScale:1, bloom:1, shadows:1024, hitZone:1, look:1,
-                       showBoxes:0, infAmmo:0, noCooldown:0, noSpread:0 };
+                       showBoxes:0, infAmmo:0, noCooldown:0, noSpread:0,
+                       sens:1, ricochetStart:0 };
 /* Training aids. Gated to target practice on purpose — ammo and ability
    charges are client-side, so honouring these in a match would just be a
    cheat switch. */
