@@ -602,3 +602,322 @@ body:not(.playing) #mapPanel{ display:none; }
   border:1px solid rgba(255,255,255,.16); }
 .abrow b { font-size:12px; letter-spacing:1.5px; }
 .abrow p { margin:3px 0 0; font-size:11.5px; line-height:1.5; color:var(--t2); }
+
+
+/* =========================================================================
+   THE TACTICAL LAYER (2026-11-14)
+   =========================================================================
+   Jack: "i want the ui ... to be more hard core looking like a real fps game".
+   Everything above this line is the old web-app look - rounded glass,
+   gradient fills, Segoe UI - and stays as the base. This section overrides
+   it with the register every tactical shooter shares:
+
+     - TYPE: a condensed grotesque for labels (Barlow Condensed), a monospace
+       for every number (JetBrains Mono) so counts never shift width.
+     - SHAPE: near-square panels (2px), 1px rules, corner brackets, and the
+       primary button NOTCHED on two corners rather than rounded.
+     - COLOUR: near-black panels, crimson only as an accent - a left bar on
+       the active row, a bracket, a fill - never as a big gradient.
+     - LAYOUT: vertical category rails, label-left / value-right rows, a
+       description pane. Shooter players asked for exactly this when Modern
+       Warfare II shipped big streaming-app tiles instead.
+
+   It lives in one section on purpose, so the look can be read, tuned or
+   reverted as a unit. Colours that SIGNAL STATE (win green, lose red, the
+   crosshair, resupply green) are deliberately left alone - see CLAUDE.md.
+   ========================================================================= */
+:root {
+  --f-ui:'Barlow Condensed','Segoe UI','Microsoft YaHei','PingFang SC',Arial,sans-serif;
+  --f-num:'JetBrains Mono',ui-monospace,Consolas,'Microsoft YaHei',monospace;
+  --f-body:'Segoe UI',system-ui,'Microsoft YaHei','PingFang SC',sans-serif;
+  --pn:rgba(9,10,13,.9); --pn2:rgba(13,14,18,.95);
+  --ln:rgba(255,255,255,.12); --ln2:rgba(255,255,255,.24);
+  --r:2px;
+}
+html, body { font-family:var(--f-ui); }
+body.lang-zh { font-family:var(--f-ui); }
+
+/* Corner brackets: two L-shapes at opposite corners, in the accent. On
+   anything that is a panel and does not already use its pseudo-elements. */
+.lb-card::before, .lb-card::after, .wcard::before, .wcard::after,
+.set-shell::before, .set-shell::after, #mapPanel::before, #mapPanel::after,
+#pause .setpanel::before, #pause .setpanel::after, .roomsbox::before, .roomsbox::after {
+  content:''; position:absolute; width:12px; height:12px; pointer-events:none; z-index:3;
+  border:1px solid var(--ac); }
+.lb-card::before, .wcard::before, .set-shell::before, #mapPanel::before,
+#pause .setpanel::before, .roomsbox::before { top:-1px; left:-1px; border-right:0; border-bottom:0; }
+.lb-card::after, .wcard::after, .set-shell::after, #mapPanel::after,
+#pause .setpanel::after, .roomsbox::after { bottom:-1px; right:-1px; border-left:0; border-top:0; }
+
+kbd { font-family:var(--f-num); font-size:11px; font-weight:700; line-height:1; display:inline-block;
+  padding:3px 6px; margin-right:3px; color:#fff; background:rgba(255,255,255,.07);
+  border:1px solid var(--ln2); border-radius:var(--r); }
+
+/* ---- the primary button: flat, notched ---------------------------------- */
+.btn, .lb-prepare, .set-done {
+  font-family:var(--f-ui); font-weight:800; text-transform:uppercase;
+  border-radius:0; border:0; color:#fff; cursor:pointer;
+  background:linear-gradient(180deg,#e0193a,var(--ac-deep));
+  clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);
+  box-shadow:none; filter:drop-shadow(0 6px 18px rgba(213,15,46,.35)); }
+.btn:hover, .lb-prepare:hover, .set-done:hover { filter:drop-shadow(0 8px 24px rgba(255,45,74,.55)) brightness(1.1); }
+.btn { letter-spacing:.28em; font-size:20px; }
+.btn.ghost { background:rgba(255,255,255,.07); clip-path:none; border:1px solid var(--ln2); filter:none; border-radius:var(--r); }
+.btn.ghost:hover { background:rgba(255,255,255,.13); }
+.link { font-family:var(--f-ui); font-size:14px; letter-spacing:.2em; text-transform:uppercase; }
+input { font-family:var(--f-num); border-radius:var(--r); background:rgba(0,0,0,.45); }
+
+/* ========================================================================
+   SETTINGS
+   ======================================================================== */
+#settings { background:rgba(3,4,6,.84); backdrop-filter:blur(3px); text-align:left; perspective:none; }
+.set-shell { position:absolute; inset:clamp(14px,5vh,56px) clamp(14px,6vw,96px);
+  display:grid; grid-template-columns:clamp(170px,16vw,230px) minmax(0,1fr) clamp(220px,22vw,320px);
+  grid-template-rows:auto minmax(0,1fr) auto;
+  grid-template-areas:"head head head" "rail main desc" "foot foot foot";
+  background:linear-gradient(180deg,rgba(13,14,18,.97),rgba(7,8,10,.98));
+  border:1px solid var(--ln); box-shadow:0 30px 90px rgba(0,0,0,.6); }
+.set-head { grid-area:head; display:flex; justify-content:space-between; align-items:center;
+  padding:16px 24px; border-bottom:1px solid var(--ln); }
+.set-crumb { font-size:13px; letter-spacing:.24em; color:var(--t3); text-transform:uppercase; }
+.set-crumb i { font-style:normal; color:var(--ac); margin:0 8px; }
+.set-crumb b { color:#fff; font-size:24px; letter-spacing:.2em; font-weight:800; }
+.set-hk { font-size:13px; letter-spacing:.2em; color:var(--t3); }
+
+.set-rail { grid-area:rail; border-right:1px solid var(--ln); padding:14px 0; display:flex; flex-direction:column; gap:2px; }
+.set-rail .settab { display:flex; align-items:baseline; gap:12px; padding:13px 22px; margin:0; flex:none;
+  background:none; border:0; border-left:3px solid transparent; border-radius:0;
+  font-family:var(--f-ui); font-size:19px; font-weight:700; letter-spacing:.16em; text-align:left;
+  color:var(--t3); cursor:pointer; transition:background .12s, color .12s; }
+.set-rail .settab i { font-family:var(--f-num); font-size:11px; font-style:normal; color:rgba(255,255,255,.32); }
+.set-rail .settab:hover { color:#fff; background:rgba(255,255,255,.035); }
+.set-rail .settab.on { color:#fff; border-left-color:var(--ac);
+  background:linear-gradient(90deg,rgba(255,45,74,.18),rgba(255,45,74,0)); }
+.set-rail .settab.on i { color:var(--ac-soft); }
+
+.set-main { grid-area:main; padding:4px 26px 20px; overflow-y:auto; min-height:0; }
+.setpage { max-height:none; overflow:visible; padding:0; }
+.set-sec { font-family:var(--f-num); font-size:11px; font-weight:700; letter-spacing:.24em; color:var(--ac-soft);
+  margin:20px 0 4px; padding-bottom:7px; border-bottom:1px solid var(--ln); text-transform:uppercase; }
+.srow { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0;
+  padding:10px 12px; border-left:2px solid transparent; transition:background .1s; }
+.srow:nth-child(even) { background:rgba(255,255,255,.02); }
+.srow.hov { background:rgba(255,45,74,.09); border-left-color:var(--ac); }
+.srow > label { font-size:17px; font-weight:600; letter-spacing:.12em; color:var(--t2); text-transform:uppercase; white-space:nowrap; }
+.srow.hov > label { color:#fff; }
+.srow > label em { font-family:var(--f-num); font-style:normal; font-size:9.5px; font-weight:700; letter-spacing:.14em;
+  color:#ffd15a; border:1px solid rgba(255,209,90,.45); padding:2px 5px; margin-left:8px; vertical-align:3px; }
+.step { display:grid; grid-template-columns:30px minmax(120px,160px) 30px; align-items:center; row-gap:6px; }
+.step .sl, .step .sr { height:30px; padding:0; cursor:pointer; background:rgba(255,255,255,.04);
+  border:1px solid var(--ln); border-radius:var(--r); color:#fff; font-size:22px; line-height:1; font-family:var(--f-ui); }
+.step .sl:hover:not([disabled]), .step .sr:hover:not([disabled]) { border-color:var(--ac); color:var(--ac-soft); }
+.step button[disabled] { opacity:.22; cursor:default; }
+.step .sv { text-align:center; font-size:17px; font-weight:700; letter-spacing:.12em; color:#fff;
+  cursor:pointer; text-transform:uppercase; user-select:none; }
+.step .pips { grid-column:1 / -1; display:flex; gap:3px; justify-content:center; }
+.step .pips i { width:18px; height:3px; background:rgba(255,255,255,.16); }
+.step .pips i.on { background:var(--ac); }
+
+.presets { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:8px 0 2px; }
+.preset { padding:11px 6px; border-radius:var(--r); font-family:var(--f-ui); font-size:15px; font-weight:700;
+  letter-spacing:.18em; color:var(--t2); background:rgba(255,255,255,.04); border:1px solid var(--ln);
+  cursor:pointer; transform:none !important; }
+.preset:hover { color:#fff; border-color:var(--ac); background:rgba(255,45,74,.1); }
+
+.set-desc { grid-area:desc; border-left:1px solid var(--ln); padding:24px 24px; background:rgba(255,255,255,.015); min-height:0; overflow-y:auto; }
+.set-desc-k { font-family:var(--f-num); font-size:11px; font-weight:700; letter-spacing:.26em; color:var(--ac-soft); }
+.set-desc h3 { font-size:30px; font-weight:800; letter-spacing:.1em; margin:10px 0 12px; text-transform:uppercase; line-height:1.05; }
+.set-desc p { font-family:var(--f-body); font-size:13.5px; line-height:1.7; color:var(--t2); }
+.set-desc .fpsread { margin-top:22px; padding-top:14px; border-top:1px solid var(--ln); text-align:left;
+  font-family:var(--f-num); font-size:12px; letter-spacing:.14em; }
+.set-desc .fpsread b { font-size:22px; color:#fff; }
+
+.set-foot { grid-area:foot; display:flex; justify-content:space-between; align-items:center;
+  padding:12px 24px; border-top:1px solid var(--ln); }
+.set-keys { display:flex; gap:22px; font-size:13px; letter-spacing:.2em; color:var(--t3); text-transform:uppercase; }
+.set-done { padding:12px 46px; font-size:18px; letter-spacing:.3em; }
+
+/* the ability kits */
+.abagent { border:1px solid var(--ln); border-radius:var(--r); padding:12px 14px; margin-top:10px; background:rgba(255,255,255,.015); }
+.abagent.mine { border-color:rgba(255,45,74,.5); border-left:3px solid var(--ac); }
+.abhead { font-size:20px; font-weight:800; letter-spacing:.2em; }
+.abhead span { font-family:var(--f-num); font-size:10px; border-radius:var(--r); }
+.abrow kbd { min-width:34px; text-align:center; padding:6px 7px; border-radius:var(--r); }
+.abrow kbd.pass { font-family:var(--f-ui); font-size:12px; letter-spacing:.1em; }
+.abrow b { font-size:15px; letter-spacing:.14em; }
+.abrow p { font-family:var(--f-body); font-size:12.5px; }
+
+@media (max-width:1000px){
+  .set-shell { grid-template-columns:1fr; grid-template-rows:auto auto minmax(0,1fr) auto auto;
+    grid-template-areas:"head" "rail" "main" "desc" "foot"; inset:10px; }
+  .set-rail { flex-direction:row; border-right:0; border-bottom:1px solid var(--ln); padding:0; }
+  .set-rail .settab { flex:1; justify-content:center; border-left:0; border-bottom:3px solid transparent; padding:11px 6px; font-size:15px; }
+  .set-rail .settab.on { border-bottom-color:var(--ac); }
+  .set-desc { border-left:0; border-top:1px solid var(--ln); padding:12px 18px; }
+  .set-desc h3 { font-size:20px; margin:4px 0 6px; }
+  .step { grid-template-columns:28px 104px 28px; }
+}
+
+/* ========================================================================
+   PAUSE
+   ======================================================================== */
+#pause .setpanel { position:relative; border-radius:0; background:var(--pn2); backdrop-filter:none;
+  border:1px solid var(--ln); padding:26px 28px; }
+#pause h2 { font-size:34px; font-weight:800; letter-spacing:.3em; }
+.pbtn { border-radius:var(--r); font-family:var(--f-ui); font-size:16px; font-weight:700; letter-spacing:.24em;
+  text-align:left; padding:13px 16px; border-left:3px solid transparent; transform:none !important; }
+.pbtn:hover { border-left-color:var(--ac); background:rgba(255,45,74,.09); }
+
+/* ========================================================================
+   HOME / DEPLOYMENT TERMINAL
+   ======================================================================== */
+#home .orb, #lobby .orb { opacity:.05; }
+.scanlines { opacity:.22; }
+.lb-top { border-bottom:1px solid var(--ln); padding-bottom:10px; }
+.lb-uid { font-family:var(--f-num); font-size:10.5px; border-radius:var(--r); background:rgba(0,0,0,.5); }
+.lb-tab { font-family:var(--f-ui); font-size:17px; font-weight:700; letter-spacing:.2em; padding:9px 18px;
+  border-bottom:2px solid transparent; }
+.lb-tab.on { background:linear-gradient(0deg,rgba(255,45,74,.16),rgba(255,45,74,0)); }
+.langsw { border-radius:var(--r); } .langsw button { font-family:var(--f-num); font-size:11px; }
+.lb-gear { border-radius:var(--r); font-family:var(--f-ui); font-size:14px; letter-spacing:.2em; }
+.lb-brand { font-family:var(--f-ui); font-size:clamp(28px,3.4vw,44px); font-weight:800; letter-spacing:.26em; line-height:1; }
+.lb-brand img { border-radius:var(--r); }
+.lb-lead { font-family:var(--f-body); font-size:14px; }
+.lb-hint { font-family:var(--f-num); font-size:10.5px; letter-spacing:.2em; }
+.lb-card { border-radius:0; border:1px solid var(--ln); border-left:3px solid rgba(255,45,74,.75);
+  background:linear-gradient(90deg,rgba(14,15,19,.92),rgba(9,10,13,.86)); }
+.lb-card:hover { border-color:var(--ln2); border-left-color:var(--ac); transform:translateX(-3px); }
+.lb-k { font-family:var(--f-num); font-size:10px; font-weight:700; letter-spacing:.22em; color:var(--ac-soft); }
+.lb-v { font-size:24px; font-weight:800; letter-spacing:.14em; line-height:1.05; }
+.lb-s { font-family:var(--f-body); font-size:11.5px; }
+.lb-mapcard { border-left-width:1px; }
+.lb-maprow b { font-size:18px; font-weight:800; letter-spacing:.16em; }
+.lb-prepare { padding:17px 10px; font-size:24px; letter-spacing:.4em; margin-top:6px; }
+.agent { border-radius:0 !important; background:var(--pn) !important; backdrop-filter:none !important;
+  border:1px solid var(--ln) !important; border-left:3px solid var(--ln2) !important; }
+.agent.on { border-left-color:var(--ac) !important; box-shadow:none; background:linear-gradient(90deg,rgba(255,45,74,.14),var(--pn)) !important; }
+.agent h4 { font-size:22px; font-weight:800; letter-spacing:.2em; }
+.agent p { font-family:var(--f-body); }
+.lb-keys .kcap { border-radius:var(--r); }
+.lb-keys .kcap b { font-family:var(--f-num); }
+.lb-row span { font-family:var(--f-body); }
+.lb-row b { font-family:var(--f-num); font-size:11.5px; }
+.lb-bot { border-top:1px solid var(--ln); padding-top:9px; font-family:var(--f-num); font-size:10.5px; }
+.fkey b { font-family:var(--f-num); border-radius:var(--r); }
+#home .badge, #lobby .badge { border-radius:var(--r); font-family:var(--f-num); }
+#nameInput { letter-spacing:.24em; }
+body.lang-zh .lb-tab, body.lang-zh .lb-v, body.lang-zh .set-rail .settab,
+body.lang-zh .srow > label, body.lang-zh .set-desc h3 { letter-spacing:.08em; }
+
+/* the room browser, in the same chrome */
+.roomsbox { position:relative; border-radius:0; background:var(--pn2) !important; backdrop-filter:none !important; }
+.roomrow { border-radius:var(--r); border-left:3px solid transparent; }
+.roomrow:hover { border-left-color:var(--ac); }
+.roomrow .rid { font-family:var(--f-num); }
+.overlay h2 { font-weight:800; letter-spacing:.24em; }
+
+/* ========================================================================
+   HUD
+   ======================================================================== */
+/* Health: a label, a monospace number and a SEGMENTED bar - ten cells, so
+   "how hurt am I" reads as a count of blocks at a glance. The fill is
+   masked into cells rather than drawn as ten elements, so updateHUD keeps
+   setting one width and one colour exactly as it always did. */
+#healthPanel { left:26px; bottom:24px; padding:10px 14px 12px; background:linear-gradient(90deg,rgba(6,7,9,.66),rgba(6,7,9,0));
+  border-left:3px solid var(--ac); }
+.hudlbl { font-family:var(--f-num); font-size:10.5px; letter-spacing:.3em; color:var(--t3); font-weight:700; }
+#hpNum { font-family:var(--f-num); font-size:40px; font-weight:700; min-width:2.2ch; }
+#hpBar { width:200px; height:9px; border-radius:0;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.17) 0 18px,transparent 18px 20px); }
+#hpFill { border-radius:0;
+  -webkit-mask:repeating-linear-gradient(90deg,#000 0 18px,transparent 18px 20px);
+          mask:repeating-linear-gradient(90deg,#000 0 18px,transparent 18px 20px); }
+
+/* Ammo, bottom right: the slot strip, then the magazine as a big monospace
+   count over its reserve, a bar, and the weapon and fire mode. */
+#ammoPanel { right:26px; bottom:24px; }
+.ammoBox { display:inline-block; text-align:right; padding:10px 14px 10px 18px;
+  background:linear-gradient(270deg,rgba(6,7,9,.66),rgba(6,7,9,0)); border-right:3px solid var(--ac); }
+.ammoTop { display:flex; align-items:flex-end; justify-content:flex-end; gap:14px; }
+#wIcon { opacity:.8; margin-bottom:8px; }
+.ammoNums { white-space:nowrap; }
+#magNum { font-family:var(--f-num); font-size:50px; font-weight:700; line-height:.95; }
+#reserveNum { font-family:var(--f-num); font-size:19px; color:rgba(255,255,255,.55); margin-left:6px; }
+#magBar { height:4px; margin-top:7px; background:rgba(255,255,255,.14); }
+#magBar i { display:block; height:100%; width:100%; margin-left:auto; background:#fff; transition:width .12s; }
+#magBar i.low { background:#ff4d4d; }
+#fireMode { font-family:var(--f-ui); font-size:14px; font-weight:700; letter-spacing:.22em; margin-top:6px; color:var(--t2); }
+#slotRow { display:flex; justify-content:flex-end; gap:4px; margin-bottom:8px; }
+.slot { font-family:var(--f-ui); font-size:13px; font-weight:700; letter-spacing:.14em; color:rgba(255,255,255,.5);
+  background:rgba(6,7,9,.55); border:1px solid rgba(255,255,255,.1); padding:3px 9px 3px 4px; white-space:nowrap; }
+.slot b { font-family:var(--f-num); font-size:10.5px; color:#fff; background:rgba(255,255,255,.12);
+  padding:1px 5px; margin-right:6px; }
+.slot.on { color:#fff; border-color:rgba(255,45,74,.75); background:rgba(255,45,74,.16); }
+.slot.on b { background:var(--ac-deep); }
+
+/* Ability tiles: square, keyed, the same chrome. */
+#cdRow { gap:8px; margin-bottom:8px; }
+.cd { border-radius:var(--r); border:1px solid rgba(255,255,255,.22); width:54px; height:54px; }
+.cdkey { font-family:var(--f-num); border-radius:var(--r); top:-8px; left:-7px; }
+.cdn { font-family:var(--f-num); border-radius:var(--r); }
+.cdtime { font-family:var(--f-num); font-size:17px; }
+
+#compass { opacity:.9; }
+#stance { font-family:var(--f-num); font-size:10.5px; letter-spacing:.24em; bottom:62px; }
+#status, #fpsTag { font-family:var(--f-num); }
+/* Both used to sit where the ammo box now is: the FPS counter on top of the
+   magazine count, the status line through the box's bottom edge. The FPS
+   counter goes under the health block, the status line under the ammo. */
+#fpsTag { left:28px; right:auto; bottom:6px; font-size:10px; color:rgba(255,255,255,.45); }
+#status { bottom:5px; font-size:10px; }
+#exitHud { border-radius:var(--r); font-family:var(--f-num); font-size:10.5px; }
+#board { background:linear-gradient(270deg,rgba(6,7,9,.7),rgba(6,7,9,.3)); border-right:3px solid var(--ac); padding:8px 12px; }
+#board h3 { font-family:var(--f-num); font-size:10.5px; letter-spacing:.24em; }
+#board .row { font-family:var(--f-ui); font-size:16px; letter-spacing:.08em; }
+#feed div { border-radius:0; border:0; border-left:2px solid var(--ac); font-family:var(--f-ui); font-size:15px; letter-spacing:.06em;
+  background:rgba(6,7,9,.66); }
+#bannerBig { font-weight:800; letter-spacing:.24em; font-size:46px; }
+#bannerSub { font-family:var(--f-num); font-size:13px; letter-spacing:.24em; }
+#respawn h1 { font-weight:800; letter-spacing:.3em; }
+#respawn p { font-family:var(--f-num); font-size:12px; }
+#detect { font-family:var(--f-num); font-size:11px; letter-spacing:.2em; }
+#toast { font-family:var(--f-ui); font-size:17px; letter-spacing:.24em; }
+#hitzone { font-family:var(--f-num); }
+#mapPanel { border-radius:0; border-color:var(--ln); }
+#mapN, #mapKey { font-family:var(--f-num); }
+#bigmapCv { border-radius:0; }
+#bigmapFoot { font-family:var(--f-num); }
+
+/* ========================================================================
+   ARMORY (Tab)  -  a loadout screen
+   ======================================================================== */
+#armory { background:rgba(4,5,7,.9); backdrop-filter:blur(3px); }
+#armory h2 { font-family:var(--f-ui); font-size:40px; font-weight:800; letter-spacing:.3em;
+  background:none; -webkit-background-clip:border-box; background-clip:border-box; color:#fff;
+  border-bottom:1px solid var(--ln); padding-bottom:10px; margin-bottom:22px; min-width:min(920px,92vw); text-align:left; }
+#armGrid { gap:12px; max-width:min(1060px,94vw); }
+.wcard { position:relative; width:196px; padding:0 0 12px; border-radius:0; text-align:left;
+  background:linear-gradient(180deg,rgba(15,16,20,.97),rgba(9,10,13,.97)); border:1px solid var(--ln);
+  display:flex; flex-direction:column; }
+.wcard:hover { transform:translateY(-3px); border-color:var(--ln2); }
+.wcard.equipped { border-color:rgba(255,45,74,.7); box-shadow:inset 0 0 0 1px rgba(255,45,74,.35); }
+.wc-top { display:flex; justify-content:space-between; align-items:center; padding:7px 10px;
+  border-bottom:1px solid var(--ln); background:rgba(255,255,255,.03); }
+.wcard .wkey { font-family:var(--f-num); font-size:11px; font-weight:700; color:#fff;
+  background:rgba(255,255,255,.12); padding:2px 7px; letter-spacing:0; }
+.wcard.equipped .wkey { background:var(--ac-deep); }
+.wcat { font-family:var(--f-num); font-size:10px; font-weight:700; letter-spacing:.2em; color:var(--t3); }
+.wcard .wname { font-size:27px; font-weight:800; letter-spacing:.12em; margin:10px 12px 0; line-height:1; }
+.wcard .wmode { font-family:var(--f-num); font-size:10.5px; letter-spacing:.12em; color:#ffd15a; margin:5px 12px 10px; }
+.wcard .wstats { margin:0 12px; font-size:inherit; line-height:normal; color:inherit; flex:1; }
+.wb { display:grid; grid-template-columns:1fr auto; align-items:baseline; margin-bottom:6px; }
+.wb span { font-family:var(--f-num); font-size:9.5px; font-weight:700; letter-spacing:.16em; color:var(--t3); }
+.wb em { font-family:var(--f-num); font-style:normal; font-size:10.5px; color:#fff; }
+.wb i { grid-column:1 / -1; display:block; height:4px; margin-top:3px; background:rgba(255,255,255,.1); }
+.wb i u { display:block; height:100%; background:linear-gradient(90deg,var(--ac-deep),var(--ac)); }
+.wl { display:flex; justify-content:space-between; gap:8px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,.06); }
+.wl span { font-family:var(--f-num); font-size:9.5px; font-weight:700; letter-spacing:.16em; color:var(--t3); }
+.wl b { font-family:var(--f-num); font-size:11px; color:#fff; text-align:right; }
+.wtag { margin:10px 12px 0; padding-top:8px; border-top:1px solid var(--ln); font-family:var(--f-num); font-size:12px;
+  letter-spacing:.14em; text-align:right; min-height:18px; }
+.armHint { font-family:var(--f-num); font-size:11px; letter-spacing:.18em; text-transform:uppercase; }

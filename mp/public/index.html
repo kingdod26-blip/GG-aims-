@@ -7,6 +7,14 @@
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" href="icon.png">
 <link rel="apple-touch-icon" href="icon-180.png">
+<!-- The UI type: a condensed grotesque for labels and headings (the
+     military-stencil register every tactical shooter uses) and a monospace
+     for anything that is a NUMBER - ammo, health, keys, ids - so digits
+     never shift width as they count. display=swap: if the fonts are slow
+     or blocked the game draws in the fallback and nothing waits on them. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -41,9 +49,14 @@
       <div class="cd" id="cdXbow"><img class="cdico" src="assets/cd-fire.png" alt="crossbow"><div class="cdsweep"></div><div class="cdtime"></div><div class="cdbar"><i></i></div><div class="cdkey">G</div><div class="cdn"></div></div>
       <div class="cd" id="cdSmoke"><img class="cdico" src="assets/cd-smoke.png" alt="smoke"><div class="cdsweep"></div><div class="cdtime"></div><div class="cdbar"><i></i></div><div class="cdkey">X</div><div class="cdn"></div></div>
     </div>
-    <div id="wIcon"><svg width="64" height="20" viewBox="0 0 64 20" fill="#fff"><path d="M2 12 h8 v-3 h3 v3 h26 l3 -5 h5 l-2 5 h13 v3 h-20 l-2 3 h-6 l2 -3 h-9 v4 h-4 v-4 h-9 z"/></svg></div>
-    <div><span id="magNum">30</span> <span id="reserveNum">/ 120</span></div>
-    <div id="fireMode"><span id="modeLbl">AUTO</span> <span class="pips">▮▮▮▮</span></div>
+    <!-- What you carry, in the order the number keys select it. -->
+    <div id="slotRow"></div>
+    <div class="ammoBox">
+      <div class="ammoTop"><div id="wIcon"><svg width="64" height="20" viewBox="0 0 64 20" fill="#fff"><path d="M2 12 h8 v-3 h3 v3 h26 l3 -5 h5 l-2 5 h13 v3 h-20 l-2 3 h-6 l2 -3 h-9 v4 h-4 v-4 h-9 z"/></svg></div>
+        <div class="ammoNums"><span id="magNum">30</span><span id="reserveNum">/ 120</span></div></div>
+      <div id="magBar"><i></i></div>
+      <div id="fireMode"><span id="modeLbl">AUTO</span></div>
+    </div>
   </div>
   <!-- Where you are. The corner map is always up; M opens the whole site. -->
   <div id="mapPanel">
@@ -182,51 +195,69 @@
       <p class="lead" id="pauseMode">Target Practice</p>
       <div class="pausebtns">
         <button class="btn" id="resumeBtn" data-i18n="pause.resume">RESUME</button>
-        <button class="pbtn" id="pauseSettings" data-i18n="pause.graphics">⚙ GRAPHICS SETTINGS</button>
+        <button class="pbtn" id="pauseSettings" data-i18n="pause.graphics">SETTINGS</button>
         <button class="pbtn danger" id="quitBtn" data-i18n="pause.quit">✕ QUIT TO MENU</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ===== Graphics settings ===== -->
+<!-- ===== Settings =====
+     Laid out the way shooters lay theirs out: a vertical category rail, the
+     options as rows with a value you step through, and a pane on the right
+     that explains whichever row you are pointing at. The explanations used
+     to be two lines of small print under the graphics list; now every
+     setting has one, in both languages. -->
 <div id="settings" class="overlay hidden">
-  <div class="stage">
-    <div class="setpanel glass layer">
-      <h2 data-i18n="set.title">SETTINGS</h2>
-      <div class="settabs">
-        <button class="settab" data-tab="graphics"  data-i18n="set.tab.graphics">GRAPHICS</button>
-        <button class="settab" data-tab="gameplay"  data-i18n="set.tab.gameplay">GAMEPLAY</button>
-        <button class="settab" data-tab="abilities" data-i18n="set.tab.abilities">ABILITIES</button>
-      </div>
+  <div class="set-shell">
+    <header class="set-head">
+      <div class="set-crumb">CRIMSON X <i>//</i> <b data-i18n="set.title">SETTINGS</b></div>
+      <div class="set-hk"><kbd>ESC</kbd> <span data-i18n="set.back">BACK</span></div>
+    </header>
 
+    <nav class="set-rail">
+      <button class="settab" data-tab="graphics"><i>01</i><span data-i18n="set.tab.graphics">GRAPHICS</span></button>
+      <button class="settab" data-tab="gameplay"><i>02</i><span data-i18n="set.tab.gameplay">GAMEPLAY</span></button>
+      <button class="settab" data-tab="abilities"><i>03</i><span data-i18n="set.tab.abilities">ABILITIES</span></button>
+    </nav>
+
+    <main class="set-main">
       <div class="setpage" data-page="graphics">
-        <p class="lead" data-i18n="set.lead">Lower settings = cooler machine and quieter fans.</p>
+        <div class="set-sec" data-i18n="set.sec.preset">QUICK PRESET</div>
         <div class="presets">
-          <div class="preset" data-preset="performance" data-i18n="set.performance">PERFORMANCE</div>
-          <div class="preset" data-preset="balanced" data-i18n="set.balanced">BALANCED</div>
-          <div class="preset" data-preset="quality" data-i18n="set.quality">QUALITY</div>
+          <button class="preset" data-preset="performance" data-i18n="set.performance">PERFORMANCE</button>
+          <button class="preset" data-preset="balanced" data-i18n="set.balanced">BALANCED</button>
+          <button class="preset" data-preset="quality" data-i18n="set.quality">QUALITY</button>
         </div>
+        <div class="set-sec" data-i18n="set.sec.display">DISPLAY</div>
         <div id="setRows-graphics"></div>
-        <div class="fpsread"><span data-i18n="set.current">CURRENT:</span> <b id="fpsNow">--</b> FPS</div>
-        <div class="setnote">
-          <b>Frame cap</b> is the biggest heat saver — 60 looks smooth and halves the work of an uncapped 144Hz.<br>
-          <b>Resolution</b> at 200% renders 4× the pixels; 100% usually looks nearly identical.
-        </div>
       </div>
-
       <div class="setpage hidden" data-page="gameplay">
-        <p class="lead" data-i18n="set.lead.gameplay">How it handles. Practice rows only appear on the range.</p>
+        <div class="set-sec" data-i18n="set.sec.controls">CONTROLS &amp; HUD</div>
         <div id="setRows-gameplay"></div>
       </div>
-
       <div class="setpage hidden" data-page="abilities">
-        <p class="lead" data-i18n="set.lead.abilities">What each agent carries. Change agent in OPERATORS.</p>
+        <div class="set-sec" data-i18n="set.sec.options">OPTIONS</div>
         <div id="setRows-abilities"></div>
+        <div class="set-sec" data-i18n="set.sec.kits">AGENT KITS</div>
         <div id="abilityCards"></div>
       </div>
-      <div style="text-align:center"><button class="btn" id="setClose" data-i18n="set.done">DONE</button></div>
-    </div>
+    </main>
+
+    <aside class="set-desc">
+      <div class="set-desc-k" data-i18n="set.info">INFO</div>
+      <h3 id="setDescTitle">—</h3>
+      <p id="setDescBody"></p>
+      <div class="fpsread"><span data-i18n="set.current">CURRENT:</span> <b id="fpsNow">--</b> FPS</div>
+    </aside>
+
+    <footer class="set-foot">
+      <div class="set-keys">
+        <span><kbd>ESC</kbd> <span data-i18n="set.back">BACK</span></span>
+        <span><kbd>&larr;</kbd><kbd>&rarr;</kbd> <span data-i18n="set.change">CHANGE</span></span>
+      </div>
+      <button class="set-done" id="setClose" data-i18n="set.done">DONE</button>
+    </footer>
   </div>
 </div>
 

@@ -103,25 +103,88 @@ function renderSettingsUI(){
   });
   panel.querySelectorAll('.setpage').forEach(p => p.classList.toggle('hidden', p.dataset.page !== setTab));
 
-  const val = d => d.get ? d.get() : SETTINGS[d.key];
+  /* A ROW IS A STEPPER: the label on the left, `< VALUE >` on the right with
+     one pip per option under it, which is how shooters show a setting with a
+     handful of fixed values - you read where you are on the scale without
+     every option shouting at once. Clicking the value steps forward; the
+     arrows go either way and stop at the ends rather than wrapping, because
+     wrapping from 2x sensitivity to 0.5x in one click is a nasty surprise.
+     Pointing at a row explains it in the right-hand pane. */
   for (const tab of ['graphics','gameplay','abilities']){
     const host = document.getElementById('setRows-' + tab); if(!host) continue;
     const rows = SET_DEFS.filter(d => d.tab === tab
       && !(d.practice && gameMode === 'mp')
       && !(d.agent && d.agent !== myAgent));
-    host.innerHTML = rows.map(d=>`<div class="srow"><label>${d.label}</label><div class="seg" data-key="${d.key}">`+
-      d.opts.map(([v,l])=>`<button data-v="${v}" class="${Number(val(d))===Number(v)?'on':''}">${l}</button>`).join('')+
-      `</div></div>`).join('');
-    host.querySelectorAll('.seg button').forEach(btn=>{
-      btn.onclick = ()=>{
-        const d = SET_DEFS.find(x => x.key === btn.closest('.seg').dataset.key), v = Number(btn.dataset.v);
-        if (d.set) d.set(v); else { SETTINGS[d.key] = v; applySettings(); }
-        renderSettingsUI();
-      };
+    host.innerHTML = rows.map(d => {
+      const i = setIndex(d), lbl = d.opts[i] ? d.opts[i][1] : '?';
+      return `<div class="srow${setHover === d.key ? ' hov' : ''}" data-key="${d.key}">
+        <label>${t('setl.' + d.key) !== 'setl.' + d.key ? t('setl.' + d.key) : d.label}${d.practice ? ' <em>' + t('set.practice') + '</em>' : ''}</label>
+        <div class="step">
+          <button class="sl" ${i <= 0 ? 'disabled' : ''}>&lsaquo;</button>
+          <span class="sv">${lbl}</span>
+          <button class="sr" ${i >= d.opts.length - 1 ? 'disabled' : ''}>&rsaquo;</button>
+          <div class="pips">${d.opts.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
+        </div></div>`;
+    }).join('');
+    host.querySelectorAll('.srow').forEach(row => {
+      const d = SET_DEFS.find(x => x.key === row.dataset.key);
+      row.onmouseenter = () => { setHover = d.key; describeSetting(d); };
+      row.querySelector('.sl').onclick = () => stepSetting(d, -1);
+      row.querySelector('.sr').onclick = () => stepSetting(d, +1);
+      row.querySelector('.sv').onclick = () => stepSetting(d, setIndex(d) >= d.opts.length - 1 ? -(d.opts.length - 1) : +1);
     });
   }
   renderAbilityCards();
+  /* The pane describes the hovered row, or the page's first row before you
+     have pointed at anything, so it is never blank. */
+  const shown = SET_DEFS.find(d => d.key === setHover && d.tab === setTab)
+             || SET_DEFS.find(d => d.tab === setTab && !(d.practice && gameMode === 'mp') && !(d.agent && d.agent !== myAgent));
+  if (shown) describeSetting(shown);
+  const fr = document.querySelector('#settings .fpsread'); if (fr) fr.style.display = setTab === 'graphics' ? '' : 'none';
 }
+let setHover = null;
+function setIndex(d){
+  const v = Number(d.get ? d.get() : SETTINGS[d.key]);
+  const i = d.opts.findIndex(o => Number(o[0]) === v);
+  return i < 0 ? 0 : i;
+}
+function stepSetting(d, dir){
+  const i = Math.max(0, Math.min(d.opts.length - 1, setIndex(d) + dir));
+  const v = Number(d.opts[i][0]);
+  if (d.set) d.set(v); else { SETTINGS[d.key] = v; applySettings(); }
+  setHover = d.key;
+  renderSettingsUI(); Sfx.swap();
+}
+/* document.getElementById, NOT byId: this runs while session.js is still
+   loading (renderSettingsUI is called at line ~240) and `byId` is a const
+   declared further down - touching it before its line throws, and that
+   aborted the rest of this file and with it the whole game's startup. */
+function describeSetting(d){
+  const tt = document.getElementById('setDescTitle'), tb = document.getElementById('setDescBody'); if (!tt || !tb) return;
+  const name = t('setl.' + d.key) !== 'setl.' + d.key ? t('setl.' + d.key) : d.label;
+  tt.textContent = name;
+  const body = t('setd.' + d.key);
+  tb.textContent = body === 'setd.' + d.key ? '' : body;
+  document.querySelectorAll('#settings .srow').forEach(r => r.classList.toggle('hov', r.dataset.key === d.key));
+}
+/* Keys, while the panel is up: Esc backs out, left/right step the row under
+   the pointer, up/down move between rows. Its own listener because the
+   game's keydown stops listening outside play. */
+addEventListener('keydown', e => {
+  const panel = document.getElementById('settings'); if (!panel || panel.classList.contains('hidden')) return;
+  if (typingInField(e.target)) return;
+  if (e.code === 'Escape'){ e.preventDefault(); closeSettings(); return; }
+  const rows = SET_DEFS.filter(d => d.tab === setTab && !(d.practice && gameMode === 'mp') && !(d.agent && d.agent !== myAgent));
+  if (!rows.length) return;
+  let k = rows.findIndex(d => d.key === setHover); if (k < 0) k = 0;
+  if (e.code === 'ArrowUp' || e.code === 'ArrowDown'){
+    e.preventDefault(); k = Math.max(0, Math.min(rows.length - 1, k + (e.code === 'ArrowDown' ? 1 : -1)));
+    setHover = rows[k].key; describeSetting(rows[k]);
+  }
+  if (e.code === 'ArrowLeft' || e.code === 'ArrowRight'){
+    e.preventDefault(); stepSetting(rows[k], e.code === 'ArrowRight' ? 1 : -1);
+  }
+});
 
 /* THE ABILITIES PAGE: what each agent's kit does, with the numbers read
    live from the same constants the game runs on - ROLL, DASH, ZONE and each
@@ -152,7 +215,7 @@ function renderAbilityCards(){
   host.innerHTML = order.map(a => `
     <div class="abagent ${a === myAgent ? 'mine' : ''}">
       <div class="abhead"><b>${AGENTS[a].name}</b>${a === myAgent ? `<span>${t('ab.you')}</span>` : ''}</div>
-      ${kit[a].map(([k, n, d]) => `<div class="abrow"><kbd>${k === 'P' ? t('ab.passive') : k}</kbd>
+      ${kit[a].map(([k, n, d]) => `<div class="abrow"><kbd class="${k === 'P' ? 'pass' : ''}">${k === 'P' ? t('ab.passive') : k}</kbd>
         <div><b>${n}</b><p>${d}</p></div></div>`).join('')}
     </div>`).join('');
 }

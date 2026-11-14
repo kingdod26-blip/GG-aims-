@@ -38,7 +38,33 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
     document.getElementById('reserveNum').textContent='/ '+curAmmo().reserve;
     document.getElementById('modeLbl').textContent = w.name+' · '+w.mode;
   }
+  /* The magazine as a bar under the number: rounds left for a gun, charges
+     left for an ability, the step of the combo for the blade. Low is red
+     from a quarter down, which is when you want to be reloading. */
+  const mb = document.querySelector('#magBar i');
+  if (mb){
+    const f = w.melee ? ((comboStep||0)+1) / w.combo.length
+            : w.ability ? abilityCharges[currentWeapon] / w.charges
+            : reloading ? 0 : curAmmo().mag / w.magMax;
+    mb.style.width = Math.max(0, Math.min(1, f)) * 100 + '%';
+    mb.classList.toggle('low', !w.melee && f <= 0.25);
+  }
+  renderSlots();
   updateStanceLabel(); }
+/* The weapon strip over the ammo: everything you carry, keyed the way the
+   number keys select it - by POSITION in your list, the blade on F - with
+   the one in your hands lit. Abilities are not on it; they have their own
+   tiles. Rebuilt only when the list or the selection actually changes. */
+let slotSig = '';
+function renderSlots(){
+  const host = document.getElementById('slotRow'); if (!host) return;
+  const inv = inventory(), sig = inv.join(',') + '|' + currentWeapon;
+  if (sig === slotSig) return; slotSig = sig;
+  host.innerHTML = inv.map((i, k) => {
+    const key = i === BLADE ? 'F' : String(k + 1);
+    return `<span class="slot${i === currentWeapon ? ' on' : ''}"><b>${key}</b>${WEAPONS[i].name}</span>`;
+  }).join('');
+}
 /* Its own function so the language switch can repaint it: applyLang()
    calls this, and updateHUD() is event-driven and may not run again for
    a while. */
@@ -679,12 +705,16 @@ function renderArmory(){
     const heldInSlot = (!owned && sameKind.length >= cap) ? sameKind[0] : null;
     // where it sits in your list, which is what the number keys select
     const invPos = shop ? inventory().indexOf(i) : i;
+    /* Guns get STAT BARS, normalised against the other guns, the way a
+       loadout screen compares them; abilities and the blade are not on that
+       scale and get spec lines instead. */
+    const line = (k, v) => `<div class="wl"><span>${k}</span><b>${v}</b></div>`;
     const stats = w.ability
-      ? `${w.headDmg ? ('DMG '+w.headDmg+' HEAD · '+w.bodyDmg+' BODY')
-                     : (w.dmg?('DMG '+w.dmg):'NO DAMAGE')}<br>CHARGES ${w.charges} · ${Math.round(w.cooldownMs/1000)}s`
+      ? line('DAMAGE', w.headDmg ? (w.headDmg+' HEAD / '+w.bodyDmg+' BODY') : (w.dmg ? String(w.dmg) : 'NONE'))
+        + line('CHARGES', w.charges) + line('RECHARGE', Math.round(w.cooldownMs/1000)+'s')
       : w.melee
-      ? `COMBO ${w.combo.join('/')}<br>REACH ${w.reach}m`
-      : `DMG ${w.dmg}${w.pellets?'×'+w.pellets:''}<br>MAG ${w.magMax} / ${w.reserveMax}`;
+      ? line('COMBO', w.combo.join(' / ')) + line('REACH', w.reach+'m')
+      : gunBars(w);
     let tag;
     if(!shop)      tag = i===currentWeapon ? '<b style="color:var(--ac-soft)">EQUIPPED</b>' : '&nbsp;';
     else if(free)  tag = i===currentWeapon ? '<b style="color:var(--ac-soft)">EQUIPPED</b>' : '<span style="opacity:.6">FREE</span>';
@@ -699,11 +729,14 @@ function renderArmory(){
     // label the category so the two-gun rule is visible rather than guessed at
     const slotLbl = !shop ? '' : isMain ? ' · MAIN' : isSide ? ' · SIDE' : '';
     const dim = (shop && !owned && (!canBuy || !afford)) ? 'opacity:.45;' : '';
+    const cat = w.ability ? 'ABILITY' : w.melee ? 'MELEE' : isMain ? 'PRIMARY' : isSide ? 'SIDEARM' : '';
+    const key = w.ability || w.melee ? WEAPON_KEY[i] : (invPos >= 0 ? String(invPos+1) : '–');
     return `<div class="wcard ${i===currentWeapon?'equipped':''}" data-i="${i}" style="${dim}">
-      <div class="wkey">[ ${w.ability ? WEAPON_KEY[i] : (invPos >= 0 ? invPos+1 : '–')} ]</div>
+      <div class="wc-top"><span class="wkey">${key}</span><span class="wcat">${cat}</span></div>
       <div class="wname">${w.name}</div>
-      <div class="wmode">${w.mode}${slotLbl}${w.scope?' · SCOPE':''}${w.pellets?' · '+w.pellets+' PELLETS':''}</div>
-      <div class="wstats">${stats}<br>${tag}</div>
+      <div class="wmode">${w.mode}${w.scope?' · SCOPE':''}${w.pellets?' · '+w.pellets+' PELLETS':''}${!w.ability && !w.melee ? ' · '+w.magMax+'/'+w.reserveMax : ''}</div>
+      <div class="wstats">${stats}</div>
+      <div class="wtag">${tag}</div>
     </div>`;
   }).join('');
 
@@ -717,6 +750,25 @@ function renderArmory(){
     }
     switchWeapon(i); toggleArmory(false);
   });
+}
+/* Five bars for a gun, each against the best gun on that axis. Accuracy is
+   its AIMED cone on a log scale: the cones run from 0.0015 to 0.06, forty
+   to one, and on a straight scale every gun but the sniper would read empty. */
+function gunBars(w){
+  const guns = WEAPONS.filter(g => !g.ability && !g.melee);
+  const dpsh = g => g.dmg * (g.pellets || 1), rpm = g => 60000 / g.fireRate;
+  const max = f => Math.max(...guns.map(f));
+  const lo = Math.min(...guns.map(g => g.adsSpread)), hi = Math.max(...guns.map(g => g.adsSpread));
+  const acc = g => Math.log(hi / g.adsSpread) / Math.log(hi / lo);
+  const rows = [
+    ['DAMAGE',   dpsh(w) / max(dpsh), dpsh(w)],
+    ['FIRE RATE', rpm(w) / max(rpm), Math.round(rpm(w))],
+    ['RANGE',    w.range / max(g => g.range), w.range + 'm'],
+    ['ACCURACY', acc(w), Math.round(acc(w) * 100)],
+    ['MAGAZINE', w.magMax / max(g => g.magMax), w.magMax],
+  ];
+  return rows.map(([k, f, v]) =>
+    `<div class="wb"><span>${k}</span><em>${v}</em><i><u style="width:${Math.max(4, f * 100).toFixed(0)}%"></u></i></div>`).join('');
 }
 function toggleArmory(force){
   const want = (force!==undefined) ? force : !armoryOpen;
@@ -741,7 +793,7 @@ function drawCompass(){
     const x = W/2 + (deg - heading + ((deg-heading>180)?-360:(deg-heading<-180)?360:0))*pxPerDeg;
     if(x<4||x>W-4) continue;
     const card = CARDINALS[deg];
-    if(card){ cg.fillStyle='rgba(255,255,255,0.95)'; cg.font='bold 12px Segoe UI'; cg.fillText(card, x, 3);
+    if(card){ cg.fillStyle='rgba(255,255,255,0.95)'; cg.font="700 13px 'Barlow Condensed','Segoe UI',sans-serif"; cg.fillText(card, x, 3);
       cg.fillRect(x-0.5, 18, 1.5, 8); }
     else if(deg%15===0){ cg.fillStyle='rgba(255,255,255,0.6)'; cg.fillRect(x-0.5, 20, 1, 6); }
     else { cg.fillStyle='rgba(255,255,255,0.3)'; cg.fillRect(x-0.5, 22, 1, 4); }

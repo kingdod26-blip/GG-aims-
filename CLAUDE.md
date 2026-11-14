@@ -1473,9 +1473,51 @@ multiplayer only.
   parent sat at 0, which reads like a transform bug and is not one. `clip`
   means there is no scroll container to scroll.
 
+## The tactical look (style.css, last section)
+
+Jack: *"i want the ui ... to be more hard core looking like a real fps
+game"* (2026-11-14), across the settings, the home page and the weapon
+system. **Everything above the `THE TACTICAL LAYER` comment in style.css is
+the old look and stays as the base; that one section overrides it**, so the
+look can be read, tuned or reverted as a unit.
+
+- **Type:** Barlow Condensed for labels and headings, JetBrains Mono for
+  every NUMBER (ammo, health, keys, ids) so counts never shift width, and a
+  system sans for running text. Loaded from Google Fonts with
+  `display=swap`, so a slow or blocked font never holds anything up. Chinese
+  falls back per glyph to YaHei / PingFang through the same stacks.
+- **Shape:** 2px corners, 1px rules, corner brackets on panels (`::before`/
+  `::after` - only on elements that were not already using them), and the
+  primary button NOTCHED on two corners with `clip-path`, not rounded.
+- **Colour:** crimson only as an accent - an edge bar, a bracket, a fill.
+  The state colours (win green, lose red, crosshair, resupply green) are
+  deliberately untouched.
+- **Settings** is laid out the way shooters lay theirs out: a numbered
+  vertical rail, label-left / `< value >` rows with one pip per option, and
+  an INFO pane describing the row you are on (`setd.<key>` in both language
+  packs). The arrows stop at the ends rather than wrapping. Esc backs out,
+  up/down move between rows, left/right step. Research behind the vertical
+  rail: Modern Warfare II's horizontal tile menus were the most criticised
+  UI in the series, and what players asked for was the vertical list.
+- **HUD:** health is a mono number over a ten-cell bar (the fill is MASKED
+  into cells, so `updateHUD` still sets one width and one colour), the ammo
+  is a big mono count over a magazine bar that goes red at a quarter, and a
+  slot strip over it shows what you carry keyed the way the number keys
+  select it (`renderSlots`, rebuilt only when the list or selection changes).
+- **Armory** is a loadout screen: a card per weapon tagged PRIMARY /
+  SIDEARM / ABILITY / MELEE, and for guns five bars (damage per shot, fire
+  rate, range, accuracy, magazine) each against the best gun on that axis
+  (`gunBars`). Accuracy is the AIMED cone on a LOG scale: the cones run forty
+  to one, and on a straight scale every gun but the sniper read empty.
+- **A trap this hit:** `byId` is a `const` declared ~line 310 of session.js,
+  and the settings renderer runs at load from ~line 240. The new settings
+  code called `byId` and threw, which aborted the rest of session.js and
+  with it the whole startup - a black screen with an empty menu. Code that
+  runs during session.js's own load uses `document.getElementById`.
+
 ## Settings (O)
 
-**SETTINGS, in three tabs** (2026-11-14). It was one list headed GRAPHICS &
+**SETTINGS, in three categories** (2026-11-14; restyled as a rail - see The tactical look). It was one list headed GRAPHICS &
 HUD with gameplay and practice rows mixed in under the frame cap; Jack asked
 for it to be split into graphics, gameplay and abilities. Each `SET_DEFS` row
 carries a `tab`; the last tab you used is remembered (`cx.settab`).
