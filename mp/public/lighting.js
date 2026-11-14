@@ -1821,11 +1821,17 @@ const LIT_PROP = {
      down the long walls, a pair of box girders bridging the hall, a trolley,
      and the hook block left hanging. All of it is 4.7m up or more. */
   crane(G, p, D, H){
-    const z = p.z, up = H - 8, y0 = 5.95 + up, y1 = 6.85 + up, tx = 11;
+    /* `x0/x1/z0/z1` bound it to a BUILDING. Without them it is drawn to the
+       arena, which is right for a map that is one hall and absurd for one
+       where the hall is a shed on a 240m site. */
+    const xa = p.x0 != null ? p.x0 : -D, xb = p.x1 != null ? p.x1 : D;
+    const za = p.z0 != null ? p.z0 : -D, zb = p.z1 != null ? p.z1 : D;
+    const hh = p.h != null ? p.h : H;
+    const z = p.z, up = hh - 8, y0 = 5.95 + up, y1 = 6.85 + up, tx = (xa + xb) / 2 + 11;
     for (const s of [-1, 1]){
-      litBox(G('steel'),  s > 0 ? D - 1.3 : -D + 0.5, 5.45 + up, -D, s > 0 ? D - 0.5 : -D + 1.3, 5.83 + up, D, { seg: 6, bottom: true });
-      litBox(G('steel'),  s > 0 ? D - 1.5 : -D + 0.4, 5.83 + up, z - 1.7, s > 0 ? D - 0.4 : -D + 1.5, 6.45 + up, z + 1.7, { seg: 4, bottom: true });
-      litBox(G('yellow'), -D + 0.5, y0, z + s * 0.9 - 0.25, D - 0.5, y1, z + s * 0.9 + 0.25, { seg: 6, bottom: true });
+      litBox(G('steel'),  s > 0 ? xb - 1.3 : xa + 0.5, 5.45 + up, za, s > 0 ? xb - 0.5 : xa + 1.3, 5.83 + up, zb, { seg: 6, bottom: true });
+      litBox(G('steel'),  s > 0 ? xb - 1.5 : xa + 0.4, 5.83 + up, z - 1.7, s > 0 ? xb - 0.4 : xa + 1.5, 6.45 + up, z + 1.7, { seg: 4, bottom: true });
+      litBox(G('yellow'), xa + 0.5, y0, z + s * 0.9 - 0.25, xb - 0.5, y1, z + s * 0.9 + 0.25, { seg: 6, bottom: true });
     }
     litBox(G('steel'),  tx - 1.3, y1, z - 1.25, tx + 1.3, y1 + 0.38, z + 1.25, { seg: 4, bottom: true });   // trolley
     litBox(G('steel'),  tx - 0.04, 5.15 + up, z - 0.04, tx + 0.04, y1, z + 0.04, { seg: 4, noTop: true });        // rope
@@ -1837,11 +1843,13 @@ const LIT_PROP = {
      the eye reads as an industrial roof. The diagonals are four-sided
      tubes, because a box here can only lie along an axis. */
   truss(G, p, D, H){
-    const span = p.span || 24, top = H - 0.35, bot = H - 2.7, bay = 4;
-    for (let z = -Math.floor((D - 2) / 12.5) * 12.5; z <= D - 2; z += 12.5){
-      litBox(G('girder'), -span, bot - 0.14, z - 0.11, span, bot + 0.14, z + 0.11, { seg: 6, tile: 2, bottom: true });
-      litBox(G('girder'), -span, top - 0.14, z - 0.11, span, top + 0.14, z + 0.11, { seg: 6, tile: 2, bottom: true });
-      for (let x = -span, i = 0; x < span - 0.01; x += bay, i++){
+    const cx = p.x != null ? p.x : 0, hh = p.h != null ? p.h : H;
+    const za = p.z0 != null ? p.z0 : -D, zb = p.z1 != null ? p.z1 : D;
+    const span = p.span || 24, top = hh - 0.35, bot = hh - 2.7, bay = 4;
+    for (let z = Math.ceil((za + 2) / 12.5) * 12.5; z <= zb - 2; z += 12.5){
+      litBox(G('girder'), cx - span, bot - 0.14, z - 0.11, cx + span, bot + 0.14, z + 0.11, { seg: 6, tile: 2, bottom: true });
+      litBox(G('girder'), cx - span, top - 0.14, z - 0.11, cx + span, top + 0.14, z + 0.11, { seg: 6, tile: 2, bottom: true });
+      for (let x = cx - span, i = 0; x < cx + span - 0.01; x += bay, i++){
         const a = i % 2 ? top : bot, b = i % 2 ? bot : top;
         litCyl(G('steel'), x, a, z, x + bay, b, z, 0.075, 0.075, 4, 1, false, false);
         litBox(G('steel'), x - 0.05, bot, z - 0.05, x + 0.05, top, z + 0.05, { seg: 4, noTop: true });
@@ -2014,11 +2022,12 @@ const LIT_PROP = {
     litBox(G('girder'), x0 - 0.3, y + 0.55, z0 - 0.3, x1 + 0.3, y + 0.95, z1 + 0.3, { seg: 4, tile: 2 });
   },
   tray(G, p, D, H){
-    const x = p.x, up = H - 8;
-    litBox(G('steel'), x - 0.36, 6.92 + up, -D, x + 0.36, 6.97 + up, D, { seg: 6, bottom: true });
-    for (const o of [-0.34, 0.34]) litBox(G('steel'), x + o - 0.02, 6.97 + up, -D, x + o + 0.02, 7.07 + up, D, { seg: 6 });
-    for (let z = -D + 4; z < D; z += 8) for (const o of [-0.34, 0.34])
-      litBox(G('steel'), x + o - 0.015, 7.07 + up, z - 0.015, x + o + 0.015, H, z + 0.015, { seg: 4, noTop: true });
+    const x = p.x, hh = p.h != null ? p.h : H, up = hh - 8;
+    const za = p.z0 != null ? p.z0 : -D, zb = p.z1 != null ? p.z1 : D;
+    litBox(G('steel'), x - 0.36, 6.92 + up, za, x + 0.36, 6.97 + up, zb, { seg: 6, bottom: true });
+    for (const o of [-0.34, 0.34]) litBox(G('steel'), x + o - 0.02, 6.97 + up, za, x + o + 0.02, 7.07 + up, zb, { seg: 6 });
+    for (let z = za + 4; z < zb; z += 8) for (const o of [-0.34, 0.34])
+      litBox(G('steel'), x + o - 0.015, 7.07 + up, z - 0.015, x + o + 0.015, hh, z + 0.015, { seg: 4, noTop: true });
   },
 };
 

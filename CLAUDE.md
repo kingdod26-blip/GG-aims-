@@ -944,6 +944,58 @@ ring beam's top left undrawn.
 
 Not checked: a real multiplayer match, and the frame cost.
 
+## The works (`works`) — all three maps on one site
+
+Jack: *"combind the three map ... as big as u can and as big as u want as big
+as you need"*. So 240 metres square, with the turbine hall and the substation
+at the exact dimensions they already had.
+
+**Nothing in it is re-typed.** `scratchpad/works.js` **reads** maps.js and
+places the other two maps' boxes: the hall's are `powerstation`'s moved 56m
+east, the compound's are `substation`'s moved 62m west. The reactor bay, both
+turbine units, the column rows, the three lanes and the corner towers are
+therefore exactly what they are in the maps they came from, and cannot drift
+from them by being copied badly. Regenerate with
+`node scratchpad/works.js` — it is idempotent, and it reads the file it
+rewrites, so **repair maps.js before re-running it if it has left the file
+broken** (it cannot parse its own bad output).
+
+What had to change for them to fit together:
+
+- **The hall's perimeter was derived from its own `arena`.** Here it is
+  `cladding` with the doors left out between segments, plus a `roofRect`.
+  Two doors west onto the yard, one north to the boiler house, one south to
+  the quay; the east face is solid onto the service road.
+- **The substation never needed a roof.** It was always an outdoor shape, so
+  it becomes the walled compound it always looked like — `firewall` at 5m,
+  with a gate on each of three sides.
+- **`crane`, `truss` and `tray` take `x0/x1/z0/z1` and `h` now.** Drawn to
+  the arena, as they were, the hall's crane would have spanned the cooling
+  towers.
+- **Walls are written as FROM/TO spans, not centre-and-width.** Doing that
+  arithmetic in my head first time gave the hall an 80m west wall straight
+  across its own doorway, and the compound a north wall of *negative* width.
+  The probe for "is this doorway open" caught both.
+- **`gain` is 1.0, not the station's 0.75.** The sky panels are higher (52m)
+  and further apart (30m) because the site is wider, so fewer fall inside the
+  bake's 38m cull radius and every surface gets less light. Measure per map;
+  never inherit it.
+
+**The yard between the two is the only ground every route crosses**, so the
+step-up transformers and the resupply are in it.
+
+### Measured
+
+273 boxes, 277 colliders, 270k triangles, build+bake **1.5s** (the broadphase
+is doing the work — this is a bigger map than the station and bakes faster
+than the station did before it), 73.7% of the floor clear for spawns. Every
+door and gate probed open and every wall probed solid. Drawn-vs-collision
+over the whole site at 3m spacing: **0** surfaces that look standable and are
+not, and **4** cells of invisible collision — all four the same box corner,
+where a ray hits the edge exactly and misses.
+
+Not checked: a real multiplayer match, and the frame cost at 270k triangles.
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,
