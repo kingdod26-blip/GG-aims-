@@ -58,6 +58,12 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
 let slotSig = '';
 function renderSlots(){
   const host = document.getElementById('slotRow'); if (!host) return;
+  /* Match only. On the range you hold all five guns and the blade at once,
+     so the strip is six boxes saying "everything" - Jack: "i dont think the
+     weapons should be displayed in the practice mode". In a match it shows
+     the two or three you actually bought, which is the point of it. */
+  if (gameMode !== 'mp'){ if (slotSig !== 'off'){ host.innerHTML = ''; host.style.display = 'none'; slotSig = 'off'; } return; }
+  host.style.display = '';
   const inv = inventory(), sig = inv.join(',') + '|' + currentWeapon;
   if (sig === slotSig) return; slotSig = sig;
   host.innerHTML = inv.map((i, k) => {

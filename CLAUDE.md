@@ -1504,6 +1504,8 @@ look can be read, tuned or reverted as a unit.
   is a big mono count over a magazine bar that goes red at a quarter, and a
   slot strip over it shows what you carry keyed the way the number keys
   select it (`renderSlots`, rebuilt only when the list or selection changes).
+  **Match only**: on the range you hold every gun at once and the strip was
+  six boxes saying "everything" (Jack asked for it gone there).
 - **Armory** is a loadout screen: a card per weapon tagged PRIMARY /
   SIDEARM / ABILITY / MELEE, and for guns five bars (damage per shot, fire
   rate, range, accuracy, magazine) each against the best gun on that axis
