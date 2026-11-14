@@ -76,11 +76,20 @@ const MAPS = {
     resupply: { x: 0, z: 0, y: 2.4 },
     boxes: [
 
-      // the bioshield deck: a chamfered square,
-      { x:      0, z:      0, w:    22, d:    16, h:  2.4, mat: 'bioshield'    },
-
-      // two crossed boxes, climbable from any side
-      { x:      0, z:      0, w:    16, d:    22, h:  2.4, mat: 'bioshield'    },
+      // THE BIOSHIELD DECK, climbable from any side. One staircase drum of
+      // nine boxes, not the two crossed ones it started as: two boxes of the
+      // SAME HEIGHT each draw their own top, so over the 16x16 where they
+      // overlapped there were two coplanar faces fighting for one depth --
+      // 256 square metres of flicker on the thing you stand on to resupply.
+      { x:      0, z:      0, w:  21.38, d:  5.185, h:  2.4, mat: 'bioshield'   , r: 11, n: 9 },
+      { x:      0, z:      0, w: 20.083, d:  8.981, h:  2.4, mat: 'hidden'       },
+      { x:      0, z:      0, w: 18.696, d: 11.595, h:  2.4, mat: 'hidden'       },
+      { x:      0, z:      0, w: 17.198, d: 13.719, h:  2.4, mat: 'hidden'       },
+      { x:      0, z:      0, w: 15.556, d: 15.556, h:  2.4, mat: 'hidden'       },
+      { x:      0, z:      0, w: 13.719, d: 17.198, h:  2.4, mat: 'hidden'       },
+      { x:      0, z:      0, w: 11.595, d: 18.696, h:  2.4, mat: 'hidden'       },
+      { x:      0, z:      0, w:  8.981, d: 20.083, h:  2.4, mat: 'hidden'       },
+      { x:      0, z:      0, w:  5.185, d:  21.38, h:  2.4, mat: 'hidden'       },
 
       // the reactor vessel, as boxes; the prop draws the drum
       { x:      0, z:      0, w: 6.025, d: 1.461, h:  7.0, mat: 'hidden'      , r: 3.1, n: 9 },

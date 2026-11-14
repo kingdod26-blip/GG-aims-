@@ -609,12 +609,32 @@ function litDrumPrism(g, cx, cz, R, N, y0, y1, o){
     const a = loop[i], b = loop[(i + 1) % loop.length];
     const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.abs(dx) + Math.abs(dz);
     if (len < 1e-6) continue;
-    const ux = dx / len, uz = dz / len;
-    /* Outward is to the RIGHT of travel for an anticlockwise loop in a
-       left-handed xz frame: (uz, -ux) points away from the centre. */
-    let nx = uz, nz = -ux;
-    if ((a[0] + b[0]) * nx + (a[1] + b[1]) * nz < 0){ nx = -nx; nz = -nz; }
-    litGrid(g, cx + a[0], y0, cz + a[1], ux, 0, uz, 0, 1, 0, len, dy,
+    /* WINDING, THEN NORMAL - and in that order, because they are not the
+       same decision and getting them confused is what made every drum in
+       the game half transparent.
+
+       `litGrid` winds its triangles from u CROSS v. With u along the
+       segment and v straight up, that cross product is (-uz, 0, ux). The
+       first version passed (uz, 0, -ux) - exactly the opposite - and then
+       "corrected" it by flipping the normal whenever it pointed inward.
+       Flipping a normal does not flip a winding, so every facet whose
+       normal needed no flip was left facing INWARDS and was culled: a ring
+       of alternating visible panels and see-through gaps, on the reactor
+       deck, both cooling towers, the stack, the vessel and every tank.
+       It reads exactly like holes in the geometry, which is what it is.
+
+       So: if the winding's own normal points inward, reverse the DIRECTION
+       OF TRAVEL, which flips the winding with it. Then, for shading only,
+       hand it the RADIAL normal - a staircase has four face normals, so
+       under a sky the +-x and +-z facets take very different light and the
+       ring stripes; aiming each facet's normal at the circle it stands for
+       makes the shading sweep round like a cylinder's while the surface
+       stays exactly the boxes that stop you. */
+    let p0 = a, p1 = b, ux = dx / len, uz = dz / len;
+    const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
+    if ((-uz) * mx + ux * mz < 0){ p0 = b; p1 = a; ux = -ux; uz = -uz; }
+    const ml = Math.hypot(mx, mz) || 1, nx = mx / ml, nz = mz / ml;
+    litGrid(g, cx + p0[0], y0, cz + p0[1], ux, 0, uz, 0, 1, 0, len, dy,
             nx, 0, nz, o.seg || LIT.coverSeg, o.seg || LIT.coverSeg, tile, tv, 0, y0);
   }
   if (!o.top) return;
@@ -1686,14 +1706,24 @@ const LIT_DRAW = {
      the top edge, at different sizes. `plinth` already draws exactly that,
      so they share it rather than each growing a near-copy. */
   deck: null, step: null, tower: null,          // filled in below from plinth
-  /* The bioshield gets a hazard band at the foot as well: it is the one
-     piece of concrete in the hall with something live inside it. */
+  /* The bioshield: a hazard band at the foot, concrete, a yellow nosing.
+     It is ONE DRUM, and it used to be two crossed boxes of the same height.
+     Two boxes at the same height each draw their own top, so over the 16x16
+     where they overlapped there were two coplanar faces fighting for the
+     same depth - 256 square metres of flicker in the middle of the hall,
+     which is the thing you stand on to take the resupply. A drum draws one
+     top, and `litDrumPrism` makes that top out of disjoint bands for the
+     same reason. */
   bioshield(G, b, x0, z0, x1, z1){
-    const n = 0.14;
-    litBox(G('hazard'),   x0, 0, z0, x1, 0.45, z1, { seg: 3, tile: 0.8 });
-    litBox(G('concrete'), x0, 0.45, z0, x1, b.h - n, z1, { seg: LIT.coverSeg, tile: 120, tileV: 8, noTop: true });
-    litBox(G('yellow'),   x0, b.h - n, z0, x1, b.h, z1, { seg: 3, noTop: true });
-    litBox(G('concrete'), x0, 0, z0, x1, b.h, z1, { seg: LIT.coverSeg, tile: 120, tileV: 8, noSides: true });
+    if (!b.r) {       // an old two-box deck: draw it as before rather than nothing
+      litBox(G('concrete'), x0, 0, z0, x1, b.h, z1, { seg: LIT.coverSeg, tile: 120, tileV: 8 });
+      return;
+    }
+    const n = 0.14, N = b.n || 9;
+    litDrumPrism(G('hazard'),   b.x, b.z, b.r,        N, 0, 0.45,      { tile: 0.8 });
+    litDrumPrism(G('concrete'), b.x, b.z, b.r,        N, 0.45, b.h - n, { tile: 6 });
+    litDrumPrism(G('yellow'),   b.x, b.z, b.r,        N, b.h - n, b.h, { tile: 2 });
+    litDrumPrism(G('concrete'), b.x, b.z, b.r - 0.02, N, 0, b.h,       { tile: 6, top: true, seg: 3 });
   },
   /* A feedwater tank: a drum on a skirt, with a FLAT top.
      It had a dished top, and a dome is a lie of the other kind: collision
@@ -2011,15 +2041,21 @@ const LIT_PROP = {
     /* Blue on top, grey decking underneath. One box with `bottom` painted
        the inside of the hall the colour of the outside of the roof, which
        no building has. */
-    litBox(G('roofblue'), x0, y, z0, x1, y + 0.55, z1, { seg: 4, tile: 3.2, tileV: 3.2 });
-    litGrid(G('cladding'), x0, y - 0.01, z0, 1,0,0, 0,0,1, x1 - x0, z1 - z0, 0,-1,0, 4, 4, 3.2, 3.2, x0, z0);
+    /* The slab starts 50mm ABOVE the walls, not 10mm inside them. The
+       cladding's parapet band tops out at exactly `y`, and an underside
+       drawn at y-0.01 put the ceiling a centimetre below it - so every wall
+       poked through the roof along its whole length. Nothing here is within
+       reach, so the gap is never seen; the overlap was. */
+    const ry = y + 0.05;
+    litBox(G('roofblue'), x0, ry, z0, x1, ry + 0.55, z1, { seg: 4, tile: 3.2, tileV: 3.2 });
+    litGrid(G('cladding'), x0, ry, z0, 1,0,0, 0,0,1, x1 - x0, z1 - z0, 0,-1,0, 4, 4, 3.2, 3.2, x0, z0);
     for (let x = x0 + 8; x < x1 - 6; x += 12){            // rooflight strips, both sides of the slab
-      litGrid(G('sky'), x, y + 0.57, z0 + 3, 1,0,0, 0,0,1, 5, (z1 - z0) - 6, 0,1,0, 99, 99, 1, 1);
-      litGrid(G('sky'), x + 5, y - 0.02, z0 + 3, -1,0,0, 0,0,1, 5, (z1 - z0) - 6, 0,-1,0, 99, 99, 1, 1);
+      litGrid(G('sky'), x, ry + 0.57, z0 + 3, 1,0,0, 0,0,1, 5, (z1 - z0) - 6, 0,1,0, 99, 99, 1, 1);
+      litGrid(G('sky'), x + 5, ry - 0.01, z0 + 3, -1,0,0, 0,0,1, 5, (z1 - z0) - 6, 0,-1,0, 99, 99, 1, 1);
     }
     for (let z = z0 + 6; z < z1 - 4; z += 9)              // the trusses you see from inside
-      litBox(G('girder'), x0 + 1, y - 1.5, z - 0.16, x1 - 1, y - 1.2, z + 0.16, { seg: 5, tile: 2, bottom: true });
-    litBox(G('girder'), x0 - 0.3, y + 0.55, z0 - 0.3, x1 + 0.3, y + 0.95, z1 + 0.3, { seg: 4, tile: 2 });
+      litBox(G('girder'), x0 + 1, ry - 1.5, z - 0.16, x1 - 1, ry - 1.2, z + 0.16, { seg: 5, tile: 2, bottom: true });
+    litBox(G('girder'), x0 - 0.3, ry + 0.55, z0 - 0.3, x1 + 0.3, ry + 0.95, z1 + 0.3, { seg: 4, tile: 2 });
   },
   tray(G, p, D, H){
     const x = p.x, hh = p.h != null ? p.h : H, up = hh - 8;

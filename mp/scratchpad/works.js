@@ -54,18 +54,23 @@ const HW = 1.5, HX0 = -3, HX1 = 115, HZ0 = -59, HZ1 = 59, HH = 16;
 const wallN = (z, x0, x1, h, mat) => { if (x1 - x0 > 0.01) box((x0 + x1) / 2, z, x1 - x0, HW, h, mat); };
 const wallE = (x, z0, z1, h, mat) => { if (z1 - z0 > 0.01) box(x, (z0 + z1) / 2, HW, z1 - z0, h, mat); };
 note('and the shell round it: cladding, 16m, with the doors left out');
+/* The side walls run the FULL length and the end walls BUTT between them,
+   rather than both running long and crossing at the corners. Two boxes of
+   the same height overlapping by 1.5x1.5m each draw their own top over that
+   square, and two coplanar faces at one depth flicker - on top of every
+   corner of every building. Butting them means no shared volume at all. */
 // west face, two doors onto the yard that joins it to the substation
 wallE(HX0 - HW / 2, HZ0 - HW, -20, HH, 'cladding');
 wallE(HX0 - HW / 2, -14, 14, HH, 'cladding');
 wallE(HX0 - HW / 2, 20, HZ1 + HW, HH, 'cladding');
 // east face, solid onto the service road
 wallE(HX1 + HW / 2, HZ0 - HW, HZ1 + HW, HH, 'cladding');
-// north face, a door toward the boiler house
-wallN(HZ0 - HW / 2, HX0 - HW, 46, HH, 'cladding');
-wallN(HZ0 - HW / 2, 54, HX1 + HW, HH, 'cladding');
+// north face, a door toward the boiler house — between the two side walls
+wallN(HZ0 - HW / 2, HX0, 46, HH, 'cladding');
+wallN(HZ0 - HW / 2, 54, HX1, HH, 'cladding');
 // south face, a door toward the quay
-wallN(HZ1 + HW / 2, HX0 - HW, 20, HH, 'cladding');
-wallN(HZ1 + HW / 2, 28, HX1 + HW, HH, 'cladding');
+wallN(HZ1 + HW / 2, HX0, 20, HH, 'cladding');
+wallN(HZ1 + HW / 2, 28, HX1, HH, 'cladding');
 
 /* ===================================================================== */
 /* 2. THE SUBSTATION, verbatim, as a walled compound                     */
@@ -81,13 +86,13 @@ const subE = (x, z0, z1) => { if (z1 - z0 > 0.01) box(x, (z0 + z1) / 2, SW, z1 -
 note('with a compound wall and its gates — the gates are on the centre lines\n' +
      '      of the compound, not of the map, which is where that arithmetic\n' +
      '      went wrong the first time');
-subE(SX0 - SW / 2, SZ0 - SW, SZ1 + SW);                      // west, solid
+subE(SX0 - SW / 2, SZ0 - SW, SZ1 + SW);                      // west, solid, full length
 subE(SX1 + SW / 2, SZ0 - SW, -8);                            // east, the main gate onto the yard
 subE(SX1 + SW / 2, 8, SZ1 + SW);
-subN(SZ0 - SW / 2, SX0 - SW, SUB_DX - 6);                    // north, a gate
-subN(SZ0 - SW / 2, SUB_DX + 6, SX1 + SW);
-subN(SZ1 + SW / 2, SX0 - SW, SUB_DX - 6);                    // south, a gate
-subN(SZ1 + SW / 2, SUB_DX + 6, SX1 + SW);
+subN(SZ0 - SW / 2, SX0, SUB_DX - 6);                         // north, a gate, butting between them
+subN(SZ0 - SW / 2, SUB_DX + 6, SX1);
+subN(SZ1 + SW / 2, SX0, SUB_DX - 6);                         // south, a gate
+subN(SZ1 + SW / 2, SUB_DX + 6, SX1);
 
 /* ===================================================================== */
 /* 3. THE SITE AROUND THEM                                               */

@@ -1001,9 +1001,50 @@ What had to change for them to fit together:
 **The yard between the two is the only ground every route crosses**, so the
 step-up transformers and the resupply are in it.
 
+### Three things that were clipping (2026-11-14)
+
+Jack: *"fix the things that is clipping"*. Found by differencing the map
+rather than by looking: box pairs whose footprints overlap **and whose
+heights match**, which is exactly where two coplanar faces fight for one
+depth.
+
+- **A WINDING IS NOT A NORMAL, and confusing them made every drum in the
+  game half transparent.** `litGrid` winds its triangles from `u × v`. With
+  `u` along a wall segment and `v` straight up, that is `(-uz, 0, ux)`.
+  `litDrumPrism` passed `(uz, 0, -ux)` — exactly the opposite — and then
+  "corrected" it by flipping the NORMAL whenever it pointed inward. Flipping
+  a normal does not flip a winding: every facet that needed no flip was left
+  facing inwards and was culled. The reactor deck, both cooling towers, the
+  stack, the vessel and all four tanks were rings of alternating visible
+  panels and see-through gaps. It reads as holes in the geometry, because it
+  is. The fix reverses the direction of TRAVEL when the winding's own normal
+  points inward, which flips the winding with it.
+  **Probe it from OUTSIDE.** The first test fired rays outward from inside
+  each drum and reported everything missing — correctly, since the facets are
+  backfaces from in there. Cast inward from outside and check the hit lands
+  at the radius: 0 missed facets on all six drums, at 72 angles each.
+- **The facets take a RADIAL normal, not their own.** A staircase has four
+  face normals, so under a sky the ±x and ±z facets take very different
+  light and the ring stripes bright/dark. Aiming each facet's normal at the
+  circle it stands for makes the shading sweep round like a cylinder's while
+  the surface stays exactly the boxes that stop you.
+- **The shield deck is one drum, not two crossed boxes.** Two boxes of the
+  same height each draw their own top, so over the 16×16 where they
+  overlapped there were two coplanar faces — 256m² of flicker on the thing
+  you stand on to resupply.
+- **Walls BUTT, they do not cross.** Running both the side and end walls
+  long gave every building corner a 1.5×1.5m overlap of two same-height
+  boxes: eight more coplanar tops. End walls now span between the side
+  walls' faces.
+- **The hall roof sits 50mm above the walls.** Its underside was drawn at
+  `y - 0.01` while the cladding's parapet tops out at exactly `y`, so every
+  wall poked a centimetre through the ceiling along its whole length.
+
+Re-checked after: **0** coplanar drawn tops anywhere in the map.
+
 ### Measured
 
-273 boxes, 277 colliders, 270k triangles, build+bake **1.5s** (the broadphase
+280 boxes, 284 colliders, build+bake **1.5s** (the broadphase
 is doing the work — this is a bigger map than the station and bakes faster
 than the station did before it), 73.7% of the floor clear for spawns. Every
 door and gate probed open and every wall probed solid. Drawn-vs-collision

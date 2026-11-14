@@ -93,8 +93,15 @@ const MAPS = {
       // given walls and a roof instead of being the world. Its boxes are
       // copied, not re-typed: reactor bay, both units, the column rows,
       // the control rooms, all at the dimensions they already had.
-      { x:      56, z:       0, w:      22, d:      16, h:  2.4, mat: 'bioshield'   },
-      { x:      56, z:       0, w:      16, d:      22, h:  2.4, mat: 'bioshield'   },
+      { x:      56, z:       0, w:   21.38, d:   5.185, h:  2.4, mat: 'bioshield'  , r: 11, n: 9 },
+      { x:      56, z:       0, w:  20.083, d:   8.981, h:  2.4, mat: 'hidden'      },
+      { x:      56, z:       0, w:  18.696, d:  11.595, h:  2.4, mat: 'hidden'      },
+      { x:      56, z:       0, w:  17.198, d:  13.719, h:  2.4, mat: 'hidden'      },
+      { x:      56, z:       0, w:  15.556, d:  15.556, h:  2.4, mat: 'hidden'      },
+      { x:      56, z:       0, w:  13.719, d:  17.198, h:  2.4, mat: 'hidden'      },
+      { x:      56, z:       0, w:  11.595, d:  18.696, h:  2.4, mat: 'hidden'      },
+      { x:      56, z:       0, w:   8.981, d:  20.083, h:  2.4, mat: 'hidden'      },
+      { x:      56, z:       0, w:   5.185, d:   21.38, h:  2.4, mat: 'hidden'      },
       { x:      56, z:       0, w:   6.025, d:   1.461, h:    7, mat: 'hidden'     , r: 3.1, n: 9 },
       { x:      56, z:       0, w:    5.66, d:   2.531, h:    7, mat: 'hidden'      },
       { x:      56, z:       0, w:   5.269, d:   3.268, h:    7, mat: 'hidden'      },
@@ -226,10 +233,10 @@ const MAPS = {
       { x:   -3.75, z:       0, w:     1.5, d:      28, h:   16, mat: 'cladding'    },
       { x:   -3.75, z:   40.25, w:     1.5, d:    40.5, h:   16, mat: 'cladding'    },
       { x:  115.75, z:       0, w:     1.5, d:     121, h:   16, mat: 'cladding'    },
-      { x:   20.75, z:  -59.75, w:    50.5, d:     1.5, h:   16, mat: 'cladding'    },
-      { x:   85.25, z:  -59.75, w:    62.5, d:     1.5, h:   16, mat: 'cladding'    },
-      { x:    7.75, z:   59.75, w:    24.5, d:     1.5, h:   16, mat: 'cladding'    },
-      { x:   72.25, z:   59.75, w:    88.5, d:     1.5, h:   16, mat: 'cladding'    },
+      { x:    21.5, z:  -59.75, w:      49, d:     1.5, h:   16, mat: 'cladding'    },
+      { x:    84.5, z:  -59.75, w:      61, d:     1.5, h:   16, mat: 'cladding'    },
+      { x:     8.5, z:   59.75, w:      23, d:     1.5, h:   16, mat: 'cladding'    },
+      { x:    71.5, z:   59.75, w:      87, d:     1.5, h:   16, mat: 'cladding'    },
 
       // THE SUBSTATION — the whole of that map, moved west. It was always an
       // outdoor shape (three walled lanes, four corner towers, a core), so
@@ -258,10 +265,10 @@ const MAPS = {
       { x:  -104.7, z:       0, w:     1.4, d:    94.8, h:    5, mat: 'firewall'    },
       { x:   -19.3, z:   -27.7, w:     1.4, d:    39.4, h:    5, mat: 'firewall'    },
       { x:   -19.3, z:    27.7, w:     1.4, d:    39.4, h:    5, mat: 'firewall'    },
-      { x:   -86.7, z:   -46.7, w:    37.4, d:     1.4, h:    5, mat: 'firewall'    },
-      { x:   -37.3, z:   -46.7, w:    37.4, d:     1.4, h:    5, mat: 'firewall'    },
-      { x:   -86.7, z:    46.7, w:    37.4, d:     1.4, h:    5, mat: 'firewall'    },
-      { x:   -37.3, z:    46.7, w:    37.4, d:     1.4, h:    5, mat: 'firewall'    },
+      { x:     -86, z:   -46.7, w:      36, d:     1.4, h:    5, mat: 'firewall'    },
+      { x:     -38, z:   -46.7, w:      36, d:     1.4, h:    5, mat: 'firewall'    },
+      { x:     -86, z:    46.7, w:      36, d:     1.4, h:    5, mat: 'firewall'    },
+      { x:     -38, z:    46.7, w:      36, d:     1.4, h:    5, mat: 'firewall'    },
 
       // THE COOLING TOWERS, north-west, where there is room for two of them
       { x:     -74, z:     -90, w:  25.267, d:   6.128, h:  2.6, mat: 'mass'       , r: 13, n: 9 },
