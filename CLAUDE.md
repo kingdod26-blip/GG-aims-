@@ -1818,8 +1818,10 @@ the player model was fan art of a character another company owns.
   z -0.028..-0.098 because further back the receiver hump rises to 0.051.
   A tube scope came first and was replaced: its solid eyepiece sat on the
   line of sight and hid everything. Checked: 0 rifle vertices inside it.
-  Known: when aiming, the rifle is held ~0.4m from the eye, so the window
-  is small on screen and the rear iron sight hides its lower edge.
+  **The rifle aims CLOSE** (`adsZ: -0.12` in WEAPONS, read in loop.js; every
+  other gun keeps 0.43m): Jack sent a reference where the sight fills the
+  middle of the view. The frame sits ~16cm from the eye, and the rear iron
+  sight and stock fall behind the camera (near plane 0.05) and are not drawn.
 - **The muzzle flash has no real light.** One PointLight in the scene, even at
   intensity 0, made every lit pixel compute it: an idle frame went from about
   5ms to 9-11ms and Jack felt it as lag on the trigger. Do not add one back.

@@ -345,7 +345,12 @@ function loop(){ requestAnimationFrame(loop);
     const w = curW();
     const adsX = w.redDot ? -0.02 : 0;                       // the model sits 0.02 right of the holder
     const adsY = w.redDot ? -((w.aimTop !== undefined ? w.aimTop : 0.06) + AIM_GAP) : -0.21;
-    const bx = 0.3 + (adsX - 0.3)*ads, by = -0.225 + (adsY + 0.225)*ads, bz = -0.55 + 0.12*ads;
+    /* How far out the gun is held at full ADS: 0.43m unless the weapon says.
+       The rifle says 0.12, so its reflex sight's window sits ~16cm from the
+       eye and fills the view the way Jack's reference does; the rear iron
+       sight and the stock then fall behind the camera and are not drawn. */
+    const adsZ = w.adsZ !== undefined ? w.adsZ : -0.43;
+    const bx = 0.3 + (adsX - 0.3)*ads, by = -0.225 + (adsY + 0.225)*ads, bz = -0.55 + (adsZ + 0.55)*ads;
     // tuck the weapon down and in while rolling — you don't run a somersault
     // with the gun still levelled at the horizon
     const tuck = ROLL.tuck*rollPunch;
