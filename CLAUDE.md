@@ -1039,6 +1039,32 @@ change:
 Not done yet: everything outdoors is still overexposed into beige haze
 (stage 2), which also tints the steam from the ground.
 
+### Map improvement, stage 2: light and sky (2026-11-15)
+
+The outdoor site was a beige haze: measured mean luminance 0.65-0.71 and
+saturation ~0.10 (a well-exposed outdoor frame is ~0.5; the references are
+0.25-0.35 saturated). Four causes, four fixes:
+
+- **Exposure and grade are per-sky now.** `litLights` sets
+  `renderer.toneMappingExposure` to `LIT.skyExposure` (1.0, against the
+  hall-tuned 1.45) and the grade's new `uWarm` to `LIT.skyWarm` (0.3) and
+  `uSat` to `LIT.skySat` (1.15) under an open sky in play; the menu and
+  indoor maps keep 1.45 / 1.0 / 1.12. The split tone warms HIGHLIGHTS, and
+  outdoors most of the screen is highlight.
+- **The sky is a sphere that follows the camera** (`LIT_DOME`, moved in
+  `litFrame`). It was a 280m box: the gradient streaked across its ceiling,
+  and an aerial camera stood outside it. The texture is painted for a sphere:
+  zenith, clouds, a hill line at the horizon, hazy fields below.
+- **The haze is pale blue** (`fogSky` 0xc8d6e1, 120-640m), matching the
+  horizon stop.
+- **The treeline shades as `cover`**: the wall kind drew it black with the
+  crimson strip.
+- Steam colours run above 1: mid-grey steam beside saturated blue reads TAN
+  (a contrast illusion; sampled pixels were neutral grey).
+
+Measured after: luminance 0.49-0.59, saturation 0.20-0.29, near-white
+pixels down from up to 9.4% to 3.6%.
+
 ### The switchyard
 
 The west compound was the `substation` map moved over: three walled lanes and

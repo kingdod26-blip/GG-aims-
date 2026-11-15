@@ -202,11 +202,11 @@ const GradeShader = {
   uniforms: { tDiffuse:{ value:null }, uTime:{ value:0 },
               uPx:{ value:new THREE.Vector2(1/1280, 1/720) },
               uVig:{ value:0.62 }, uGrain:{ value:0.04 },
-              uSat:{ value:1.12 }, uContrast:{ value:0.26 } },
+              uSat:{ value:1.12 }, uContrast:{ value:0.26 }, uWarm:{ value:1.0 } },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uSat, uContrast; uniform vec2 uPx;
+    uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uSat, uContrast, uWarm; uniform vec2 uPx;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
     float luma(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
@@ -233,7 +233,10 @@ const GradeShader = {
     void main(){
       vec3 c = smoothEdges();
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-      c *= mix(vec3(0.88, 1.0, 1.07), vec3(1.07, 1.0, 0.91), smoothstep(0.12, 0.78, l));
+      /* Split tone: cool shadows, warm highlights. uWarm scales it - 1 in the
+         hall, where highlights are lamps, and low outdoors, where most of the
+         screen IS highlight and the warm push turned the whole site beige. */
+      c *= mix(vec3(1.0), mix(vec3(0.88, 1.0, 1.07), vec3(1.07, 1.0, 0.91), smoothstep(0.12, 0.78, l)), uWarm);
       c = mix(c, c * c * (3.0 - 2.0 * c), uContrast);     // gentle S-curve
       c += vec3(0.004, 0.008, 0.012);                      // lifted, slightly teal blacks
       c = mix(vec3(l), c, uSat);

@@ -96,7 +96,11 @@ const LIT = {
   fogNear: 58, fogFar: 205,
   /* Outdoors you can see a long way and the haze is bright, not dark. The
      colour is the bottom stop of the sky gradient, so the two meet cleanly. */
-  skyFogNear: 90, skyFogFar: 420, fogSky: 0xdfe4e7,
+  skyFogNear: 120, skyFogFar: 640, fogSky: 0xc8d6e1,
+  /* The open sky's own exposure and grade (stage 2, 2026-11-15). 1.45 and a
+     full warm split were tuned for the dark hall; outdoors they put the mean
+     luminance near 0.7 and the saturation near 0.1 - a beige haze. */
+  skyExposure: 1.0, skyWarm: 0.3, skySat: 1.15,
   bloom: [0.62, 0.72, 0.80],       // strength, radius, threshold
   /* OUTDOORS THE BLOOM HAS TO BE RE-AIMED. Indoors the only thing over the
      threshold is a ceiling panel: a few hundred bright pixels in a dark
@@ -965,19 +969,43 @@ function litSwitchTextures(){
    is no seam where one stops. The band of cloud is there to stop a clear
    gradient banding on an 8-bit display; the grade's dither finishes the job. */
 function litSkyTexture(){
-  const c = litCanvas(8, 256, (g, w, h) => {
-    const sky = g.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0.00, '#8fb4d8');          // overhead
-    sky.addColorStop(0.42, '#b9cfe2');
-    sky.addColorStop(0.62, '#d4dee6');
-    sky.addColorStop(0.78, '#dfe4e7');          // the horizon, = LIT.fogSky
-    sky.addColorStop(1.00, '#dfe4e7');
-    g.fillStyle = sky; g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 40; i++){               // a little cloud, to break the ramp
-      const y = 20 + Math.random() * 150;
-      g.fillStyle = 'rgba(255,255,255,' + (0.03 + Math.random() * 0.05).toFixed(3) + ')';
-      g.fillRect(0, y, w, 2 + Math.random() * 9);
+  /* Painted for a SPHERE (canvas top = zenith, middle = horizon, bottom =
+     nadir), from Jack's daylight references: a deep blue overhead paling to
+     a hazy horizon, a few soft clouds, a far line of low hills and woods,
+     and hazy fields below it. The horizon colour is LIT.fogSky, so the haze
+     and the sky meet with no seam. 1024 wide so the hill line does not
+     visibly repeat round the circle. */
+  const c = litCanvas(1024, 512, (g, w, h) => {
+    const sky = g.createLinearGradient(0, 0, 0, h * 0.5);
+    sky.addColorStop(0.00, '#3a6fb3');          // zenith
+    sky.addColorStop(0.45, '#5b8fca');
+    sky.addColorStop(0.78, '#93b8dc');
+    sky.addColorStop(0.94, '#bccfe0');
+    sky.addColorStop(1.00, '#c8d6e1');          // the horizon, = LIT.fogSky
+    g.fillStyle = sky; g.fillRect(0, 0, w, h * 0.5);
+    const land = g.createLinearGradient(0, h * 0.5, 0, h);
+    land.addColorStop(0.00, '#aab6ab'); land.addColorStop(0.08, '#8d9a7f'); land.addColorStop(0.4, '#6c7d5a'); land.addColorStop(1, '#55663f');
+    g.fillStyle = land; g.fillRect(0, h * 0.5, w, h * 0.5);
+    const rnd = litRand(31);
+    // clouds: soft flattened blobs in clusters, kept off the pole where a sphere pinches
+    for (let k = 0; k < 14; k++){
+      const cx = rnd() * w, cy = h * (0.20 + rnd() * 0.22), sc = 0.6 + rnd() * 0.9;
+      for (let i = 0; i < 9; i++){
+        const x = cx + (rnd() - 0.5) * 120 * sc, y = cy + (rnd() - 0.5) * 14 * sc, r = (16 + rnd() * 26) * sc;
+        for (const xx of [x, x - w, x + w]){
+          const gr = g.createRadialGradient(xx, y, 0, xx, y, r);
+          gr.addColorStop(0, 'rgba(255,255,255,0.50)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+          g.save(); g.translate(xx, y); g.scale(1, 0.42); g.translate(-xx, -y);
+          g.fillStyle = gr; g.fillRect(xx - r, y - r, r * 2, r * 2); g.restore();
+        }
+      }
     }
+    // the far hills, then a nearer line of woods, both hazed toward the sky
+    const ridge = (base, amp, col, seed) => { const r2 = litRand(seed); g.fillStyle = col; g.beginPath(); g.moveTo(0, h * 0.5);
+      let y = base; for (let x = 0; x <= w; x += 8){ y += (r2() - 0.5) * amp; y = Math.max(base - amp * 2.2, Math.min(base + 0.5, y)); g.lineTo(x, h * 0.5 - y); }
+      g.lineTo(w, h * 0.5); g.closePath(); g.fill(); };
+    ridge(7, 1.8, 'rgba(128,146,160,0.85)', 41);
+    ridge(3, 1.4, 'rgba(84,104,86,0.80)', 43);
   });
   const t = litTexOf(c, true); t.wrapS = THREE.RepeatWrapping; return t;
 }
@@ -987,22 +1015,25 @@ function litSkyTexture(){
    you ever see it from, a ragged dark edge against the sky is all that
    reads, and anything more detailed is tiling you can count. */
 function litTreeTexture(){
+  /* Greener and lighter than the first one, which was nearly black: under
+     'cover' shading it now takes the sky's light like the site does. */
   return litCanvas(512, 256, (g, w, h) => {
-    const sky = g.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, '#2e3b2b'); sky.addColorStop(0.55, '#1d2a1d'); sky.addColorStop(1, '#141d14');
-    g.fillStyle = sky; g.fillRect(0, 0, w, h);
+    const bank = g.createLinearGradient(0, 0, 0, h);
+    bank.addColorStop(0, '#3a4c31'); bank.addColorStop(0.55, '#2c3b26'); bank.addColorStop(1, '#212c1d');
+    g.fillStyle = bank; g.fillRect(0, 0, w, h);
     const rnd = litRand(7);
-    for (let i = 0; i < 150; i++){               // crowns against the top edge
-      const x = rnd() * w, r = 10 + rnd() * 30, y = 18 + rnd() * 44;
-      g.fillStyle = 'rgba(10,18,10,' + (0.25 + rnd() * 0.5).toFixed(3) + ')';
-      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    for (let i = 0; i < 170; i++){               // crowns, lit from above
+      const x = rnd() * w, r = 10 + rnd() * 30, y = 18 + rnd() * 50;
+      const gr = g.createRadialGradient(x, y - r * 0.4, 0, x, y, r);
+      gr.addColorStop(0, 'rgba(84,104,64,0.50)'); gr.addColorStop(1, 'rgba(24,34,20,0.0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
     }
-    for (let i = 0; i < 220; i++){               // and foliage noise below
+    for (let i = 0; i < 260; i++){               // foliage below
       const x = rnd() * w, y = 30 + rnd() * (h - 30), r = 4 + rnd() * 16;
-      g.fillStyle = (rnd() < 0.5 ? 'rgba(52,70,44,' : 'rgba(12,20,12,') + (0.10 + rnd() * 0.25).toFixed(3) + ')';
+      g.fillStyle = (rnd() < 0.5 ? 'rgba(66,84,50,' : 'rgba(22,30,20,') + (0.12 + rnd() * 0.25).toFixed(3) + ')';
       g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
     }
-    g.fillStyle = '#20251f'; g.fillRect(0, h - 26, w, 26);     // the foot of the bank
+    g.fillStyle = '#3a4430'; g.fillRect(0, h - 22, w, 22);     // the foot of the bank
   });
 }
 /* Profiled sheet: a flat colour with a ribbed normal and a little streaking.
@@ -1531,9 +1562,12 @@ function litMaterial(name){
        horizon to a deeper blue overhead, with the horizon band matching the
        fog colour so the two meet without a seam. */
     case 'skydome': m = new THREE.MeshBasicMaterial({ map: litSkyTexture(), side: THREE.BackSide, fog: false, depthWrite: false }); break;
+    /* Not 'wall': that kind strips 78% of the colour and adds the hall's
+       crimson strip, which drew the site boundary as a black band with a red
+       line round it. */
     /* The boundary. Nearly matte, barely reflective: a treeline that caught
        the sky the way the concrete does read as a painted backdrop. */
-    case 'treeline': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litTreeTexture(), true), roughness: 1, metalness: 0 }), 'wall', 0.06); break;
+    case 'treeline': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litTreeTexture(), true), roughness: 1, metalness: 0 }), 'cover', 0.06); break;
     /* Switchyard porcelain is WHITE, not the brown of a transformer bushing:
        outdoor HV insulators are glazed white or pale grey, and they are the
        thing that makes a yard read as a yard from across the site. */
@@ -2313,14 +2347,17 @@ function litBuildArena(map, flatFloor, flatRoof){
     const roof = new THREE.Mesh(litGeoDone(g), litPatch(litShare(flatRoof, { roughness: 0.97, metalness: 0, color: 0x6a727c }), 'ceil', 0.15));
     roof.userData.ownMaterial = true; litAdd(roof, true);
   } else {
-    /* The sky, as a box the site sits inside: a dome would be nicer and is
-       not worth the geometry, because the only part of it ever on screen is
-       a band above the boundary. Unlit, unfogged, drawn first and never
-       written to the depth buffer, so everything else is simply in front of
-       it however big the site gets. */
-    const sg = new THREE.BoxGeometry(2*a + 40, 150, 2*a + 40);
+    /* The sky, as a SPHERE that rides with the camera. It was a box: the
+       gradient stretched across its ceiling as streaks converging overhead,
+       and at 280m wide anything outside it (an aerial view) saw it inside
+       out. A sphere maps the gradient the way a sky works - zenith at the
+       pole, horizon at the equator, land below - and following the camera
+       keeps it inside the far plane (500) wherever you stand. Unlit,
+       unfogged, drawn first, never written to depth, so everything else is
+       simply in front of it. */
+    const sg = new THREE.SphereGeometry(440, 48, 24);
     const dome = new THREE.Mesh(sg, litMaterial('skydome'));
-    dome.position.y = 50; dome.renderOrder = -1; dome.frustumCulled = false;
+    dome.renderOrder = -1; dome.frustumCulled = false; LIT_DOME = dome;
     dome.userData.ownMaterial = true;
     /* `false`: it is painted, not lit, so the vertex pass must not visit it
        — it has no `cxBake` attribute to write into and the bake dies on it. */
@@ -2407,10 +2444,16 @@ function litLights(){
   /* A panel that is the only thing in the room over white should glow like
      it. The menu and the flat look keep the gentler bloom they were tuned
      with. */
+  const out = !!(currentMap && currentMap.sky && !menuBackdropOn);
   if (bloomPass){
-    const out = !!(currentMap && currentMap.sky && !menuBackdropOn);
     const b = out ? LIT.bloomSky : (play ? LIT.bloom : [0.32, 0.55, 0.82]);
     bloomPass.strength = b[0]; bloomPass.radius = b[1]; bloomPass.threshold = b[2]; }
+  /* Under an open sky: less exposure, less warmth, a little more colour.
+     The menu and the hall keep the figures they were tuned with. */
+  if (on) renderer.toneMappingExposure = (out && play) ? LIT.skyExposure : LOOK.exposure;
+  if (typeof gradePass !== 'undefined' && gradePass){
+    gradePass.uniforms.uWarm.value = (out && play) ? LIT.skyWarm : 1.0;
+    gradePass.uniforms.uSat.value  = (out && play) ? LIT.skySat  : 1.12; }
   /* The outline light on players (models.js): on in the arena only. */
   if (typeof RIMU !== 'undefined'){ if (play) RIMU.uRim.value.fromArray(LIT.rim); else RIMU.uRim.value.set(0, 0, 0); }
 }
@@ -2436,9 +2479,12 @@ const _litF   = new THREE.Vector3();
    funnel standing on each tower. Not baked, not in wallMeshes: nothing
    stops at it, and it hides nothing a bullet can see. */
 const STEAMU = { uTime: { value: 0 } };
+/* Colours run above 1 on purpose: real steam in daylight is brighter than
+   the sky behind it, and through the tone curve 1.38 lands near white. At
+   0.97 it came out a mid grey, which beside a saturated blue reads TAN. */
 const STEAM_KIND = {
-  tower: { n: 30, life: 16, rise: 34, wind: [9, 0, 5], grow: 1.9, opacity: 0.62, dark: [0.66, 0.68, 0.71], light: [0.97, 0.97, 0.96] },
-  stack: { n: 16, life: 11, rise: 26, wind: [14, 0, 6], grow: 2.6, opacity: 0.42, dark: [0.52, 0.53, 0.55], light: [0.86, 0.86, 0.85] },
+  tower: { n: 30, life: 16, rise: 34, wind: [9, 0, 5], grow: 1.9, opacity: 0.66, dark: [0.92, 0.94, 0.97], light: [1.38, 1.38, 1.36] },
+  stack: { n: 16, life: 11, rise: 26, wind: [14, 0, 6], grow: 2.6, opacity: 0.42, dark: [0.62, 0.63, 0.65], light: [1.05, 1.05, 1.04] },
 };
 const STEAM_MATS = {};
 let STEAM_TEX = null;
@@ -2523,8 +2569,10 @@ function litSteam(x, y, z, r0, kind){
   litAdd(m, false); m.receiveShadow = false;
   return m;
 }
+let LIT_DOME = null;
 function litFrame(){
   STEAMU.uTime.value = performance.now() / 1000;
+  if (LIT_DOME && LIT_DOME.parent) LIT_DOME.position.copy(camera.position);
   if (!SETTINGS.look || !LIT_OK || menuBackdropOn) return;
   const texel = LIT.shadowHalf * 2 / ((SETTINGS.shadows | 0) || 1024);
   _litF.set(camera.position.x, 0, camera.position.z);
