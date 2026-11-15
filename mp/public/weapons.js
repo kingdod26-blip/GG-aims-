@@ -267,6 +267,7 @@ const redDot = new THREE.Group();
   bolt.rotation.x=-Math.PI/2; g.add(bolt);                                            // loaded bolt
   g.scale.setScalar(0.62);                 // keep it in scale with the rifles
   g.position.set(0.02,-0.05,-0.08);
+  g.userData.drawn = true;                 // replaced by Jack's crossbow model when it loads
   weaponHolders[XBOW].add(g);
 })();
 
@@ -288,6 +289,7 @@ const redDot = new THREE.Group();
   const can=at(new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.16,10),band),0,0.01,-0.62);
   can.rotation.x=Math.PI/2; g.add(can);                                              // loaded canister
   g.position.set(0.02,-0.04,-0.04);
+  g.userData.drawn = true;                 // replaced by Jack's crossbow model when it loads
   weaponHolders[SMOKE].add(g);
 })();
 
@@ -392,7 +394,39 @@ function disposeTree(obj){
     ms.forEach(m=>{ if(!m || m.userData.keep) return; if(m.map) m.map.dispose(); m.dispose(); });
   });
 }
-/* The crossbow and blade keep the shapes built above: no model files. */
+/* JACK'S CROSSBOW MODEL for both the fire and the smoke ability (2026-11-15:
+   he did not like the drawn one). Only the crossbow - the blade keeps its
+   drawn shape. The drawn shapes above stay on screen until the file lands
+   and remain the fallback if it fails. The loader removes ONLY the parts
+   tagged `userData.drawn`: drawn.js puts a hand in these same holders, and
+   clearing the whole holder, as the original loader did, would take the
+   hand with it. The smoke slot gets a clone, which shares geometry and
+   materials, so neither holder is ever disposeTree'd after this. */
+if (THREE.FBXLoader) ABILITY_MODELS.filter(am => am.slots.includes(XBOW)).forEach(am=>{
+  const onErr=(err)=> console.warn(`[CrimsonX] ${am.url} failed, keeping the drawn crossbow`, err);
+  try {
+    new THREE.FBXLoader(fbxTexMgr).load(am.url, (model)=>{
+      model.traverse(o=>{
+        if(!o.isMesh) return;
+        const old = o.geometry;
+        o.geometry = splitGeometryByAxis(old, am.split.axis, am.split.cuts);
+        if(old!==o.geometry) old.dispose();
+        const prev = Array.isArray(o.material)?o.material:[o.material];
+        prev.forEach(m=>{ if(!m) return; if(m.map) m.map.dispose(); m.dispose(); });
+        o.material = am.split.colors.map(c=>new THREE.MeshLambertMaterial({color:c}));
+      });
+      const { holder } = fitWeaponModel(model, am);
+      holder.position.set(am.pos[0], am.pos[1], am.pos[2]);
+      am.slots.forEach((slot, n)=>{
+        const h = weaponHolders[slot];
+        h.children.filter(c => c.userData.drawn).forEach(c => { h.remove(c); disposeTree(c); });
+        h.add(n === 0 ? holder : holder.clone());
+        if (slot === currentWeapon) h.traverse(o => { o.renderOrder = 1000; });   // switchWeapon does this on equip
+      });
+      lookSoon();
+    }, undefined, onErr);
+  } catch(e){ onErr(e); }
+});
 let comboStep = 0, comboUntil = 0, swingT = 0, swingDir = 1;
 let currentWeapon = 0;
 let weaponAmmo = WEAPONS.map(w=>({ mag:w.magMax, reserve:w.reserveMax }));

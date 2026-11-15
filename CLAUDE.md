@@ -1865,6 +1865,12 @@ the player model was fan art of a character another company owns.
   in loop.js makes remote players WALK; the Spartan was a rigid statue.
   Practice targets are amber so a target is never mistaken for a person.
   Only parts 0.25m or bigger cast shadows.
+- **The crossbow is Jack's MODEL again, not drawn** (2026-11-15: he did not
+  like the drawn one). `assets/crossbow.fbx` was restored from git and loads
+  into both ability slots, fire (G) and smoke (X), through the old
+  `ABILITY_MODELS` entry. The loader swaps out only the parts tagged
+  `userData.drawn` - drawn.js puts a hand in the same holders. The blade is
+  still drawn.
 - **The rifle has NO scope, by Jack's choice** (2026-11-15). A tube scope and
   then an open reflex sight with a close aim (`adsZ`) were built and he had
   them removed: the rifle aims on its iron sights and red dot, as before.
