@@ -1008,6 +1008,37 @@ What had to change for them to fit together:
 **The yard between the two is the only ground every route crosses**, so the
 step-up transformers and the resupply are in it.
 
+### Map improvement, stage 1 (2026-11-15)
+
+Jack supplied reference photos (`Icon Images/Pictures for power station`)
+and `3D_Power_Station_Master_Prompts.md` (Prompt B: audit, plan, then
+stages). Plan agreed: 1 broken-looking structures, 2 light and sky, 3 ground,
+4 industrial detail, 5 checks. Stage 1, all in lighting.js, no collision
+change:
+
+- **Steam** (`litSteam`): the plume was seven stacked translucent cylinders
+  and read as a glass funnel on each tower. It is now camera-facing puffs
+  that rise, swell, drift and fade, animated in the vertex shader off one
+  shared clock (`STEAMU.uTime`, set in `litFrame`). The two materials are
+  cached in `STEAM_MATS` and never disposed - one per build would compile
+  per build. Measured: 0 programs linked while playing, ~0.5ms a frame with
+  the towers filling the view.
+- **Tower shell**: vertical panel joints like the KKP-URA photo, no
+  `litGrime` (its blotches repeat with the 6m tile and printed a grid of
+  patches), a caged ladder up the curve from 5.6m (out of reach) and a hut at
+  the lip.
+- **Stack**: one texture tile for its whole height; concrete, with red and
+  white bands only round the top fifth, soot at the lip.
+- **Tower and stack shade as `cover`, not `wall`.** The wall kind strips 78%
+  of the colour and adds the crimson strip's glow; it turned the aviation
+  red navy.
+- **`LIT_RING_BAKE`**: towerskin and stackband have their vertex bake
+  averaged per 1m band (and facing), so a drum is lit evenly round under the
+  sky grid instead of in patches.
+
+Not done yet: everything outdoors is still overexposed into beige haze
+(stage 2), which also tints the steam from the ground.
+
 ### The switchyard
 
 The west compound was the `substation` map moved over: three walled lanes and

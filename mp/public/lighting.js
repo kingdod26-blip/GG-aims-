@@ -437,6 +437,21 @@ function litBounceAt(job, x, z, out){
    attribute. Ambient is NOT baked: it is a uniform, so it can be tuned
    without doing this again. What faces down sees the whole lit floor, a
    wall sees half of it, a top sees none. */
+/* ROUND THINGS UNDER AN OPEN SKY ARE LIT IN RINGS. The sky is baked as a
+   grid of 26m panels, so each vertex of a tall shell sits a different
+   distance from its nearest panel and the bake comes out as a patchwork -
+   blue-grey blotches in the tower's own mesh grid. Under an even overcast
+   sky a drum is lit the same all the way round at any height, so for these
+   kinds the bake is averaged per 1m band (and per facing: up, side, down). */
+const LIT_RING_BAKE = { towerskin: true, stackband: true };
+function litRingBake(mesh){
+  const g = mesh.geometry, P = g.attributes.position.array, N = g.attributes.normal.array, C = g.attributes.cxBake.array;
+  const key = (v) => Math.round(P[v+1]) * 3 + (N[v+1] > 0.7 ? 2 : N[v+1] < -0.7 ? 0 : 1);
+  const sum = new Map();
+  for (let v = 0; v < P.length; v += 3){ const k = key(v), a = sum.get(k) || [0, 0, 0, 0];
+    a[0] += C[v]; a[1] += C[v+1]; a[2] += C[v+2]; a[3]++; sum.set(k, a); }
+  for (let v = 0; v < P.length; v += 3){ const a = sum.get(key(v)); C[v] = a[0] / a[3]; C[v+1] = a[1] / a[3]; C[v+2] = a[2] / a[3]; }
+}
 function litBakeMesh(job, mesh){
   const g = mesh.geometry, P = g.attributes.position.array, N = g.attributes.normal.array;
   const C = g.attributes.cxBake.array, d = [0, 0, 0], bn = [0, 0, 0], br = LIT.bounceRGB;
@@ -447,6 +462,7 @@ function litBakeMesh(job, mesh){
     const f = LIT.bounce * Math.max(0, 0.55 - 0.45 * ny) / (1 + y * 0.05);
     C[v] = d[0] + bn[0] * f * br[0]; C[v+1] = d[1] + bn[1] * f * br[1]; C[v+2] = d[2] + bn[2] * f * br[2];
   }
+  if (mesh.userData.bakeRings) litRingBake(mesh);
   g.attributes.cxBake.needsUpdate = true;
 }
 
@@ -1022,37 +1038,48 @@ function litCladTextures(base, dirt){
    streaked: that staining is most of what makes the thing read as concrete
    a hundred metres tall rather than a grey cone. */
 function litTowerTexture(){
+  /* Precast shell, read from Jack's KKP-URA photograph: long VERTICAL panel
+     joints running the whole height, faint horizontal lift lines, and rain
+     staining down. The first version staggered short joints in a brick bond,
+     which at this scale came out as a field of dots. 512px is 6m of shell. */
   return litCanvas(512, 512, (g, w, h) => {
-    g.fillStyle = '#9ea099'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#a4a59f'; g.fillRect(0, 0, w, h);
     const rnd = litRand(11);
-    for (let y = 0; y < h; y += 32){                        // the lift joints
-      g.fillStyle = 'rgba(60,62,58,0.30)'; g.fillRect(0, y, w, 2);
-      for (let x = (y / 32 % 2) * 24; x < w; x += 48){      // and the panel joints, staggered
-        g.fillStyle = 'rgba(60,62,58,0.18)'; g.fillRect(x, y, 1.5, 32); }
+    for (let x = 0; x < w; x += 32){                         // a joint every 0.375m, a heavier one every 0.75m
+      const heavy = (x / 32) % 2 === 0;
+      g.fillStyle = heavy ? 'rgba(58,60,56,0.34)' : 'rgba(58,60,56,0.16)'; g.fillRect(x, 0, heavy ? 2 : 1, h);
+      g.fillStyle = 'rgba(214,216,208,0.18)'; g.fillRect(x + (heavy ? 2 : 1), 0, 1, h);   // the lit lip of the joint
     }
-    for (let i = 0; i < 260; i++){                          // staining, always downward
-      const x = rnd() * w, y = rnd() * h * 0.8, l = 20 + rnd() * 180;
-      g.fillStyle = (rnd() < 0.45 ? 'rgba(74,76,68,' : 'rgba(176,178,170,') + (0.03 + rnd() * 0.10).toFixed(3) + ')';
-      g.fillRect(x, y, 1 + rnd() * 4, l);
+    for (let y = 0; y < h; y += 128){ g.fillStyle = 'rgba(60,62,58,0.10)'; g.fillRect(0, y, w, 1); }   // lift lines, 1.5m
+    for (let i = 0; i < 300; i++){                          // staining, always downward
+      const x = rnd() * w, y = rnd() * h * 0.85, l = 30 + rnd() * 240;
+      g.fillStyle = (rnd() < 0.55 ? 'rgba(70,72,66,' : 'rgba(180,182,174,') + (0.03 + rnd() * 0.09).toFixed(3) + ')';
+      g.fillRect(x, y, 1 + rnd() * 5, l);
     }
-    litGrime(g, w, 90, rnd);
+    /* No litGrime here: its blotches repeat with the 6m tile and on a shell
+       this big they printed a grid of patches. Rain streaks only. */
   });
 }
 /* The stack: white and aviation red, in bands, with the dirt a stack gets. */
 function litStackTexture(){
-  return litCanvas(64, 512, (g, w, h) => {
-    const band = h / 7;
-    for (let i = 0; i < 7; i++){
-      g.fillStyle = i % 2 ? '#a8392c' : '#d8d8d2';
-      g.fillRect(0, h - (i + 1) * band, w, band + 1);
-    }
+  /* ONE tile for the stack's whole height (the prop passes tileV = h). A
+     real chimney is grey concrete for most of its height, with its aviation
+     bands - red and white - only round the top, then soot. It used to repeat
+     seven bands every 9.7m from the foot to the cap. */
+  return litCanvas(64, 1024, (g, w, h) => {
+    g.fillStyle = '#b3b2ab'; g.fillRect(0, 0, w, h);
     const rnd = litRand(5);
-    for (let i = 0; i < 90; i++){
+    for (let y = 0; y < h; y += 23){ g.fillStyle = 'rgba(70,68,62,0.10)'; g.fillRect(0, y, w, 1); }   // slipform lifts, ~1.5m
+    const top = Math.round(h * 0.20), band = top / 5;         // the top fifth: red, white, red, white, red
+    for (let i = 0; i < 5; i++){ g.fillStyle = i % 2 ? '#dcdcd6' : '#a8392c'; g.fillRect(0, i * band, w, band + 1); }
+    for (let i = 0; i < 140; i++){
       const y = rnd() * h;
       g.fillStyle = 'rgba(40,36,34,' + (0.02 + rnd() * 0.07).toFixed(3) + ')';
-      g.fillRect(rnd() * w, y, 1 + rnd() * 3, 10 + rnd() * 60);
+      g.fillRect(rnd() * w, y, 1 + rnd() * 3, 14 + rnd() * 90);
     }
-    g.fillStyle = 'rgba(30,28,26,0.35)'; g.fillRect(0, 0, w, 22);     // soot at the top
+    const sg = g.createLinearGradient(0, 0, 0, 60);              // soot at the lip, fading down
+    sg.addColorStop(0, 'rgba(26,24,22,0.75)'); sg.addColorStop(1, 'rgba(26,24,22,0)');
+    g.fillStyle = sg; g.fillRect(0, 0, w, 60);
   });
 }
 function litHazardTexture(){
@@ -1529,15 +1556,14 @@ function litMaterial(name){
                    m.defines.CX_PLAINTOP = ''; break;
     /* The cooling tower's shell: weathered precast concrete, streaked down
        the way every one of them is. Round, so it needs CX_ROUND. */
-    case 'towerskin': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litTowerTexture(), true), roughness: 0.94, metalness: 0 }), 'wall', 0.10);
+    case 'towerskin': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litTowerTexture(), true), roughness: 0.94, metalness: 0 }), 'cover', 0.10);
                    m.defines.CX_ROUND = ''; break;
-    /* The stack, in its aviation bands. */
-    case 'stackband': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litStackTexture(), true), roughness: 0.82, metalness: 0.05 }), 'wall', 0.12);
+    /* The stack, in its aviation bands. Both of these are 'cover', not
+       'wall': the wall kind is for the hall's perimeter - it strips 78% of
+       the colour (for the tan scan under the crimson strip), darkens the
+       foot and adds the strip's glow, which turned the aviation red navy. */
+    case 'stackband': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litStackTexture(), true), roughness: 0.82, metalness: 0.05 }), 'cover', 0.12);
                    m.defines.CX_ROUND = ''; break;
-    /* The plume. Painted, not lit, and it takes the fog so it sits in the
-       same air as everything else. */
-    case 'plume':  m = new THREE.MeshBasicMaterial({ color: 0xf2f6f8, transparent: true, opacity: 0.30,
-                       depthWrite: false, side: THREE.DoubleSide }); break;
     default:       m = litPatch(new THREE.MeshStandardMaterial({ color: 0x8a8f99, roughness: 0.9 }), 'cover', 0.3);
   }
   return (LIT_MATS[name] = m);
@@ -2087,15 +2113,24 @@ const LIT_PROP = {
       const bx = x + sx * e[0], bz = z + sz * e[1];
       litCyl(G('concrete'), bx, bh, bz, bx, yk, bz, 0.3, 0.24, 5, 2, false, false);
     }
-    /* The plume, leaning with the wind. Widening, rising, fading. */
-    const pl = G('plume'), drift = 0.55;
-    for (let i = 0; i < 7; i++){
-      const ya = y1 + i * 4.6, yb = ya + 4.6, f = i / 7;
-      const ra = R(y1) * (0.92 + f * 1.5), rbb = R(y1) * (0.92 + (f + 0.14) * 1.5);
-      litCyl(pl, x + f * drift * 10, ya, z + f * drift * 6,
-                 x + (f + 0.14) * drift * 10, yb, z + (f + 0.14) * drift * 6,
-                 ra, rbb, 14, 1, false, false);
+    /* The caged access ladder up the outside, as on every real shell (the
+       KKP-URA photograph): it follows the curve from the ring beam to the
+       lip, on the face toward the site. It starts at 5.6m, out of reach of
+       the rim (2.6m plus a 2.7m climb), and nothing on it is a floor. */
+    const lx = 0.36, lz = 0.93, tx = -lz, tz = lx, st = G('steel');
+    const at = (y, off, side) => { const r = R(y) + off; return [x + lx * r + tx * side, y, z + lz * r + tz * side]; };
+    for (let y = yk; y < y1 - 0.01; y += 1.5){
+      const yb = Math.min(y1 + 0.5, y + 1.5);
+      for (const [off, side] of [[0.3, -0.3], [0.3, 0.3], [1.0, -0.38], [1.0, 0.38], [1.2, 0]]){
+        const A = at(y, off, side), B = at(yb, off, side);
+        litCyl(st, A[0], A[1], A[2], B[0], B[1], B[2], 0.035, 0.035, 4, 1, false, false);
+      }
+      for (let k = 0; k < 3; k++){ const yr = y + k * 0.5, A = at(yr, 0.3, -0.3), B = at(yr, 0.3, 0.3);   // rungs
+        litCyl(st, A[0], A[1], A[2], B[0], B[1], B[2], 0.02, 0.02, 4, 1, false, false); }
     }
+    { const T = at(y1 + 0.5, 0.6, 0); litBox(G('galv'), T[0] - 0.7, y1 + 0.5, T[2] - 0.7, T[0] + 0.7, y1 + 2.3, T[2] + 0.7, { tile: 2 }); }   // the hut at the top
+    /* Steam: soft billows rolling off the lip and drifting downwind. */
+    litSteam(x, y1 + 0.6, z, R(y1), 'tower');
   },
   /* The stack. Its collision is 68m of boxes, so the drawn surface simply
      follows them: a straight shell in aviation bands, a cap, and the
@@ -2104,11 +2139,12 @@ const LIT_PROP = {
      can see from the ground. */
   stack(G, p, D, H){
     const x = p.x, z = p.z, r = p.r, h = p.h, N = p.n || 9;
-    litDrumPrism(G('stackband'), x, z, r, N, 0, h, { tile: 2, tileV: h / 7 });
+    litDrumPrism(G('stackband'), x, z, r, N, 0, h, { tile: 2, tileV: h });
     litCyl(G('concrete'), x, 0, z, x, 2.2, z, r + 0.5, r + 0.35, 20, 2, false, false);   // the foot
     for (let y = 12; y < h - 6; y += 13)                                                  // maintenance platforms
       litCyl(G('girder'), x, y, z, x, y + 0.22, z, r + 0.85, r + 0.85, 20, 2, true, true);
     litCyl(G('steel'), x, h, z, x, h + 0.6, z, r + 0.15, r + 0.15, 20, 1, false, false);   // the cap
+    litSteam(x, h + 0.8, z, r * 0.85, 'stack');
   },
   /* A PORTAL GANTRY across the yard, and the conductors it carries. The
      beam is a lattice box girder at `y`; the lines sag from it in a
@@ -2303,7 +2339,10 @@ function litBuildArena(map, flatFloor, flatRoof){
     else litBox(G(b.mat), x0, 0, z0, x1, b.h, z1, { bevel: LIT.bevel, seg: LIT.coverSeg, tile: LIT_TILE[b.mat] || 3 });
   }
   for (const p of (map.props || [])){ const draw = LIT_PROP[p.kind]; if (draw) draw(G, p, D, H); }
-  for (const name in geos) litAdd(new THREE.Mesh(litGeoDone(geos[name]), litMaterial(name)), true);
+  for (const name in geos){
+    const m = litAdd(new THREE.Mesh(litGeoDone(geos[name]), litMaterial(name)), true);
+    if (LIT_RING_BAKE[name]) m.userData.bakeRings = true;
+  }
 
   /* Fixtures. Each panel gets a housing to hang in, and the roof gets a
      grid of girders between the rows of lamps: without structure up there
@@ -2386,7 +2425,106 @@ const _litF   = new THREE.Vector3();
 /* Keep the shadow box on the camera. The focus is snapped to whole shadow
    texels in the LIGHT's own frame: move it by fractions of one and every
    shadow edge in view crawls as you walk. */
+/* STEAM. One mesh per source: a few dozen camera-facing quads, each a puff
+   that rises from the lip, swells, drifts downwind and fades, on its own
+   phase, so the column is always full and never visibly loops. All of the
+   motion is in the vertex shader off one shared clock, so a frame costs one
+   uniform write in JS. The two materials are made ONCE and cached - a
+   material made per build would be compiled per build, and one made per
+   puff would be the shader churn that made firing lag.
+   It replaced seven stacked translucent cylinders, which read as a glass
+   funnel standing on each tower. Not baked, not in wallMeshes: nothing
+   stops at it, and it hides nothing a bullet can see. */
+const STEAMU = { uTime: { value: 0 } };
+const STEAM_KIND = {
+  tower: { n: 30, life: 16, rise: 34, wind: [9, 0, 5], grow: 1.9, opacity: 0.62, dark: [0.66, 0.68, 0.71], light: [0.97, 0.97, 0.96] },
+  stack: { n: 16, life: 11, rise: 26, wind: [14, 0, 6], grow: 2.6, opacity: 0.42, dark: [0.52, 0.53, 0.55], light: [0.86, 0.86, 0.85] },
+};
+const STEAM_MATS = {};
+let STEAM_TEX = null;
+function litSteamTexture(){
+  /* A cauliflower puff: overlapping soft blobs inside a round falloff, so
+     the edge is lumpy the way a billow's is, not a clean disc. */
+  if (STEAM_TEX) return STEAM_TEX;
+  const c = litCanvas(128, 128, (g, w, h) => {
+    const rnd = litRand(23);
+    for (let i = 0; i < 26; i++){
+      const a = rnd() * Math.PI * 2, d = rnd() * 30, x = 64 + Math.cos(a) * d, y = 64 + Math.sin(a) * d * 0.9, r = 18 + rnd() * 22;
+      const gr = g.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    }
+  });
+  STEAM_TEX = new THREE.CanvasTexture(c); return STEAM_TEX;
+}
+function litSteamMaterial(kind){
+  if (STEAM_MATS[kind]) return STEAM_MATS[kind];
+  const K = STEAM_KIND[kind];
+  const m = new THREE.ShaderMaterial({
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
+      uLife: { value: K.life }, uRise: { value: K.rise }, uWind: { value: new THREE.Vector3(K.wind[0], K.wind[1], K.wind[2]) },
+      uGrow: { value: K.grow }, uOpacity: { value: K.opacity },
+      uDark: { value: new THREE.Color(K.dark[0], K.dark[1], K.dark[2]) },
+      uLight: { value: new THREE.Color(K.light[0], K.light[1], K.light[2]) }, uMap: { value: null } }]),
+    vertexShader: [
+      'attribute vec2 aCorner; attribute vec4 aSeed; attribute float aR0;',
+      'uniform float uTime, uLife, uRise, uGrow; uniform vec3 uWind;',
+      'varying vec2 vUv; varying float vA, vShade;',
+      '#include <fog_pars_vertex>',
+      'void main(){',
+      '  float t = fract(uTime / uLife + aSeed.x);',
+      '  float ang = aSeed.z * 6.2832;',
+      '  vec3 c = position + vec3(cos(ang), 0.0, sin(ang)) * aR0 * 0.55 * aSeed.w',
+      '         + vec3(0.0, t * uRise, 0.0) + uWind * t * t;',
+      '  float size = aR0 * (0.75 + uGrow * t) * (0.8 + 0.4 * aSeed.y);',
+      '  float rot = aSeed.y * 6.2832 + t * 0.6, cr = cos(rot), sr = sin(rot);',
+      '  vec4 mvPosition = modelViewMatrix * vec4(c, 1.0);',
+      '  mvPosition.xy += vec2(aCorner.x * cr - aCorner.y * sr, aCorner.x * sr + aCorner.y * cr) * size;',
+      '  gl_Position = projectionMatrix * mvPosition;',
+      '  vUv = aCorner * 0.5 + 0.5;',
+      '  vA = smoothstep(0.0, 0.10, t) * pow(1.0 - t, 1.4);',
+      '  vShade = clamp(0.55 + 0.45 * aCorner.y, 0.0, 1.0);',
+      '  #include <fog_vertex>',
+      '}'].join('\n'),
+    fragmentShader: [
+      'uniform sampler2D uMap; uniform float uOpacity; uniform vec3 uDark, uLight;',
+      'varying vec2 vUv; varying float vA, vShade;',
+      '#include <fog_pars_fragment>',
+      'void main(){',
+      '  float a = texture2D(uMap, vUv).a * vA * uOpacity;',
+      '  if (a < 0.004) discard;',
+      '  gl_FragColor = vec4(mix(uDark, uLight, vShade), a);',
+      '  #include <tonemapping_fragment>',
+      '  #include <encodings_fragment>',
+      '  #include <fog_fragment>',
+      '}'].join('\n'),
+    transparent: true, depthWrite: false, fog: true,
+  });
+  m.uniforms.uMap.value = litSteamTexture();
+  m.uniforms.uTime = STEAMU.uTime;                          // one clock for every source
+  return (STEAM_MATS[kind] = m);
+}
+function litSteam(x, y, z, r0, kind){
+  const K = STEAM_KIND[kind], rnd = litRand(kind === 'tower' ? Math.round(Math.abs(x * 7 + z)) + 1 : 97);
+  const pos = [], corner = [], seed = [], rr = [], idx = [];
+  for (let i = 0; i < K.n; i++){
+    const s = [i / K.n + rnd() * 0.02, rnd(), rnd(), rnd()];
+    for (const c of [[-1, -1], [1, -1], [1, 1], [-1, 1]]){ pos.push(x, y, z); corner.push(c[0], c[1]); seed.push(s[0], s[1], s[2], s[3]); rr.push(r0); }
+    const b = i * 4; idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('aCorner', new THREE.Float32BufferAttribute(corner, 2));
+  geo.setAttribute('aSeed', new THREE.Float32BufferAttribute(seed, 4));
+  geo.setAttribute('aR0', new THREE.Float32BufferAttribute(rr, 1));
+  geo.setIndex(idx);
+  const m = new THREE.Mesh(geo, litSteamMaterial(kind));
+  m.frustumCulled = false; m.renderOrder = 2;
+  litAdd(m, false); m.receiveShadow = false;
+  return m;
+}
 function litFrame(){
+  STEAMU.uTime.value = performance.now() / 1000;
   if (!SETTINGS.look || !LIT_OK || menuBackdropOn) return;
   const texel = LIT.shadowHalf * 2 / ((SETTINGS.shadows | 0) || 1024);
   _litF.set(camera.position.x, 0, camera.position.z);
