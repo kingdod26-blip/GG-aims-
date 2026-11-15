@@ -555,6 +555,7 @@ document.getElementById('codeInput').addEventListener('keydown', e=>{
 
 function startPlay(mode){
   gameMode = mode; gameState='playing';
+  warmTracers();                     // compile the tracer now, not on the first shot (effects.js)
   showScreen(null);
   document.body.classList.add('playing');
   document.getElementById('crosshair').style.display='block';

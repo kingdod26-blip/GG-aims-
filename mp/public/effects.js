@@ -208,13 +208,18 @@ function updateSmokeVeil(){
    keeps it behind your own viewmodel (switchWeapon pushes that to 1000). */
 const MARK_SMOKE = 0x27ff9e;     // you tagged them by walking them through smoke
 const MARK_HEARD = 0xffd15a;     // your passive heard them open fire
+/* Shared, for the tracer's reason: a mark made and disposed per tag let its
+   shader program be deleted and recompiled the next time anyone was tagged. */
+const MARK_MAT = {}, MARK_GEO = {};
 function makeMarkFx(parent, color){
-  const mat = new THREE.MeshBasicMaterial({ color: color||MARK_SMOKE, transparent:true,
-    opacity:0.5, depthTest:false, depthWrite:false });
+  const c = color||MARK_SMOKE;
+  const mat = MARK_MAT[c] || (MARK_MAT[c] = new THREE.MeshBasicMaterial({ color: c, transparent:true,
+    opacity:0.5, depthTest:false, depthWrite:false }));
+  if (!MARK_GEO.body){ MARK_GEO.body = new THREE.CylinderGeometry(0.4,0.4,1.45,10); MARK_GEO.head = new THREE.SphereGeometry(0.29,10,10); }
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,1.45,10), mat);
+  const body = new THREE.Mesh(MARK_GEO.body, mat);
   body.position.y = 0.82;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.29,10,10), mat);
+  const head = new THREE.Mesh(MARK_GEO.head, mat);
   head.position.y = 1.76;
   g.add(body); g.add(head);
   g.traverse(o=>{ o.renderOrder = 900; o.frustumCulled = false; });
@@ -223,8 +228,7 @@ function makeMarkFx(parent, color){
 }
 function clearMark(e){
   if(!e.mark) return;
-  e.mesh.remove(e.mark);
-  e.mark.traverse(o=>{ if(o.isMesh){ o.geometry.dispose(); o.material.dispose(); } });
+  e.mesh.remove(e.mark);          // the parts are shared (makeMarkFx): nothing to dispose
   e.mark = null;
 }
 /* One place decides who is lit up: local bots are tested against the clouds
@@ -304,31 +308,58 @@ function boltVisualOffset(id, pos){
   const k = 1 - (performance.now() - e.at) / 1000 / BOLT_SHOW;
   return k > 0 ? e.off.clone().multiplyScalar(k) : null;
 }
+/* A BOLT IS BUILT FROM SHARED PARTS, AND CARRIES NO LIGHT.
+   It used to carry a PointLight. Adding a light to the scene changes the
+   scene's light count, and three recompiles EVERY material when that
+   changes - so each crossbow bolt recompiled the whole lit arena on the way
+   out and again when it landed: 16 shader programs per bolt, counted, where
+   a rifle round costs none now. The glow it gave the walls was "subtle"
+   by its own comment; the drawn flame is what anyone sees. (The muzzle
+   flash dropped its light for a related reason, in feel.js.)
+   The geometry and materials are made once and shared by every bolt, for
+   the tracer's reason: a material made and disposed per bolt lets its
+   shader program be deleted and recompiled. Smoke bolts get their own
+   shared set rather than recolouring the fire one, which with shared
+   materials would turn every burning bolt grey. */
+const ARROW_GEO = {}, ARROW_MAT = {};
+function arrowParts(){
+  if (ARROW_GEO.shaft) return;
+  const keepG = g => (g.userData.keep = true, g), keepM = m => (m.userData.keep = true, m);
+  ARROW_GEO.shaft = keepG(new THREE.CylinderGeometry(0.035,0.035,0.75,6));
+  ARROW_GEO.head  = keepG(new THREE.ConeGeometry(0.075,0.22,8));
+  ARROW_GEO.flame = keepG(new THREE.SphereGeometry(0.3,10,10));
+  ARROW_GEO.core  = keepG(new THREE.SphereGeometry(0.15,10,10));
+  ARROW_GEO.trail = [0,1,2,3].map(i => keepG(new THREE.SphereGeometry(0.2-i*0.04,8,8)));
+  const set = (flame, core, trailA, trailB) => ({
+    shaft: keepM(new THREE.MeshBasicMaterial({color:0x2a2018})),
+    head:  keepM(new THREE.MeshBasicMaterial({color:0xffd9a0})),
+    flame: keepM(new THREE.MeshBasicMaterial({color:flame, transparent:true, opacity:0.8, depthWrite:false})),
+    core:  keepM(new THREE.MeshBasicMaterial({color:core})),
+    trail: [0,1,2,3].map(i => keepM(new THREE.MeshBasicMaterial({color:i<2?trailA:trailB, transparent:true, opacity:0.55-i*0.11, depthWrite:false}))),
+  });
+  ARROW_MAT.fire  = set(0xff5a05, 0xffe9a0, 0xff7a16, 0xcf3a06);
+  ARROW_MAT.smoke = set(0x8d939b, 0xd7dbe0, 0x7c828a, 0x7c828a);
+}
 function makeArrowMesh(){
-  const g=new THREE.Group();
-  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.75,6),
-    new THREE.MeshBasicMaterial({color:0x2a2018}));
+  arrowParts();
+  const M = ARROW_MAT.fire, g=new THREE.Group();
+  const shaft=new THREE.Mesh(ARROW_GEO.shaft, M.shaft);
   shaft.rotation.x=Math.PI/2; g.add(shaft);
-  const head=new THREE.Mesh(new THREE.ConeGeometry(0.075,0.22,8),
-    new THREE.MeshBasicMaterial({color:0xffd9a0}));
+  const head=new THREE.Mesh(ARROW_GEO.head, M.head);
   head.rotation.x=-Math.PI/2; head.position.z=-0.45; g.add(head);
   // Flame built from SOLID layers, not additive — additive orange is invisible
   // against a bright sky/floor, which is why the fire couldn't be seen.
-  const flame=new THREE.Mesh(new THREE.SphereGeometry(0.3,10,10),
-    new THREE.MeshBasicMaterial({color:0xff5a05, transparent:true, opacity:0.8, depthWrite:false}));
+  const flame=new THREE.Mesh(ARROW_GEO.flame, M.flame);
   flame.position.z=-0.18; g.add(flame);
-  const core=new THREE.Mesh(new THREE.SphereGeometry(0.15,10,10),
-    new THREE.MeshBasicMaterial({color:0xffe9a0}));
+  const core=new THREE.Mesh(ARROW_GEO.core, M.core);
   core.position.z=-0.2; g.add(core);
   // a short trail of shrinking embers so it reads as a streak in flight
   const trail=[];
   for(let i=0;i<4;i++){
-    const t=new THREE.Mesh(new THREE.SphereGeometry(0.2-i*0.04,8,8),
-      new THREE.MeshBasicMaterial({color:i<2?0xff7a16:0xcf3a06, transparent:true, opacity:0.55-i*0.11, depthWrite:false}));
+    const t=new THREE.Mesh(ARROW_GEO.trail[i], M.trail[i]);
     t.position.z = 0.18 + i*0.22; g.add(t); trail.push(t);
   }
-  const light=new THREE.PointLight(0xff7a1a, 0.7, 3.5); g.add(light);   // subtle, won't wash out the floor
-  g.userData={flame,core,trail,light};
+  g.userData={flame,core,trail};
   return g;
 }
 function aimArrow(mesh,vel){ const p=mesh.position;
@@ -337,8 +368,7 @@ function flickerArrow(mesh,t){ const u=mesh.userData; if(!u||!u.flame) return;
   const f=0.85+Math.sin(t*0.04)*0.18;
   u.flame.scale.setScalar(f);
   if(u.core) u.core.scale.setScalar(0.9+Math.sin(t*0.07)*0.15);
-  if(u.trail) u.trail.forEach((s,i)=> s.scale.setScalar(0.8+Math.sin(t*0.05+i)*0.22));
-  u.light.intensity=0.55+f*0.3; }
+  if(u.trail) u.trail.forEach((s,i)=> s.scale.setScalar(0.8+Math.sin(t*0.05+i)*0.22)); }
 /* Flames that engulf a burning target: several solid tongues of fire up the
    body plus a light, so it's unmistakable even against a bright background. */
 function makeBurnFx(parent){
@@ -373,10 +403,10 @@ function updateBurnFx(fx,dt){
    without the latter, smoke bolts arrived looking like they were on fire. */
 function tintSmokeBolt(mesh){
   const u = mesh.userData; if(!u || !u.flame) return;
-  u.flame.material.color.set(0x8d939b);
-  u.core.material.color.set(0xd7dbe0);
-  u.trail.forEach(t=>t.material.color.set(0x7c828a));
-  if(u.light) u.light.intensity = 0;
+  /* Swap to the shared smoke set; recolouring would recolour every bolt. */
+  arrowParts(); const S = ARROW_MAT.smoke;
+  u.flame.material = S.flame; u.core.material = S.core;
+  u.trail.forEach((t,i)=> t.material = S.trail[i]);
 }
 /* `vis` is where the barrel is relative to the bolt's true path. The bolt
    is SIMULATED on the aim line so it goes where the crosshair points; the
@@ -538,16 +568,65 @@ function muzzleWorld(){
    points at and what the server tests — but the line is drawn from the
    muzzle to the far end of that same ray, so it leaves the barrel and
    converges on where you are aiming. */
-function addTracer(o,dir,len,from){ const end=o.clone().add(dir.clone().multiplyScalar(len));
+/* TRACERS ARE POOLED, AND THAT IS WHAT STOPPED THE TRIGGER LAGGING.
+   Every shot used to build a Line with a new geometry and a new material,
+   and throw both away 60ms later. A rifle round lives 60ms and they are
+   95ms apart, so for a moment between shots NO tracer material existed -
+   and when the last material using a shader program is disposed, three
+   deletes the program. The next shot compiled it again. Counted with the
+   GL calls hooked: 20 rifle rounds, 20 shader programs compiled and 20
+   deleted; idle, none. A compile is one of the slowest things a browser
+   does on the main thread, slower still on Windows where every shader is
+   translated to Direct3D first, and it landed on every trigger pull.
+   Now MAX_TRACERS lines are built once, each with its own material (they
+   fade one by one, so they cannot share one), and are only ever re-aimed
+   and hidden. Nothing is created per shot, so there is nothing to compile,
+   allocate or collect. */
+const tracerPool = [];
+function addTracer(o,dir,len,from){
   // retire the oldest if we somehow hit the cap (e.g. held trigger + 8-pellet shotgun)
   if(tracers.length >= MAX_TRACERS) disposeTracer(tracers.shift());
-  const start=(from||o).clone();
-  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([start,end]), new THREE.LineBasicMaterial({color:0xffee88,transparent:true,opacity:0.9}));
-  scene.add(line); tracers.push({line,life:0.06}); }
-// free BOTH the geometry and the material — leaking materials fills GPU memory
-function disposeTracer(t){ if(!t) return; scene.remove(t.line);
-  if(t.line.geometry) t.line.geometry.dispose();
-  if(t.line.material) t.line.material.dispose(); }
+  let line = tracerPool.pop();
+  if(!line){
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+    line = new THREE.Line(geo, new THREE.LineBasicMaterial({color:0xffee88,transparent:true,opacity:0.9}));
+    line.frustumCulled = false;            // two points that move every shot: a stale bounding sphere would cull it
+    scene.add(line);
+  }
+  const s = from || o, p = line.geometry.attributes.position;
+  p.setXYZ(0, s.x, s.y, s.z);
+  p.setXYZ(1, o.x + dir.x*len, o.y + dir.y*len, o.z + dir.z*len);
+  p.needsUpdate = true;
+  line.material.opacity = 0.9; line.visible = true;
+  tracers.push({line,life:0.06}); }
+/* Back to the pool, not disposed: see above. */
+function disposeTracer(t){ if(!t) return; t.line.visible = false; tracerPool.push(t.line); }
+/* The pool makes every shot after the first free; this makes the first one
+   free too - by drawing a tracer and the muzzle flash on the first frame of
+   play, through the NORMAL render path, where nobody can see them.
+   It has to be the normal path. renderer.compile() was tried first and
+   built the WRONG program: it compiles for drawing straight to the screen,
+   while the game draws the scene into the post-processing chain's target,
+   which changes the program's key (tone mapping, output encoding) - so the
+   first real shot compiled the tracer all over again. A zero-length tracer,
+   pushed as a live one, renders for a frame and then goes back to the pool
+   by the ordinary route; the flash sprite is already at zero opacity and
+   only needs to be in front of the camera to get drawn. */
+function warmTracers(){
+  if (tracerPool.length || tracers.length) return;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({color:0xffee88,transparent:true,opacity:0.9}));
+  line.frustumCulled = false; scene.add(line);
+  const f = new THREE.Vector3(0, 0, -2).applyQuaternion(camera.quaternion).add(camera.position);
+  const p = geo.attributes.position; p.setXYZ(0, f.x, f.y, f.z); p.setXYZ(1, f.x, f.y, f.z);   // zero length: draws nothing
+  tracers.push({ line, life: 0.02 });
+  /* Never culled: at this point the camera has not reached your spawn yet,
+     so 'in front of the camera' may be nowhere near what the first frame sees. */
+  if (typeof flashSprite !== 'undefined'){ flashSprite.position.copy(f); flashSprite.frustumCulled = false; }
+}
+
 
 /* ---- Grenades and explosions ----
    GREN must agree with GRENADE in server.js: a match's grenades fly on the

@@ -379,12 +379,17 @@ function splitGeometryByAxis(geo, axis, cuts){
   return out;
 }
 
+/* Anything flagged `userData.keep` is SHARED - one geometry or material used
+   by every bolt, mark or tracer of its kind - and must outlive any one of
+   them. Disposing a shared material is not just a dangling reference: once
+   the last material using a shader program is disposed, three DELETES the
+   program, and the next one to need it compiles it again from scratch. */
 function disposeTree(obj){
   obj.traverse(o=>{
     if(!o.isMesh) return;
-    if(o.geometry) o.geometry.dispose();
+    if(o.geometry && !o.geometry.userData.keep) o.geometry.dispose();
     const ms = Array.isArray(o.material)?o.material:[o.material];
-    ms.forEach(m=>{ if(!m) return; if(m.map) m.map.dispose(); m.dispose(); });
+    ms.forEach(m=>{ if(!m || m.userData.keep) return; if(m.map) m.map.dispose(); m.dispose(); });
   });
 }
 /* The crossbow and blade keep the shapes built above: no model files. */

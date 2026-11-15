@@ -1833,6 +1833,36 @@ where it lands and, for your own, a camera kick; `feelFrame(dt)` runs from
   ended inside geometry. NOT checked: how any of it looks or sounds to a
   person, or multiplayer.
 
+## Firing lag: shader programs (2026-11-15)
+
+Jack: *"why is it so laggy when i open fire"*. `shoot()` itself costs ~0.6ms.
+The lag came from **shader programs being built mid-fight**, measured by
+wrapping `gl.linkProgram` / `gl.deleteProgram`: idle frames build none, 20
+rifle shots built 20 and deleted 20, and **one crossbow bolt built 16**.
+
+- **Three deletes a program when the last material using it is disposed.**
+  Every tracer made a `LineBasicMaterial` and disposed it 60ms later, so the
+  program died and the NEXT shot compiled it again. Tracers are now a pool
+  (`tracerPool` in effects.js): hidden and reused, never disposed.
+- **Changing the number of lights recompiles EVERY material in the scene.**
+  Each bolt carried its own `PointLight`, so firing one rebuilt every lit
+  material, and so did it going out. The bolt has no light now (the faint glow
+  on nearby walls is gone). **Never add or remove a light per event.**
+- **Per-event materials are shared and flagged `userData.keep`** (arrow and
+  smoke-bolt parts `ARROW_MAT`/`ARROW_GEO`, mark silhouettes `MARK_MAT`).
+  `disposeTree` in weapons.js skips anything flagged, so clearing one arrow
+  cannot delete the program every other arrow uses.
+- **`renderer.compile()` does not warm what the composer draws.** It built a
+  program under a different key and the first real shot still compiled.
+  `warmTracers()` (called first thing in `startPlay`) warms through the REAL
+  render path: one zero-length live tracer and the flash sprite in front of
+  the camera, both `frustumCulled = false` because the camera has not reached
+  the spawn yet.
+- Measured after: a 30-round burst builds **0** programs and deletes 0, the
+  shotgun 0, a repeat bolt 0, a repeat smoke 0. The first shot of a session
+  and the first bolt still build **1** each, once — a single hitch, not one
+  per shot. Not fixed: the baseline frame (~318k lit triangles, ~173 draws).
+
 ## Sound
 
 All of it is synthesised in `Sfx` (`hud.js`); there are no audio files. The
