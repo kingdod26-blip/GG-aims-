@@ -103,6 +103,60 @@ function drawRifle(){
   const mag = dProf(g, dk, [[0.092, -0.030], [0.050, -0.036], [0.030, -0.150], [0.036, -0.176], [0.080, -0.170], [0.090, -0.100]], 0.024, 0.004);
   return { g, grip: [0, -0.078, 0.094], fore: [0, -0.030, -0.245], mag, magAt: [0, -0.185, -0.055] };
 }
+/* A HALF-FRAME SCOPE for the rifle: a compact low-power scope held in two
+   half rings - cradles round the LOWER half of the tube only, clamped to the
+   rifle's existing top rail. It is a separate group in the rifle's own
+   space and adds nothing to, and moves nothing on, the rifle itself.
+   Fitted to what the rifle already has:
+   - the rail's top is y 0.053 and it is 0.020 wide; each clamp sits ON it,
+     its jaws hanging either side of the rail and stopping above the
+     receiver (0.040), so nothing passes into the gun
+   - the rings sit over rail notches 7 and 11 (z -0.039 and -0.127), where
+     the tube is plain - clear of the turret saddle
+   - the whole scope lies between the iron sights: its eyepiece ends 15mm
+     in front of the rear sight housing (z 0.070) and its objective 120mm
+     behind the front sight (z -0.325), so it touches neither
+   - the axis is 49mm over the rail (y 0.102). 38mm, the usual AR height,
+     put the bottom of the eyepiece (0.0715) under the top of the rifle's
+     rear sight post (0.080), so the post sat in the lower edge of the view
+     through the scope. Only the scope's mount was raised to clear it: the
+     ocular's lower edge is now 0.0825, and the line from an eye on the axis
+     to it passes about 7mm over the post. Note the iron-sight line (0.080)
+     passes only 2.5mm under the scope: from there the view ahead is a thin
+     slit, so with the scope on, aiming wants the eye on the SCOPE's axis. */
+const SCOPE_FIT = { axisY: 0.102, tubeR: 0.015, ringZ: [-0.039, -0.127], railTop: 0.053 };
+function drawRifleScope(){
+  const g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), po = M_POLY(), gl = M_GLASS();
+  const A = SCOPE_FIT.axisY, R = SCOPE_FIT.tubeR;
+  // body, rear to front: eyepiece, magnification ring, taper, tube, saddle, taper, objective bell
+  dTube(g, po, 0.0195, 0.050, 0, A, 0.030);                         // eyepiece
+  dTube(g, dk, 0.0205, 0.012, 0, A, 0.002);                         // magnification ring
+  dBox(g, dk, 0.010, 0.006, 0.008, 0.022, A, 0.002);                // its throw lever, to the right
+  dTube(g, dk, R, 0.020, 0, A, -0.005, 0.0195);                     // eyepiece down to the tube
+  dTube(g, dk, R, 0.135, 0, A, -0.0825);                            // main tube
+  dTube(g, dk, 0.0175, 0.040, 0, A, -0.080);                        // turret saddle
+  { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.0115, 0.0115, 0.016, 14), dk); t.position.set(0, A + 0.0255, -0.080); dAdd(g, t);   // elevation, upright
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.0095, 0.0095, 0.003, 14), st); c.position.set(0, A + 0.035, -0.080); dAdd(g, c);
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.0115, 0.0115, 0.016, 14), dk); w.rotation.z = Math.PI / 2; w.position.set(0.0255, A, -0.080); dAdd(g, w); }   // windage, sideways
+  dTube(g, dk, 0.0185, 0.025, 0, A, -0.1625, R);                    // tube out to the bell
+  dTube(g, dk, 0.0185, 0.030, 0, A, -0.190);                        // objective bell
+  dTube(g, gl, 0.0165, 0.002, 0, A, -0.2055);                       // objective lens
+  dTube(g, gl, 0.0170, 0.002, 0, A, 0.0555);                        // ocular lens
+  // the half rings: a cradle under the tube, a stem, and a clamp on the rail
+  const ro = R + 0.0055, half = new THREE.Shape();
+  half.absarc(0, 0, ro, Math.PI, Math.PI * 2, false); half.absarc(0, 0, R + 0.0002, Math.PI * 2, Math.PI, true);
+  const cradle = new THREE.ExtrudeGeometry(half, { depth: 0.014, bevelEnabled: false, curveSegments: 12 }); cradle.translate(0, 0, -0.007);
+  const top = SCOPE_FIT.railTop;
+  for (const z of SCOPE_FIT.ringZ){
+    const c = new THREE.Mesh(cradle, dk); c.position.set(0, A, z); dAdd(g, c);
+    for (const sx of [-1, 1]) dBox(g, dk, 0.006, 0.004, 0.014, sx * (ro + 0.002), A - 0.002, z);   // the ring's two ears
+    dBox(g, dk, 0.012, A - ro - top - 0.010 + 0.002, 0.012, 0, (A - ro + top + 0.010) / 2, z);      // stem, cradle down to clamp
+    dBox(g, dk, 0.030, 0.010, 0.018, 0, top + 0.005, z);                                            // clamp, on the rail
+    for (const sx of [-1, 1]) dBox(g, dk, 0.005, 0.010, 0.018, sx * 0.0125, top - 0.001, z);        // jaws either side of it
+    dTube(g, st, 0.003, 0.004, 0.017, top + 0.005, z).rotation.set(0, 0, Math.PI / 2);              // cross-bolt head
+  }
+  return g;
+}
 function drawSniper(){
   const g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), po = M_POLY(), tn = M_TAN(), gl = M_GLASS();
   // one-piece chassis: fore-end, action bed, thumbhole grip and stock in a single outline
@@ -214,7 +268,13 @@ function mountGun(slot, built){
     magHome: built.mag ? built.mag.position.clone() : null };
   WEAPONS[slot].aimTop = centrelineTop(built.g.parent, 0.03);
 }
-[drawRifle(), drawSniper(), drawShotgun(), drawPistol(false), drawPistol(true)].forEach((b, i) => mountGun(i, b));
+const BUILT_GUNS = [drawRifle(), drawSniper(), drawShotgun(), drawPistol(false), drawPistol(true)];
+BUILT_GUNS.forEach((b, i) => mountGun(i, b));
+/* The rifle's half-frame scope goes on AFTER mountGun has measured aimTop,
+   so aiming lines up exactly as it did without it. Moving the aim to the
+   scope's axis would sit the rifle ~22mm lower while aiming; Jack has not
+   said yes to that yet. */
+BUILT_GUNS[0].g.add(drawRifleScope());
 /* The abilities and the blade keep their own drawn shapes (weapons.js);
    they just get a hand to be held in. */
 for (let i = 5; i < weaponHolders.length; i++){
