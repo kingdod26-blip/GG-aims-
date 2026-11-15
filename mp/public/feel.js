@@ -25,8 +25,12 @@ const FEEL = { flashMs: 55, flashLight: 2.6, sparks: 9, sparkLife: 0.42, kick: 0
    ONE light, made now and left in the scene at zero. Adding a light per
    shot would change the scene's light count, and Three recompiles every
    material when that changes: a hitch on the first round of every burst. */
-const flashLight = new THREE.PointLight(0xffc27a, 0, 14, 2);
-scene.add(flashLight);
+/* There is NO real light in the flash any more. One point light in the scene,
+   even at zero, makes every lit pixel in the room work out a point light on
+   every frame: it nearly doubled the cost of a frame whether or not anyone
+   was firing, and Jack felt it as lag on the trigger. The flare is drawn;
+   the room is not relit. This stub keeps the few lines that set it harmless. */
+const flashLight = { intensity: 0, position: new THREE.Vector3() };
 const flashTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
   const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
   r.addColorStop(0, 'rgba(255,244,210,1)'); r.addColorStop(0.25, 'rgba(255,190,90,0.8)'); r.addColorStop(1, 'rgba(255,120,20,0)');
@@ -95,6 +99,7 @@ function feelFrame(dt){
   if (live || sparks.userData.dirty){ sparkGeo.attributes.position.needsUpdate = true; sparks.userData.dirty = live; }
 
   if (gameState !== 'playing') return;
+  armsFrame();                                                       // the hands, and the reload (drawn.js)
 
   // camera kick: a snap up and a hair of roll, decaying fast. The aim itself
   // (me.pitch) is untouched; loop() rebuilds the camera from it next frame.

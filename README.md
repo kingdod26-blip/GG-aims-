@@ -116,17 +116,10 @@ Then open <http://localhost:8123/fps-game.html>.
 
 ## Credits
 
-Code is MIT (see `LICENSE`). Third-party assets keep their own licences:
+Code is MIT (see `LICENSE`). Every model in the game is drawn in code (`mp/public/drawn.js`); there are no model files.
 
 | Asset | Author | Licence |
 |---|---|---|
-| Weapon models (rifle, sniper, shotgun, pistols, sword) | [Quaternius](https://quaternius.com) | CC0 |
-| Crossbow | CreativeTrio | see source |
-| Textures | [Poly Haven](https://polyhaven.com) | CC0 |
-| Soldier model | Manaos | CC0 |
-| **Spartan Armour MKV (Halo Reach)** | **McCarthy3D (Sketchfab)** | **CC-BY 4.0 — attribution required** |
-
-> The Spartan model is fan art depicting characters owned by Microsoft / 343 Industries. It is
-> included here for a non-commercial hobby project only.
+| Floor, wall and crate textures | [Poly Haven](https://polyhaven.com) | CC0 |
 
 Built with [Three.js](https://threejs.org).

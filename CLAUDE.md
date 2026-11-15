@@ -1782,6 +1782,36 @@ the one above. **Substation gets all of this for free and has not been tuned**
 (2026-11-13), so nothing here should be read as a judgement that it looks
 right.
 
+## Every model is drawn in code (`drawn.js`)
+
+Jack, 2026-11-15: remove every downloaded model, draw them, show the hands in
+first person and move them on a reload. Loaded after weapons.js, unnumbered.
+The FBX/GLB files and the Spartan textures are deleted from the repo; the
+loaders in models.js and weapons.js are gone. This also ends the problem that
+the player model was fan art of a character another company owns.
+
+- **Guns** (`drawRifle` etc.) are boxes and tubes built pointing down -Z in
+  the holder at the old offset (0.02, -0.03, 0.05). The front sight must be on
+  the centre line: `aimTop` is still found by `centrelineTop`.
+- **Arms** (`drawArm`) have their origin AT THE HAND. `armsFrame()` (called
+  from `feelFrame`) walks the left hand fore-end -> magazine -> down -> back,
+  timed as a share of `reloadMsNow`, with the magazine following the hand.
+  The shotgun feeds three shells instead.
+- **loop.js used to plunge the gun out of view on a reload** (`rDip` 0.22,
+  full `rRot`), which hid all of it; it is a slight tilt now (0.05, 0.30),
+  and the hip pose is raised from -0.28 to -0.225 so the hands are in frame.
+- **The operator** (`makeOperator`) replaces `newPlayerMesh` / `newBotMesh`
+  and the menu hero. Limbs are groups pivoted at the joint, so `animate()`
+  in loop.js makes remote players WALK; the Spartan was a rigid statue.
+  Practice targets are amber so a target is never mistaken for a person.
+  Only parts 0.25m or bigger cast shadows.
+- **The muzzle flash has no real light.** One PointLight in the scene, even at
+  intensity 0, made every lit pixel compute it: an idle frame went from about
+  5ms to 9-11ms and Jack felt it as lag on the trigger. Do not add one back.
+- Seen in captured frames: rifle idle with the left arm, a mid-reload frame,
+  the pistol, the menu operator (before its visor fix). NOT seen: the fixed
+  visor, sniper, shotgun, the abilities with a hand, a remote player walking.
+
 ## Feel (`feel.js`)
 
 Loaded after hud.js, unnumbered. Nothing in it changes a hit or a packet. It

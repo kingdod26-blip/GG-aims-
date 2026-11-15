@@ -321,7 +321,7 @@ function loop(){ requestAnimationFrame(loop);
     if(reloading){
       const p=Math.min(1,(performance.now()-reloadStart)/reloadMsNow(curW()));
       const s=Math.sin(p*Math.PI);                  // 0→1→0 envelope
-      rDip=s*0.22; rRot=s;
+      rDip=s*0.05; rRot=s*0.30;       // a tilt, not a plunge: the hands do the reload now (drawn.js) and have to stay in view
       if(p>0.3&&p<0.7) rWob=Math.sin(p*40)*0.02;    // hand jiggle mid-reload
     }
     // Stance feedback you can actually see in first person: the weapon rides
@@ -346,7 +346,7 @@ function loop(){ requestAnimationFrame(loop);
     const w = curW();
     const adsX = w.redDot ? -0.02 : 0;                       // the model sits 0.02 right of the holder
     const adsY = w.redDot ? -((w.aimTop !== undefined ? w.aimTop : 0.06) + AIM_GAP) : -0.21;
-    const bx = 0.3 + (adsX - 0.3)*ads, by = -0.28 + (adsY + 0.28)*ads, bz = -0.55 + 0.12*ads;
+    const bx = 0.3 + (adsX - 0.3)*ads, by = -0.225 + (adsY + 0.225)*ads, bz = -0.55 + 0.12*ads;
     // tuck the weapon down and in while rolling — you don't run a somersault
     // with the gun still levelled at the horizon
     const tuck = ROLL.tuck*rollPunch;

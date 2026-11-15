@@ -180,34 +180,7 @@ function lookifyViewmodel(root){
   });
 }
 
-WEAPON_MODELS.forEach((wm,i)=>{
-  const onLoad = (model)=>{
-    const { holder, size } = fitWeaponModel(model, wm);
-    while(weaponHolders[i].children.length) weaponHolders[i].remove(weaponHolders[i].children[0]);
-    weaponHolders[i].add(holder);
-    lookSoon();                 // it arrived after the look was last applied
-    /* The top of this gun ALONG ITS CENTRELINE, in gun-local space. Aiming
-       lifts the gun so this sits exactly on the eye line, which puts the tip
-       of the front sight on the dot.
-       It used to be the bounding box's top, and that left a 7-9px gap under
-       the dot on every gun: the highest point of a model is not necessarily
-       the part directly beneath the aim point - a lever or a rear sight off
-       to one side sets the box. A point lands on the centre ROW of the
-       screen exactly when it is level with the eye, whatever its distance,
-       so what matters is the highest vertex in the thin slice of the model
-       that the centre COLUMN looks down. One pass over the vertices at load. */
-    WEAPONS[i].aimTop = centrelineTop(holder,
-      holder.position.y + size.y * (wm.len / Math.max(size.x, size.y, size.z)) / 2);
-    console.log(`[CrimsonX] weapon ${i+1} loaded (${wm.url}), raw size`, size.toArray().map(n=>+n.toFixed(1)));
-  };
-  const onErr = (err)=> console.warn(`[CrimsonX] weapon model failed: ${wm.url}`, err);
-  try {
-    if (wm.type==='glb' && THREE.GLTFLoader) new THREE.GLTFLoader(fbxTexMgr).load(wm.url, g=>onLoad(g.scene), undefined, onErr);
-    else if (wm.type==='fbx' && THREE.FBXLoader) new THREE.FBXLoader(fbxTexMgr).load(wm.url, onLoad, undefined, onErr);
-  } catch(e){ onErr(e); }
-});
-
-/* (Weapon models are loaded by the generic WEAPON_MODELS loader above.) */
+/* The guns are drawn in code now (drawn.js); nothing is loaded here. */
 
 /* The Spartan is the PLAYER avatar — it's what you are, and what everyone
    else sees of you. Bots deliberately stay as the cheap box humanoids: they're
@@ -263,53 +236,8 @@ function spartanMaterial(name){
   }
   return null;
 }
-if (THREE.FBXLoader) try {
-  new THREE.FBXLoader(fbxTexMgr).load('assets/spartan.fbx', (fbx)=>{
-    const matNames=[];
-    // The Sketchfab export ships a display groundplane inside the character.
-    // Left in, every player drags a 2.3m disc around at their feet — and it
-    // throws off the height normalization below. Drop it before measuring.
-    const junk=[]; fbx.traverse(o=>{ if(o.isMesh && /^floor/i.test(o.name)) junk.push(o); });
-    junk.forEach(o=>{ if(o.parent) o.parent.remove(o); if(o.geometry) o.geometry.dispose(); });
-    // frustumCulled stays TRUE here: these targets are static, so their bounds
-    // are valid and off-screen ones can be skipped (big saving with 8 of them).
-    fbx.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=true;
-      const mats=Array.isArray(o.material)?o.material:[o.material];
-      matNames.push(...mats.map(m=>m&&m.name));
-      const swapped=mats.map(m=>spartanMaterial(m&&m.name)||m);
-      // The Spartan is a SkinnedMesh. Our replacement materials default to
-      // skinning:false, which makes the GPU ignore the bones and render the
-      // raw bind pose — that's why he stood there with his arms out. The
-      // shadow pass warned about it every single frame.
-      swapped.forEach(m=>{ if(m){ m.skinning = !!o.isSkinnedMesh; m.needsUpdate = true; } });
-      o.material=Array.isArray(o.material)?swapped:swapped[0];
-    } });
-    console.log('[CrimsonX] spartan materials:', [...new Set(matNames)].join(', '));
-    // This model's "front" points the opposite way to Three.js's convention,
-    // so we'd see his back. A pivot between the holder and the model corrects
-    // the facing WITHOUT disturbing the centering below, and leaves the
-    // holder's own rotation free for aiming/spinning.
-    const holder=new THREE.Group();
-    const pivot=new THREE.Group();
-    pivot.add(fbx); holder.add(pivot);          // pivot unrotated while we measure
-    const size=new THREE.Box3().setFromObject(fbx).getSize(new THREE.Vector3());
-    fbx.scale.setScalar(1.9/(size.y||1));
-    const bb=new THREE.Box3().setFromObject(fbx);
-    fbx.position.set(-(bb.min.x+bb.max.x)/2, -bb.min.y, -(bb.min.z+bb.max.z)/2);
-    pivot.rotation.y = SPARTAN_FACE;            // applied AFTER centring, so he spins in place
-    spartanTpl = holder;
-    // upgrade the players already in the world (bots stay boxes on purpose)
-    for(const o of others.values()){ const old=o.mesh;
-      o.mesh=makeSpartan(); o.mesh.position.copy(old.position); o.mesh.rotation.y=old.rotation.y;
-      scene.remove(old); scene.add(o.mesh); }
-    if (gameState!=='playing'){ // swap the home-page showcase — that figure is you
-      scene.remove(hero); hero=makeSpartan(); hero.position.set(0,0.12,32); scene.add(hero);
-      heroGroup[0]=hero; spot.target=hero; scene.add(spot.target);
-    }
-    lookSoon();                 // his armour's metal only exists once the look is applied to it
-    console.log('[CrimsonX] spartan model loaded, raw size', size.toArray().map(n=>+n.toFixed(1)));
-  }, undefined, (err)=> console.warn('[CrimsonX] spartan FBX failed, keeping box soldiers', err));
-} catch(e){ console.warn('[CrimsonX] soldier load error', e); }
+/* The operator is drawn in code now (drawn.js), which replaces
+   newPlayerMesh and newBotMesh; no model file is loaded. */
 
 /* ---- Health bars over the practice bots ----
    Two unlit planes above the head. No billboard maths needed: in target

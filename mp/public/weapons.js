@@ -387,39 +387,7 @@ function disposeTree(obj){
     ms.forEach(m=>{ if(!m) return; if(m.map) m.map.dispose(); m.dispose(); });
   });
 }
-if (THREE.FBXLoader) ABILITY_MODELS.forEach(am=>{
-  const onErr=(err)=> console.warn(`[CrimsonX] ${am.url} failed, keeping procedural`, err);
-  try {
-    new THREE.FBXLoader(fbxTexMgr).load(am.url, (model)=>{
-      model.traverse(o=>{
-        if(!o.isMesh) return;
-        const old = o.geometry;
-        o.geometry = splitGeometryByAxis(old, am.split.axis, am.split.cuts);
-        if(old!==o.geometry) old.dispose();
-        const prev = Array.isArray(o.material)?o.material:[o.material];
-        prev.forEach(m=>{ if(!m) return; if(m.map) m.map.dispose(); m.dispose(); });
-        o.material = am.split.colors.map(c=>new THREE.MeshLambertMaterial({color:c}));
-      });
-      const { holder, size } = fitWeaponModel(model, am);
-      holder.position.set(am.pos[0], am.pos[1], am.pos[2]);
-      // The first slot takes the model; any others get a clone, which shares
-      // geometry and materials — so don't disposeTree a holder after this.
-      am.slots.forEach((slot, n)=>{
-        const h = weaponHolders[slot];
-        while(h.children.length){ const c=h.children[0]; h.remove(c); disposeTree(c); }
-        h.add(n === 0 ? holder : holder.clone());
-      });
-      /* After the clones, never before: clone() copies userData through
-         JSON, which would turn the viewmodel's second skin into garbage. */
-      lookSoon();
-      console.log(`[CrimsonX] ${am.url} loaded, raw size`, size.toArray().map(n=>+n.toFixed(2)));
-    }, undefined, onErr);
-  } catch(e){ onErr(e); }
-});
-
-// fallback box gun in slot 0 until the real model arrives
-weaponHolders[0].add(at(new THREE.Mesh(new THREE.BoxGeometry(0.1,0.13,0.6),new THREE.MeshLambertMaterial({color:0x24262b})),0,0,-0.05));
-weaponHolders[0].add(at(new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,0.4),new THREE.MeshLambertMaterial({color:0x17181c})),0,0.01,-0.4));
+/* The crossbow and blade keep the shapes built above: no model files. */
 let comboStep = 0, comboUntil = 0, swingT = 0, swingDir = 1;
 let currentWeapon = 0;
 let weaponAmmo = WEAPONS.map(w=>({ mag:w.magMax, reserve:w.reserveMax }));
