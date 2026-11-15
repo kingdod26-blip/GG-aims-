@@ -1808,20 +1808,9 @@ the player model was fan art of a character another company owns.
   in loop.js makes remote players WALK; the Spartan was a rigid statue.
   Practice targets are amber so a target is never mistaken for a person.
   Only parts 0.25m or bigger cast shadows.
-- **The rifle carries a half-frame (open reflex) sight** (`drawRifleReflex`,
-  Jack's photo, 2026-11-15), added AFTER `mountGun` measures `aimTop`, so it
-  cannot move the aim point. Jack's rule: fit the sight to the gun, never
-  the gun to the sight - ask before anything that moves or changes the gun.
-  Its window is built round the eye line aiming already uses (the rear sight
-  post top, y 0.080), so it is looked through with the rifle unmoved and
-  the rifle's camera-attached red dot sits in the glass. The clamp sits at
-  z -0.028..-0.098 because further back the receiver hump rises to 0.051.
-  A tube scope came first and was replaced: its solid eyepiece sat on the
-  line of sight and hid everything. Checked: 0 rifle vertices inside it.
-  **The rifle aims CLOSE** (`adsZ: -0.12` in WEAPONS, read in loop.js; every
-  other gun keeps 0.43m): Jack sent a reference where the sight fills the
-  middle of the view. The frame sits ~16cm from the eye, and the rear iron
-  sight and stock fall behind the camera (near plane 0.05) and are not drawn.
+- **The rifle has NO scope, by Jack's choice** (2026-11-15). A tube scope and
+  then an open reflex sight with a close aim (`adsZ`) were built and he had
+  them removed: the rifle aims on its iron sights and red dot, as before.
 - **The muzzle flash has no real light.** One PointLight in the scene, even at
   intensity 0, made every lit pixel compute it: an idle frame went from about
   5ms to 9-11ms and Jack felt it as lag on the trigger. Do not add one back.

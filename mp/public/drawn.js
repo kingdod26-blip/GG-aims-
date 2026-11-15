@@ -103,58 +103,6 @@ function drawRifle(){
   const mag = dProf(g, dk, [[0.092, -0.030], [0.050, -0.036], [0.030, -0.150], [0.036, -0.176], [0.080, -0.170], [0.090, -0.100]], 0.024, 0.004);
   return { g, grip: [0, -0.078, 0.094], fore: [0, -0.030, -0.245], mag, magAt: [0, -0.185, -0.055] };
 }
-/* A HALF-FRAME (OPEN REFLEX) SIGHT for the rifle, from Jack's photo: a low
-   body on a rail clamp, and in front of it a tall D-shaped frame holding one
-   pane of tinted glass you look straight through. It replaced a tube scope,
-   whose solid eyepiece sat right on the line of sight and hid everything.
-   It is a separate group in the rifle's own space and adds nothing to, and
-   moves nothing on, the rifle itself. Fitted to what the rifle has:
-   - the clamp sits ON the rail (top y 0.053, 0.020 wide), its jaws stopping
-     at 0.049, above the receiver (0.045 with its bevel). It is mounted at z
-     -0.028 to -0.098 because further back the receiver's raised hump comes
-     up to 0.051 and the jaws would have gone into it
-   - the WINDOW is centred on the eye line aiming already uses: aimTop is
-     the rear sight post's top, y 0.080, and the glass runs 0.066 to 0.108,
-     44mm wide - wider than tall, the photo's proportions
-     So it is looked through without the rifle moving at all, and the
-     rifle's own red dot (camera-attached, at the centre of the view) sits
-     in the glass the way a reflex reticle does
-   - it stands between the iron sights and touches neither */
-const REFLEX_FIT = { railTop: 0.053, zBack: -0.028, zFront: -0.098, frameZ: -0.088,
-                     deck: 0.061, winBottom: 0.066, sideTop: 0.086, outerHW: 0.0255, innerHW: 0.022,
-                     bodyW: 0.036 };
-function dShape(hw, bottom, sideTop){
-  const s = new THREE.Shape();
-  s.moveTo(-hw, bottom); s.lineTo(hw, bottom); s.lineTo(hw, sideTop);
-  s.absarc(0, sideTop, hw, 0, Math.PI, false); s.lineTo(-hw, bottom); return s;
-}
-function drawRifleReflex(){
-  const F = REFLEX_FIT, g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), po = M_POLY();
-  const glass = dmat('reflexglass', 0xffb46a, 0.0, 0.04, { transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide });
-  const len = F.zBack - F.zFront, mid = (F.zBack + F.zFront) / 2;
-  // the clamp: a plate on the rail, jaws either side of it, a thumb screw on the left
-  dBox(g, dk, F.bodyW - 0.002, F.deck - F.railTop, len, 0, (F.deck + F.railTop) / 2, mid);
-  for (const sx of [-1, 1]) dBox(g, dk, 0.005, 0.008, len, sx * 0.0125, F.railTop - 0.0, mid);
-  dTube(g, st, 0.0045, 0.006, -(F.bodyW / 2 + 0.002), (F.deck + F.railTop) / 2, mid).rotation.set(0, 0, Math.PI / 2);
-  // the body: low, at the back, with the brightness knob on the right and the
-  // reticle selector on the left, as in the photo
-  const bz0 = F.zBack, bz1 = F.zBack - 0.042, bm = (bz0 + bz1) / 2;
-  dBox(g, po, F.bodyW, 0.012, bz0 - bz1, 0, F.deck + 0.006, bm);
-  dBox(g, dk, F.bodyW - 0.006, 0.004, 0.014, 0, F.deck + 0.014, bz0 - 0.008);              // rear hood over the emitter window
-  { const k = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.0075, 0.007, 16), dk); k.rotation.z = Math.PI / 2; k.position.set(F.bodyW / 2 + 0.0035, F.deck + 0.007, bm); dAdd(g, k);
-    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.002, 16), M_RED()); c.rotation.z = Math.PI / 2; c.position.set(F.bodyW / 2 + 0.0075, F.deck + 0.007, bm); dAdd(g, c);   // red index on the knob
-    const r = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.005, 12), dk); r.rotation.z = Math.PI / 2; r.position.set(-(F.bodyW / 2 + 0.0025), F.deck + 0.007, bm); dAdd(g, r); }
-  dTube(g, st, 0.0025, 0.003, 0.0, F.deck + 0.0135, bm + 0.004).rotation.set(0, 0, 0);   // elevation screw head, on top
-  // the half frame: a D of steel round the window, standing on the deck
-  const frame = dShape(F.outerHW, F.deck, F.sideTop); frame.holes.push(dShape(F.innerHW, F.winBottom, F.sideTop));
-  const fg = new THREE.ExtrudeGeometry(frame, { depth: 0.005, bevelEnabled: true, bevelSize: 0.0008, bevelThickness: 0.0008, bevelSegments: 1, curveSegments: 20 });
-  fg.translate(0, 0, -0.0025);
-  const fm = new THREE.Mesh(fg, dk); fm.position.z = F.frameZ; dAdd(g, fm);
-  // the glass, just inside the frame; drawn after the gun so it tints what is behind it
-  const gm = new THREE.Mesh(new THREE.ShapeGeometry(dShape(F.innerHW + 0.0004, F.winBottom - 0.0004, F.sideTop), 20), glass);
-  gm.position.z = F.frameZ; gm.renderOrder = 1; dAdd(g, gm);
-  return g;
-}
 function drawSniper(){
   const g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), po = M_POLY(), tn = M_TAN(), gl = M_GLASS();
   // one-piece chassis: fore-end, action bed, thumbhole grip and stock in a single outline
@@ -266,11 +214,7 @@ function mountGun(slot, built){
     magHome: built.mag ? built.mag.position.clone() : null };
   WEAPONS[slot].aimTop = centrelineTop(built.g.parent, 0.03);
 }
-const BUILT_GUNS = [drawRifle(), drawSniper(), drawShotgun(), drawPistol(false), drawPistol(true)];
-BUILT_GUNS.forEach((b, i) => mountGun(i, b));
-/* The rifle's reflex sight goes on AFTER mountGun has measured aimTop, so it
-   cannot move the aim point: its window was built round that eye line instead. */
-BUILT_GUNS[0].g.add(drawRifleReflex());
+[drawRifle(), drawSniper(), drawShotgun(), drawPistol(false), drawPistol(true)].forEach((b, i) => mountGun(i, b));
 /* The abilities and the blade keep their own drawn shapes (weapons.js);
    they just get a hand to be held in. */
 for (let i = 5; i < weaponHolders.length; i++){

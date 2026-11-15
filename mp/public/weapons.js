@@ -108,7 +108,7 @@ let rollFwd=0, rollPunch=0;      // rollFwd: +1 forward, -1 backward, 0 sideways
                                  // rollPunch: 0..1 envelope for the FOV/weapon kick
 /* Weapon roster (keys 1-5, Tab shows the armory). ADS on right-click. */
 const WEAPONS = [
-  { name:'RIFLE', redDot:true, adsZ:-0.12, mode:'AUTO', auto:true,  fireRate:95,   dmg:26,  recoil:0.011, spread:0.014, adsSpread:0.006,  range:240, magMax:30, reserveMax:120, reloadMs:1600, adsFov:62, scope:false },
+  { name:'RIFLE', redDot:true,    mode:'AUTO', auto:true,  fireRate:95,   dmg:26,  recoil:0.011, spread:0.014, adsSpread:0.006,  range:240, magMax:30, reserveMax:120, reloadMs:1600, adsFov:62, scope:false },
   { name:'SNIPER',   mode:'BOLT', auto:false, fireRate:1200, dmg:110, recoil:0.045, spread:0.05,  adsSpread:0.0015, range:400, magMax:5,  reserveMax:25,  reloadMs:2400, adsFov:20, scope:true  },
   { name:'SHOTGUN', redDot:true,  mode:'PUMP', auto:false, fireRate:900,  dmg:12,  pellets:8, recoil:0.03,  spread:0.09, adsSpread:0.06, range:60,  magMax:6,  reserveMax:36,  reloadMs:2200, adsFov:68, scope:false },
   { name:'PISTOL', redDot:true,   mode:'SEMI', auto:false, fireRate:200,  dmg:30,  recoil:0.013, spread:0.010, adsSpread:0.004, steady:true,  range:180, magMax:12, reserveMax:60,  reloadMs:1200, adsFov:66, scope:false },
