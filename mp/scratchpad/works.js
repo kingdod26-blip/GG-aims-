@@ -263,9 +263,6 @@ ${lines.join('\n')}
     props: ${JSON.stringify(P, null, 6).replace(/\n/g, '\n    ').replace(/"(\w+)":/g, '$1:').replace(/"/g, "'")},
     paint: [
       { k: 'walk',  x0: -14, z0: -116, x1: -14, z1: 116, w: 3.2 },
-      { k: 'walk',  x0: -116, z0: 0, x1: -106, z1: 0, w: 3.2 },
-      { k: 'walk',  x0: -14, z0: -66, x1: 110, z1: -66, w: 3.2 },
-      { k: 'walk',  x0: -14, z0: 66, x1: 110, z1: 66, w: 3.2 },
       { k: 'hatch', x: -14, z: -11, w: 8.6, d: 7.1 }, { k: 'hatch', x: -14, z: 11, w: 8.6, d: 7.1 },
       { k: 'hatch', x: -74, z: -90, w: 27.4, d: 27.4 },
       { k: 'hatch', x: -24, z: -90, w: 27.4, d: 27.4 },
@@ -274,7 +271,31 @@ ${lines.join('\n')}
       { k: 'walk',  x0: -62, z0: -44, x1: -62, z1: 44, w: 3.0 },
       { k: 'hatch', x: -100, z: -40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z: -40, w: 5.6, d: 5.6 },
       { k: 'hatch', x: -100, z:  40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z:  40, w: 5.6, d: 5.6 },
-      { k: 'text',  x: 56, z: 70, s: 2.6, t: 'TURBINE HALL' },
+      { k: 'text',  x: 56, z: 72, s: 2.6, t: 'TURBINE HALL' },
+    ],
+    /* WHAT THE GROUND IS MADE OF (stage 3, 2026-11-16), from Jack's aerial
+       references: asphalt roads with kerbs and lines, gravel under the HV
+       plant, grass round the towers and along the boundary; everything not
+       listed stays concrete hardstanding. Painted into the floor only
+       (lighting.js litGroundTexture) - no collision, no gameplay. Zones are
+       x0/z0/x1/z1 rectangles; a road is a centreline with a width, and every
+       road edge was checked against the collision footprints: none runs
+       under anything, kerbs included (checked in code; closest is the south
+       road's kerb, 0.15m off a pipe bridge).
+       Drawn in this order: grass, gravel, then roads over both. */
+    ground: [
+      { k: 'grass',  x0: -120, z0: -120, x1: 120, z1: -113 },
+      { k: 'grass',  x0: -120, z0:  113, x1: 120, z1:  120 },
+      { k: 'grass',  x0: -120, z0: -120, x1: -116, z1: 120 },
+      { k: 'grass',  x0: -109, z0: -113, x1:  27, z1:  -74 },
+      { k: 'grass',  x0:  -19, z0:   74, x1:   5, z1:  113 },
+      { k: 'gravel', x0: -104, z0:  -46, x1: -20, z1:   46 },
+      { k: 'gravel', x0: -115.5, z0: 74, x1: -20, z1:  113 },
+      { k: 'road', x0: -24, z0: -64,  x1: 117, z1: -64,  w: 6 },
+      { k: 'road', x0: -24, z0: 65, x1: 117, z1: 65, w: 6 },
+      { k: 'road', x0: -112.5, z0: -73, x1: -112.5, z1: 73, w: 6 },
+      { k: 'road', x0: -115.5, z0: -70, x1: -14, z1: -70, w: 6 },
+      { k: 'road', x0: -115.5, z0:  70, x1: -14, z1:  70, w: 6 },
     ],
     signs: [],
   },

@@ -1065,6 +1065,35 @@ saturation ~0.10 (a well-exposed outdoor frame is ~0.5; the references are
 Measured after: luminance 0.49-0.59, saturation 0.20-0.29, near-white
 pixels down from up to 9.4% to 3.6%.
 
+### Map improvement, stage 3: the ground (2026-11-16)
+
+`map.ground` (written by `scratchpad/works.js`) says what the floor is made
+of: `grass` and `gravel` rectangles, and `road`s as a centreline plus width.
+Anything not listed stays concrete. It is paint only - no collision, no
+gameplay - and the roads replace the two yellow aisles at z = +-66.
+
+- **Its own texture, `uLitGround`** (`litGroundTexture`), sampled before the
+  markings. The markings are deliberately WORN by the roughness map, and
+  grass worn like paint showed bare concrete in patches. A map with no
+  `ground` gets `LIT_NOGROUND`, a transparent pixel, so indoor maps are
+  untouched.
+- **Ground colours are scaled into the concrete's range.** The concrete is a
+  dark scan (linear 0.063 after its tint) that the site's light multiplies
+  up to a light grey, so the canvas colours mean "how it looks beside that
+  grey" and the shader multiplies by 0.063 / 0.53. Unscaled, gravel came out
+  white and grass pale yellow. Each colour is also multiplied by the scan's
+  own grain (squared), so every surface keeps texture up close.
+- Grass and gravel lose 90% of the floor's mirror (`1 - 0.9 * litGround`).
+- Roads draw kerbs, then asphalt, then lines, then asphalt again over every
+  junction, so no kerb or line crosses a crossing road's mouth.
+- Slab joints are cleared out of ground zones in the markings, and the
+  crimson boundary line is indoors only now.
+- **Every road edge, kerb included, is checked against the collision
+  footprints in code: 0 overlaps.** The first south road ran its kerb 0.6m
+  under a pipe bridge (it starts at z 68.5, not the 69 the rounded listing
+  showed); it is 6m wide at z 65 now.
+- Cost: lost in measurement noise (one texture read per floor pixel).
+
 ### The switchyard
 
 The west compound was the `substation` map moved over: three walled lanes and

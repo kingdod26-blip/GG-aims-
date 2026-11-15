@@ -1140,9 +1140,14 @@ function litMarksTexture(map){
       g.beginPath(); g.moveTo(X(v), Z(-D)); g.lineTo(X(v), Z(D)); g.stroke();
       g.beginPath(); g.moveTo(X(-D), Z(v)); g.lineTo(X(D), Z(v)); g.stroke();
     }
-    const m = 2.6;                                                                    // the boundary line
-    g.strokeStyle = 'rgba(206,36,58,0.80)'; g.lineWidth = 0.20 * k; g.setLineDash([6 * k, 0.9 * k]);
-    g.strokeRect(X(-D + m), Z(-D + m), (2 * D - 2 * m) * k, (2 * D - 2 * m) * k); g.setLineDash([]);
+    /* Slab joints belong to concrete: take them back out of anything the
+       ground layer paints as road, gravel or grass. */
+    for (const q of (map.ground || [])){ const r = litGroundRect(q, 0.3); g.clearRect(X(r[0]), Z(r[1]), (r[2] - r[0]) * k, (r[3] - r[1]) * k); }
+    if (!map.sky){                                                                    // the boundary line, indoors only
+      const m = 2.6;
+      g.strokeStyle = 'rgba(206,36,58,0.80)'; g.lineWidth = 0.20 * k; g.setLineDash([6 * k, 0.9 * k]);
+      g.strokeRect(X(-D + m), Z(-D + m), (2 * D - 2 * m) * k, (2 * D - 2 * m) * k); g.setLineDash([]);
+    }
     /* A map's own paint (`paint` in maps.js), laid in an order that reads
        right where things cross: aisles first, then the trench covers that
        cut through them, then the keep-out borders, then lettering on top. */
@@ -1221,16 +1226,104 @@ function litMarksTexture(map){
   return (LIT_MARKS[map.id] = t);
 }
 
+/* THE GROUND (stage 3): a second picture over the whole floor, drawn from
+   `map.ground` - grass and gravel zones, then roads with kerbs, edge lines and
+   a dashed centre. Same mapping as the markings (canvas x = world x, canvas y
+   = world z, flipY off). Colours are the MEAN look; the shader multiplies in
+   the concrete photoscan's grain, so up close every surface keeps texture. */
+const LIT_GROUND = {};
+function litGroundRect(q, kerb){                 // a zone or a road as [x0, z0, x1, z1]
+  if (q.k !== 'road') return [Math.min(q.x0, q.x1), Math.min(q.z0, q.z1), Math.max(q.x0, q.x1), Math.max(q.z0, q.z1)];
+  const h = q.w / 2 + (kerb || 0), horiz = Math.abs(q.x1 - q.x0) > Math.abs(q.z1 - q.z0);
+  return horiz ? [Math.min(q.x0, q.x1), q.z0 - h, Math.max(q.x0, q.x1), q.z0 + h]
+               : [q.x0 - h, Math.min(q.z0, q.z1), q.x0 + h, Math.max(q.z0, q.z1)];
+}
+function litGroundTexture(map){
+  const G = map.ground || [];
+  if (!G.length) return LIT_NOGROUND;
+  if (LIT_GROUND[map.id]) return LIT_GROUND[map.id];
+  const a = map.arena, S = a > 50 ? 2048 : 1024, k = S / (2 * a);
+  const X = (x) => (x + a) * k, Z = (z) => (z + a) * k;
+  const rnd = litRand(57), of = (kind) => G.filter(q => q.k === kind);
+  const box = (r, col) => { g.fillStyle = col; g.fillRect(X(r[0]), Z(r[1]), (r[2] - r[0]) * k, (r[3] - r[1]) * k); };
+  let g;
+  const c = litCanvas(S, S, (gg) => {
+    g = gg; g.clearRect(0, 0, S, S);
+    /* Grass: a mid green with darker and drier patches, then a scatter of
+       single-pixel blades so it is not a flat wash from above. */
+    for (const q of of('grass')){
+      const r = litGroundRect(q), x0 = X(r[0]), z0 = Z(r[1]), w = (r[2] - r[0]) * k, d = (r[3] - r[1]) * k;
+      g.save(); g.beginPath(); g.rect(x0, z0, w, d); g.clip();
+      g.fillStyle = '#6c8743'; g.fillRect(x0, z0, w, d);
+      const n = Math.ceil(w * d / 900);
+      for (let i = 0; i < n; i++){
+        const x = x0 + rnd() * w, z = z0 + rnd() * d, rr = 6 + rnd() * 28, t = rnd();
+        const col = t < 0.45 ? 'rgba(78,104,48,' : t < 0.8 ? 'rgba(128,154,76,' : 'rgba(166,160,104,';
+        const gr = g.createRadialGradient(x, z, 0, x, z, rr);
+        gr.addColorStop(0, col + (0.25 + rnd() * 0.3).toFixed(2) + ')'); gr.addColorStop(1, col + '0)');
+        g.fillStyle = gr; g.fillRect(x - rr, z - rr, rr * 2, rr * 2);
+      }
+      for (let i = 0, m = Math.ceil(w * d / 6); i < m; i++){
+        g.fillStyle = rnd() < 0.5 ? 'rgba(52,72,34,0.35)' : 'rgba(150,178,92,0.30)';
+        g.fillRect(x0 + rnd() * w, z0 + rnd() * d, 1, 1);
+      }
+      g.restore();
+    }
+    /* Gravel: grey stone, speckled light and dark at every pixel scale. */
+    for (const q of of('gravel')){
+      const r = litGroundRect(q), x0 = X(r[0]), z0 = Z(r[1]), w = (r[2] - r[0]) * k, d = (r[3] - r[1]) * k;
+      g.save(); g.beginPath(); g.rect(x0, z0, w, d); g.clip();
+      g.fillStyle = '#9a978f'; g.fillRect(x0, z0, w, d);
+      for (let i = 0, m = Math.ceil(w * d / 2.2); i < m; i++){
+        const t = rnd(); g.fillStyle = t < 0.5 ? 'rgba(98,96,90,0.5)' : t < 0.85 ? 'rgba(196,193,184,0.45)' : 'rgba(140,126,108,0.5)';
+        g.fillRect(x0 + rnd() * w, z0 + rnd() * d, 1 + (rnd() < 0.2 ? 1 : 0), 1);
+      }
+      g.restore();
+    }
+    /* Roads: every kerb, then every asphalt bed, then every line - and last,
+       the asphalt again over each junction, so no kerb or line runs across
+       the mouth of a crossing road. */
+    const roads = of('road');
+    for (const q of roads) box(litGroundRect(q, 0.35), '#cfcec6');
+    const tar = (r) => { box(r, '#56585c');
+      const x0 = X(r[0]), z0 = Z(r[1]), w = (r[2] - r[0]) * k, d = (r[3] - r[1]) * k;
+      for (let i = 0, m = Math.ceil(w * d / 14); i < m; i++){ g.fillStyle = rnd() < 0.5 ? 'rgba(34,35,38,0.30)' : 'rgba(128,128,128,0.22)'; g.fillRect(x0 + rnd() * w, z0 + rnd() * d, 1, 1); } };
+    for (const q of roads) tar(litGroundRect(q));
+    for (const q of roads){
+      const horiz = Math.abs(q.x1 - q.x0) > Math.abs(q.z1 - q.z0), r = litGroundRect(q), e = q.w / 2 - 0.45, lw = 0.15;
+      g.fillStyle = 'rgba(232,232,226,0.85)';                                        // edge lines
+      if (horiz){ g.fillRect(X(r[0]), Z(q.z0 - e - lw / 2), (r[2] - r[0]) * k, lw * k); g.fillRect(X(r[0]), Z(q.z0 + e - lw / 2), (r[2] - r[0]) * k, lw * k); }
+      else      { g.fillRect(X(q.x0 - e - lw / 2), Z(r[1]), lw * k, (r[3] - r[1]) * k); g.fillRect(X(q.x0 + e - lw / 2), Z(r[1]), lw * k, (r[3] - r[1]) * k); }
+      g.fillStyle = 'rgba(236,236,230,0.80)';                                        // a dashed centre: 3m on, 3m off
+      const len = horiz ? r[2] - r[0] : r[3] - r[1];
+      for (let t = 1.5; t < len - 1.5; t += 6){
+        if (horiz) g.fillRect(X(r[0] + t), Z(q.z0 - 0.07), 3 * k, 0.14 * k); else g.fillRect(X(q.x0 - 0.07), Z(r[1] + t), 0.14 * k, 3 * k);
+      }
+    }
+    for (let i = 0; i < roads.length; i++) for (let j = i + 1; j < roads.length; j++){
+      const A = litGroundRect(roads[i]), B = litGroundRect(roads[j]);
+      const r = [Math.max(A[0], B[0]), Math.max(A[1], B[1]), Math.min(A[2], B[2]), Math.min(A[3], B[3])];
+      if (r[2] > r[0] && r[3] > r[1]) tar(r);
+    }
+  });
+  const t = new THREE.CanvasTexture(c);
+  t.flipY = false; t.premultiplyAlpha = true;
+  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return (LIT_GROUND[map.id] = t);
+}
+
 /* ---------------------------------------------------------------------
    4. THE SHADER PATCH
    --------------------------------------------------------------------- */
 const LIT_BLANK = new THREE.DataTexture(new Uint8Array([90, 90, 90, 255]), 1, 1, THREE.RGBAFormat);
 LIT_BLANK.needsUpdate = true;
+const LIT_NOGROUND = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1, THREE.RGBAFormat);
+LIT_NOGROUND.needsUpdate = true;
 /* One set of uniform objects, handed to every lit material: writing a
    value here reaches all of them, which is what lets a rebuilt arena or a
    finished bake update the whole room in one assignment. */
 const LITU = {
-  uLitTex:   { value: LIT_BLANK }, uLitMarks: { value: null }, uLitArena: { value: 60 },
+  uLitTex:   { value: LIT_BLANK }, uLitMarks: { value: null }, uLitGround: { value: LIT_NOGROUND }, uLitArena: { value: 60 },
   uLitGain:  { value: LIT.gain }, uLitAmb: { value: new THREE.Vector3().fromArray(LIT.ambient) },
   uLitShadow:{ value: LIT.shadow },
   uLitBox:   { value: new Float32Array(LIT_NBOX * 4) }, uLitBoxH: { value: new Float32Array(LIT_NBOX) },
@@ -1274,7 +1367,7 @@ const LIT_FRAG_PARS = `
     uniform float uLitDado;
   #endif
   #ifdef CX_FLOOR
-    uniform sampler2D uLitTex; uniform sampler2D uLitMarks; uniform float uLitArena;
+    uniform sampler2D uLitTex; uniform sampler2D uLitMarks; uniform sampler2D uLitGround; uniform float uLitArena;
     uniform vec4 uLitBox[ CX_NBOX ]; uniform float uLitBoxH[ CX_NBOX ];
     uniform int uLitBoxN; uniform int uLitCoverN;
     uniform float uLitLampY, uLitLampS, uLitRefl, uLitEnvKeep, uLitAOK;
@@ -1341,6 +1434,23 @@ const LIT_FRAG_ALBEDO = `
   float litAA = fwidth( litY ) + 0.0005;
   #ifdef CX_FLOOR
     vec2 litUv = vLitW.xz / ( 2.0 * uLitArena ) + 0.5;
+    /* THE GROUND first: road, gravel, grass. Its own layer because the
+       markings are worn by the roughness map below, and grass worn like
+       paint showed bare concrete in patches. Each colour keeps the
+       photoscan's grain: multiplied by the scan's brightness over its mean
+       (0.0916 linear x the floor's 0.69 tint = 0.063), squared to double it. */
+    vec4 litGd = texture2D( uLitGround, litUv );                     // premultiplied
+    float litGround = litGd.a;
+    if ( litGround > 0.002 ) {
+      float litGrain = dot( diffuseColor.rgb, vec3( 0.30, 0.55, 0.15 ) ) / 0.063;
+      /* The canvas colours are how a surface should LOOK beside concrete that
+         reads about #c4c4c4 (0.53 linear). The concrete itself is a dark scan
+         (0.063) that the site's lighting multiplies up to that, so a ground
+         colour is scaled by 0.063 / 0.53 into the same range first - unscaled,
+         gravel came out white and grass a pale yellow. */
+      vec3 litGc = pow( litGd.rgb / litGround, vec3( 2.2 ) ) * 0.119 * clamp( litGrain * litGrain, 0.55, 1.6 );
+      diffuseColor.rgb = mix( diffuseColor.rgb, litGc, litGround );
+    }
     vec4 litMk = texture2D( uLitMarks, litUv );                       // premultiplied
     #ifdef USE_ROUGHNESSMAP
       litMk *= 0.55 + 0.45 * smoothstep( 0.30, 0.62, texture2D( roughnessMap, vUv * 2.7 ).g );   // paint wears unevenly
@@ -1452,7 +1562,7 @@ const LIT_FRAG_SPEC = `
     litRefl += uLitStripCol * ( litStripHit( vLitW.x, litR.x, vLitW.z, litR.z, vLitW, litR, litRough, litTB )
                               + litStripHit( vLitW.z, litR.z, vLitW.x, litR.x, vLitW, litR, litRough, litTB ) );
     reflectedLight.indirectSpecular = reflectedLight.indirectSpecular * uLitEnvKeep
-      + litRefl * litFres * litGloss * uLitRefl * mix( 0.35, 1.0, litAo );
+      + litRefl * litFres * litGloss * uLitRefl * mix( 0.35, 1.0, litAo ) * ( 1.0 - 0.9 * litGround );   // grass and gravel do not mirror the sky
   #else
     reflectedLight.indirectSpecular *= clamp( dot( litE, vec3( 0.3, 0.55, 0.15 ) ) * uLitGain * 0.55, 0.10, 1.0 );
   #endif
@@ -2313,6 +2423,7 @@ function litUniformsFor(map){
      of light adds up to more. `gain` in the map trims it back. */
   LITU.uLitGain.value = LIT.gain * (map.gain || 1);
   LITU.uLitMarks.value = litMarksTexture(map);
+  LITU.uLitGround.value = litGroundTexture(map);
   LITU.uLitTex.value = LIT_BLANK;                      // until this map's bake lands
 }
 
