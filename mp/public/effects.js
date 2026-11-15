@@ -314,8 +314,7 @@ function boltVisualOffset(id, pos){
    changes - so each crossbow bolt recompiled the whole lit arena on the way
    out and again when it landed: 16 shader programs per bolt, counted, where
    a rifle round costs none now. The glow it gave the walls was "subtle"
-   by its own comment; the drawn flame is what anyone sees. (The muzzle
-   flash dropped its light for a related reason, in feel.js.)
+   by its own comment; the drawn flame is what anyone sees.
    The geometry and materials are made once and shared by every bolt, for
    the tracer's reason: a material made and disposed per bolt lets its
    shader program be deleted and recompiled. Smoke bolts get their own
@@ -611,8 +610,8 @@ function disposeTracer(t){ if(!t) return; t.line.visible = false; tracerPool.pus
    which changes the program's key (tone mapping, output encoding) - so the
    first real shot compiled the tracer all over again. A zero-length tracer,
    pushed as a live one, renders for a frame and then goes back to the pool
-   by the ordinary route; the flash sprite is already at zero opacity and
-   only needs to be in front of the camera to get drawn. */
+   by the ordinary route. Never culled: at this point the camera has not
+   reached your spawn yet. */
 function warmTracers(){
   if (tracerPool.length || tracers.length) return;
   const geo = new THREE.BufferGeometry();
@@ -622,9 +621,6 @@ function warmTracers(){
   const f = new THREE.Vector3(0, 0, -2).applyQuaternion(camera.quaternion).add(camera.position);
   const p = geo.attributes.position; p.setXYZ(0, f.x, f.y, f.z); p.setXYZ(1, f.x, f.y, f.z);   // zero length: draws nothing
   tracers.push({ line, life: 0.02 });
-  /* Never culled: at this point the camera has not reached your spawn yet,
-     so 'in front of the camera' may be nowhere near what the first frame sees. */
-  if (typeof flashSprite !== 'undefined'){ flashSprite.position.copy(f); flashSprite.frustumCulled = false; }
 }
 
 

@@ -1812,26 +1812,21 @@ the player model was fan art of a character another company owns.
   the pistol, the menu operator (before its visor fix). NOT seen: the fixed
   visor, sniper, shotgun, the abilities with a hand, a remote player walking.
 
-## Feel (`feel.js`)
+## Feel was removed (2026-11-15)
 
-Loaded after hud.js, unnumbered. Nothing in it changes a hit or a packet. It
-wraps `addTracer` (every shot calls it), so a shot gets a muzzle flash, sparks
-where it lands and, for your own, a camera kick; `feelFrame(dt)` runs from
-`loop()` after the camera and gun are posed and lays a spring on the weapon.
+There was a `feel.js` (muzzle flash sprite, impact sparks, a camera kick on
+your own shots, a spring on the weapon, patrolling practice targets) and a
+16% convolution reverb in the audio graph. **Jack had all six removed.** Do
+not bring any of them back unasked. What remains of that file is one line in
+`loop()`: `armsFrame()` (drawn.js) is called directly while playing, because
+feel.js was what drove the hands and the reload animation.
 
-- **One flash light, made once and left in the scene at zero.** A light per
-  shot would change the light count and recompile every material.
-- **The floor is not in `wallMeshes`**, so a round into it reports full range;
-  the hook meets the floor itself or floor shots throw no sparks.
-- **Practice targets patrol now** (3.2m out and back at 1.3 m/s, turning at
-  geometry). This reverses "bots are stationary by design": Jack asked for
-  better gameplay with a free hand (2026-11-14). They still do not shoot.
-- **The mix has a room** (hud.js `build`): a 16% send through a generated
-  1.5s impulse response, joined before the compressor.
-- Checked by driving frames: flash peaks then is 0 after 30 frames, 9 sparks
-  live then 0, the spring settles to 0.0001, all 8 targets moved and none
-  ended inside geometry. NOT checked: how any of it looks or sounds to a
-  person, or multiplayer.
+- Practice targets are **stationary again**, as Architecture says.
+- The view still rises on each shot: that is the gun's own recoil, applied to
+  `me.pitch` in `shoot()`, not the removed kick.
+- Checked by driving frames: no sprite or Points object in the scene, all 8
+  targets unmoved over 120 frames, the left hand 38cm off its rest pose
+  halfway through a reload, no console errors.
 
 ## Firing lag: shader programs (2026-11-15)
 
@@ -1855,9 +1850,8 @@ rifle shots built 20 and deleted 20, and **one crossbow bolt built 16**.
 - **`renderer.compile()` does not warm what the composer draws.** It built a
   program under a different key and the first real shot still compiled.
   `warmTracers()` (called first thing in `startPlay`) warms through the REAL
-  render path: one zero-length live tracer and the flash sprite in front of
-  the camera, both `frustumCulled = false` because the camera has not reached
-  the spawn yet.
+  render path: one zero-length live tracer in front of the camera,
+  `frustumCulled = false` because the camera has not reached the spawn yet.
 - Measured after: a 30-round burst builds **0** programs and deletes 0, the
   shotgun 0, a repeat bolt 0, a repeat smoke 0. The first shot of a session
   and the first bolt still build **1** each, once — a single hitch, not one
@@ -2114,11 +2108,9 @@ Verify in the browser via `javascript_tool`, not by eyeballing. Two traps:
   never its code, its level or its look; Crimson X's look is its own menu's
   crimson on near-black. Done so far: the lit arena on Foundry, the gun's
   second skin, the rim light. What is left, in the order it would show:
-  1. **Feel.** The viewmodel has no spring to it: recoil, sway and landing are
-     eased, not sprung. No muzzle-flash LIGHT (a point light reaches lit
-     surfaces now, so one would), no impact sparks or dust, no shell casings.
-  2. **The room in the sound.** Everything is dry. One generated impulse
-     response on a convolver would put every shot in the hall it is fired in.
+  1. ~~Feel~~ and 2. ~~the room in the sound~~ were built (flash, sparks,
+     kick, weapon spring, reverb) and **Jack had them removed** (2026-11-15).
+     Not a to-do any more; see Feel was removed.
   3. **Moving things lit by where they stand.** The gun and the players are
      as bright in a shadow as under a lamp. `litBounceAt` already samples the
      floor's light on the CPU at any point; it is not yet used for this.
