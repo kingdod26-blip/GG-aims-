@@ -1004,7 +1004,7 @@ function insideWall(x,z){ for(const c of colliders) if(x>c.minx-1&&x<c.maxx+1&&z
 function spawnLocalBots(n){ localBots.forEach(b=>scene.remove(b.mesh)); localBots.length=0;
   for(let i=0;i<n;i++){ const s=openSpot(); const mesh=newBotMesh(); mesh.position.set(s.x,0,s.z); mesh.rotation.y=Math.random()*6.28; scene.add(mesh);
     localBots.push({mesh,x:s.x,z:s.z,hp:100,alive:true}); } }
-function respawnLocalBot(b){ extinguish(b); const s=openSpot(); b.x=s.x; b.z=s.z; b.hp=100; b.alive=true; b.mesh.position.set(s.x,0,s.z); b.mesh.visible=true; }
+function respawnLocalBot(b){ extinguish(b); const s=openSpot(); b.x=s.x; b.z=s.z; b.hp=100; b.alive=true; b.mesh.position.set(s.x,0,s.z); b.mesh.rotation.y=Math.random()*6.28; b.mesh.visible=true; }
 
 /* A peek must not put your eye through a corner. Tries the full offset, then
    shorter ones, and takes the first that is clear of geometry at eye height.

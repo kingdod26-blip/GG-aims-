@@ -227,9 +227,8 @@ function loop(){ requestAnimationFrame(loop);
     animatePotions(nowMs / 1000);        // bob and spin the health pickups
     if(me.alive && !paused){      // frozen while the pause menu is up
       movePlayer(dt);
-      // stationary targets turn to look at you (our models face +Z)
-      if(gameMode==='bots') for(const b of localBots){
-        if(b.alive) b.mesh.rotation.y = Math.atan2(me.x-b.x, me.z-b.z); }
+      // Targets keep the heading they spawned with; they used to turn to
+      // face you every frame (Jack asked for that gone, 2026-11-15).
       if(gameMode==='bots'){ updateBotHealthBars(); updateHitboxOverlay(); }
       updateArrows(dt);                      // flaming arrows + burn ticks
       updateGrenades(dt);                    // the range's grenades; a match's are in the snapshot

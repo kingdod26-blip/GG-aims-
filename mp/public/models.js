@@ -240,9 +240,9 @@ function spartanMaterial(name){
    newPlayerMesh and newBotMesh; no model file is loaded. */
 
 /* ---- Health bars over the practice bots ----
-   Two unlit planes above the head. No billboard maths needed: in target
-   practice the bots already turn to face you every frame, and a plane's
-   normal is +Z, so a child with identity rotation points at you for free.
+   Two unlit planes above the head. The bots keep their own heading now, so
+   the bar turns itself to face the camera each frame: it is a child of the
+   bot, so its local yaw is the world yaw to the camera MINUS the bot's own.
    Being a child also means it is disposed along with the bot's mesh. */
 const BAR_W = 1.0, BAR_H = 0.12;
 function makeHealthBar(){
@@ -271,6 +271,7 @@ function updateBotHealthBars(){
     fill.visible = frac > 0;
     fill.material.color.setHex(frac > 0.5 ? 0x27ff9e : frac > 0.25 ? 0xffb648 : 0xff4d4d);
     b.bar.visible = !!b.alive;
+    b.bar.rotation.y = Math.atan2(camera.position.x - b.x, camera.position.z - b.z) - b.mesh.rotation.y;
   }
 }
 
