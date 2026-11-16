@@ -1118,6 +1118,30 @@ galleries** - they look standable.
 - Lit triangles 318k -> 330k. **The server needs a restart to collide with
   the new legs** (it reads maps.js at boot; a deploy does this).
 
+### Map improvement, stage 5: checks (2026-11-16)
+
+- **Box overlaps: 0** across 326 boxes once concentric structures (a drum's
+  own steps, the reactor's deck and vessel, a turbine's deck/pedestal/
+  casing) are set aside - those share a centre by design.
+- **Drawn-vs-collision probe at 0.5m (230,400 cells), in reach (< 5.6m).**
+  Use ASYMMETRIC margins or thin boxes produce noise: a drawn top counts as
+  supported against colliders EXPANDED 0.15m; a collision top counts as
+  drawn against colliders SHRUNK 0.15m. At a 1m grid with one margin, every
+  1.2m firewall, step and column showed up as a fake floor. What is left:
+  - "invisible" tops: the 8 pipe-bridge covers only - documented design,
+    you stand on the pipe crowns.
+  - fake floors: transformer bushings/conservators (4.1-4.5m, on 3m boxes
+    nobody can climb), the reactor's cable looms over the shield deck
+    (3.6m, 8 cells - original art, not changed), and the 5m shed's roof
+    eave, which overhung 0.35m. **Fixed: eaves overhang 0.12m now.**
+- Server restart: boots on the new map, room created, a client joined and
+  loaded 330 colliders including the 16 rack legs, no errors.
+- Frame (whole loop, 1024x768, this machine): 4.8-9.6ms median at six
+  ground viewpoints, against 16.6 for 60fps.
+- Before/after at the 7 audit viewpoints. The hall interior now reads cooler
+  than it did: it takes the outdoor exposure and grade, since it is on the
+  sky map. Neutral, like the Vespa hall reference; not changed.
+
 ### The switchyard
 
 The west compound was the `substation` map moved over: three walled lanes and

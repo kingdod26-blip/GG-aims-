@@ -1845,7 +1845,10 @@ const LIT_DRAW = {
      in the photograph has one. */
   shed(G, b, x0, z0, x1, z1){
     litBox(G('cladding'), x0, 0, z0, x1, b.h - 0.45, z1, { seg: LIT.coverSeg, tile: 3.2, tileV: 3.2, noTop: true });
-    litBox(G('roofblue'), x0 - 0.35, b.h - 0.45, z0 - 0.35, x1 + 0.35, b.h, z1 + 0.35, { seg: 3, tile: 3.2, tileV: 3.2 });
+    /* The eave overhangs 0.12m, not 0.35: the 5m shed's eave was a 35cm
+       strip of roof with no collision under it, which the stage 5 probe
+       flagged as the one fake floor in reach that was not porcelain. */
+    litBox(G('roofblue'), x0 - 0.12, b.h - 0.45, z0 - 0.12, x1 + 0.12, b.h, z1 + 0.12, { seg: 3, tile: 3.2, tileV: 3.2 });
   },
   /* A CAPACITOR / CVT BAY - the rows of white porcelain stacks that fill a
      real switchyard and are the first thing you recognise in a photograph
