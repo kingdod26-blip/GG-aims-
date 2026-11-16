@@ -1684,6 +1684,9 @@ function litMaterial(name){
     case 'hvwhite': m = litPatch(new THREE.MeshStandardMaterial({ color: 0xd4d7d6, roughness: 0.28, metalness: 0 }), 'cover', 0.85); m.defines.CX_ROUND = ''; break;
     /* Galvanised steel: the lattice, the racks, the gantries. Brighter and
        less blue than `steel`, which is a dark machined grey. */
+    /* Lagged pipe: insulation under thin aluminium sheet, the bright silver
+       runs of Jack's references. Round, so CX_ROUND. */
+    case 'lagging': m = litPatch(new THREE.MeshStandardMaterial({ color: 0xc4c8cd, roughness: 0.34, metalness: 0.72 }), 'cover', 0.95); m.defines.CX_ROUND = ''; break;
     case 'galv':   m = litPatch(new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.52, metalness: 0.55 }), 'cover', 0.80); m.defines.CX_ROUND = ''; break;
     /* The fire cabinets. The one saturated colour in the yard, which is
        exactly what it is for. */
@@ -1815,6 +1818,28 @@ const LIT_DRAW = {
       const cx = ex > 0 ? x1 : x0, cz = ez > 0 ? z1 : z0;
       litBox(G('girder'), cx - 0.45, 1.4, cz - 0.45, cx + 0.45, b.h, cz + 0.45, { seg: 3, tile: 2, noTop: true });
     }
+    /* STAGE 4: the steel frame showing through on every face, a column every
+       ~6.8m, with window bands at two levels and louvres low down - Jack's
+       references (200430, 200504) are steel structure, not a sealed box.
+       Everything here stands at most 0.25m proud of the box, inside the 0.4m
+       a player's body keeps off a wall, so none of it can be walked into. */
+    const P = 0.25, faces = [                                             // [along x?, fixed coord, outward sign]
+      [true, z0, -1], [true, z1, 1], [false, x0, -1], [false, x1, 1]];
+    for (const [ax, c, s] of faces){
+      const a0 = ax ? x0 : z0, a1 = ax ? x1 : z1, n = Math.max(2, Math.round((a1 - a0) / 6.8));
+      const slab = (u0, u1, y0, y1, out, mat) => ax
+        ? litBox(G(mat), u0, y0, Math.min(c, c + s * out), u1, y1, Math.max(c, c + s * out), { seg: 3, tile: 2 })
+        : litBox(G(mat), Math.min(c, c + s * out), y0, u0, Math.max(c, c + s * out), y1, u1, { seg: 3, tile: 2 });
+      for (const [y0, y1] of [[9.4, 11.6], [16.4, 18.6], [23.4, 25.2]]) slab(a0 + 1, a1 - 1, y0, y1, 0.04, 'glass');   // window bands
+      slab(a0 + 1.2, a1 - 1.2, 2.2, 4.6, 0.03, 'steel');                                                     // louvres
+      for (let i = 1; i < n; i++){ const u = a0 + (a1 - a0) * i / n; slab(u - 0.2, u + 0.2, 1.4, b.h - 0.6, P, 'girder'); }
+    }
+    /* Roof plant, 28m up: fan stacks, an air handler, vent stubs. */
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, H = b.h;
+    for (const dx of [-14, -4, 6]){ litCyl(G('galv'), cx + dx, H, cz - 6, cx + dx, H + 1.1, cz - 6, 1.5, 1.5, 16, 1, false, true);
+      litCyl(G('steel'), cx + dx, H + 1.1, cz - 6, cx + dx, H + 1.25, cz - 6, 1.55, 1.55, 16, 1, false, true); }
+    litBox(G('galv'), cx + 8, H, cz + 2, cx + 18, H + 2.6, cz + 8, { seg: 3, tile: 2 });
+    for (const dx of [-16, -10, -2]) litCyl(G('steel'), cx + dx, H, cz + 6, cx + dx, H + 3.2, cz + 6, 0.35, 0.35, 10, 1, false, true);
   },
   /* A workshop or a screen house: clad walls, blue roof. Every low building
      in the photograph has one. */
@@ -2275,6 +2300,40 @@ const LIT_PROP = {
     { const T = at(y1 + 0.5, 0.6, 0); litBox(G('galv'), T[0] - 0.7, y1 + 0.5, T[2] - 0.7, T[0] + 0.7, y1 + 2.3, T[2] + 0.7, { tile: 2 }); }   // the hut at the top
     /* Steam: soft billows rolling off the lip and drifting downwind. */
     litSteam(x, y1 + 0.6, z, R(y1), 'tower');
+  },
+  /* A PIPE RACK (stage 4): portal frames on the map's `column` legs, two
+     runs of steel along the top, and four pipes on it - two lagged, one
+     green cooling water, one bare steel. The pipes run past the frame's
+     ends (px0..px1) into the tower shells. All of it at 6.6m and up. */
+  piperack(G, p){
+    const z = p.z, y = p.y, dz = 1.2;
+    for (const s of [-1, 1]) litBox(G('girder'), p.x0, y, z + s * dz - 0.18, p.x1, y + 0.4, z + s * dz + 0.18, { seg: 4, tile: 2, bottom: true });
+    for (const x of p.legs) litBox(G('girder'), x - 0.18, y, z - dz - 0.25, x + 0.18, y + 0.4, z + dz + 0.25, { seg: 3, tile: 2, bottom: true });
+    for (const [o, r, mat] of [[-0.85, 0.36, 'lagging'], [-0.1, 0.26, 'loomg'], [0.55, 0.30, 'lagging'], [1.05, 0.16, 'steel']])
+      litCyl(G(mat), p.px0, y + 0.4 + r, z + o, p.px1, y + 0.4 + r, z + o, r, r, 14, 2, true, true);
+  },
+  /* A PIPE BRIDGE over the road (stage 4): three lagged steam lines leave
+     the boiler house at 9.5m, cross to the hall and enter its wall, with a
+     light truss under them; on the boiler house they rise up the face to
+     `rise`, where they turn back in. Overhead from end to end. */
+  pipebridge(G, p){
+    const y = p.y, r = 0.32;
+    for (const i of [-1, 0, 1]){ const x = p.x + i * 1.1;
+      litCyl(G('lagging'), x, y, p.z0 + 0.5, x, y, p.z1, r, r, 14, 2, false, false);               // across the road
+      litCyl(G('lagging'), x, y - r, p.z0 + 0.5, x, p.rise, p.z0 + 0.5, r, r, 14, 2, false, false);   // up the boiler house
+      litCyl(G('lagging'), x, p.rise, p.z0 + 0.5, x, p.rise, p.z0, r, r, 14, 2, false, false);     // and back into it
+      for (const zz of [p.z0 + 0.5, p.z1 - 0.15]) litCyl(G('steel'), x, y - 0.42, zz, x, y + 0.42, zz, r + 0.06, r + 0.06, 14, 1, true, true);   // collars
+    }
+    for (const s of [-1, 1]) litBox(G('galv'), p.x + s * 1.75 - 0.08, y - 0.75, p.z0, p.x + s * 1.75 + 0.08, y - 0.45, p.z1, { seg: 3, tile: 2, bottom: true });
+    for (let zz = p.z0 + 1; zz < p.z1; zz += 2) litBox(G('galv'), p.x - 1.85, y - 0.75, zz - 0.06, p.x + 1.85, y - 0.6, zz + 0.06, { seg: 3, tile: 2, bottom: true });
+  },
+  /* The flue: a rectangular duct from the boiler house to the stack, ribbed
+     with stiffener frames. 16-20m up. */
+  flue(G, p){
+    const z0 = p.z - p.w / 2, z1 = p.z + p.w / 2;
+    litBox(G('cladding'), p.x0, p.y0, z0, p.x1, p.y1, z1, { seg: 3, tile: 3.2, tileV: 3.2, bottom: true });
+    for (let x = p.x0 + 1.5; x < p.x1; x += 2.2)
+      litBox(G('girder'), x - 0.12, p.y0 - 0.12, z0 - 0.12, x + 0.12, p.y1 + 0.12, z1 + 0.12, { seg: 3, tile: 2, bottom: true });
   },
   /* The stack. Its collision is 68m of boxes, so the drawn surface simply
      follows them: a straight shell in aviation bands, a cap, and the

@@ -176,6 +176,17 @@ for (const [x, z, w, d, h] of [
   [-50, -112, 16, 3, 2.2], [0, -112, 16, 3, 2.2],   // the north fence line
 ]) box(x, z, w, d, h, 'pipe');
 
+/* STAGE 4 (2026-11-16): pipe racks from the boiler house into the cooling
+   towers, as every aerial reference has them. The pipes are props at 7m,
+   out of reach; the LEGS stand on the ground, so they are real boxes
+   (mat 'column': footing plus steel, already known to the floor shader,
+   the minimap and the flat look). Each leg was placed clear of the basins
+   (18m+ from a tower's centre against a 13m basin) and of every box. */
+note('pipe racks into the towers: legs are collision, the pipes overhead');
+const RACK_Z = -84, RACK_Y = 6.6;
+for (const x of [-56, -48, -42, -6, 2, 10, 18, 26])
+  for (const dz of [-1.2, 1.2]) box(x, RACK_Z + dz, 0.45, 0.45, RACK_Y, 'column');
+
 note('a workshop or two');
 box(-100, -60, 14, 12, 7, 'shed');
 box(100, 100, 14, 12, 7, 'shed');
@@ -194,6 +205,16 @@ P.push({ kind: 'hallroof', x0: HX0 - HW, x1: HX1 + HW, z0: HZ0 - HW, z1: HZ1 + H
 P.push({ kind: 'coolingtower', x: -74, z: -90, basin: 13, basinH: 2.6, beam: +shellR(5.6).toFixed(2), n: 9, y0: 5.6, y1: 33, rt: RT, yt: YT, a: AA });
 P.push({ kind: 'coolingtower', x: -24, z: -90, basin: 13, basinH: 2.6, beam: +shellR(5.6).toFixed(2), n: 9, y0: 5.6, y1: 33, rt: RT, yt: YT, a: AA });
 P.push({ kind: 'stack', x: 96, z: -96, r: 3, h: 68, n: 9 });
+/* Overhead plant (stage 4). The rack pipes run INTO the tower shells at 7m,
+   where the shell's radius is 10.15 - so from x -15.8 / -32.2 / -65.8 at
+   z -84. Two pipe bridges carry steam over the north road from the boiler
+   house into the hall at 9.5m; a flue duct joins the boiler house to the
+   stack at 16-20m. None of it is reachable and none of it is a floor. */
+P.push({ kind: 'piperack', x0: -61, x1: -37, px0: -65.8, px1: -32.2, z: RACK_Z, y: RACK_Y, legs: [-56, -48, -42] });
+P.push({ kind: 'piperack', x0: -11, x1: 29, px0: -15.8, px1: 29, z: RACK_Z, y: RACK_Y, legs: [-6, 2, 10, 18, 26] });
+P.push({ kind: 'pipebridge', x: 40, z0: -68, z1: -60, y: 9.5, rise: 25 });
+P.push({ kind: 'pipebridge', x: 66, z0: -68, z1: -60, y: 9.5, rise: 25 });   // between the boiler house's columns (62.75, 69.5); at 68 its risers grazed one
+P.push({ kind: 'flue', x0: 83, x1: 94, z: -94.5, w: 3, y0: 16, y1: 20 });
 P.push({ kind: 'busbars', z: 78 });
 P.push({ kind: 'busbars', z: 94 });
 /* The yard's two gantries, with the lines swept from one to the other. */

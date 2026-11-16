@@ -428,6 +428,24 @@ const MAPS = {
       { x:     -50, z:    -112, w:      16, d:       3, h:  2.2, mat: 'pipe'        },
       { x:       0, z:    -112, w:      16, d:       3, h:  2.2, mat: 'pipe'        },
 
+      // pipe racks into the towers: legs are collision, the pipes overhead
+      { x:     -56, z:   -85.2, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:     -56, z:   -82.8, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:     -48, z:   -85.2, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:     -48, z:   -82.8, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:     -42, z:   -85.2, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:     -42, z:   -82.8, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:      -6, z:   -85.2, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:      -6, z:   -82.8, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:       2, z:   -85.2, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:       2, z:   -82.8, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:      10, z:   -85.2, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:      10, z:   -82.8, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:      18, z:   -85.2, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:      18, z:   -82.8, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:      26, z:   -85.2, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+      { x:      26, z:   -82.8, w:    0.45, d:    0.45, h:  6.6, mat: 'column'      },
+
       // a workshop or two
       { x:    -100, z:     -60, w:      14, d:      12, h:    7, mat: 'shed'        },
       { x:     100, z:     100, w:      14, d:      12, h:    7, mat: 'shed'        },
@@ -545,6 +563,61 @@ const MAPS = {
                 r: 3,
                 h: 68,
                 n: 9
+          },
+          {
+                kind: 'piperack',
+                x0: -61,
+                x1: -37,
+                px0: -65.8,
+                px1: -32.2,
+                z: -84,
+                y: 6.6,
+                legs: [
+                      -56,
+                      -48,
+                      -42
+                ]
+          },
+          {
+                kind: 'piperack',
+                x0: -11,
+                x1: 29,
+                px0: -15.8,
+                px1: 29,
+                z: -84,
+                y: 6.6,
+                legs: [
+                      -6,
+                      2,
+                      10,
+                      18,
+                      26
+                ]
+          },
+          {
+                kind: 'pipebridge',
+                x: 40,
+                z0: -68,
+                z1: -60,
+                y: 9.5,
+                rise: 25
+          },
+          {
+                kind: 'pipebridge',
+                x: 66,
+                z0: -68,
+                z1: -60,
+                y: 9.5,
+                rise: 25
+          },
+          {
+                kind: 'flue',
+                x0: 83,
+                x1: 94,
+                z: -94.5,
+                w: 3,
+                y0: 16,
+                y1: 20
           },
           {
                 kind: 'busbars',

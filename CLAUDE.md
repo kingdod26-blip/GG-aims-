@@ -1094,6 +1094,30 @@ gameplay - and the roads replace the two yellow aisles at z = +-66.
   showed); it is 6m wide at z 65 now.
 - Cost: lost in measurement noise (one texture read per floor pixel).
 
+### Map improvement, stage 4: industrial detail (2026-11-16)
+
+The rule held throughout, because it is what Jack's first complaint was
+about: **anything a player can touch is a collision box, or sits closer to a
+wall than a body's 0.4m radius; everything else is overhead. No walkways or
+galleries** - they look standable.
+
+- **Boiler house** (`LIT_DRAW.boiler`): a steel column every ~6.8m on every
+  face (0.25m proud - inside the 0.4m a body keeps off a wall), window bands
+  at three levels, louvres low down, fans/air handler/vents on the roof.
+- **Pipe racks** (`piperack` prop) from the boiler house into tower 2 and
+  between the towers, pipes at 7m running INTO the shells (radius 10.15 at
+  that height). **The legs are 16 real boxes** of mat `column` (already
+  handled by the floor shader, minimap and flat look), each 18.6m+ from a
+  tower centre and overlapping nothing. 310 -> 326 boxes.
+- **Pipe bridges** (`pipebridge`) carry three lagged steam lines over the
+  north road at 9.5m, rising up the boiler face; placed between its columns
+  (at x 68 the risers grazed one).
+- **Flue** (`flue`): a ribbed duct from the boiler house to the stack, 16-20m.
+- New material `lagging`: aluminium-clad insulation, the silver runs in the
+  references. Transformers already had fins, bushings and a conservator.
+- Lit triangles 318k -> 330k. **The server needs a restart to collide with
+  the new legs** (it reads maps.js at boot; a deploy does this).
+
 ### The switchyard
 
 The west compound was the `substation` map moved over: three walled lanes and
