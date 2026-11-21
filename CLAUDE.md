@@ -1647,6 +1647,31 @@ ADS / reload / switching checked in the pane.
   `shedwall` and `bwall` joined `LIT_INDOOR`, which had been drawing a
   keep-clear outline round every wall piece on the floor INSIDE the hollow
   sheds.
+- **The other guns, brought up to the PAC-9** ("improve on the model for
+  other guns and refer to the rifle"). Three things, in order of effect:
+  1. *Finish*: `M_STEEL/M_DARK/M_POLY/M_POLY2/M_TAN/M_WOOD` are now `dmatL`
+     materials - dark LINEAR colours and the PAC-9's `pac9Detail` shader
+     (kind 0 anodised, 1 steel, 2 polymer). The operator's third-person
+     rifle shares them.
+  2. *Pose*: every drawn gun returns a `vm` (mountGun copies it to
+     WEAPONS[slot].vm): the long guns use the PAC-9's lens (54) set back by
+     how far behind the grip their stocks run; the pistols use 64 and sit
+     out at arm's length with both hands in view. All have `motion: 0.6`.
+  3. *Detail* (helpers `dRail`, `dScrew`, `dKnurl`, `dKnob`, `dDecal`):
+     sniper - scope rail, ring caps and screws, knurled objective and
+     eyepiece, open flip cap, three turrets, bolt shroud, fluted barrel,
+     ported brake, M-LOK slots, trigger and guard, sling cups, butt ribs,
+     markings; shotgun - receiver rail, ghost-ring rear and protected post
+     with a dot, vented heat shield, a six-shell side saddle (red hulls,
+     brass heads), sling loop, loading port, pins, markings; pistols -
+     front and rear serrations, barrel hood and extractor, three-dot
+     sights, slide stop, takedown and mag release, rail slots, stippled
+     panels, magwell, markings; the heavy one adds a ported compensator and
+     lightening cuts.
+  `built.aimTop` overrides the centreline probe where the highest point on
+  the line is not the sight line (the shotgun's ghost ring). Checked by
+  projecting the sights at full ADS: shotgun post (0, 0), ring on the same
+  line; pistols front/rear within 0.006 NDC of centre.
 
 ## Agents
 

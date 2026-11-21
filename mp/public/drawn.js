@@ -35,12 +35,27 @@ function dmat(key, color, metalness, roughness, extra){
      reflect (LOOK: FLAT) metal renders black, so it is switched off there. */
   return (DRAWN_MATS[key] = lookTag(m, { metalness, roughness }, { metalness: 0, roughness }));
 }
-const M_STEEL  = () => dmat('steel',  0x4a4e55, 0.92, 0.32);
-const M_DARK   = () => dmat('dark',   0x1b1d21, 0.60, 0.42);
-const M_POLY   = () => dmat('poly',   0x121315, 0.00, 0.60);
-const M_POLY2  = () => dmat('poly2',  0x23262b, 0.00, 0.52);
-const M_TAN    = () => dmat('tan',    0x4a4234, 0.00, 0.66);
-const M_WOOD   = () => dmat('wood',   0x3a2415, 0.00, 0.58);
+/* THE GUNS' FINISHES ARE THE PAC-9'S (2026-11-21). Jack: "improve on the
+   model for other guns and refer to the rifle". Flat colours were most of
+   why the drawn guns looked like toys next to it. Each finish is now a
+   real one, with the PAC-9's own detail shader (pac9Detail, below: kind 0
+   anodised scuffs, 1 turned steel, 2 polymer stipple), and the colours are
+   LINEAR and dark the way the PAC-9's are - a black gun is black, and what
+   makes it read is the sky sliding over it, not a grey base colour. */
+function dmatL(key, rgb, metalness, roughness, kind, envK){
+  if (DRAWN_MATS[key]) return DRAWN_MATS[key];
+  const m = new THREE.MeshStandardMaterial({ metalness, roughness });
+  m.color.setRGB(rgb[0], rgb[1], rgb[2]); m.userData.envK = envK == null ? 1.0 : envK;
+  if (kind != null) pac9Detail(m, kind);
+  return (DRAWN_MATS[key] = lookTag(m, { metalness, roughness }, { metalness: 0, roughness }));
+}
+const M_STEEL  = () => dmatL('steel', [0.085, 0.085, 0.088], 0.72, 0.46, 1);     // phosphated steel: barrels, pins, sights
+const M_DARK   = () => dmatL('dark',  [0.030, 0.031, 0.034], 0.45, 0.40, 0);     // black anodised receivers
+const M_POLY   = () => dmatL('poly',  [0.020, 0.021, 0.023], 0.00, 0.62, 2, 0.8);  // furniture
+const M_POLY2  = () => dmatL('poly2', [0.036, 0.038, 0.041], 0.00, 0.58, 2, 0.8);  // a lighter grey polymer
+const M_TAN    = () => dmatL('tan',   [0.105, 0.080, 0.050], 0.00, 0.62, 2, 0.8);  // the PAC-9 magazine's tan
+const M_WOOD   = () => dmatL('wood',  [0.150, 0.075, 0.034], 0.00, 0.52, 2, 0.6);  // oiled walnut
+const M_BRASS  = () => dmatL('brass', [0.539, 0.323, 0.0595], 1.00, 0.32, 1);
 const M_RED    = () => dmat('red',    0xa01e30, 0.10, 0.48);
 const M_GLASS  = () => dmat('glass',  0x10303c, 0.80, 0.08);
 const M_SLEEVE = () => dmat('sleeve', 0x1a1d21, 0.00, 0.88);
@@ -103,70 +118,224 @@ function drawRifle(){
   const mag = dProf(g, dk, [[0.092, -0.030], [0.050, -0.036], [0.030, -0.150], [0.036, -0.176], [0.080, -0.170], [0.090, -0.100]], 0.024, 0.004);
   return { g, grip: [0, -0.078, 0.094], fore: [0, -0.030, -0.245], mag, magAt: [0, -0.185, -0.055] };
 }
+/* ---- detail parts, the PAC-9's vocabulary (2026-11-21) ----
+   What makes the PAC-9 read as a real gun is not its outline, it is the
+   small things on it: a rail with its slots, screws in the rings, knurled
+   rings on the knobs, markings stencilled on the side. These put the same
+   things on the drawn guns. */
+/* A Picatinny rail along Z: a base strip and a crossbar every 10mm. */
+function dRail(g, m, y, z0, z1, w){
+  w = w || 0.021;
+  dBox(g, m, w, 0.004, z1 - z0, 0, y + 0.002, (z0 + z1) / 2);
+  for (let z = z0 + 0.004; z < z1 - 0.002; z += 0.01) dBox(g, m, w, 0.0032, 0.0052, 0, y + 0.0055, z);
+}
+/* A screw head on a side face (axis X), or on a top face (axis Y). */
+function dScrew(g, x, y, z, axis, r){
+  const o = new THREE.Mesh(new THREE.CylinderGeometry(r || 0.0022, r || 0.0022, 0.0012, 8), M_STEEL());
+  if (axis !== 'y') o.rotation.z = Math.PI / 2;
+  o.position.set(x, y, z); return dAdd(g, o);
+}
+/* Knurling: a run of thin rings round a tube lying along Z. */
+function dKnurl(g, m, r, y, z0, z1, x){
+  for (let z = z0; z <= z1 + 1e-6; z += 0.0032) dTube(g, m, r, 0.0016, x || 0, y, z, r, 14);
+}
+/* An upright cylinder (a turret, a knob), with knurled bands. */
+function dKnob(g, m, r, h, x, y, z, axis){
+  const grp = new THREE.Group(); grp.position.set(x, y, z);
+  if (axis === 'x') grp.rotation.z = Math.PI / 2;
+  const add = (rr, hh, yy) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(rr, rr, hh, 18), m); o.position.y = yy; grp.add(o); o.frustumCulled = false; };
+  add(r, h, 0);
+  for (let k = 0; k < 4; k++) add(r * 1.06, h * 0.08, -h * 0.3 + k * h * 0.2);
+  add(r * 0.7, h * 0.12, h * 0.56);
+  return dAdd(g, grp);
+}
+/* Stencilled markings: white text on a transparent plane, laid on a side
+   face. side -1 is the gun's left, which is the side you see. */
+const DECAL_TEX = {};
+function dDecal(g, text, x, y, z, w, h, side){
+  const key = text + '|' + w.toFixed(3) + '|' + h.toFixed(3);
+  let t = DECAL_TEX[key];
+  if (!t){
+    const W = 512, H = Math.max(32, Math.round(W * h / w)), c = document.createElement('canvas'); c.width = W; c.height = H;
+    const x2 = c.getContext('2d'); x2.clearRect(0, 0, W, H);
+    x2.fillStyle = 'rgba(218,214,204,0.92)'; x2.textBaseline = 'middle';
+    let fs = H * 0.78; x2.font = '600 ' + fs + 'px "IBM Plex Mono", Consolas, monospace';
+    while (x2.measureText(text).width > W * 0.96 && fs > 6){ fs -= 1; x2.font = '600 ' + fs + 'px "IBM Plex Mono", Consolas, monospace'; }
+    x2.fillText(text, 2, H / 2);
+    t = DECAL_TEX[key] = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
+  }
+  const m = new THREE.MeshStandardMaterial({ map: t, transparent: true, depthWrite: false, roughness: 0.7, metalness: 0,
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  lookTag(m, { metalness: 0, roughness: 0.7 }, { metalness: 0, roughness: 0.7 });
+  const o = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
+  o.rotation.y = side < 0 ? -Math.PI / 2 : Math.PI / 2; o.position.set(x, y, z);
+  return dAdd(g, o);
+}
+const M_WHITE = () => dmat('white', 0xd8d8cc, 0.0, 0.4, { emissive: new THREE.Color(0x30302a) });   // sight dots
+const M_HULL  = () => dmat('hull', 0x7a1418, 0.0, 0.5);                                                 // shotgun shell hulls
+
 function drawSniper(){
   const g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), po = M_POLY(), tn = M_TAN(), gl = M_GLASS();
   // one-piece chassis: fore-end, action bed, thumbhole grip and stock in a single outline
   dProf(g, tn, [[0.34, -0.030], [0.34, 0.006], [0.08, 0.010], [-0.10, 0.010], [-0.16, 0.034], [-0.44, 0.030], [-0.455, -0.090], [-0.42, -0.094],
                [-0.36, -0.040], [-0.24, -0.030], [-0.215, -0.120], [-0.170, -0.124], [-0.150, -0.050], [-0.06, -0.044], [0.02, -0.050]], 0.046, 0.007);
+  // the fore-end's M-LOK slots, both sides, and a bipod stud under its nose
+  for (const sx of [-1, 1]) for (let i = 0; i < 6; i++) dBox(g, po, 0.002, 0.008, 0.024, sx * 0.0232, -0.012, -0.07 - i * 0.042);
+  dBox(g, dk, 0.016, 0.010, 0.030, 0, -0.033, -0.31);
   dProf(g, dk, [[-0.12, 0.010], [0.12, 0.010], [0.12, 0.046], [-0.12, 0.046]], 0.036, 0.006);       // action
+  dBox(g, st, 0.004, 0.016, 0.070, 0.0182, 0.032, -0.01);                                           // ejection port
+  dBox(g, st, 0.010, 0.010, 0.060, 0.012, 0.032, -0.01);                                            // the bolt body seen in it
+  dRail(g, dk, 0.046, -0.125, 0.125);                                                               // the scope base
+  dTube(g, dk, 0.0135, 0.05, 0, 0.030, 0.145);                                                      // bolt shroud
   dTube(g, st, 0.0125, 0.50, 0, 0.030, -0.37, 0.0105);                                              // tapered heavy barrel
-  for (let i = 0; i < 6; i++) dTube(g, dk, 0.0128, 0.014, 0, 0.030, -0.16 - i * 0.03);              // fluting rings
+  for (let k = 0; k < 6; k++){ const a = k / 6 * Math.PI * 2;                                       // flutes cut along it
+    dBox(g, dk, 0.0035, 0.0035, 0.20, Math.cos(a) * 0.0108, 0.030 + Math.sin(a) * 0.0108, -0.27); }
   dTube(g, dk, 0.020, 0.085, 0, 0.030, -0.655);                                                     // brake
-  for (let i = 0; i < 3; i++) dBox(g, po, 0.044, 0.010, 0.012, 0, 0.030, -0.63 - i * 0.022);
+  for (let i = 0; i < 3; i++) for (const sx of [-1, 1]) dBox(g, po, 0.003, 0.012, 0.010, sx * 0.0195, 0.030, -0.63 - i * 0.022);   // its ports
+  dTube(g, st, 0.0065, 0.003, 0, 0.030, -0.698);                                                    // the crown
   // scope: tube, bells, lenses, turrets
   dTube(g, dk, 0.0155, 0.30, 0, 0.094, -0.01);
   dTube(g, dk, 0.027, 0.085, 0, 0.094, -0.185, 0.0155); dTube(g, dk, 0.027, 0.03, 0, 0.094, -0.24);
+  dKnurl(g, dk, 0.0282, 0.094, -0.250, -0.232);                                                     // the objective's grip ring
   dTube(g, dk, 0.0215, 0.075, 0, 0.094, 0.165, 0.0155);
+  dKnurl(g, dk, 0.0228, 0.094, 0.150, 0.178);                                                       // the eyepiece's focus ring
   dTube(g, gl, 0.0245, 0.003, 0, 0.094, -0.2555); dTube(g, gl, 0.019, 0.003, 0, 0.094, 0.2035);
-  { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.022, 12), dk); t.position.set(0, 0.118, -0.01); dAdd(g, t);            // elevation turret, upright
-    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.022, 12), dk); w.rotation.z = Math.PI / 2; w.position.set(0.026, 0.094, -0.01); dAdd(g, w); }   // windage, sideways
-  dBox(g, st, 0.018, 0.034, 0.020, 0, 0.066, -0.09); dBox(g, st, 0.018, 0.034, 0.020, 0, 0.066, 0.07);   // rings
+  { const cap = new THREE.Group(); cap.position.set(0, 0.094 + 0.028, -0.257); cap.rotation.x = -1.9; dAdd(g, cap);   // the flip cap, open
+    const d = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.006, 18), po); d.position.set(0, 0, 0.028); d.rotation.x = Math.PI / 2; cap.add(d); }
+  dKnob(g, dk, 0.012, 0.024, 0, 0.122, -0.01);                                                      // elevation turret
+  dKnob(g, dk, 0.012, 0.024, 0.028, 0.094, -0.01, 'x');                                             // windage
+  dKnob(g, dk, 0.010, 0.018, -0.025, 0.094, -0.01, 'x');                                            // parallax, on the left
+  dTube(g, dk, 0.019, 0.026, 0, 0.094, -0.01);                                                      // the saddle the turrets sit on
+  for (const z of [-0.09, 0.07]){                                                                   // rings: a clamp on the rail, a cap over the tube
+    dBox(g, st, 0.026, 0.020, 0.020, 0, 0.060, z); dBox(g, st, 0.018, 0.020, 0.020, 0, 0.074, z);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.0172, 0.0032, 8, 24), st); ring.position.set(0, 0.094, z); dAdd(g, ring);
+    for (const sx of [-1, 1]) { dScrew(g, sx * 0.0215, 0.094, z - 0.006); dScrew(g, sx * 0.0215, 0.094, z + 0.006); }
+    dScrew(g, 0.0132, 0.058, z, 'x', 0.003);
+  }
+  dDecal(g, 'CX 5-25x56  FFP', -0.0157, 0.094, -0.07, 0.11, 0.0085, -1);
   { const h = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.055, 10), st); h.rotation.z = Math.PI / 2 - 0.5; h.position.set(0.040, 0.020, 0.085); dAdd(g, h);
-    const k = new THREE.Mesh(new THREE.SphereGeometry(0.012, 10, 8), st); k.position.set(0.064, 0.006, 0.085); dAdd(g, k); }   // bolt handle and knob
+    const k = new THREE.Mesh(new THREE.SphereGeometry(0.012, 12, 10), st); k.position.set(0.064, 0.006, 0.085); dAdd(g, k); }   // bolt handle and knob
   dProf(g, po, [[-0.17, 0.034], [-0.33, 0.034], [-0.33, 0.058], [-0.18, 0.054]], 0.036, 0.005);     // cheek riser
+  dKnob(g, dk, 0.006, 0.010, 0.022, 0.046, 0.25, 'x');                                              // and the knob that sets it
   dBox(g, po, 0.044, 0.118, 0.016, 0, -0.030, 0.455);                                               // butt pad
+  for (let i = 0; i < 6; i++) dBox(g, dk, 0.045, 0.003, 0.017, 0, -0.080 + i * 0.019, 0.456);        // its ribs
+  for (const z of [-0.28, 0.33]) dScrew(g, -0.0235, -0.020, z, 'x', 0.0055);                       // sling cups
+  // trigger, guard, the magazine release
+  dProf(g, dk, [[-0.062, -0.046], [-0.148, -0.052], [-0.146, -0.076], [-0.074, -0.078], [-0.058, -0.064]], 0.006, 0.001);
+  dBox(g, st, 0.005, 0.022, 0.006, 0, -0.058, 0.110, 0.3);
+  dBox(g, st, 0.010, 0.006, 0.014, 0, -0.050, 0.050);
+  dDecal(g, 'CX-L44  .338 LM', -0.0236, -0.018, 0.02, 0.10, 0.009, -1);
   for (const sx of [-1, 1]) dBox(g, dk, 0.007, 0.13, 0.009, sx * 0.022, -0.075, -0.27, 1.25, 0);    // bipod legs, folded forward
+  dBox(g, dk, 0.040, 0.012, 0.022, 0, -0.040, -0.31);                                               // and its head
   const mag = dProf(g, dk, [[0.05, -0.044], [-0.03, -0.044], [-0.035, -0.105], [0.045, -0.105]], 0.026, 0.004);
-  return { g, grip: [0, -0.085, 0.19], fore: [0, -0.045, -0.20], mag, magAt: [0, -0.13, -0.008] };
+  return { g, grip: [0, -0.085, 0.19], fore: [0, -0.045, -0.20], mag, magAt: [0, -0.13, -0.008],
+    /* Held like the PAC-9 (see its `vm`), set back by how much further
+       behind the grip this gun's stock runs. */
+    vm: { x: 0.098, y: -0.122, z: -0.44, adsZ: 0.10, rx: 0.034, ry: 0.085, rz: -0.03, viewFov: 54, motion: 0.6 } };
 }
 function drawShotgun(){
-  const g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), wd = M_WOOD();
+  const g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), wd = M_WOOD(), po = M_POLY();
   dProf(g, dk, [[-0.10, -0.034], [0.13, -0.030], [0.13, 0.034], [-0.06, 0.034], [-0.10, 0.020]], 0.044, 0.006);   // receiver
   dBox(g, st, 0.004, 0.022, 0.085, 0.0235, 0.004, -0.02);                                           // ejection port
+  dBox(g, st, 0.006, 0.014, 0.060, 0.0215, 0.006, -0.02);                                           // the bolt face in it
+  dBox(g, po, 0.030, 0.004, 0.070, 0, -0.0345, 0.0);                                                // loading port, underneath
+  dRail(g, dk, 0.034, -0.10, 0.075, 0.018);                                                         // receiver rail
+  dScrew(g, 0.0222, -0.012, -0.08, 'x', 0.003); dScrew(g, 0.0222, -0.012, 0.06, 'x', 0.003);        // the trigger-group pins
+  dScrew(g, -0.0222, -0.012, -0.08, 'x', 0.003); dScrew(g, -0.0222, -0.012, 0.06, 'x', 0.003);
   dTube(g, st, 0.0125, 0.50, 0, 0.018, -0.37);                                                      // barrel
+  /* A ventilated heat shield over the top of the barrel: a half tube with
+     rows of holes, the thing that says "tactical pump" at a glance. */
+  { const hsm = dmatL('darkds', [0.030, 0.031, 0.034], 0.45, 0.40, 0); hsm.side = THREE.DoubleSide;
+    /* the +z half of a cylinder, turned to lie along the barrel on top */
+    const hs = new THREE.Mesh(new THREE.CylinderGeometry(0.0165, 0.0165, 0.28, 18, 1, true, -Math.PI / 2, Math.PI), hsm);
+    hs.rotation.x = -Math.PI / 2; hs.position.set(0, 0.018, -0.30); dAdd(g, hs);
+    for (let r = 0; r < 3; r++) for (let i = 0; i < 9; i++){ const a = -0.9 + r * 0.9;
+      dBox(g, po, 0.005, 0.0012, 0.014, Math.sin(a) * 0.0168, 0.018 + Math.cos(a) * 0.0168, -0.185 - i * 0.029, 0, -a); } }
   dTube(g, st, 0.0118, 0.40, 0, -0.014, -0.32);                                                     // tube magazine
-  dTube(g, dk, 0.014, 0.02, 0, -0.014, -0.525);                                                     // its cap
-  dBox(g, st, 0.012, 0.046, 0.014, 0, 0.002, -0.50);                                                // barrel band
-  dProf(g, st, [[0.612, 0.031], [0.620, 0.031], [0.618, 0.044], [0.614, 0.044]], 0.006, 0.001);     // bead
+  dTube(g, dk, 0.014, 0.02, 0, -0.014, -0.525);                                                     // its cap...
+  { const loop = new THREE.Mesh(new THREE.TorusGeometry(0.009, 0.0022, 6, 14), st); loop.position.set(0, -0.030, -0.528); dAdd(g, loop); }   // ...with a sling loop
+  dBox(g, st, 0.012, 0.046, 0.014, 0, 0.002, -0.50);                                                // barrel clamp
+  dScrew(g, 0.0062, 0.002, -0.50, 'x', 0.0025);
+  // sights: a ghost ring at the back of the rail, a protected post at the muzzle
+  dBox(g, st, 0.024, 0.008, 0.016, 0, 0.042, 0.060);
+  for (const sx of [-1, 1]) dBox(g, st, 0.004, 0.018, 0.014, sx * 0.0105, 0.051, 0.060);           // the ears
+  { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.0062, 0.0016, 8, 18), st); ring.position.set(0, 0.0525, 0.060); dAdd(g, ring); }
+  dBox(g, st, 0.014, 0.006, 0.016, 0, 0.0335, -0.598);
+  dBox(g, st, 0.0028, 0.016, 0.006, 0, 0.0445, -0.598);                                             // the post...
+  dBox(g, M_WHITE(), 0.0024, 0.0024, 0.001, 0, 0.0505, -0.5948);                                    // ...with its dot
+  for (const sx of [-1, 1]) dBox(g, st, 0.003, 0.016, 0.010, sx * 0.0072, 0.0445, -0.598);
+  /* Side saddle: six spare shells on the left of the receiver, red hulls
+     and brass heads, standing up. */
+  dBox(g, dk, 0.004, 0.040, 0.082, -0.0245, -0.002, -0.015);
+  for (let i = 0; i < 6; i++){
+    const z = -0.050 + i * 0.0138, sh = new THREE.Mesh(new THREE.CylinderGeometry(0.0062, 0.0062, 0.050, 12), M_HULL());
+    sh.position.set(-0.0330, 0.002, z); dAdd(g, sh);
+    const hd = new THREE.Mesh(new THREE.CylinderGeometry(0.0066, 0.0066, 0.010, 12), M_BRASS()); hd.position.set(-0.0330, -0.026, z); dAdd(g, hd);
+  }
   dProf(g, wd, [[0.16, -0.040], [0.33, -0.036], [0.33, 0.004], [0.16, 0.004]], 0.048, 0.008);       // the pump...
   for (let i = 0; i < 6; i++) dBox(g, wd, 0.051, 0.030, 0.007, 0, -0.018, -0.175 - i * 0.026);      // ...and its ribs
+  dBox(g, st, 0.006, 0.006, 0.150, 0.010, -0.006, -0.12);                                           // the action bar under it
   // stock and grip as one piece of wood
   dProf(g, wd, [[-0.09, 0.022], [-0.40, -0.002], [-0.415, -0.105], [-0.385, -0.110], [-0.23, -0.058], [-0.175, -0.112], [-0.135, -0.108], [-0.10, -0.034]], 0.038, 0.008);
-  dBox(g, M_POLY(), 0.040, 0.110, 0.014, 0, -0.054, 0.415);                                         // recoil pad
+  dBox(g, po, 0.040, 0.110, 0.014, 0, -0.054, 0.415);                                               // recoil pad
+  for (let i = 0; i < 6; i++) dBox(g, dk, 0.041, 0.003, 0.015, 0, -0.100 + i * 0.019, 0.416);       // its ribs
   dProf(g, dk, [[0.00, -0.034], [-0.085, -0.036], [-0.082, -0.064], [-0.02, -0.066], [0.004, -0.05]], 0.006, 0.001);   // trigger guard
+  dBox(g, st, 0.005, 0.022, 0.006, 0, -0.046, 0.040, 0.3);                                          // trigger
+  dScrew(g, 0.0222, -0.026, 0.010, 'x', 0.0042);                                                    // the cross-bolt safety's button
+  dDecal(g, 'CX-12  12 GA  3"', 0.0225, 0.014, -0.02, 0.085, 0.008, 1);
   const mag = dTube(g, M_RED(), 0.0095, 0.058, 0, -0.050, -0.02);                                   // the shell in your hand on a reload
   mag.visible = false;
-  return { g, grip: [0, -0.070, 0.150], fore: [0, -0.045, -0.245], mag, magAt: [0, -0.060, -0.02], shell: true };
+  return { g, grip: [0, -0.070, 0.150], fore: [0, -0.045, -0.245], mag, magAt: [0, -0.060, -0.02], shell: true,
+    /* Aim through the ghost ring onto the post: the line is the post's
+       top, which the ring's centre is set level with. */
+    aimTop: 0.0525,
+    vm: { x: 0.098, y: -0.11, z: -0.40, adsZ: 0.10, rx: 0.034, ry: 0.085, rz: -0.03, viewFov: 54, motion: 0.6 } };
 }
 function drawPistol(heavy){
-  const g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), po = M_POLY();
+  const g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), po = M_POLY(), p2 = M_POLY2();
   const L = heavy ? 0.125 : 0.110, sl = heavy ? st : dk;
   // slide: stepped down at the muzzle
   dProf(g, sl, [[-0.090, 0.006], [L, 0.006], [L, 0.030], [L - 0.012, 0.040], [-0.085, 0.040], [-0.090, 0.030]], 0.029, 0.004);
-  for (let i = 0; i < 6; i++) dBox(g, po, 0.0305, 0.026, 0.0035, 0, 0.023, 0.045 + i * 0.007);     // rear serrations
+  for (let i = 0; i < 7; i++) dBox(g, po, 0.0305, 0.024, 0.0025, 0, 0.022, 0.048 + i * 0.006);     // rear serrations
+  for (let i = 0; i < 5; i++) dBox(g, po, 0.0305, 0.016, 0.0022, 0, 0.022, -L + 0.026 + i * 0.006);   // front ones
   dBox(g, po, 0.004, 0.012, 0.040, 0.0152, 0.028, -0.02);                                           // ejection port
+  dBox(g, st, 0.012, 0.006, 0.034, 0.004, 0.036, -0.020);                                           // the barrel hood showing through it
+  dBox(g, st, 0.0016, 0.004, 0.022, 0.0152, 0.032, 0.010);                                          // extractor
+  if (heavy) for (let i = 0; i < 3; i++) dBox(g, po, 0.012, 0.0016, 0.016, 0, 0.0403, -0.030 - i * 0.022);   // lightening cuts on top
   dTube(g, st, 0.0065, 0.012, 0, 0.022, -L - 0.004);                                                // barrel crown
+  if (heavy){                                                                                       // a compensator, ported on top
+    dProf(g, st, [[L, 0.006], [L + 0.030, 0.006], [L + 0.030, 0.034], [L, 0.036]], 0.029, 0.004);
+    for (let i = 0; i < 3; i++) dBox(g, po, 0.012, 0.0016, 0.006, 0, 0.0345, -L - 0.006 - i * 0.008);
+  }
   // frame, dust cover, beavertail and raked grip, in one outline
   dProf(g, po, [[L - 0.004, 0.004], [L - 0.004, -0.014], [0.030, -0.016], [0.018, -0.040], [-0.022, -0.034], [-0.052, -0.128], [-0.098, -0.120],
                [-0.082, -0.030], [-0.110, -0.004], [-0.098, 0.006]], 0.027, 0.005);
+  for (let i = 0; i < 3; i++) dBox(g, p2, 0.0272, 0.0024, 0.006, 0, -0.0150, -0.050 - i * 0.012);  // rail slots under the dust cover
   if (heavy){ dBox(g, dk, 0.022, 0.014, 0.050, 0, -0.022, -0.080); dTube(g, M_GLASS(), 0.008, 0.004, 0, -0.022, -0.107); }   // rail and a light
   dProf(g, dk, [[0.030, -0.016], [0.034, -0.044], [-0.012, -0.050], [-0.022, -0.034]], 0.005, 0.001);                     // trigger guard
   dBox(g, st, 0.004, 0.018, 0.005, 0, -0.026, -0.006, 0.25);                                        // trigger
+  dBox(g, dk, 0.003, 0.004, 0.040, -0.0148, 0.002, -0.004);                                         // slide stop, left side
+  dBox(g, dk, 0.004, 0.006, 0.006, -0.0150, 0.006, 0.014);                                          // its paddle
+  dBox(g, dk, 0.003, 0.004, 0.010, -0.0145, -0.004, -0.030);                                        // takedown lever
+  dBox(g, dk, 0.004, 0.009, 0.009, -0.0145, -0.030, 0.026);                                         // magazine release
   dProf(g, st, [[L - 0.022, 0.040], [L - 0.012, 0.040], [L - 0.014, 0.050], [L - 0.020, 0.050]], 0.004, 0.0008);          // front sight
+  dBox(g, M_WHITE(), 0.0022, 0.0022, 0.001, 0, 0.0462, -(L - 0.0215));                              // three-dot sights: the front
   dBox(g, st, 0.020, 0.010, 0.010, 0, 0.045, 0.078); dBox(g, po, 0.006, 0.010, 0.012, 0, 0.0452, 0.078);                  // rear sight, notched
-  for (let i = 0; i < 5; i++) dBox(g, M_POLY2(), 0.029, 0.004, 0.030, 0, -0.058 - i * 0.012, 0.062 + i * 0.0035, 0.20);   // grip texture
+  for (const sx of [-1, 1]) dBox(g, M_WHITE(), 0.0022, 0.0022, 0.001, sx * 0.0062, 0.0462, 0.0728);  // and the rear two
+  // grip: stippled panels on both sides, a backstrap, a flared magwell
+  for (const sx of [-1, 1]){
+    dProf(g, p2, [[-0.030, -0.044], [-0.058, -0.112], [-0.088, -0.108], [-0.070, -0.040]], 0.002, 0.0004, sx * 0.0136, 0, 0);
+  }
+  dBox(g, p2, 0.022, 0.060, 0.006, 0, -0.072, 0.084, -0.38);                                        // backstrap
+  dProf(g, dk, [[-0.050, -0.122], [-0.100, -0.116], [-0.102, -0.128], [-0.050, -0.134]], 0.030, 0.003);   // magwell flare
+  dDecal(g, heavy ? 'CX-PX  10mm AUTO' : 'CX-P9  9x19', -0.0148, 0.022, -0.030, heavy ? 0.075 : 0.060, 0.0075, -1);
   const mag = dProf(g, dk, [[-0.058, -0.124], [-0.094, -0.118], [-0.100, -0.140], [-0.056, -0.146]], 0.024, 0.003);       // the floor plate you see
-  return { g, grip: [0, -0.072, 0.066], fore: [-0.020, -0.088, 0.058], mag, magAt: [0, -0.150, 0.078], small: true };
+  return { g, grip: [0, -0.072, 0.066], fore: [-0.020, -0.088, 0.058], mag, magAt: [0, -0.150, 0.078], small: true,
+    /* Held out toward arm's length with both hands in view, and through a
+       gentler lens than the long guns (64, not 54): a pistol stretched as
+       much as the PAC-9 filled the corner of the screen and pushed its own
+       hands out of the frame. Aiming pushes it a little further out. */
+    vm: { x: 0.07, y: -0.085, z: -0.38, adsZ: -0.06, rx: 0.02, ry: 0.05, rz: -0.02, viewFov: 64, motion: 0.6 } };
 }
 
 /* ---- the hand and arm ----
@@ -212,7 +381,9 @@ function mountGun(slot, built){
   VM_RIGS[slot] = { left, right, mag: built.mag, shell: !!built.shell, grip: new THREE.Vector3().fromArray(built.grip),
     fore: new THREE.Vector3().fromArray(built.fore), magAt: new THREE.Vector3().fromArray(built.magAt),
     magHome: built.mag ? built.mag.position.clone() : null };
-  WEAPONS[slot].aimTop = centrelineTop(built.g.parent, 0.03);
+  WEAPONS[slot].aimTop = built.aimTop != null ? rig.position.y + built.aimTop : centrelineTop(built.g.parent, 0.03);
+  /* Each drawn gun now carries a PAC-9-style pose and lens (2026-11-21). */
+  if (built.vm) WEAPONS[slot].vm = built.vm;
 }
 [drawRifle(), drawSniper(), drawShotgun(), drawPistol(false), drawPistol(true)].forEach((b, i) => mountGun(i, b));
 /* ---- THE PAC-9 (2026-11-21) ----
