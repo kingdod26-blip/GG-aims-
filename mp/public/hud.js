@@ -839,7 +839,7 @@ const MAPC = {
    which is the right default: most of a power station is machinery. */
 const MAPC_WALL = { cladding:1, firewall:1, block:1, wall:1, boiler:1, shed:1,
                     hall:1, control:1, intake:1, tower:1, annex:1, pillar:1,
-                    facade:1, core:1, counter:1 };
+                    facade:1, core:1, counter:1, bwall:1, shedwall:1, duct:1, stackwall:1 };
 const MAPC_THIN = { lattice:1, column:1, step:1, hvtower:1, firebox:1, desk:1, bench:1 };
 
 /* Glass and raised boxes, on either plan. Glass is a thin pale line (a
@@ -850,7 +850,8 @@ function planRaised(g, b, x0, z0, w, d){
   if (b.mat === 'glass'){ g.fillStyle = 'rgba(150,205,230,.6)'; g.fillRect(x0, z0, Math.max(1, w), Math.max(1, d)); return true; }
   /* A building's roof is its outline with the inside visible, like the
      hall's; its floor slabs are not drawn at all (dozens of seams). */
-  if (b.mat === 'roofslab'){
+  if (b.mat === 'handrail' || b.mat === 'pipewalk') return true;        // rails and the pipes' walk: clutter on a plan
+  if (PLAN_ROOFS[b.mat]){
     g.fillStyle = 'rgba(120,140,170,.11)'; g.fillRect(x0, z0, w, d);
     g.strokeStyle = 'rgba(160,175,192,.6)'; g.lineWidth = 1.5; g.strokeRect(x0 + 0.5, z0 + 0.5, w - 1, d - 1);
     return true;
@@ -1033,7 +1034,10 @@ const PLAN = {
 };
 /* Buildings named on the plan that have no stencil on the ground. Keyed by
    what the map already calls them, so another map gets its names for free. */
-const PLAN_BOX_NAMES  = { boiler: 'map.boiler', intake: 'map.intake', roofslab: 'map.offices' };
+const PLAN_BOX_NAMES  = { boiler: 'map.boiler', intake: 'map.intake', roofslab: 'map.offices',
+                          boilerroof: 'map.boiler', intakeroof: 'map.intake' };
+/* A building's roof: drawn as its outline with the inside visible. */
+const PLAN_ROOFS = { roofslab: 1, boilerroof: 1, shedroof: 1, intakeroof: 1 };
 const PLAN_PROP_NAMES = { coolingtower: 'map.cooling', stack: 'map.stack' };
 const PLAN_COLS = 'ABCDEFGH', PLAN_CELLS = 8;
 

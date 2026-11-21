@@ -141,7 +141,7 @@ function litContext(map){
      what lets an upper floor's slab shade the floor under it without
      standing on that floor (boxY, maps.js). Glass is left out: light goes
      through a window. */
-  const occ = map.boxes.filter(b => b.mat !== 'glass');
+  const occ = map.boxes.filter(b => !MOVE_ONLY[b.mat]);
   const nb = occ.length, boxes = new Float32Array(nb * 6);
   occ.forEach((b, i) => boxes.set([b.x - b.w/2, b.x + b.w/2, b.z - b.d/2, b.z + b.d/2, boxY(b), boxY(b) + b.h], i * 6));
   /* A BROADPHASE over the boxes, because `litBlocked` is the whole cost of
@@ -1246,6 +1246,10 @@ function litMarksTexture(map){
 const LIT_GROUND = {};
 /* The office's kinds (works.js): indoors, on a tiled floor, so the yard's
    keep-clear lines are not painted round them. */
+/* What a raised box shows from below, by kind: a material, or null for a
+   kind that draws itself (or nothing). Anything not listed is concrete. */
+const LIT_UNDER = { grating: 'galv', steptread: 'galv', handrail: null, pipewalk: null, stackwall: null,
+                    shedroof: 'cladding', intakeroof: 'cladding', boilerroof: 'girder', duct: 'cladding' };
 const LIT_INDOOR = { facade: 1, core: 1, desk: 1, screen: 1, counter: 1, bench: 1, tread: 1, slab: 1,
                      roofslab: 1, parapet: 1, rail: 1, glass: 1 };
 function litGroundRect(q, kerb){                 // a zone or a road as [x0, z0, x1, z1]
@@ -2108,11 +2112,106 @@ const LIT_DRAW = {
 };
 LIT_DRAW.deck = LIT_DRAW.step = LIT_DRAW.tower = LIT_DRAW.plinth;
 
+/* A WALL PIECE of a hollow building: a concrete base course up to `baseH`
+   (only on a piece that starts below it) and clad sheet above. Its own
+   y0 is boxY(b): the drawer works from 0 and is lifted. */
+function litWallPiece(G, b, x0, z0, x1, z1, baseH){
+  const y = boxY(b), c = Math.max(0, Math.min(b.h, baseH - y));
+  /* 3m panels, not the cover's fine grid: a hollow building is hundreds of
+     wall pieces, and the vertex bake pays for every vertex (a 1077-box map
+     took 3.5s to build at cover density). */
+  if (c > 0) litBox(G('concrete'), x0, 0, z0, x1, c, z1, { seg: 3, tile: 120, tileV: 8, noTop: c < b.h });
+  if (c < b.h) litBox(G('cladding'), x0, c, z0, x1, b.h, z1, { seg: 3, tile: 3.2, tileV: 3.2 });
+}
+/* The boiler house's doorways (works.js bOps), so the outside steel the
+   roof drawer puts on each face never crosses one. */
+const LIT_BOILER_DOORS = [
+  { face: 'S', a0: 50, a1: 55.5, y0: 0, y1: 5 }, { face: 'W', a0: -85.2, a1: -82.6, y0: 7.6, y1: 11.6 },
+  { face: 'E', a0: -89.8, a1: -86.2, y0: 0, y1: 3.8 }, { face: 'E', a0: -89.8, a1: -86.2, y0: 13.8, y1: 17.8 },
+];
+
 /* THE OFFICES (works.js). Every one of these is drawn flush to its box: the
    top you see is the top you stand on. Raised ones are lifted and given an
    underside by the loop in litBuildArena. */
 Object.assign(LIT_DRAW, {
-  /* The facade: rendered walls. A thin piece - a mullion between two panes -
+  /* HOLLOW BUILDINGS (works.js `building`). A wall piece is clad sheet on a
+     concrete base course, the base only where the piece reaches the ground. */
+  shedwall(G, b, x0, z0, x1, z1){ litWallPiece(G, b, x0, z0, x1, z1, 0.9); },
+  bwall(G, b, x0, z0, x1, z1){ litWallPiece(G, b, x0, z0, x1, z1, 1.4); },
+  duct(G, b, x0, z0, x1, z1){ litBox(G('cladding'), x0, 0, z0, x1, b.h, z1, { seg: 3, tile: 3.2, tileV: 3.2 }); },
+  shedroof(G, b, x0, z0, x1, z1){ litBox(G('roofblue'), x0, 0, z0, x1, b.h, z1, { seg: 3, tile: 3.2, tileV: 3.2 }); },
+  intakeroof(G, b, x0, z0, x1, z1){ litBox(G('roofblue'), x0, 0, z0, x1, b.h, z1, { seg: 3, tile: 3.2, tileV: 3.2 }); },
+  /* The boiler house's roof carries what the old solid box used to draw on
+     the OUTSIDE: the floor bands, the corner columns, the steel frame on each
+     face and the roof plant. This drawer's vertices are lifted to the roof
+     (raised-box loop), so everything below the roof is drawn at y - base.
+     Nothing crosses a doorway: a column or a band that would is left out. */
+  boilerroof(G, b, x0, z0, x1, z1){
+    const base = boxY(b), H = base + b.h, Y = (y) => y - base;
+    litBox(G('girder'), x0 - 0.1, 0, z0 - 0.1, x1 + 0.1, b.h, z1 + 0.1, { seg: 4, tile: 2 });   // the eaves band, flush with the roof's top
+    const doors = LIT_BOILER_DOORS;
+    const clear = (face, u0, u1, y0, y1) => !doors.some(d => d.face === face && u1 > d.a0 - 0.3 && u0 < d.a1 + 0.3 && y1 > d.y0 && y0 < d.y1);
+    const faces = [['N', true, z0, -1], ['S', true, z1, 1], ['W', false, x0, -1], ['E', false, x1, 1]];
+    for (const [f, ax, c, sg] of faces){
+      const a0 = ax ? x0 : z0, a1 = ax ? x1 : z1, n = Math.max(2, Math.round((a1 - a0) / 6.8));
+      const slab = (u0, u1, y0, y1, out, mat) => ax
+        ? litBox(G(mat), u0, Y(y0), Math.min(c, c + sg * out), u1, Y(y1), Math.max(c, c + sg * out), { seg: 3, tile: 2 })
+        : litBox(G(mat), Math.min(c, c + sg * out), Y(y0), u0, Math.max(c, c + sg * out), Y(y1), u1, { seg: 3, tile: 2 });
+      for (const y of [7, 14, 21]){                                       // floor bands, broken at a door
+        let u = a0;
+        for (const d of doors.filter(d => d.face === f && y + 0.45 > d.y0 && y < d.y1).sort((p, q) => p.a0 - q.a0)){
+          if (d.a0 > u) slab(u, d.a0, y, y + 0.45, 0.1, 'girder'); u = Math.max(u, d.a1);
+        }
+        if (u < a1) slab(u, a1, y, y + 0.45, 0.1, 'girder');
+      }
+      for (let i = 1; i < n; i++){ const u = a0 + (a1 - a0) * i / n;
+        if (clear(f, u - 0.2, u + 0.2, 1.4, H)) slab(u - 0.2, u + 0.2, 1.4, H - 0.6, 0.25, 'girder'); }
+    }
+    for (const ex of [-1, 1]) for (const ez of [-1, 1]){                 // corner columns
+      const cx = ex > 0 ? x1 : x0, cz = ez > 0 ? z1 : z0;
+      litBox(G('girder'), cx - 0.45, Y(1.4), cz - 0.45, cx + 0.45, 0, cz + 0.45, { seg: 3, tile: 2, noTop: true });
+    }
+    /* Roof plant, on top: fan stacks, an air handler, vent stubs. */
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, T = b.h;
+    for (const dx of [-14, -4, 6]){ litCyl(G('galv'), cx + dx, T, cz - 6, cx + dx, T + 1.1, cz - 6, 1.5, 1.5, 16, 1, false, true);
+      litCyl(G('steel'), cx + dx, T + 1.1, cz - 6, cx + dx, T + 1.25, cz - 6, 1.55, 1.55, 16, 1, false, true); }
+    litBox(G('galv'), cx + 8, T, cz + 2, cx + 18, T + 2.6, cz + 8, { seg: 3, tile: 2 });
+    for (const dx of [-16, -10, -2]) litCyl(G('steel'), cx + dx, T, cz + 6, cx + dx, T + 3.2, cz + 6, 0.35, 0.35, 10, 1, false, true);
+  },
+  /* A boiler: an insulated casing in aluminium sheet, stiffener bands every
+     3m, a row of burner throats low on the front, and the steam drum lying
+     across the top (over head height on the top gallery, not collision). */
+  boilerunit(G, b, x0, z0, x1, z1){
+    litBox(G('lagging'), x0, 0, z0, x1, b.h, z1, { seg: 3, tile: 2 });
+    for (let y = 3; y < b.h - 0.5; y += 3) litBox(G('girder'), x0 - 0.06, y, z0 - 0.06, x1 + 0.06, y + 0.25, z1 + 0.06, { seg: 4, tile: 2 });
+    for (let i = 0; i < 4; i++){ const x = x0 + (x1 - x0) * (i + 0.5) / 4;
+      litCyl(G('steel'), x, 2.4, z1, x, 2.4, z1 + 0.06, 0.55, 0.55, 14, 1, false, true); }
+    const cz = (z0 + z1) / 2;
+    litCyl(G('lagging'), x0 + 0.5, b.h + 1.3, cz, x1 - 0.5, b.h + 1.3, cz, 1.1, 1.1, 18, 3, true, true);
+    for (const x of [x0 + 2, x1 - 2]) litBox(G('girder'), x - 0.2, b.h, cz - 0.6, x + 0.2, b.h + 0.4, cz + 0.6, { seg: 2, tile: 2 });
+  },
+  /* Steel grating floors and stair treads: galvanised, flush to the box. */
+  grating(G, b, x0, z0, x1, z1){
+    litBox(G('galv'), x0, 0, z0, x1, b.h, z1, { seg: 3, tile: 1 });
+  },
+  steptread(G, b, x0, z0, x1, z1){
+    litBox(G('galv'), x0, 0, z0, x1, b.h, z1, { seg: 2, tile: 1 });
+  },
+  /* A handrail: posts every 1.5m, a top rail and a knee rail, yellow. The
+     box is the rail's whole extent; what is drawn is thin. */
+  handrail(G, b, x0, z0, x1, z1){
+    const alongX = (x1 - x0) >= (z1 - z0), L = alongX ? x1 - x0 : z1 - z0, m = alongX ? (z0 + z1) / 2 : (x0 + x1) / 2;
+    const bar = (a0, a1, y0, y1, w) => alongX
+      ? litBox(G('yellow'), x0 + a0, y0, m - w, x0 + a1, y1, m + w, { seg: 3, tile: 1 })
+      : litBox(G('yellow'), m - w, y0, z0 + a0, m + w, y1, z0 + a1, { seg: 3, tile: 1 });
+    bar(0, L, b.h - 0.05, b.h, 0.03);
+    bar(0, L, 0.5, 0.54, 0.02);
+    const n = Math.max(1, Math.round(L / 1.5));
+    for (let i = 0; i <= n; i++){ const a = Math.min(L - 0.04, Math.max(0, L * i / n - 0.02)); bar(a, a + 0.04, 0, b.h - 0.05, 0.02); }
+  },
+  pipewalk(){},                                 // the pipes are drawn by their rack or bridge
+  stackwall(){},                                // the ring is drawn by the stack prop
+  /* The office facade: rendered walls. A thin piece - a mullion between two panes -
      is a dark metal frame, as glazing bars are; everything else is render. */
   facade(G, b, x0, z0, x1, z1){
     const thin = Math.min(b.w, b.d) < 0.5 && Math.max(b.w, b.d) <= 0.31 && b.h < 2.5;
@@ -2159,6 +2258,17 @@ Object.assign(LIT_DRAW, {
    a walkway you can stand on has to be a box standing on the floor, which is
    a solid mezzanine, and that is what the operating decks are. */
 const LIT_PROP = {
+  /* A LADDER (works.js): two rails and rungs every 0.3m in the plane 0.45m
+     behind the climb line (toward the wall), running a metre past the top as
+     handholds. A ladder on a tower draws itself (`draw: false`). */
+  ladder(G, p){
+    if (p.draw === false) return;
+    const g = G('galv'), tx = -p.nz, tz = p.nx, bx = p.x - p.nx * 0.45, bz = p.z - p.nz * 0.45;
+    for (const sd of [-0.25, 0.25])
+      litCyl(g, bx + tx * sd, p.y0, bz + tz * sd, bx + tx * sd, p.y1 + 1.0, bz + tz * sd, 0.03, 0.03, 6, 1, false, true);
+    for (let y = p.y0 + 0.3; y <= p.y1 + 0.01; y += 0.3)
+      litCyl(g, bx - tx * 0.25, y, bz - tz * 0.25, bx + tx * 0.25, y, bz + tz * 0.25, 0.018, 0.018, 5, 1, false, false);
+  },
   /* Recessed light panels in an office's ceilings (works.js): 1.2 x 0.6,
      on a 2.4m grid, 1cm under each slab's underside, kept out of the
      stairwells, the core and the lobby void (`holes`, per level). Unlit
@@ -2394,8 +2504,12 @@ const LIT_PROP = {
        lip, on the face toward the site. It starts at 5.6m, out of reach of
        the rim (2.6m plus a 2.7m climb), and nothing on it is a floor. */
     const lx = 0.36, lz = 0.93, tx = -lz, tz = lx, st = G('steel');
-    const at = (y, off, side) => { const r = R(y) + off; return [x + lx * r + tx * side, y, z + lz * r + tz * side]; };
-    for (let y = yk; y < y1 - 0.01; y += 1.5){
+    /* It now starts on the basin rim (2.6) and goes up the ring beam, so it
+       can be climbed (works.js LADDERS): below the beam's top the shell's
+       radius is the beam's. */
+    const Rl = (y) => y < yk ? rk : R(y);
+    const at = (y, off, side) => { const r = Rl(y) + off; return [x + lx * r + tx * side, y, z + lz * r + tz * side]; };
+    for (let y = bh; y < y1 - 0.01; y += 1.5){
       const yb = Math.min(y1 + 0.5, y + 1.5);
       for (const [off, side] of [[0.3, -0.3], [0.3, 0.3], [1.0, -0.38], [1.0, 0.38], [1.2, 0]]){
         const A = at(y, off, side), B = at(yb, off, side);
@@ -2404,7 +2518,7 @@ const LIT_PROP = {
       for (let k = 0; k < 3; k++){ const yr = y + k * 0.5, A = at(yr, 0.3, -0.3), B = at(yr, 0.3, 0.3);   // rungs
         litCyl(st, A[0], A[1], A[2], B[0], B[1], B[2], 0.02, 0.02, 4, 1, false, false); }
     }
-    { const T = at(y1 + 0.5, 0.6, 0); litBox(G('galv'), T[0] - 0.7, y1 + 0.5, T[2] - 0.7, T[0] + 0.7, y1 + 2.3, T[2] + 0.7, { tile: 2 }); }   // the hut at the top
+    /* (the hut at the top is gone: the landing is a grating box now) */
     /* Steam: soft billows rolling off the lip and drifting downwind. */
     litSteam(x, y1 + 0.6, z, R(y1), 'tower');
   },
@@ -2448,13 +2562,63 @@ const LIT_PROP = {
      have to be matched band for band in the collision and buys nothing you
      can see from the ground. */
   stack(G, p, D, H){
-    const x = p.x, z = p.z, r = p.r, h = p.h, N = p.n || 9;
-    litDrumPrism(G('stackband'), x, z, r, N, 0, h, { tile: 2, tileV: h });
-    litCyl(G('concrete'), x, 0, z, x, 2.2, z, r + 0.5, r + 0.35, 20, 2, false, false);   // the foot
-    for (let y = 12; y < h - 6; y += 13)                                                  // maintenance platforms
-      litCyl(G('girder'), x, y, z, x, y + 0.22, z, r + 0.85, r + 0.85, 20, 2, true, true);
-    litCyl(G('steel'), x, h, z, x, h + 0.6, z, r + 0.15, r + 0.15, 20, 1, false, false);   // the cap
-    litSteam(x, h + 0.8, z, r * 0.85, 'stack');
+    /* HOLLOW (works.js "THE STACK"): a ring wall r..ri, drawn as 36 flat
+       pieces to match the 36 boxes, outside and in, with the west doorways
+       (`doors`: [deg0, deg1, y0, y1]) left open and their jambs, heads and
+       sills closed. Open to the sky at the top - look up from inside. */
+    const x = p.x, z = p.z, ro = p.r, ri = p.ri || p.r - 0.5, h = p.h, doors = p.doors || [];
+    const tex = G('stackband'), inner = G('concrete');
+    const P = (r, a) => [x + r * Math.cos(a), z + r * Math.sin(a)];
+    const quad = (g, A, B, y0, y1, out, tv) => {                    // a vertical panel from A to B, facing in or out
+      let a = A, b = B; const mx = (A[0] + B[0]) / 2 - x, mz = (A[1] + B[1]) / 2 - z;
+      let ux = b[0] - a[0], uz = b[1] - a[1]; const L = Math.hypot(ux, uz); ux /= L; uz /= L;
+      const nIn = (-uz) * mx + ux * mz < 0;                           // u x up points inward?
+      if (nIn === out){ a = B; b = A; ux = -ux; uz = -uz; }
+      const ml = Math.hypot(mx, mz) || 1, s = out ? 1 : -1;
+      litGrid(g, a[0], y0, a[1], ux, 0, uz, 0, 1, 0, L, y1 - y0, s * mx / ml, 0, s * mz / ml, 2, 4, 1, tv, 0, y0);
+    };
+    /* A curved panel of the ring, with a RADIAL normal at each corner so
+       the shading sweeps round like a cylinder's instead of striping per
+       panel. Winding: (v0,v2,v1),(v1,v2,v3) faces out, the reverse in. */
+    const panel = (g, a0, a1, r, y0, y1, out, tv) => {
+      const b = g.p.length / 3, s = out ? 1 : -1, round = 2 * Math.PI * r;
+      for (const [a, y] of [[a0, y0], [a1, y0], [a0, y1], [a1, y1]]){
+        const c = Math.cos(a), sn = Math.sin(a);
+        g.p.push(x + r * c, y, z + r * sn); g.n.push(s * c, 0, s * sn); g.uv.push(a / (2 * Math.PI) * round / 3, y / tv);
+      }
+      if (out) g.i.push(b, b + 2, b + 1,  b + 1, b + 2, b + 3); else g.i.push(b, b + 1, b + 2,  b + 1, b + 3, b + 2);
+    };
+    const spans = (deg) => {                                          // the y ranges of wall at this sector
+      const ds = doors.filter(d => deg > d[0] && deg < d[1]).sort((a, b) => a[2] - b[2]);
+      const out = []; let y = 0;
+      for (const d of ds){ if (d[2] > y) out.push([y, d[2]]); y = Math.max(y, d[3]); }
+      if (y < h) out.push([y, h]); return out;
+    };
+    for (let i = 0; i < 36; i++){
+      const a0 = i * Math.PI / 18, a1 = (i + 1) * Math.PI / 18, deg = i * 10 + 5;
+      for (const [y0, y1] of spans(deg)){
+        panel(tex, a0, a1, ro, y0, y1, true, h);
+        panel(inner, a0, a1, ri, y0, y1, false, 3);
+        if (y1 < h){ const A = P(ri, a0), B = P(ro, a1);                  // the head over a doorway: underside
+          litGrid(inner, Math.min(A[0], B[0]), y1, Math.min(A[1], B[1]), 1,0,0, 0,0,1, Math.abs(B[0] - A[0]) || 0.01, Math.abs(B[1] - A[1]) || 0.01, 0,-1,0, 2, 2, 1, 1); }
+        if (y0 > 0){ const A = P(ri, a0), B = P(ro, a1);                  // and the sill: top
+          litGrid(inner, Math.min(A[0], B[0]), y0, Math.min(A[1], B[1]), 0,0,1, 1,0,0, Math.abs(B[1] - A[1]) || 0.01, Math.abs(B[0] - A[0]) || 0.01, 0,1,0, 2, 2, 1, 1); }
+      }
+      { const A = P(ri, a0), B = P(ro, a1);                             // the rim at the top
+        litGrid(inner, Math.min(A[0], B[0]), h, Math.min(A[1], B[1]), 0,0,1, 1,0,0, Math.abs(B[1] - A[1]) || 0.01, Math.abs(B[0] - A[0]) || 0.01, 0,1,0, 2, 2, 1, 1); }
+    }
+    for (const d of doors) for (const deg of [d[0], d[1]]){               // jambs: the wall's thickness at each side of a door
+      const a = deg * Math.PI / 180, A = P(ri, a), B = P(ro, a), sgn = deg === d[0] ? -1 : 1;
+      const tnx = -Math.sin(a) * sgn, tnz = Math.cos(a) * sgn;            // facing into the doorway
+      const ux = B[0] - A[0], uz = B[1] - A[1], L = Math.hypot(ux, uz);
+      const cr = (-uz) * tnx + ux * tnz > 0;                              // u x up along the facing?
+      const o = cr ? A : B, uu = cr ? [ux / L, uz / L] : [-ux / L, -uz / L];
+      litGrid(inner, o[0], d[2], o[1], uu[0], 0, uu[1], 0, 1, 0, L, d[3] - d[2], tnx, 0, tnz, 2, 2, 1, 1, 0, d[2]);
+    }
+    for (let y = 12; y < h - 6; y += 13)                                  // maintenance platforms: a ring, not a disc
+      litCyl(G('girder'), x, y, z, x, y + 0.22, z, ro + 0.85, ro + 0.85, 24, 2, false, false);
+    litCyl(G('steel'), x, h, z, x, h + 0.6, z, ro + 0.15, ro + 0.15, 24, 1, false, false);   // the cap
+    litSteam(x, h + 0.8, z, ro * 0.85, 'stack');
   },
   /* A PORTAL GANTRY across the yard, and the conductors it carries. The
      beam is a lattice box girder at `y`; the lines sag from it in a
@@ -2573,7 +2737,7 @@ function litUniformsFor(map){
      neither, and if something has to go it should be the plinth. */
   /* Only what stands ON the floor darkens it: a slab overhead is a ceiling,
      and glass casts nothing. */
-  const floorBoxes = map.boxes.filter(b => !SKIP_FLOOR[b.mat] && b.mat !== 'glass' && boxY(b) < 0.05)
+  const floorBoxes = map.boxes.filter(b => !SKIP_FLOOR[b.mat] && !MOVE_ONLY[b.mat] && boxY(b) < 0.05)
     .sort((p, q) => (q.w * q.d) - (p.w * p.d)).slice(0, LIT_NBOX - 4);
   for (const b of floorBoxes){ box.set([b.x, b.z, b.w / 2, b.d / 2], n * 4); bh[n++] = b.h; }
   LITU.uLitCoverN.value = n;
@@ -2667,8 +2831,10 @@ function litBuildArena(map, flatFloor, flatRoof){
          on the floor never shows one; a slab or a stair tread is seen from
          below, and without this you looked up through a ceiling. Concrete,
          as a slab's soffit is. u x v = (0,-1,0), so it faces down. */
-      litGrid(G('concrete'), x0, y, z0,  1,0,0,  0,0,1,  b.w, b.d,  0,-1,0,
-              LIT.coverSeg, LIT.coverSeg, 3, 3);
+      /* Steel underneath steel; nothing under what draws nothing. */
+      const under = LIT_UNDER[b.mat] !== undefined ? LIT_UNDER[b.mat] : 'concrete';
+      if (under) litGrid(G(under), x0, y, z0,  1,0,0,  0,0,1,  b.w, b.d,  0,-1,0,
+                         LIT.coverSeg, LIT.coverSeg, 3, 3);
     }
   }
   for (const p of (map.props || [])){ const draw = LIT_PROP[p.kind]; if (draw) draw(G, p, D, H); }

@@ -68,6 +68,70 @@ function segCrossesRect(x0, z0, x1, z1, c){
   }
   return true;
 }
+/* ---- LADDERS (2026-11-21) ----
+   Jack: "i want to be able to climb the ladders". A ladder is a climb line
+   (mapLadders, maps.js): where your feet go, from y0 to y1, `n` out from the
+   wall and `e` the step off the top. FACE it and press W to take hold; on it,
+   W climbs (or descends, if you are looking down - so from the top you look
+   down the ladder and walk onto it), S descends, Space lets go and pushes
+   you off backwards. At the top you step off onto the floor there; at the
+   foot, S puts you back on the ground. No gravity, no wall push while on it:
+   the line is placed clear of everything solid. */
+const LADDER = { reach: 0.55, reachTop: 1.25, speed: 3.2, face: 0.35, rung: 0.55 };
+let ladderStep = 0;
+function ladderAt(L, y){
+  if (!L.path) return [L.x, L.z];
+  const P = L.path;
+  if (y <= P[0][1]) return [P[0][0], P[0][2]];
+  for (let i = 1; i < P.length; i++) if (y <= P[i][1]){
+    const t = (y - P[i-1][1]) / ((P[i][1] - P[i-1][1]) || 1);
+    return [P[i-1][0] + (P[i][0] - P[i-1][0]) * t, P[i-1][2] + (P[i][2] - P[i-1][2]) * t];
+  }
+  const q = P[P.length - 1]; return [q[0], q[2]];
+}
+function ladderGrab(){
+  if (!keys['KeyW'] && !keys['KeyS']) return null;
+  if (me.stance !== 'stand' || !me.alive || !currentMap) return null;
+  const fx = -Math.sin(me.yaw), fz = -Math.cos(me.yaw);
+  for (const L of mapLadders(currentMap)){
+    if (me.feetY < L.y0 - 0.5 || me.feetY > L.y1 + 0.3) continue;
+    const atTop = me.feetY >= L.y1 - 0.3;
+    const [lx, lz] = ladderAt(L, Math.max(L.y0, Math.min(L.y1, me.feetY)));
+    if (Math.hypot(lx - me.x, lz - me.z) > (atTop ? LADDER.reachTop : LADDER.reach)) continue;
+    const el = Math.hypot(L.ex, L.ez) || 1;
+    const facing = atTop ? fx * (-L.ex / el) + fz * (-L.ez / el) : fx * (-L.nx) + fz * (-L.nz);
+    if (facing > LADDER.face) return L;
+  }
+  return null;
+}
+function updateLadder(dt){
+  const L = me.ladder;
+  if (jumpPressed){                                   // let go, backwards
+    jumpPressed = false; me.ladder = null;
+    me.hv.set(L.nx * 4, 0, L.nz * 4); me.vy = 4; me.onGround = false; me.jumpsUsed = 1;
+    return;
+  }
+  let dir = 0;
+  if (keys['KeyW']) dir += me.pitch < -0.45 ? -1 : 1;
+  if (keys['KeyS']) dir -= 1;
+  me.feetY += dir * LADDER.speed * dt;
+  me.hv.set(0, 0, 0); me.vy = 0; me.jumpsUsed = 0;
+  if (me.feetY >= L.y1){                              // over the top: step off, as a short pull-up
+    me.feetY = L.y1; me.ladder = null;
+    const [lx, lz] = ladderAt(L, L.y1);
+    startClimb({ x: lx + L.ex, z: lz + L.ez, y: L.y1 });
+    return;
+  }
+  if (me.feetY <= L.y0){                              // at the foot
+    me.feetY = L.y0;
+    if (dir < 0){ me.ladder = null; me.onGround = true; return; }
+  }
+  me.onGround = false;
+  const [lx, lz] = ladderAt(L, me.feetY), k = Math.min(1, dt * 14);
+  me.x += (lx - me.x) * k; me.z += (lz - me.z) * k;
+  ladderStep += Math.abs(dir) * LADDER.speed * dt;
+  if (ladderStep >= LADDER.rung){ ladderStep = 0; stepLeft = !stepLeft; Sfx.step(stepLeft); }
+}
 function findLedge(){
   if(climbT>0 || rollT>0 || dashT>0 || slideT>0) return null;
   if(me.stance!=='stand' || !me.alive) return null;
@@ -135,6 +199,9 @@ function movePlayer(dt){
   /* A climb owns the frame: no input, no gravity, no wall push — it is
      moving you along a path it already checked. */
   if(climbT>0){ updateClimb(dt); return; }
+  if(!me.alive) me.ladder = null;
+  if(me.ladder){ updateLadder(dt); return; }
+  { const L = ladderGrab(); if(L){ me.ladder = L; ladderStep = 0; me.hv.set(0,0,0); me.vy = 0; updateLadder(dt); return; } }
   if(jumpPressed){
     const ledge=findLedge();
     if(ledge){ jumpPressed=false; startClimb(ledge); return; }   // climb beats jump

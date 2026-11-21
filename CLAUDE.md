@@ -1431,6 +1431,106 @@ office 10.0ms against 10.5ms elsewhere.
 **Not done:** the ground floor is dimmer than the upper floors - the slabs
 block the sky in the bake, and the ceiling panels add no light to it.
 
+## Ladders, the pipes, and the indoor plant (2026-11-21)
+
+Jack, in one go: *"i want to be able to climb the ladders and stand on the
+pips"*, *"i wanted there to be a indoor at the boiler house too"*, *"i want to
+be able to go inside the stack from the boiler house"*, *"the three buildings
+behind the office i want those to have indoors too"*.
+
+### Ladders (loop.js, `mapLadders` in maps.js)
+
+- **A ladder is a prop of kind `ladder`: a climb line.** `x, z` (or `path`
+  [[x,y,z]...] for one that follows a curve), `y0..y1`, `nx, nz` out from the
+  wall toward where you hang, `ex, ez` the step off the top. `draw: false`
+  when something else draws it (the cooling towers draw their own caged one).
+- **Controls:** face it and press W to take hold. On it, W climbs, or
+  descends if you are looking down (pitch < -0.45), so from the top you look
+  down the ladder and walk onto it; S descends; Space lets go and pushes you
+  off backwards. At the top the step off is a `startClimb`, a short pull-up
+  (no 1.6m teleport the server would have to swallow). At the foot S releases.
+- **From the top**, the grab reach is 1.25m (0.55 elsewhere) and you must
+  face back along `-e`; otherwise walking off the platform edge toward the
+  ladder would drop you before you came within reach.
+- **No gravity and no wall push on a ladder**: every climb line is placed
+  0.5m clear of solid boxes, so the server's `resolveBody` never moves you.
+- Where they are: up a leg of each pipe rack (x -48 and 10), up the hall's
+  north wall beside each pipe bridge (x 42.3 and 68.3), inside the stack (to
+  the flue at 14m), the tall workshop's mezzanine, and both cooling towers
+  (2.6m basin rim to the 33.5m lip, about 10s, to a grating landing where
+  the hut used to be drawn). **The tower top is a 33.5m vantage over the whole
+  site.** That is what was asked for, but it is a balance decision, so flag
+  it if play says otherwise.
+
+### Standing on the pipes
+
+`pipewalk` boxes (drawn by nothing: the rack or bridge draws the pipes) the
+width of each frame. Racks: 6.6..7.6 from where the pipes leave one tower
+shell to where they enter the next, or the boiler house wall. Bridges:
+8.75..9.82 between the boiler house and hall walls. They stop shots and
+cast bake shadow like the pipes they stand for.
+
+### Hollow buildings (`building()` in works.js)
+
+`building(B, openings, wallMat, roofMat)`: four walls cut into boxes around
+their openings by `rectsMinus` (in along/height space), a pane in each glazed
+opening, a roof slab on top. N and S walls run the full length; W and E run
+between them. `steelStair()` builds straight steel flights (risers <= 0.19,
+goings 0.25). `rail()` is a 1.1m `handrail`.
+
+- **`handrail` is MOVE_ONLY like glass** (maps.js `MOVE_ONLY`): a collider, not
+  in `wallMeshes`, `glass: true` on its rect so the server leaves it out of
+  `rayBoxes`. A shot goes between the rails.
+- **The boiler house** (x 29..83, z -96..-68, 28m): two boiler casings through
+  the middle (to 24m), steel grating galleries at 7.6 / 14 / 21 round an open
+  middle with a walkway bridge between the boilers, yellow handrails on every
+  edge, two straight flights up the west end (A then B then A, side by side),
+  fans and mills on the ground. Window bands are real glazed openings at the
+  heights the facade always drew them. Doors: 5.5m roll-up door south, a door
+  onto the east pipe rack from the first gallery (west wall), a ground door
+  east to the stack corridor, and the flue duct door on the second gallery.
+  The roof drawer (`boilerroof`) draws what the old solid box drew outside -
+  floor bands, frame columns, corner columns, roof plant - left out wherever
+  it would cross a doorway (`LIT_BOILER_DOORS`; keep it in step with `bOps`).
+  **The west stairs start 2m further north than first built:** at first the
+  rack door opened straight onto the first flight's stairwell.
+- **The stack moved from z -96 to z -88**, onto the line of the boiler house's
+  east doors, and is hollow: 36 boxes, each the bounding box of a 10-degree
+  piece of the ring (r 2.5..3), with the four west pieces cut away for the
+  ground doorway (0..3.8) and the flue opening (13.8..17.8). The bounding
+  boxes overlap each other (collision only, never drawn) and reach a quarter
+  metre inward at the diagonals. The stack prop draws the ring as curved
+  panels with RADIAL normals per vertex (flat panels striped like a fan),
+  jambs, heads and sills at the doorways, a rim, and platform rings that are
+  rings now, not discs. Open to the sky: look up from inside.
+  A corridor (ground) and the flue duct (walkable, 14m) run from the boiler
+  house's east wall to it; a ladder inside goes from the floor to a landing at
+  the flue. Loop: boiler ground, corridor, stack, ladder, duct, second gallery.
+- **Intake house**: four pumps and their header, doors north and east.
+  **Workshop (78,104)**: racking, a workbench, crates. **Tall workshop
+  (100,100)**: a grating mezzanine at 3.2 on a ladder, rails, crates, a lathe.
+- Ceiling light panels (`ceilinglights`) under every new roof and gallery.
+
+### Measured
+
+Map 1077 boxes, 8 ladders. Pairwise overlap: 0 new pairs (stack ring pieces
+excluded, like `hidden`). Walked by script, every leg "ok": rack ladder (2.8s)
+-> along the pipes -> rack door -> down the stairs -> across the ground ->
+corridor -> stack -> ladder up (4.9s) -> duct -> second gallery -> up to 21;
+down the stack ladder looking down; pipe bridge up and across; tower to 33.5;
+mezzanine; intake and workshop doors. Server in Node against the real map:
+a shot crosses a void rail and the window bands, stops at a gallery's
+underside and at the stack wall; floor under the rack is 7.6; 0 of 3000
+spawns inside the boiler house or the stack. MP join: standing on the pipes
+and hanging on the stack ladder, no errors. Frame 5.5-6.4ms.
+**Build + bake is ~2.4s now** (1.5s vertex bake, 0.7s floor bake): it runs in
+slices behind the menu, so it is not felt, but it grows with every surface.
+New building surfaces use 3m tessellation, not the cover's 0.75m, which
+brought it down from 3.5s.
+
+**Not done:** the boiler house's machines read near black indoors (the vertex
+bake only sees sky through the windows), and the flat look has no ladders.
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,

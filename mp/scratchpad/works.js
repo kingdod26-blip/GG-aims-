@@ -17,6 +17,79 @@ const note = (t) => out.push({ note: t });
 const box = (x, z, w, d, h, mat, extra) =>
   out.push(Object.assign({ x: +x.toFixed(2), z: +z.toFixed(2), w: +w.toFixed(3), d: +d.toFixed(3), h, mat }, extra || {}));
 
+/* ---- boxes placed by their FACES, and rectangles with holes in them ----
+   (moved up from the offices so every building can use them) */
+const r4 = (v) => +v.toFixed(4);
+const ob = (x0, x1, z0, z1, y0, y1, mat) => {
+  if (x1 - x0 < 0.005 || z1 - z0 < 0.005 || y1 - y0 < 0.005) return;
+  const o = { x: r4((x0 + x1) / 2), z: r4((z0 + z1) / 2), w: r4(x1 - x0), d: r4(z1 - z0), h: r4(y1 - y0), mat };
+  if (y0 > 0.0005) o.y = r4(y0);
+  out.push(o);
+};
+
+/* A rectangle minus some holes, as few boxes as a grid merge gives. */
+function rectsMinus(R, holes){
+  const cut = (k0, k1, lo, hi) => [...new Set([lo, hi, ...holes.flatMap(h => [h[k0], h[k1]])])]
+    .filter(v => v >= lo && v <= hi).sort((a, b) => a - b);
+  const xs = cut('x0', 'x1', R.x0, R.x1), zs = cut('z0', 'z1', R.z0, R.z1);
+  const solid = (x, z) => !holes.some(h => x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1);
+  let strips = [];
+  for (let j = 0; j < zs.length - 1; j++){
+    const cz = (zs[j] + zs[j + 1]) / 2; let run = null;
+    for (let i = 0; i < xs.length - 1; i++){
+      const on = solid((xs[i] + xs[i + 1]) / 2, cz);
+      if (on && !run) run = { x0: xs[i], x1: xs[i + 1], z0: zs[j], z1: zs[j + 1] };
+      else if (on) run.x1 = xs[i + 1];
+      if ((!on || i === xs.length - 2) && run){ strips.push(run); run = null; }
+    }
+  }
+  const merged = [];                                   // stack strips with the same x span
+  for (const s of strips){
+    const m = merged.find(q => q.x0 === s.x0 && q.x1 === s.x1 && q.z1 === s.z0);
+    if (m) m.z1 = s.z1; else merged.push(Object.assign({}, s));
+  }
+  return merged;
+}
+
+
+/* A HOLLOW BUILDING: four walls with openings, and a roof slab on them.
+   B = { x0, x1, z0, z1, t (wall), h (top of roof), rt (roof thickness) }.
+   An opening is { face: 'N'|'S'|'W'|'E', a0, a1 (along the face), y0, y1,
+   glass? }. North and south walls run the full length; west and east run
+   between them, so the corners butt. Each wall is the face's rectangle
+   (along x height) less its openings, cut by rectsMinus; a glazed opening
+   gets a pane in the middle of the wall. */
+function building(B, openings, wallMat, roofMat){
+  const t = B.t, top = B.h - B.rt;
+  const span = { N: [B.x0, B.x1], S: [B.x0, B.x1], W: [B.z0 + t, B.z1 - t], E: [B.z0 + t, B.z1 - t] };
+  const thick = { N: [B.z0, B.z0 + t], S: [B.z1 - t, B.z1], W: [B.x0, B.x0 + t], E: [B.x1 - t, B.x1] };
+  for (const f of ['N', 'S', 'W', 'E']){
+    const ops = openings.filter(o => o.face === f), [c0, c1] = thick[f];
+    const put = (a0, a1, y0, y1, mat, pane) => {
+      const m = (c0 + c1) / 2, u0 = pane ? m - 0.03 : c0, u1 = pane ? m + 0.03 : c1;
+      if (f === 'N' || f === 'S') ob(a0, a1, u0, u1, y0, y1, mat); else ob(u0, u1, a0, a1, y0, y1, mat);
+    };
+    for (const r of rectsMinus({ x0: span[f][0], x1: span[f][1], z0: 0, z1: top },
+                               ops.map(o => ({ x0: o.a0, x1: o.a1, z0: o.y0, z1: o.y1 }))))
+      put(r.x0, r.x1, r.z0, r.z1, wallMat);
+    for (const o of ops) if (o.glass) put(o.a0, o.a1, o.y0, o.y1, 'glass', true);
+  }
+  ob(B.x0, B.x1, B.z0, B.z1, top, B.h, roofMat);
+}
+/* A straight steel stair, `dir` +1 / -1 along z, from yFrom to yTo:
+   risers no taller than 0.19, goings of 0.25 (an industrial stair is
+   steeper than an office one). Returns where it arrives. */
+function steelStair(xa, xb, zStart, dir, yFrom, yTo){
+  const n = Math.ceil((yTo - yFrom) / 0.19 - 1e-9), rise = (yTo - yFrom) / n, G = 0.25;
+  for (let k = 1; k < n; k++){
+    const top = yFrom + k * rise, za = zStart + dir * (k - 1) * G, zb = za + dir * G;
+    ob(xa, xb, Math.min(za, zb), Math.max(za, zb), Math.max(yFrom, top - 0.15), top, 'steptread');
+  }
+  return zStart + dir * (n - 1) * G;
+}
+/* A handrail (1.1m, movement only: shots go through a rail). */
+const rail = (x0, x1, z0, z1, y) => ob(x0, x1, z0, z1, y, y + 1.1, 'handrail');
+
 /* ---- a circle as a staircase, the same formula lighting.js draws from -- */
 function drum(x, z, R, h, mat, extra, N) {
   N = N || 9;
@@ -132,9 +205,111 @@ note('THE COOLING TOWERS, north-west, where there is room for two of them');
 coolingTower(-74, -90);
 coolingTower(-24, -90);
 
-note('THE BOILER HOUSE, against the hall\'s north wall, and its stack');
-box(56, -82, 54, 28, 28, 'boiler');
-drum(96, -96, 3.0, 68.0, 'mass');
+note('THE BOILER HOUSE, against the hall\'s north wall: a hollow steel hall');
+/* Jack: "i wanted there to be a indoor at the boiler house too". What a
+   real one is inside: a tall steel-framed shed round the boilers, with steel
+   grating galleries at each working level, straight steel stairs between
+   them, handrails round the open middle, and the fans and mills on the
+   ground. The galleries sit where the facade's floor bands and window
+   bands always said they were: 7.6, 14 and 21, windows 1.8-2.4m above each.
+   Doors: a 5.5m roll-up door south (toward the hall's north door), a door
+   onto the pipe rack from the first gallery (west), a ground door and the
+   flue duct east, to the stack. */
+const BH = { x0: 29, x1: 83, z0: -96, z1: -68, t: 0.5, h: 28, rt: 0.4 };
+const BGAL = [7.6, 14, 21];
+const BAND = [[9.4, 11.6], [16.4, 18.6], [23.4, 25.2]];
+/* The stack moved 8m south (z -96 -> -88), onto the line of a door in the
+   boiler house's east wall, so a corridor and the flue duct run straight
+   into it. Jack: "i want to be able to go inside the stack from the
+   boiler house". */
+const STK = { x: 96, z: -88, ro: 3, ri: 2.5, h: 68 };
+const LINK = { z0: -89.5, z1: -86.5 };                        // the ground corridor and the flue duct, 3m wide
+const bOps = [
+  { face: 'S', a0: 50, a1: 55.5, y0: 0, y1: 5 },                         // the roll-up door
+  { face: 'W', a0: -85.2, a1: -82.6, y0: BGAL[0], y1: 11.6 },            // onto the pipe rack
+  { face: 'E', a0: LINK.z0, a1: LINK.z1, y0: 0, y1: 3.5 },               // to the stack, on the ground
+  { face: 'E', a0: LINK.z0, a1: LINK.z1, y0: BGAL[1], y1: 17.5 },        // and through the flue duct
+];
+for (const [y0, y1] of BAND){
+  bOps.push({ face: 'N', a0: BH.x0 + 1, a1: BH.x1 - 1, y0, y1, glass: true });
+  bOps.push({ face: 'S', a0: BH.x0 + 1, a1: BH.x1 - 1, y0, y1, glass: true });
+  /* the ends' bands stop either side of a door that reaches into them */
+  const W = y0 === 9.4 ? [[BH.z0 + 1, -85.2], [-82.6, BH.z1 - 1]] : [[BH.z0 + 1, BH.z1 - 1]];
+  const E = y0 === 16.4 ? [[BH.z0 + 1, LINK.z0], [LINK.z1, BH.z1 - 1]] : [[BH.z0 + 1, BH.z1 - 1]];
+  for (const [a0, a1] of W) bOps.push({ face: 'W', a0, a1, y0, y1, glass: true });
+  for (const [a0, a1] of E) bOps.push({ face: 'E', a0, a1, y0, y1, glass: true });
+}
+building(BH, bOps, 'bwall', 'boilerroof');
+{
+  const ix0 = BH.x0 + BH.t, ix1 = BH.x1 - BH.t, iz0 = BH.z0 + BH.t, iz1 = BH.z1 - BH.t;
+  /* The two boilers: steel casings through all three galleries. */
+  ob(36, 47, -89, -75, 0, 24, 'boilerunit');
+  ob(52, 63, -89, -75, 0, 24, 'boilerunit');
+  /* The open middle round them, either side of a walkway bridge between. */
+  const voidA = { x0: 33.5, x1: 48.5, z0: -92.5, z1: -71.5 }, voidB = { x0: 50.5, x1: 66, z0: -92.5, z1: -71.5 };
+  /* Stairs up the west end, two flights side by side (A west, B east). */
+  const A = [ix0, 31.3], Bs = [31.7, 33.5];
+  const a0end = steelStair(A[0], A[1], -95, 1, 0, BGAL[0]);              // ground -> 7.6, arriving at -85.25
+  const b1end = steelStair(Bs[0], Bs[1], a0end, -1, BGAL[0], BGAL[1]);   // 7.6 -> 14, back to -93.5
+  const a2end = steelStair(A[0], A[1], b1end, 1, BGAL[1], BGAL[2]);      // 14 -> 21, out to -84.5
+  const stairHole = [
+    { x0: A[0], x1: A[1], z0: -95, z1: a0end },
+    { x0: Bs[0], x1: Bs[1], z0: b1end, z1: a0end },
+    { x0: A[0], x1: A[1], z0: b1end, z1: a2end },
+  ];
+  BGAL.forEach((L, i) => {
+    for (const r of rectsMinus({ x0: ix0, x1: ix1, z0: iz0, z1: iz1 }, [voidA, voidB, stairHole[i]]))
+      ob(r.x0, r.x1, r.z0, r.z1, L - 0.2, L, 'grating');
+    /* Rails round the open middle, standing just inside its edge. */
+    for (const v of [voidA, voidB]){
+      rail(v.x0, v.x1, v.z0, v.z0 + 0.1, L - 0.2);
+      rail(v.x0, v.x1, v.z1 - 0.1, v.z1, L - 0.2);
+      rail(v.x0, v.x0 + 0.1, v.z0 + 0.1, v.z1 - 0.1, L - 0.2);
+      rail(v.x1 - 0.1, v.x1, v.z0 + 0.1, v.z1 - 0.1, L - 0.2);
+    }
+  });
+  /* Rails round each stairwell on the floor it comes up through, open on
+     the side you step off. Flight A arrives at its north end, B at its south. */
+  rail(A[1], A[1] + 0.1, -95, a0end, BGAL[0]);     rail(A[0], A[1], -95.1, -95, BGAL[0]);
+  rail(Bs[0] - 0.1, Bs[0], b1end, a0end, BGAL[1]); rail(Bs[0], Bs[1], a0end, a0end + 0.1, BGAL[1]);
+  rail(A[1], A[1] + 0.1, b1end, a2end, BGAL[2]);   rail(A[0], A[1], b1end - 0.1, b1end, BGAL[2]);
+  /* The ground floor: induced-draught fans and the coal mills, east, and
+     the burner feed in front of each boiler. */
+  ob(70, 76, -93, -88.5, 0, 3.2, 'machine');
+  ob(70, 76, -76, -71, 0, 3.2, 'machine');
+  ob(77, 81, -84, -79, 0, 4.5, 'machine');
+  ob(37, 46, -73.4, -72.2, 0, 1.2, 'machine');
+  ob(53, 62, -73.4, -72.2, 0, 1.2, 'machine');
+  /* On the galleries: an air heater on the second, fans on the third. */
+  ob(70, 78, -80, -74, BGAL[1], BGAL[1] + 3, 'machine');
+  ob(72, 76, -94, -91, BGAL[2], BGAL[2] + 2.2, 'machine');
+}
+
+note('THE LINK TO THE STACK: a corridor on the ground, the flue duct at 14m');
+ob(BH.x1, 93.15, LINK.z0 - 0.3, LINK.z0, 0, 3.5, 'shedwall');
+ob(BH.x1, 93.15, LINK.z1, LINK.z1 + 0.3, 0, 3.5, 'shedwall');
+ob(BH.x1, 93.15, LINK.z0 - 0.3, LINK.z1 + 0.3, 3.5, 3.8, 'shedroof');
+/* The flue duct: you walk in it, from the second gallery into the stack. */
+ob(BH.x1, 93.15, LINK.z0 - 0.3, LINK.z1 + 0.3, 13.8, 14, 'grating');
+ob(BH.x1, 93.15, LINK.z0 - 0.3, LINK.z0, 14, 17.5, 'duct');
+ob(BH.x1, 93.15, LINK.z1, LINK.z1 + 0.3, 14, 17.5, 'duct');
+ob(BH.x1, 93.15, LINK.z0 - 0.3, LINK.z1 + 0.3, 17.5, 17.8, 'duct');
+ob(93.15, 93.7, -88.75, -87.25, 13.8, 14, 'grating');                    // over the stack's wall
+ob(93.7, 96.6, -88.75, -87.25, 13.8, 14, 'grating');                    // the landing inside
+
+note('THE STACK: hollow, a door at its foot and the flue opening at 14m');
+/* A round wall can only be AXIS-ALIGNED BOXES here, so it is 36 of them,
+   each the bounding box of one 10-degree piece of the ring (r 2.5..3). They
+   overlap inward by at most a quarter metre at the diagonals, which the
+   body's 0.4m never reaches. The four west pieces (160..200 degrees) leave
+   the two doorways out. */
+for (let i = 0; i < 36; i++){
+  const a0 = i * 10 * Math.PI / 180, a1 = (i + 1) * 10 * Math.PI / 180, mid = i * 10 + 5;
+  const xs = [], zs = [];
+  for (const r of [STK.ri, STK.ro]) for (const a of [a0, a1]){ xs.push(STK.x + r * Math.cos(a)); zs.push(STK.z + r * Math.sin(a)); }
+  const ys = (mid > 160 && mid < 200) ? [[3.8, 13.8], [17.8, STK.h]] : [[0, STK.h]];
+  for (const [y0, y1] of ys) ob(Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs), y0, y1, 'stackwall');
+}
 
 note('THE SWITCHYARD, south-west: two rows of portals and the gear beneath');
 for (const z of [78, 94]) for (let i = 0; i < 7; i++) box(-110 + i * 14, z, 1.4, 1.4, 13, 'lattice');
@@ -144,8 +319,26 @@ note('THE OIL TANKS, the far south-west corner');
 for (const [tx, tz] of [[-100, 108], [-80, 112], [-60, 106]]) drum(tx, tz, 6.0, 10.0, 'tank');
 
 note('THE QUAY, south-east: the intake house and the screens');
-box(40, 104, 30, 10, 4.0, 'intake');
-box(78, 104, 14, 9, 5.0, 'shed');
+/* Jack: "the three buildings behind the office i want those to have
+   indoors too". The intake house (the pumps that draw cooling water) and
+   two workshops, now hollow: clad walls on a concrete base, a door facing
+   the office, a high window band, and what each would hold. */
+building({ x0: 25, x1: 55, z0: 99, z1: 109, t: 0.3, h: 4, rt: 0.3 }, [
+  { face: 'N', a0: 38, a1: 40.4, y0: 0, y1: 2.6 },
+  { face: 'E', a0: 102, a1: 104.4, y0: 0, y1: 2.6 },
+  { face: 'N', a0: 26, a1: 37, y0: 2.8, y1: 3.4, glass: true }, { face: 'N', a0: 41.4, a1: 54, y0: 2.8, y1: 3.4, glass: true },
+  { face: 'S', a0: 26, a1: 54, y0: 2.8, y1: 3.4, glass: true },
+], 'shedwall', 'intakeroof');
+for (const x of [30, 36, 44, 50]) ob(x - 1.2, x + 1.2, 104.6, 106.2, 0, 1.4, 'machine');   // the pumps
+ob(27, 53, 107.2, 108.4, 0, 1.2, 'pipe');                                                  // and their header
+building({ x0: 71, x1: 85, z0: 99.5, z1: 108.5, t: 0.3, h: 5, rt: 0.3 }, [
+  { face: 'N', a0: 75, a1: 79, y0: 0, y1: 3.6 },
+  { face: 'N', a0: 72, a1: 74, y0: 2.4, y1: 3.6, glass: true }, { face: 'N', a0: 80, a1: 84, y0: 2.4, y1: 3.6, glass: true },
+  { face: 'S', a0: 72, a1: 84, y0: 2.6, y1: 3.8, glass: true },
+], 'shedwall', 'shedroof');
+ob(71.3, 72.3, 101, 108.2, 0, 2.4, 'machine');                                             // racking along the west wall
+ob(78, 83, 106.6, 108.2, 0, 0.9, 'desk');                                                  // the workbench
+ob(80, 81.2, 102, 103.2, 0, 1.2, 'crate'); ob(81.4, 82.6, 102, 103.2, 0, 1.2, 'crate');
 box(10, 108, 8, 5, 2.2, 'gear');
 
 note('The step-up transformers, between the hall and the compound, round the\n' +
@@ -186,10 +379,34 @@ note('pipe racks into the towers: legs are collision, the pipes overhead');
 const RACK_Z = -84, RACK_Y = 6.6;
 for (const x of [-56, -48, -42, -6, 2, 10, 18, 26])
   for (const dz of [-1.2, 1.2]) box(x, RACK_Z + dz, 0.45, 0.45, RACK_Y, 'column');
+/* STANDING ON THE PIPES (2026-11-21). Jack: "i want to be able to climb the
+   ladders and stand on the pips". Each rack gets a walking surface the
+   width of its frame, from the beams (6.6) to the crowns of the pipes
+   (7.6 - the biggest lagged line stands 12cm proud of it), stopping where
+   the pipes enter the tower shells and, for the east rack, at the boiler
+   house wall - where a door on the first gallery opens onto it. Drawn by
+   the rack itself, so the box is `pipewalk`, which draws nothing. */
+ob(-65.6, -32.4, RACK_Z - 1.4, RACK_Z + 1.4, RACK_Y, RACK_Y + 1.0, 'pipewalk');
+ob(-15.6, 29, RACK_Z - 1.4, RACK_Z + 1.4, RACK_Y, RACK_Y + 1.0, 'pipewalk');
+/* And the two pipe bridges over the north road: three lagged lines at
+   9.5m, crowns at 9.82, truss under them - from the boiler house wall to
+   the hall's. */
+for (const bx of [40, 66]) ob(bx - 1.45, bx + 1.45, -68, -60.5, 8.75, 9.82, 'pipewalk');
 
 note('a workshop or two');
 box(-100, -60, 14, 12, 7, 'shed');
-box(100, 100, 14, 12, 7, 'shed');
+/* The tall workshop: a mezzanine store at 3.2m, up a ladder. */
+building({ x0: 93, x1: 107, z0: 94, z1: 106, t: 0.3, h: 7, rt: 0.3 }, [
+  { face: 'N', a0: 98, a1: 102, y0: 0, y1: 4.5 },
+  { face: 'N', a0: 94, a1: 97, y0: 4.6, y1: 5.8, glass: true }, { face: 'N', a0: 103, a1: 106, y0: 4.6, y1: 5.8, glass: true },
+  { face: 'S', a0: 94, a1: 106, y0: 4.6, y1: 5.8, glass: true },
+], 'shedwall', 'shedroof');
+ob(93.3, 100, 101, 105.7, 3.0, 3.2, 'grating');                                            // the mezzanine
+rail(93.3, 96, 100.9, 101, 3.2); rail(97, 100, 100.9, 101, 3.2);                           // with a gap at the ladder
+rail(100, 100.1, 100.9, 105.7, 3.2);
+ob(94, 95.2, 103, 104.2, 3.2, 4.4, 'crate'); ob(95.6, 96.8, 103.5, 104.7, 3.2, 4.4, 'crate');
+ob(103, 106.6, 103.4, 105.6, 0, 0.9, 'desk');                                               // workbench
+ob(101, 102.2, 96, 97.2, 0, 1.2, 'crate'); ob(104, 106.6, 96.5, 98.5, 0, 1.6, 'machine');   // a lathe
 
 /* ===================================================================== */
 /* THE OFFICES: a real three-storey office block (2026-11-21)            */
@@ -215,38 +432,6 @@ const FF = 3.9, SLAB = 0.3, STH = FF - SLAB;                      // floor to fl
 const LV = [0, FF, 2 * FF], ROOFY = 3 * FF;                       // floor levels; top of the roof slab
 const RISE = FF / 22, GOING = 0.28;
 const SILL = 0.9, HEAD = 3.3, DOORH = 2.7, GT = 0.06;             // window band, door head, glass
-const r4 = (v) => +v.toFixed(4);
-const ob = (x0, x1, z0, z1, y0, y1, mat) => {
-  if (x1 - x0 < 0.005 || z1 - z0 < 0.005 || y1 - y0 < 0.005) return;
-  const o = { x: r4((x0 + x1) / 2), z: r4((z0 + z1) / 2), w: r4(x1 - x0), d: r4(z1 - z0), h: r4(y1 - y0), mat };
-  if (y0 > 0.0005) o.y = r4(y0);
-  out.push(o);
-};
-
-/* A rectangle minus some holes, as few boxes as a grid merge gives. */
-function rectsMinus(R, holes){
-  const cut = (k0, k1, lo, hi) => [...new Set([lo, hi, ...holes.flatMap(h => [h[k0], h[k1]])])]
-    .filter(v => v >= lo && v <= hi).sort((a, b) => a - b);
-  const xs = cut('x0', 'x1', R.x0, R.x1), zs = cut('z0', 'z1', R.z0, R.z1);
-  const solid = (x, z) => !holes.some(h => x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1);
-  let strips = [];
-  for (let j = 0; j < zs.length - 1; j++){
-    const cz = (zs[j] + zs[j + 1]) / 2; let run = null;
-    for (let i = 0; i < xs.length - 1; i++){
-      const on = solid((xs[i] + xs[i + 1]) / 2, cz);
-      if (on && !run) run = { x0: xs[i], x1: xs[i + 1], z0: zs[j], z1: zs[j + 1] };
-      else if (on) run.x1 = xs[i + 1];
-      if ((!on || i === xs.length - 2) && run){ strips.push(run); run = null; }
-    }
-  }
-  const merged = [];                                   // stack strips with the same x span
-  for (const s of strips){
-    const m = merged.find(q => q.x0 === s.x0 && q.x1 === s.x1 && q.z1 === s.z0);
-    if (m) m.z1 = s.z1; else merged.push(Object.assign({}, s));
-  }
-  return merged;
-}
-
 /* The roof first, so the plan draws everything inside over it. */
 ob(OX0, OX1, OZ0, OZ1, ROOFY - SLAB, ROOFY, 'roofslab');
 ob(OX0, OX1, OZ0, OZ0 + OT, ROOFY, ROOFY + 0.9, 'parapet');
@@ -372,7 +557,10 @@ const P = M.MAPS.powerstation.props.map(p => {
 P.push({ kind: 'hallroof', x0: HX0 - HW, x1: HX1 + HW, z0: HZ0 - HW, z1: HZ1 + HW, y: HH });
 P.push({ kind: 'coolingtower', x: -74, z: -90, basin: 13, basinH: 2.6, beam: +shellR(5.6).toFixed(2), n: 9, y0: 5.6, y1: 33, rt: RT, yt: YT, a: AA });
 P.push({ kind: 'coolingtower', x: -24, z: -90, basin: 13, basinH: 2.6, beam: +shellR(5.6).toFixed(2), n: 9, y0: 5.6, y1: 33, rt: RT, yt: YT, a: AA });
-P.push({ kind: 'stack', x: 96, z: -96, r: 3, h: 68, n: 9 });
+/* The stack, hollow (see THE STACK above): its wall is drawn as a ring
+   with the two west doorways left out, matching the 36 boxes. */
+P.push({ kind: 'stack', x: STK.x, z: STK.z, r: STK.ro, ri: STK.ri, h: STK.h, n: 9,
+         doors: [[160, 200, 0, 3.8], [160, 200, 13.8, 17.8]] });
 /* Overhead plant (stage 4). The rack pipes run INTO the tower shells at 7m,
    where the shell's radius is 10.15 - so from x -15.8 / -32.2 / -65.8 at
    z -84. Two pipe bridges carry steam over the north road from the boiler
@@ -382,7 +570,6 @@ P.push({ kind: 'piperack', x0: -61, x1: -37, px0: -65.8, px1: -32.2, z: RACK_Z, 
 P.push({ kind: 'piperack', x0: -11, x1: 29, px0: -15.8, px1: 29, z: RACK_Z, y: RACK_Y, legs: [-6, 2, 10, 18, 26] });
 P.push({ kind: 'pipebridge', x: 40, z0: -68, z1: -60, y: 9.5, rise: 25 });
 P.push({ kind: 'pipebridge', x: 66, z0: -68, z1: -60, y: 9.5, rise: 25 });   // between the boiler house's columns (62.75, 69.5); at 68 its risers grazed one
-P.push({ kind: 'flue', x0: 83, x1: 94, z: -94.5, w: 3, y0: 16, y1: 20 });
 /* The offices' ceiling lights: under the first-floor slab, the second, and
    the roof. Kept out of both stairwells and the core; the lowest also
    skips the void over the lobby (the panels there are the next ceiling up). */
@@ -390,6 +577,38 @@ P.push({ kind: 'ceilinglights', x0: OX0 + OT, x1: OX1 - OT, z0: OZ0 + OT, z1: OZ
          levels: [LV[1] - SLAB, LV[2] - SLAB, ROOFY - SLAB],
          holes: [[OX0 + OT, OX0 + OT + 4.25, CZN, OZ1], [OX1 - OT - 4.25, OX1 - OT, CZN, OZ1], [72, 80, 88.4, OZ1]],
          extra: [[[68, 82, OZ0, 84.5]]] });
+/* LADDERS (2026-11-21). A ladder is a climb line: where your feet go as
+   you climb (x, z, or `path` [[x, y, z], ...] for one that follows a
+   curve), from y0 to y1; `n` points out from the wall, toward where you
+   hang; `e` is the step you take off the top onto the floor there. The
+   two on the cooling towers are drawn by the towers themselves
+   (`draw: false`); the rest draw their own rails and rungs. */
+const LAD = (o) => P.push(Object.assign({ kind: 'ladder' }, o));
+for (const x of [-48, 10])                                              // up a rack leg to the pipes
+  LAD({ x, z: RACK_Z + 1.2 + 0.225 + 0.5, nx: 0, nz: 1, y0: 0, y1: RACK_Y + 1.0, ex: 0, ez: -1.0 });
+for (const bx of [40, 66])                                              // up the hall wall, beside a pipe bridge
+  LAD({ x: bx + 2.3, z: -61.0, nx: 0, nz: -1, y0: 0, y1: 9.82, ex: -1.6, ez: 0 });
+LAD({ x: STK.x + STK.ri - 0.55, z: STK.z, nx: -1, nz: 0, y0: 0, y1: 14, ex: -1.6, ez: 0 });   // inside the stack
+LAD({ x: 96.5, z: 100.5, nx: 0, nz: -1, y0: 0, y1: 3.2, ex: 0, ez: 1.2, free: true });     // the workshop mezzanine
+/* The cooling towers' caged ladders, now climbable: from the basin rim
+   (2.6) up the ring beam and the shell to the lip, to a grating landing
+   inside it. The climb line is 0.75m off the shell, inside the cage. */
+const TLX = 0.36, TLZ = 0.93;
+for (const [tx, tz] of [[-74, -90], [-24, -90]]){
+  const at = (y, off) => { const r = (y < 5.6 ? shellR(5.6) : shellR(y)) + off; return [+(tx + TLX * r).toFixed(3), +y.toFixed(3), +(tz + TLZ * r).toFixed(3)]; };
+  const path = [];
+  for (let y = 2.6; y < 33.5; y += 1.5) path.push(at(y, 0.75));
+  path.push(at(33.5, 0.75));
+  LAD({ path, nx: TLX, nz: TLZ, y0: 2.6, y1: 33.5, ex: -1.1 * TLX, ez: -1.1 * TLZ, draw: false });
+  const c = at(33.5, -0.4);
+  ob(c[0] - 0.9, c[0] + 0.9, c[2] - 0.6, c[2] + 0.6, 33.3, 33.5, 'grating');
+}
+/* Light panels in the new interiors, under each roof and gallery. */
+P.push({ kind: 'ceilinglights', x0: BH.x0 + BH.t, x1: BH.x1 - BH.t, z0: BH.z0 + BH.t, z1: BH.z1 - BH.t,
+         levels: [BGAL[0] - 0.2, BGAL[1] - 0.2, BGAL[2] - 0.2, BH.h - BH.rt],
+         holes: [[33.5, 48.5, -92.5, -71.5], [50.5, 66, -92.5, -71.5], [29.5, 33.5, -95.5, -68.5]], extra: [] });
+for (const b of [[25.3, 54.7, 99.3, 108.7, 3.7], [71.3, 84.7, 99.8, 108.2, 4.7], [93.3, 106.7, 94.3, 105.7, 6.7]])
+  P.push({ kind: 'ceilinglights', x0: b[0], x1: b[1], z0: b[2], z1: b[3], levels: [b[4]], holes: [], extra: [] });
 P.push({ kind: 'busbars', z: 78 });
 P.push({ kind: 'busbars', z: 94 });
 /* The yard's two gantries, with the lines swept from one to the other. */

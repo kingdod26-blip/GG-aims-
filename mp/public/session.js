@@ -573,7 +573,7 @@ function startPlay(mode){
   // reset player + weapons
   /* z=44 is a corner of Foundry and the WALL of anything smaller, so the
      spawn is clamped to the arena actually standing. */
-  me.x=0; me.z=Math.min(44, ARENA-8); me.feetY=0; me.eyeH=1.7; me.stance='stand'; me.vy=0; me.hp=100; me.alive=true;
+  me.x=0; me.z=Math.min(44, ARENA-8); me.feetY=0; me.eyeH=1.7; me.stance='stand'; me.vy=0; me.hp=100; me.alive=true; me.ladder=null;
   weaponAmmo = WEAPONS.map(w=>({ mag:w.magMax, reserve:w.reserveMax }));
   currentWeapon=0; weaponHolders.forEach((h,i)=>h.visible=i===0);
   reloading=false; clearTimeout(reloadTimer); aiming=false; ads=0; semiQueued=false; paused=false;

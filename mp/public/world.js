@@ -138,6 +138,18 @@ function addGlass(b){
   return m;
 }
 
+/* A HANDRAIL stops a player, not a shot (MOVE_ONLY, maps.js): a collider,
+   not in `wallMeshes`. In the flat look a thin steel bar; the lit arena
+   draws the real posts and rails (LIT_DRAW.handrail). */
+function addRail(b){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(b.w, 0.08, b.d), arenaMat('pillar'));
+  m.position.set(b.x, boxY(b) + b.h - 0.04, b.z); m.userData.flat = true;
+  scene.add(m); arenaParts.push(m);
+  colliders.push({ minx: b.x - b.w/2, minz: b.z - b.d/2, maxx: b.x + b.w/2, maxz: b.z + b.d/2,
+                   miny: boxY(b), maxy: boxY(b) + b.h, glass: true });
+  return m;
+}
+
 /* Tiling in world metres, so the photoscans look the same on any map size.
    Foundry is 120m across and was authored at 16 repeats, hence 7.5m a tile. */
 function texRepeat(metres, metresPerTile){ return metres / metresPerTile; }
@@ -234,6 +246,7 @@ function buildArena(map){
      floor's level for a slab or a tread. */
   for (const b of map.boxes){
     if (b.mat === 'glass'){ addGlass(b); continue; }
+    if (b.mat === 'handrail'){ addRail(b); continue; }
     addBox(b.x, boxY(b) + b.h/2, b.z, b.w, b.h, b.d, b.mat);
   }
 
