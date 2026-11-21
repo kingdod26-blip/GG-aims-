@@ -120,6 +120,24 @@ function addBox(x,y,z,w,h,d,matName){
   wallMeshes.push(m); arenaParts.push(m);
   colliders.push({minx:x-w/2,minz:z-d/2,maxx:x+w/2,maxz:z+d/2,miny:y-h/2,maxy:y+h/2}); return m; }
 
+/* GLASS stops a player and not a shot. So it is a COLLIDER (the movement
+   tests, leaning, spawning) and deliberately NOT in `wallMeshes`, which is
+   what every bullet, bolt and grenade on this side is tested against; the
+   server leaves it out of its ray list the same way (arenaOf). One mesh,
+   drawn in both looks (no `flat` / `lit` tag), unlit and faint, and it casts
+   no shadow: light goes through a window. */
+function addGlass(b){
+  const mat = MAT_CACHE.glass || (MAT_CACHE.glass = new THREE.MeshBasicMaterial({
+    color: 0xa9cfe2, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }));
+  const y = boxY(b) + b.h / 2;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), mat);
+  m.position.set(b.x, y, b.z); m.renderOrder = 2;
+  scene.add(m); arenaParts.push(m);
+  colliders.push({ minx: b.x - b.w/2, minz: b.z - b.d/2, maxx: b.x + b.w/2, maxz: b.z + b.d/2,
+                   miny: boxY(b), maxy: boxY(b) + b.h, glass: true });
+  return m;
+}
+
 /* Tiling in world metres, so the photoscans look the same on any map size.
    Foundry is 120m across and was authored at 16 repeats, hence 7.5m a tile. */
 function texRepeat(metres, metresPerTile){ return metres / metresPerTile; }
@@ -211,8 +229,13 @@ function buildArena(map){
     }
   }
 
-  /* Cover. Every box sits on the floor, so y is half its height. */
-  for (const b of map.boxes) addBox(b.x, b.h/2, b.z, b.w, b.h, b.d, b.mat);
+  /* Cover. A box spans boxY(b)..boxY(b)+h (maps.js), so its centre is half
+     its height above its base: the floor for nearly everything, an upper
+     floor's level for a slab or a tread. */
+  for (const b of map.boxes){
+    if (b.mat === 'glass'){ addGlass(b); continue; }
+    addBox(b.x, boxY(b) + b.h/2, b.z, b.w, b.h, b.d, b.mat);
+  }
 
   /* Resupply marker: a ring on the floor around the centre crate, so the
      pickup is somewhere you can see rather than a secret radius. Unlit and

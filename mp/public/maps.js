@@ -695,14 +695,25 @@ function mapById(id) {
 }
 
 /* Collision boxes in the form both sides want: {minx,minz,maxx,maxz,miny,maxy}.
-   They all sit ON the floor, so miny is 0 and maxy is the height. The server
-   calls this for RECTS; the client's addBox builds the same thing per mesh. */
+   A box is {x, z, w, d, h, y?}: it spans y..y+h, and `y` defaults to 0, so a
+   box with no `y` stands on the floor as every box always has. A raised box
+   is an upper floor's slab, a stair tread, anything with air under it.
+   The server calls this for RECTS; the client's addBox builds the same thing
+   per mesh.
+   `glass: true` (mat 'glass') stops a player and NOT a shot: it stays in the
+   movement tests and is left out of everything that flies (see arenaOf in
+   server.js, and wallMeshes in world.js). */
+function boxY(b) { return b.y || 0; }
 function mapRects(map) {
-  return map.boxes.map(b => ({
-    minx: b.x - b.w / 2, maxx: b.x + b.w / 2,
-    minz: b.z - b.d / 2, maxz: b.z + b.d / 2,
-    miny: 0,             maxy: b.h,
-  }));
+  return map.boxes.map(b => {
+    const r = {
+      minx: b.x - b.w / 2, maxx: b.x + b.w / 2,
+      minz: b.z - b.d / 2, maxz: b.z + b.d / 2,
+      miny: boxY(b),       maxy: boxY(b) + b.h,
+    };
+    if (b.mat === 'glass') r.glass = true;
+    return r;
+  });
 }
 
 /* The four perimeter walls, derived from `arena` rather than written out.
@@ -752,5 +763,5 @@ function mapCeilingRect(map) {
 /* Node (the server) takes these by require; the browser just gets the globals
    from the script tag. Guarded so the same file works as both. */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { MAPS, MAP_IDS, DEFAULT_MAP, mapById, mapRects, mapWallRects, mapCeilingRect, mapRoofY, mapRoofRects };
+  module.exports = { MAPS, MAP_IDS, DEFAULT_MAP, mapById, boxY, mapRects, mapWallRects, mapCeilingRect, mapRoofY, mapRoofRects };
 }

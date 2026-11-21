@@ -137,8 +137,13 @@ function litContext(map){
   const rx = L.reachX != null ? L.reachX : L.reach;
   for (let gx = -rx; gx <= rx; gx++)
     for (let gz = -L.reach; gz <= L.reach; gz++) lamps.push(gx * L.spacing, gz * L.spacing);
-  const nb = map.boxes.length, boxes = new Float32Array(nb * 5);
-  map.boxes.forEach((b, i) => boxes.set([b.x - b.w/2, b.x + b.w/2, b.z - b.d/2, b.z + b.d/2, b.h], i * 5));
+  /* Six numbers a box: its footprint, then its base and top. The base is
+     what lets an upper floor's slab shade the floor under it without
+     standing on that floor (boxY, maps.js). Glass is left out: light goes
+     through a window. */
+  const occ = map.boxes.filter(b => b.mat !== 'glass');
+  const nb = occ.length, boxes = new Float32Array(nb * 6);
+  occ.forEach((b, i) => boxes.set([b.x - b.w/2, b.x + b.w/2, b.z - b.d/2, b.z + b.d/2, boxY(b), boxY(b) + b.h], i * 6));
   /* A BROADPHASE over the boxes, because `litBlocked` is the whole cost of
      the bake and it used to try every box in the map against every shadow
      ray. The early reject is five comparisons, which sounds free until you
@@ -158,13 +163,13 @@ function litContext(map){
   const cs = 10, gw = Math.max(1, Math.ceil(2 * map.arena / cs) + 2), g0 = -map.arena - cs;
   const cellN = new Int32Array(gw * gw);
   const cellOf = (v) => Math.max(0, Math.min(gw - 1, Math.floor((v - g0) / cs)));
-  for (let i = 0; i < nb; i++){ const o = i * 5;
+  for (let i = 0; i < nb; i++){ const o = i * 6;
     for (let cx = cellOf(boxes[o]); cx <= cellOf(boxes[o+1]); cx++)
       for (let cz = cellOf(boxes[o+2]); cz <= cellOf(boxes[o+3]); cz++) cellN[cz * gw + cx]++; }
   const cellAt = new Int32Array(gw * gw + 1);
   for (let c = 0; c < gw * gw; c++) cellAt[c + 1] = cellAt[c] + cellN[c];
   const cellBox = new Int32Array(cellAt[gw * gw]), fill = new Int32Array(gw * gw);
-  for (let i = 0; i < nb; i++){ const o = i * 5;
+  for (let i = 0; i < nb; i++){ const o = i * 6;
     for (let cx = cellOf(boxes[o]); cx <= cellOf(boxes[o+1]); cx++)
       for (let cz = cellOf(boxes[o+2]); cz <= cellOf(boxes[o+3]); cz++){
         const c = cz * gw + cx; cellBox[cellAt[c] + fill[c]++] = i; } }
@@ -200,7 +205,8 @@ function litContext(map){
 /* Is the straight line from p to s cut by any cover? A slab test per box,
    but only against the boxes in the grid cells the ray actually crosses -
    walked with a DDA, which is the same march a software rasteriser does
-   along a line. Cover stands on the floor, so its y slab is [0, maxy]. */
+   along a line. A box's y slab is [miny, maxy]: the floor for most, higher
+   for a raised one. */
 function litBlocked(c, px, py, pz, sx, sy, sz){
   const B = c.boxes;
   const dx = sx - px, dy = sy - py, dz = sz - pz;
@@ -233,15 +239,16 @@ function litBlocked(c, px, py, pz, sx, sy, sz){
    reads as a grid walk; the slab test itself is unchanged. */
 function litBlockedBox(B, i, px, py, pz, dx, dy, dz, sx, sz){
   {
-    const o = i * 5, minx = B[o], maxx = B[o+1], minz = B[o+2], maxz = B[o+3], maxy = B[o+4];
+    const o = i * 6, minx = B[o], maxx = B[o+1], minz = B[o+2], maxz = B[o+3], miny = B[o+4], maxy = B[o+5];
     if ((px < minx && sx < minx) || (px > maxx && sx > maxx) ||
-        (pz < minz && sz < minz) || (pz > maxz && sz > maxz) || (py > maxy && py + dy > maxy)) return false;
+        (pz < minz && sz < minz) || (pz > maxz && sz > maxz) ||
+        (py > maxy && py + dy > maxy) || (py < miny && py + dy < miny)) return false;
     let t0 = 0, t1 = 1, a, b, t;
     if (dx !== 0){ a = (minx - px) / dx; b = (maxx - px) / dx; if (a > b){ t = a; a = b; b = t; }
       if (a > t0) t0 = a; if (b < t1) t1 = b; if (t0 > t1) return false; }
     if (dz !== 0){ a = (minz - pz) / dz; b = (maxz - pz) / dz; if (a > b){ t = a; a = b; b = t; }
       if (a > t0) t0 = a; if (b < t1) t1 = b; if (t0 > t1) return false; }
-    if (dy !== 0){ a = -py / dy; b = (maxy - py) / dy; if (a > b){ t = a; a = b; b = t; }
+    if (dy !== 0){ a = (miny - py) / dy; b = (maxy - py) / dy; if (a > b){ t = a; a = b; b = t; }
       if (a > t0) t0 = a; if (b < t1) t1 = b; if (t0 > t1) return false; }
     return true;
   }
@@ -318,8 +325,8 @@ function litBakeRow(job, j){
   for (let i = 0; i < W; i++){
     const x = -A + (i + 0.5) / W * 2 * A, k = j * W + i;
     let ok = Math.abs(x) < inner && Math.abs(z) < inner;
-    for (let q = 0; ok && q < nb; q++){ const o = q * 5;
-      if (x > B[o] && x < B[o+1] && z > B[o+2] && z < B[o+3]) ok = false; }   // under a crate
+    for (let q = 0; ok && q < nb; q++){ const o = q * 6;
+      if (B[o+4] < 0.05 && x > B[o] && x < B[o+1] && z > B[o+2] && z < B[o+3]) ok = false; }   // under a crate (one ON the floor: a slab overhead is a ceiling, not a crate)
     valid[k] = ok ? 1 : 0;
     if (!ok) continue;
     litDirect(c, x, 0, z, 0, 1, 0, ((k + 1) * 2654435761) >>> 0 || 1, out);
@@ -2467,7 +2474,9 @@ function litUniformsFor(map){
      footprint first makes the choice mean something: a tower shades the
      ground round it and hides a whole panel of sky, a 3m plinth does
      neither, and if something has to go it should be the plinth. */
-  const floorBoxes = map.boxes.filter(b => !SKIP_FLOOR[b.mat])
+  /* Only what stands ON the floor darkens it: a slab overhead is a ceiling,
+     and glass casts nothing. */
+  const floorBoxes = map.boxes.filter(b => !SKIP_FLOOR[b.mat] && b.mat !== 'glass' && boxY(b) < 0.05)
     .sort((p, q) => (q.w * q.d) - (p.w * p.d)).slice(0, LIT_NBOX - 4);
   for (const b of floorBoxes){ box.set([b.x, b.z, b.w / 2, b.d / 2], n * 4); bh[n++] = b.h; }
   LITU.uLitCoverN.value = n;
@@ -2543,10 +2552,27 @@ function litBuildArena(map, flatFloor, flatRoof){
      `G(name)` is that material's geometry, made the first time it is asked
      for. A box is drawn by its kind (LIT_DRAW), or as a plain bevelled box. */
   const geos = {}, G = (name) => geos[name] || (geos[name] = litGeo());
+  /* A RAISED box (boxY, maps.js) is drawn exactly as if it stood on the
+     floor and then lifted: every drawer works from y = 0, so rather than
+     teach forty of them about a base, the vertices each one adds are moved
+     up afterwards. Glass is not drawn here: it is one plain mesh in both
+     looks (addGlass, world.js). */
   for (const b of map.boxes){
+    if (b.mat === 'glass') continue;
     const x0 = b.x - b.w / 2, z0 = b.z - b.d / 2, x1 = b.x + b.w / 2, z1 = b.z + b.d / 2, draw = LIT_DRAW[b.mat];
+    const y = boxY(b), mark = {};
+    if (y) for (const k in geos) mark[k] = geos[k].p.length;
     if (draw) draw(G, b, x0, z0, x1, z1);
     else litBox(G(b.mat), x0, 0, z0, x1, b.h, z1, { bevel: LIT.bevel, seg: LIT.coverSeg, tile: LIT_TILE[b.mat] || 3 });
+    if (y){
+      for (const k in geos){ const p = geos[k].p; for (let i = (mark[k] || 0) + 1; i < p.length; i += 3) p[i] += y; }
+      /* And an UNDERSIDE. No drawer gives a box a bottom face, because a box
+         on the floor never shows one; a slab or a stair tread is seen from
+         below, and without this you looked up through a ceiling. Concrete,
+         as a slab's soffit is. u x v = (0,-1,0), so it faces down. */
+      litGrid(G('concrete'), x0, y, z0,  1,0,0,  0,0,1,  b.w, b.d,  0,-1,0,
+              LIT.coverSeg, LIT.coverSeg, 3, 3);
+    }
   }
   for (const p of (map.props || [])){ const draw = LIT_PROP[p.kind]; if (draw) draw(G, p, D, H); }
   for (const name in geos){

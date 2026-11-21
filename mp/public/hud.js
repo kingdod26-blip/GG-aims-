@@ -841,6 +841,18 @@ const MAPC_WALL = { cladding:1, firewall:1, block:1, wall:1, boiler:1, shed:1,
                     hall:1, control:1, intake:1, tower:1, annex:1, pillar:1 };
 const MAPC_THIN = { lattice:1, column:1, step:1, hvtower:1, firebox:1 };
 
+/* Glass and raised boxes, on either plan. Glass is a thin pale line (a
+   window, not a wall). A raised box - an upper floor's slab, a stair tread -
+   is an OUTLINE, because filled it would paint over everything under it and
+   a slab covers a whole building. Returns true when it drew the box. */
+function planRaised(g, b, x0, z0, w, d){
+  if (b.mat === 'glass'){ g.fillStyle = 'rgba(150,205,230,.6)'; g.fillRect(x0, z0, Math.max(1, w), Math.max(1, d)); return true; }
+  if (boxY(b) < 0.05) return false;
+  g.strokeStyle = 'rgba(160,175,192,.45)'; g.lineWidth = 1;
+  g.strokeRect(x0 + 0.5, z0 + 0.5, Math.max(1, w - 1), Math.max(1, d - 1));
+  return true;
+}
+
 /* `o` = { cx, cz, span, labels }. Everything else is read live. */
 function drawMapPlan(g, W, H, o){
   const map = (typeof currentMap !== 'undefined') ? currentMap : null;
@@ -877,6 +889,7 @@ function drawMapPlan(g, W, H, o){
     if (b.mat === 'hidden') continue;
     const x0 = px(b.x - b.w / 2), z0 = pz(b.z - b.d / 2), w = b.w * s, d = b.d * s;
     if (x0 + w < 0 || z0 + d < 0 || x0 > W || z0 > H) continue;     // off this view
+    if (planRaised(g, b, x0, z0, w, d)) continue;
     g.fillStyle = MAPC_WALL[b.mat] ? MAPC.wall : MAPC_THIN[b.mat] ? MAPC.thin : MAPC.plant;
     g.fillRect(x0, z0, Math.max(1, w), Math.max(1, d));
   }
@@ -1079,6 +1092,7 @@ function drawSitePlan(g, W, S){
   for (const b of map.boxes){
     if (b.mat === 'hidden') continue;
     const x0 = px(b.x - b.w / 2), z0 = pz(b.z - b.d / 2), w = Math.max(1, b.w * s), d = Math.max(1, b.d * s);
+    if (planRaised(g, b, x0, z0, w, d)) continue;
     if (MAPC_WALL[b.mat]){ g.fillStyle = PLAN.wall; g.fillRect(x0, z0, w, d); }
     else if (MAPC_THIN[b.mat]){ g.fillStyle = PLAN.thin; g.fillRect(x0, z0, w, d); }
     else { g.fillStyle = PLAN.plant; g.fillRect(x0, z0, w, d);

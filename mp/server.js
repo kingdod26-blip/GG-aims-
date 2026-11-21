@@ -87,7 +87,7 @@ const PORT = process.env.PORT || 8200;
    made every shot you took miss. Movement and spawn checks are still
    deliberately 2D (they only ever run at ground level). */
 const { MAPS, MAP_IDS, DEFAULT_MAP, mapById,
-        mapRects, mapWallRects, mapCeilingRect, mapRoofRects } = require('./public/maps.js');
+        mapRects, mapWallRects, mapCeilingRect, mapRoofRects, mapRoofY } = require('./public/maps.js');
 /* What a room gets when nobody asks for a map. The env var is a way to make
    a whole server default to something other than foundry. */
 const DEFAULT_MAP_ID = mapById(process.env.MAP || DEFAULT_MAP).id;
@@ -100,11 +100,13 @@ const DEFAULT_MAP_ID = mapById(process.env.MAP || DEFAULT_MAP).id;
    arena there would shove every player sideways out of the map. */
 function arenaOf(map) {
   const rects = mapRects(map).concat(mapWallRects(map));
-  return { map, arena: map.arena, wallH: map.wallH,
+  /* GLASS (mat 'glass', maps.js) stops a player and not a shot, so it is in
+     `rects` and left out of `rayBoxes`. */
+  return { map, arena: map.arena, wallH: map.wallH, roofY: mapRoofY(map),
            resupply: { x: map.resupply.x, z: map.resupply.z },
            /* A roof stops a bullet but not a player, so it is in the ray
               list and NOT in `rects`, exactly like the ceiling. */
-           rects, rayBoxes: rects.concat(mapRoofRects(map), [mapCeilingRect(map)]) };
+           rects, rayBoxes: rects.filter(r => !r.glass).concat(mapRoofRects(map), [mapCeilingRect(map)]) };
 }
 
 /* ------------------------------- Geometry --------------------------------- */
@@ -204,10 +206,22 @@ function vetMove(room, p, nx, ny, nz, now) {
   let y = typeof ny === 'number' ? ny : (p.y || 0);
   const rise = y - (p.y || 0), maxRise = MOVE.maxRise * dt;
   if (Math.abs(rise) > maxRise) y = (p.y || 0) + Math.sign(rise) * maxRise;
-  y = Math.max(0, Math.min(y, room.wallH - 1.9));
+  /* Under the lid of the world, not under the wall height: an upper floor
+     puts feet at 8.7m on a map whose walls are 11, and a jump from there
+     was being pulled back down to 9.1 here while the client stood higher. */
+  y = Math.max(0, Math.min(y, room.roofY - 1.9));
 
   resolveBody(room, pos, y, p.st || 0);
   return { x: pos.x, y, z: pos.z };
+}
+
+/* The highest top at (x, z) that is at or below `y`: the floor, or a crate,
+   or an upper floor's slab. */
+function floorUnder(room, x, z, y) {
+  let g = 0;
+  for (const r of room.rects)
+    if (x > r.minx && x < r.maxx && z > r.minz && z < r.maxz && r.maxy <= y + 0.05 && r.maxy > g) g = r.maxy;
+  return g;
 }
 
 function resolve2D(room, pos, radius) {
@@ -1559,7 +1573,10 @@ function tickRoom(room, now, dt) {
     a.vy -= 9 * dt;                                     // slight drop
     if (a.falling) {               // stopped against something: just drop
       a.y += a.vy*dt;
-      if (a.y <= 0) { (a.smoke ? dropSmoke : dropFire)(room, a.x, 0, a.z, a.by, now); arrows.splice(i, 1); }
+      /* It lands on whatever is under it, not on the ground through it: a
+         bolt stopped by a wall on an upper floor drops onto that floor. */
+      const under = floorUnder(room, a.x, a.z, a.y - a.vy*dt);
+      if (a.y <= under) { (a.smoke ? dropSmoke : dropFire)(room, a.x, under, a.z, a.by, now); arrows.splice(i, 1); }
       continue;
     }
     const nx = a.x + a.vx*dt, ny = a.y + a.vy*dt, nz = a.z + a.vz*dt;

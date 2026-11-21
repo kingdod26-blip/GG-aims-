@@ -1306,6 +1306,69 @@ where a ray hits the edge exactly and misses.
 
 Not checked: a real multiplayer match, and the frame cost at 270k triangles.
 
+## Upper floors: raised boxes, stairs and glass (2026-11-21)
+
+Groundwork for a three-storey office (Task B in the handoff). Until now every
+box stood on the floor: `mapRects` hard-coded `miny: 0` and the client built
+the same. Nothing on any current map uses what follows yet, so **the live
+site is unchanged**; it is the engine an upper floor needs.
+
+- **A box may have a base: `{x, z, w, d, h, y?}` spans `y..y+h`.** `boxY(b)`
+  (maps.js) is `b.y || 0`, so every existing box means what it meant. Carried
+  through `mapRects` (server collision), `buildArena` (mesh + collider), the
+  `works.js` emitter (writes `y:` only when set, so regenerating changed no
+  lines), the lit arena and both map plans.
+- **Lit arena:** the LIT_DRAW drawers all build from y = 0, so a raised box is
+  drawn as if on the floor and the vertices it added are lifted afterwards,
+  rather than teaching forty drawers about a base. **No drawer gives a box a
+  bottom face** (a box on the floor never shows one), so a raised box also
+  gets a concrete underside; without it you looked up through the slab. The
+  bake's box list is six numbers a box now (`miny` too), so a slab shades
+  the floor under it; a floor texel is only "under a crate" for a box ON the
+  floor; the floor shader's contact list skips raised boxes and glass.
+- **Client movement (loop.js):**
+  - **Step up:** a box no more than `STEP_UP` (0.35) above the feet, with
+    headroom on top, is not pushed against; you walk onto it.
+  - **The feet stand on a circle (`FOOT_R` 0.25), not the centre point.**
+    With a point, stairs could not be climbed: a tread is 28cm deep and the
+    body 40cm round, so the body touches tread 2 (two risers up, a wall)
+    before the centre is over tread 1. Side effect, accepted: you stay on a
+    crate's top until your centre is 25cm past its edge.
+  - **Step down:** grounded, not jumping, and the drop is no more than a
+    step, the feet follow it. Before this each tread was a 17cm fall: a few
+    frames in the air, no footsteps, no double jump.
+  - **Head bump:** rising into a box with air under it stops at its
+    underside. A jump reaches 2.2m feet / 4.0m head, so under a 4.2m slab it
+    never touches; under a stair flight or a lower ceiling it does. The push
+    loop skips a box whose underside is exactly at head height, or the bump
+    would be undone sideways.
+  - `headroom()` treats only boxes whose underside is more than a step up as
+    overhead: the next tread is not over your head. `findLedge` refuses a
+    climb with no room for the body where it lands, or on the way up.
+- **Server:** `resolveBody` already skipped boxes above the head, so raised
+  rects just work. The height clamp is `mapRoofY - 1.9` (the lid of the
+  world) instead of `wallH - 1.9`: a third floor puts feet at 8.7m and a jump
+  from there was pulled back to 9.1. `floorUnder()` gives the highest top
+  under a point; a bolt stopped by a wall falls onto it, where it used to
+  fall through everything to the ground.
+- **Glass, `mat: 'glass'`: stops a player, not a shot.** It is a collider
+  (movement, leaning, spawning) but NOT in `wallMeshes` on the client, and its
+  rect carries `glass: true` so `arenaOf` leaves it out of `rayBoxes` on the
+  server. One faint unlit mesh (`addGlass`, world.js) drawn in both looks,
+  no shadow, not baked. On the plans it is a pale line; a raised box is an
+  outline (`planRaised`), because a filled slab would cover its building.
+- **Measured** on a temporary rig (25 treads of 0.18/0.28 up to a 20x10 slab
+  at 4.2, a glass pane, a slab at 3.0), injected in the browser and never
+  saved: up and down the flight walking and sprinting, **0 frames off the
+  ground**; head bump stops feet at exactly 1.20 under the 3.0 slab with no
+  sideways shift; can walk under the high end of a flight, not the low end;
+  glass stops you 0.4 from its face; climb refused under a slab, allowed in
+  the open. Server functions run in Node against the same rig: glass in
+  rects, not rays; a shot passes through it; a shot up stops at 4.2.
+  An MP join on the restarted server, no errors.
+- **Build + bake is ~2.6s on this machine, before AND after** (timed with
+  the changes stashed): the 1.5s in "The works" was a faster machine.
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,

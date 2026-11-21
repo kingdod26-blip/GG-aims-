@@ -225,7 +225,9 @@ P.push({ kind: 'gantry', z:  24, y: 12, x0: SUB_DX - 40, x1: SUB_DX + 40 });
 const lines = [];
 for (const o of out) {
   if (o.note) { lines.push('\n' + o.note.split('\n').map(l => '      // ' + l.trim()).join('\n')); continue; }
-  const ex = (o.r != null ? `, r: ${o.r}, n: ${o.n}` : '');
+  /* `y` is a raised box's base (an upper floor, a stair tread): left off
+     for anything on the floor, so the existing lines are unchanged. */
+  const ex = (o.r != null ? `, r: ${o.r}, n: ${o.n}` : '') + (o.y ? `, y: ${+o.y.toFixed(3)}` : '');
   lines.push(`      { x: ${String(o.x).padStart(7)}, z: ${String(o.z).padStart(7)}, w: ${String(o.w).padStart(7)}, ` +
              `d: ${String(o.d).padStart(7)}, h: ${String(o.h).padStart(4)}, mat: ${("'" + o.mat + "'").padEnd(13)}${ex} },`);
 }

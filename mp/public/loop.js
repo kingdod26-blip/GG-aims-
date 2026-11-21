@@ -34,6 +34,30 @@ const REMOTE_STRIDE = 2.3;         // metres between another player's audible fo
 
    The perimeter walls are 7-8m, far over maxRise, so you cannot climb out
    of the arena. */
+/* How high a box can be and still be a step you walk onto rather than a
+   wall you are stopped by. The ground test has always taken a top up to
+   this far above the feet; a real stair riser is about 0.175. */
+const STEP_UP = 0.35;
+/* What the feet stand on: a circle this wide, inside the body's 0.4. It has
+   to reach the tread below the one the body touches (see movePlayer). */
+const FOOT_R = 0.25;
+/* Does the body's circle overlap this box's footprint? */
+function touches(c, x, z, r){
+  const cx=Math.max(c.minx,Math.min(x,c.maxx)), cz=Math.max(c.minz,Math.min(z,c.maxz));
+  return (x-cx)*(x-cx)+(z-cz)*(z-cz) < r*r;
+}
+/* Is there room to stand with the feet at `y` here: nothing OVERHEAD within
+   a body's height? Used before stepping up or climbing onto something, so
+   neither can put your head into a slab. Overhead means its underside is
+   more than a step up: the next tread of a stair is not over your head,
+   it is the next thing you walk onto. */
+function headroom(x, z, y, body){
+  for(const c of colliders){
+    if(c.miny<=y+STEP_UP || c.miny>=y+body) continue;
+    if(touches(c, x, z, me.radius)) return false;
+  }
+  return true;
+}
 function findLedge(){
   if(climbT>0 || rollT>0 || dashT>0 || slideT>0) return null;
   if(me.stance!=='stand' || !me.alive) return null;
@@ -54,10 +78,15 @@ function findLedge(){
      map sits on the floor, so "taller than the lip at that spot" is the
      whole test — it catches both a wall to climb into and a crate stacked
      on the one we are climbing. */
+  /* With raised boxes, "taller" is not enough: a slab overhead is above the
+     lip too, and was what stopped every climb under an upper floor. What
+     matters is whether anything stands in the BODY's space where it lands,
+     and on the way up from where it is now. */
   for(const c of colliders){
     if(dx<c.minx-0.05||dx>c.maxx+0.05||dz<c.minz-0.05||dz>c.maxz+0.05) continue;
-    if(c.maxy>topY+0.05) return null;
+    if(c.maxy>topY+0.05 && c.miny<topY+STANCE.stand.body) return null;
   }
+  if(!headroom(me.x, me.z, me.feetY, topY-me.feetY+STANCE.stand.body)) return null;
   return { x:dx, z:dz, y:topY };
 }
 function startClimb(l){
@@ -152,15 +181,37 @@ function movePlayer(dt){
   me.vy-=GRAV*dt; me.feetY+=me.vy*dt;
   // ground level: floor, or the top of a crate we're standing over
   let groundY=0;
-  for(const c of colliders){ if(me.x>c.minx && me.x<c.maxx && me.z>c.minz && me.z<c.maxz && c.maxy<=me.feetY+0.35) groundY=Math.max(groundY,c.maxy); }
+  /* The feet stand on a small CIRCLE (FOOT_R), not on the centre point. With
+     a point, a stair could not be climbed: a tread is 28cm deep and the body
+     40cm round, so the body reaches the second tread before the centre is
+     over the first, and the second is two risers up - a wall. */
+  for(const c of colliders){ if(c.maxy<=me.feetY+STEP_UP && touches(c, me.x, me.z, FOOT_R)) groundY=Math.max(groundY,c.maxy); }
+  /* STEP DOWN. Walking off a stair tread used to be a fall: 17cm of air,
+     a few frames off the ground, no footsteps and no double jump, on every
+     step. If you were on the ground last frame and did not jump, a drop no
+     bigger than a step is just the next step down. */
+  if(me.onGround && me.vy<=0 && me.feetY>groundY && me.feetY-groundY<=STEP_UP) me.feetY=groundY;
   if(me.feetY<=groundY){ const hard=me.vy<-6; me.feetY=groundY; me.vy=0; me.onGround=true;
     me.jumpsUsed=0;                                        // refill jumps on landing
     if(wasAir && hard) Sfx.land(); }
   else { me.onGround=false;
     if(me.jumpsUsed===0) me.jumpsUsed=1; }                 // walked off a ledge = no free double jump
+  /* HEAD BUMP. A box with air under it (an upper floor's slab, a stair
+     flight overhead) can be jumped into from below. Without this the head
+     went into the slab and the push below shoved you sideways out of it.
+     Rising into one stops the rise at its underside instead. */
+  if(me.vy>0) for(const c of colliders){
+    if(c.miny<=me.feetY+0.05 || c.miny>=me.feetY+st.body) continue;   // not over our head, or clear of it
+    if(!touches(c, me.x, me.z, me.radius)) continue;
+    me.feetY=c.miny-st.body; me.vy=0;
+  }
   // horizontal walls (ignore the surface we stand on)
   const top=me.feetY+st.body;
-  for(const c of colliders){ if(c.miny>top || c.maxy<=me.feetY+0.05) continue;
+  for(const c of colliders){ if(c.miny>=top-1e-3 || c.maxy<=me.feetY+0.05) continue;
+    /* STEP UP. Something no taller than a step, with room for the body on
+       top of it, is not pushed against: you walk onto it, and the ground
+       test above lifts you once your centre is over it. */
+    if(me.onGround && c.maxy-me.feetY<=STEP_UP && headroom(me.x, me.z, c.maxy, st.body)) continue;
     const cx=Math.max(c.minx,Math.min(me.x,c.maxx)), cz=Math.max(c.minz,Math.min(me.z,c.maxz));
     const dx=me.x-cx, dz=me.z-cz, d=Math.hypot(dx,dz);
     if(d<me.radius&&d>1e-4){ const p=me.radius-d; me.x+=dx/d*p; me.z+=dz/d*p; } else if(d===0) me.x+=me.radius; }
