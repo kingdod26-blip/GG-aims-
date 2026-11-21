@@ -289,6 +289,11 @@ const SET_PRESETS = {
 };
 let SETTINGS = Object.assign({}, SET_DEFAULTS);
 try { const s=JSON.parse(localStorage.getItem('botstrike.gfx')||'null'); if(s) Object.assign(SETTINGS, s); } catch(e){}
+/* Always the lit look (2026-11-21): the LIGHTING row is gone from the
+   panel, and anyone who saved FLAT before would otherwise be stuck in it
+   with no way back. A machine that cannot build the lit arena (LIT_OK)
+   still falls back on its own, as before. */
+SETTINGS.look = 1;
 
 function applySettings(){
   // resolution scale — the biggest heat lever (2x = 4x the pixels)

@@ -493,17 +493,25 @@ function loop(){ requestAnimationFrame(loop);
     // with the gun still levelled at the horizon
     const tuck = ROLL.tuck*rollPunch;
     // recoil is gentler at full ADS, so the gun does not leap across the view every shot
-    gun.position.set(bx+rWob+sx - sw*0.26, by-rDip+sy + Math.abs(sw)*0.10 - tuck, bz+gunKick*(0.1-0.06*ads) - Math.abs(sw)*0.14 + tuck*0.5);
-    gun.rotation.set(gunKick*0.4*(1-ads*0.85) - rRot*0.85 - 0.18*sp - Math.abs(sw)*0.5 + V.rx*(1-ads),
-                     rRot*0.3 + sw*0.9 + V.ry*(1-ads),
-                     rRot*0.5 + sr + sw*1.1 + V.rz*(1-ads));
-    /* The viewmodel's own lens. Drawing the gun as if through a narrower
-       camera is the same as scaling its view-space x and y by the ratio of
-       the two lenses' half-widths: the camera is at the origin of view
-       space, so this moves every point of the gun along its own line of
-       sight. Aim lines stay on the centre of the screen, which is x = y = 0. */
+    /* The viewmodel's own lens (V.viewFov): drawing the gun as if through a
+       narrower camera is the same as scaling its view-space x and y by the
+       ratio of the two lenses' half-widths. Only the RESTING pose and the
+       model are scaled - not the motion. Scaling the motion too (as the
+       first cut did) made every reload dip and sway 1.65x larger than any
+       other gun's, and Jack saw it: "the rifle is moving more than the aim
+       itself, like the little dot" - the dot is fixed to the camera.
+       `V.motion` then scales what moves: a gun drawn this close to the eye
+       swings its sight further across the screen for the same angle, so
+       the PAC-9 moves at 0.6 to match the others on screen. The kick
+       itself (gunKick, the camera's recoil) is untouched. */
     const vk = V.viewFov ? Math.tan(camera.fov*Math.PI/360) / Math.tan(V.viewFov*Math.PI/360) : 1;
-    gun.position.x *= vk; gun.position.y *= vk;
+    const mk = V.motion != null ? V.motion : 1;
+    gun.position.set(bx*vk + (rWob+sx - sw*0.26)*mk,
+                     by*vk + (-rDip+sy + Math.abs(sw)*0.10 - tuck)*mk,
+                     bz + (gunKick*(0.1-0.06*ads) - Math.abs(sw)*0.14 + tuck*0.5)*mk);
+    gun.rotation.set((gunKick*0.4*(1-ads*0.85) - rRot*0.85 - 0.18*sp - Math.abs(sw)*0.5)*mk + V.rx*(1-ads),
+                     (rRot*0.3 + sw*0.9)*mk + V.ry*(1-ads),
+                     (rRot*0.5 + sr + sw*1.1)*mk + V.rz*(1-ads));
     gun.scale.set(vk, vk, 1);
   } else {
     // menu: spatial showcase — the 3D camera parallaxes with the mouse to match

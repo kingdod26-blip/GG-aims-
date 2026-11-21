@@ -70,9 +70,11 @@ const SET_DEFS = [
   { tab:'graphics', key:'resScale', label:'RESOLUTION', opts:[[0.75,'75%'],[1,'100%'],[1.5,'150%'],[2,'200%']] },
   { tab:'graphics', key:'shadows',  label:'SHADOWS',    opts:[[0,'OFF'],[1024,'MEDIUM'],[2048,'HIGH']] },
   { tab:'graphics', key:'bloom',    label:'BLOOM GLOW', opts:[[0,'OFF'],[1,'ON']] },
-  /* The whole lighting change behind one row, so the two looks can be
-     compared in the same session rather than from memory. */
-  { tab:'graphics', key:'look',     label:'LOOK',       opts:[[0,'FLAT'],[1,'LIT']] },
+  /* There was a LIGHTING row here (LIT / FLAT). Jack, 2026-11-21: it "does
+     not make sense" - and it did not: FLAT was never a lighting choice, it
+     swapped in the old arena, which on the power station is bare grey
+     boxes, no plant, a beige wall. The look is always on now (core.js);
+     the frame cap, resolution, shadows and bloom are the speed levers. */
 
   { tab:'gameplay', key:'sens',     label:'SENSITIVITY', opts:[[0.5,'0.5x'],[0.75,'0.75x'],[1,'1x'],[1.25,'1.25x'],[1.5,'1.5x'],[2,'2x']] },
   { tab:'gameplay', key:'hitZone',  label:'HIT MARKER', opts:[[0,'PLAIN'],[1,'SHOW ZONE']] },

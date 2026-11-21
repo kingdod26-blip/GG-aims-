@@ -1621,6 +1621,33 @@ README and in drawn.js. Everything else below is technique, written here.
 Measured: lit 3.0ms / flat 2.1ms a frame (forced finish), no console errors,
 ADS / reload / switching checked in the pane.
 
+### Same day, Jack's follow-ups
+- **The LIGHTING row is gone** ("does not make sense"): FLAT was never a
+  lighting choice, it swapped in the old arena - on the power station, bare
+  grey boxes and a beige wall. core.js forces `SETTINGS.look = 1` after
+  loading saved settings, so nobody is left stuck in FLAT; a machine where
+  `LIT_OK` fails still falls back by itself. The flat code paths remain.
+- **Every gun wears the PAC-9's gloves** (`gloveEveryGun`, drawn.js), placed
+  by each gun's own `grip` and `fore`: the right hand keeps its offset from
+  the PAC-9 grip [0,-0.1,0.073], the left its offset from the handguard
+  bottom [0,-0.021,-0.236] (a drawn gun's fore-end bottom is `fore.y + 0.01`).
+  The reload trip is the old one measured from the new spot. Slots 5+ (the
+  abilities and the blade) swap their right drawArm too (`HOLD_ARMS`).
+  drawArm is only seen until pac9.bin loads.
+- **The rifle no longer moves more than the dot.** The lens stretch (vk)
+  applies to the resting pose and the model only, not to the motion; and
+  `vm.motion` (0.6 on the PAC-9) scales the reload/stance/sprint offsets and
+  the kick's ROTATION of the viewmodel, because a gun drawn twice as close
+  to the eye swings its sight ~1.5x further for the same angle. gunKick
+  itself and the camera's recoil are unchanged.
+- **The dosing house** (the 14x12x7 shed at -100,-60 by the cooling towers)
+  is hollow: `building()` with a 4m door north toward the towers, a door
+  east, window bands, a bunded pair of tanks, two dosing pumps on a header,
+  a panel, a bench, ceiling lights. 0 overlaps, 0 of 5000 spawns inside.
+  `shedwall` and `bwall` joined `LIT_INDOOR`, which had been drawing a
+  keep-clear outline round every wall piece on the floor INSIDE the hollow
+  sheds.
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,

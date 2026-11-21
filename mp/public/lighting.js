@@ -1561,7 +1561,11 @@ const LIT_GROUND = {};
 const LIT_UNDER = { grating: 'galv', steptread: 'galv', handrail: null, pipewalk: null, stackwall: null,
                     shedroof: 'cladding', intakeroof: 'cladding', boilerroof: 'girder', duct: 'cladding' };
 const LIT_INDOOR = { facade: 1, core: 1, desk: 1, screen: 1, counter: 1, bench: 1, tread: 1, slab: 1,
-                     roofslab: 1, parapet: 1, rail: 1, glass: 1 };
+                     roofslab: 1, parapet: 1, rail: 1, glass: 1,
+                     /* the walls of the hollow sheds and the boiler house: a
+                        keep-clear line round a wall drew a white outline on
+                        the floor INSIDE the dosing house (2026-11-21) */
+                     shedwall: 1, bwall: 1 };
 function litGroundRect(q, kerb){                 // a zone or a road as [x0, z0, x1, z1]
   if (q.k !== 'road') return [Math.min(q.x0, q.x1), Math.min(q.z0, q.z1), Math.max(q.x0, q.x1), Math.max(q.z0, q.z1)];
   const h = q.w / 2 + (kerb || 0), horiz = Math.abs(q.x1 - q.x0) > Math.abs(q.z1 - q.z0);

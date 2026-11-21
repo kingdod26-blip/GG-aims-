@@ -246,7 +246,7 @@ const PAC9 = { url: 'assets/pac9.bin', sightY: 0.069, muzzle: -0.531,
      wide-angle stretch a gun close to an 80 degree lens gets. The same
      picture comes from one camera by scaling the gun's view-space x and y
      by tan(fov/2) / tan(viewFov/2) - see the viewmodel pose in loop.js. */
-  vm: { x: 0.098, y: -0.122, z: -0.256, adsZ: 0.14, rx: 0.034, ry: 0.085, rz: -0.03, viewFov: 54 },
+  vm: { x: 0.098, y: -0.122, z: -0.256, adsZ: 0.14, rx: 0.034, ry: 0.085, rz: -0.03, viewFov: 54, motion: 0.6 },
   /* The left hand's trip to the magazine, from where it holds the handguard
      to where it grips the magazine (Saltline's own two poses). */
   magTrip: [0.0015, -0.088, 0.1615] };
@@ -450,7 +450,44 @@ function mountPac9(b){
   WEAPONS[0].aimTop = rig.position.y + PAC9.at[1] + PAC9.sightY;
   WEAPONS[0].vm = PAC9.vm;
   PAC9_BUILT = b;
+  gloveEveryGun(b);
   if (typeof lookSoon === 'function') lookSoon();     // give the new materials the current look
+}
+/* THE SAME HANDS ON EVERY GUN (2026-11-21). Jack: "the hand used for rifle
+   and other gun is not the same tho?" - the rifle had Saltline's gloves and
+   everything else the old drawn arms. Now every slot gets the gloves.
+   Saltline posed them on the PAC-9, so they are placed on another gun by
+   the same two points each gun already gives its arms (drawn.js):
+   - the right hand keeps its offset from the PAC-9's grip (Saltline's
+     `grip`, [0, -0.1, 0.073]) and goes the same distance from that gun's
+     `grip`;
+   - the left keeps its offset from the bottom of the PAC-9's handguard
+     under where it holds it, and goes to the bottom of that gun's fore-end
+     (its `fore`, which sat a centimetre under it for the old palm).
+   Same orientation: every gun points down -Z. The reload's trip is the
+   old one, measured from the new resting place, so armsFrame needs no
+   change. Clones share the PAC-9's geometry and materials. */
+const PAC9_GRIP = [0, -0.1, 0.073], PAC9_FORE = [0, -0.021, -0.236];
+function gloveEveryGun(b){
+  const rOff = b.right.position.clone().sub(new THREE.Vector3().fromArray(PAC9_GRIP));
+  const lOff = b.left.position.clone().sub(new THREE.Vector3().fromArray(PAC9_FORE));
+  for (let i = 1; i < 5; i++){
+    const r = VM_RIGS[i]; if (!r) continue;
+    const parent = r.right.parent;
+    const right = b.right.clone(), left = b.left.clone();
+    right.position.copy(r.grip).add(rOff);
+    const foreBottom = r.fore.clone(); foreBottom.y += 0.01;
+    left.position.copy(foreBottom).add(lOff);
+    parent.remove(r.right); parent.remove(r.left); parent.add(right, left);
+    r.magAt = left.position.clone().add(r.magAt.clone().sub(r.fore));   // the same trip as before
+    r.grip = right.position.clone(); r.fore = left.position.clone();
+    r.right = right; r.left = left;
+  }
+  for (let i = 5; i < weaponHolders.length; i++){
+    const old = HOLD_ARMS[i]; if (!old || !old.parent) continue;
+    const right = b.right.clone(); right.position.copy(old.position).add(rOff);
+    old.parent.add(right); old.parent.remove(old); HOLD_ARMS[i] = right;
+  }
 }
 fetch(PAC9.url).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
   .then(buf => mountPac9(pac9Build(buf)))
@@ -458,8 +495,10 @@ fetch(PAC9.url).then(r => { if (!r.ok) throw new Error(r.status); return r.array
 
 /* The abilities and the blade keep their own drawn shapes (weapons.js);
    they just get a hand to be held in. */
+const HOLD_ARMS = [];
 for (let i = 5; i < weaponHolders.length; i++){
   const right = drawArm([0.30, -0.34, 0.89], 1, 1); right.position.set(0.03, -0.11, 0.14); weaponHolders[i].add(right);
+  HOLD_ARMS[i] = right;
 }
 
 /* The reload, as the left hand sees it: off the fore-end, down to the

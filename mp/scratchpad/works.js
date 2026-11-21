@@ -394,7 +394,26 @@ ob(-15.6, 29, RACK_Z - 1.4, RACK_Z + 1.4, RACK_Y, RACK_Y + 1.0, 'pipewalk');
 for (const bx of [40, 66]) ob(bx - 1.45, bx + 1.45, -68, -60.5, 8.75, 9.82, 'pipewalk');
 
 note('a workshop or two');
-box(-100, -60, 14, 12, 7, 'shed');
+/* Jack (2026-11-21): "for that one small room beside the cooling towers i
+   want that to be indoors". It is the cooling water's dosing house - what
+   stands next to a real tower: dosing pumps, chemical tanks in a bund, a
+   panel, a bench. Hollow now, the same way as the quay buildings: a door
+   north toward the towers, a door east toward the site, a high window
+   band, the same 14 x 12 x 7 footprint it always had. */
+building({ x0: -107, x1: -93, z0: -66, z1: -54, t: 0.3, h: 7, rt: 0.3 }, [
+  { face: 'N', a0: -102, a1: -98, y0: 0, y1: 3.6 },
+  { face: 'E', a0: -61.2, a1: -58.8, y0: 0, y1: 2.6 },
+  { face: 'N', a0: -106, a1: -103, y0: 4.4, y1: 5.6, glass: true }, { face: 'N', a0: -97, a1: -94, y0: 4.4, y1: 5.6, glass: true },
+  { face: 'S', a0: -106, a1: -94, y0: 4.4, y1: 5.6, glass: true },
+  { face: 'W', a0: -64, a1: -56, y0: 4.4, y1: 5.6, glass: true },
+], 'shedwall', 'shedroof');
+ob(-106.7, -102.4, -56.6, -54.3, 0, 0.45, 'concrete');                                       // the bund...
+ob(-106.4, -104.6, -56.2, -54.6, 0.45, 2.6, 'machine'); ob(-104.3, -102.7, -56.2, -54.6, 0.45, 2.6, 'machine');   // ...and its two tanks
+for (const x of [-99.5, -96.5]) ob(x - 0.7, x + 0.7, -56, -54.6, 0, 1.2, 'machine');        // the dosing pumps
+ob(-100.6, -95.4, -54.9, -54.3, 1.6, 2.2, 'pipe');                                           // and their header
+ob(-106.7, -105.9, -63.5, -59, 0, 2.2, 'switch');                                            // the panel, on the west wall
+ob(-100, -95.5, -65.7, -64.9, 0, 0.9, 'desk');                                               // a bench under the north windows
+ob(-97, -95.8, -62.5, -61.3, 0, 1.2, 'crate');
 /* The tall workshop: a mezzanine store at 3.2m, up a ladder. */
 building({ x0: 93, x1: 107, z0: 94, z1: 106, t: 0.3, h: 7, rt: 0.3 }, [
   { face: 'N', a0: 98, a1: 102, y0: 0, y1: 4.5 },
@@ -607,7 +626,7 @@ for (const [tx, tz] of [[-74, -90], [-24, -90]]){
 P.push({ kind: 'ceilinglights', x0: BH.x0 + BH.t, x1: BH.x1 - BH.t, z0: BH.z0 + BH.t, z1: BH.z1 - BH.t,
          levels: [BGAL[0] - 0.2, BGAL[1] - 0.2, BGAL[2] - 0.2, BH.h - BH.rt],
          holes: [[33.5, 48.5, -92.5, -71.5], [50.5, 66, -92.5, -71.5], [29.5, 33.5, -95.5, -68.5]], extra: [] });
-for (const b of [[25.3, 54.7, 99.3, 108.7, 3.7], [71.3, 84.7, 99.8, 108.2, 4.7], [93.3, 106.7, 94.3, 105.7, 6.7]])
+for (const b of [[25.3, 54.7, 99.3, 108.7, 3.7], [71.3, 84.7, 99.8, 108.2, 4.7], [93.3, 106.7, 94.3, 105.7, 6.7], [-106.7, -93.3, -65.7, -54.3, 6.7]])
   P.push({ kind: 'ceilinglights', x0: b[0], x1: b[1], z0: b[2], z1: b[3], levels: [b[4]], holes: [], extra: [] });
 P.push({ kind: 'busbars', z: 78 });
 P.push({ kind: 'busbars', z: 94 });
