@@ -116,10 +116,11 @@ Then open <http://localhost:8123/fps-game.html>.
 
 ## Credits
 
-Code is MIT (see `LICENSE`). Every model in the game is drawn in code (`mp/public/drawn.js`); there are no model files.
+Code is MIT (see `LICENSE`). Every model in the game is drawn in code (`mp/public/drawn.js`) except the rifle, below.
 
 | Asset | Author | Licence |
 |---|---|---|
 | Floor, wall and crate textures | [Poly Haven](https://polyhaven.com) | CC0 |
+| The rifle: the PAC-9 "Longshore", its gloved hands, its sight and finish shaders (`mp/public/assets/pac9.bin`, `drawn.js`) | From *Saltline*, built by Claude Fable 5.2 in a run set up by Felix Rieseberg (Anthropic) | No licence stated; used with credit, not covered by this repo's MIT |
 
 Built with [Three.js](https://threejs.org).

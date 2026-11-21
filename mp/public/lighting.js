@@ -96,11 +96,18 @@ const LIT = {
   fogNear: 58, fogFar: 205,
   /* Outdoors you can see a long way and the haze is bright, not dark. The
      colour is the bottom stop of the sky gradient, so the two meet cleanly. */
-  skyFogNear: 120, skyFogFar: 640, fogSky: 0xc8d6e1,
+  skyFogNear: 18, skyFogFar: 430, fogSky: 0x9da4a8,
   /* The open sky's own exposure and grade (stage 2, 2026-11-15). 1.45 and a
      full warm split were tuned for the dark hall; outdoors they put the mean
      luminance near 0.7 and the saturation near 0.1 - a beige haze. */
-  skyExposure: 1.0, skyWarm: 0.3, skySat: 1.15,
+  skyExposure: 0.95, skyWarm: 0.35, skySat: 0.85,      // was 1.0 / 0.3 / 1.15 for the clear day
+  /* 2026-11-21, after Saltline: the site under an overcast sky, graded the
+     way Saltline grades its port - the bake's light down to a little over
+     half (a sky that is a lid of cloud, not a summer noon), a touch more
+     contrast, and the colour pulled back until a painted thing is muted
+     rather than bright. The sky, unlit, stays where it is, which is what
+     makes it read as the brightest thing out there. */
+  skyGain: 0.55, skyContrast: 0.32,
   bloom: [0.62, 0.72, 0.80],       // strength, radius, threshold
   /* OUTDOORS THE BLOOM HAS TO BE RE-AIMED. Indoors the only thing over the
      threshold is a ceiling panel: a few hundred bright pixels in a dark
@@ -977,45 +984,348 @@ function litSwitchTextures(){
    gradient banding on an 8-bit display; the grade's dither finishes the job. */
 function litSkyTexture(){
   /* Painted for a SPHERE (canvas top = zenith, middle = horizon, bottom =
-     nadir), from Jack's daylight references: a deep blue overhead paling to
-     a hazy horizon, a few soft clouds, a far line of low hills and woods,
-     and hazy fields below it. The horizon colour is LIT.fogSky, so the haze
-     and the sky meet with no seam. 1024 wide so the hill line does not
-     visibly repeat round the circle. */
+     nadir). It was a clear blue day with a painted line of hills; it is now
+     an overcast afternoon (2026-11-21, after Saltline), which is also what
+     the bake has always lit the site as: an even, high, grey sky. A low
+     warm break in the cloud sits where the sun is (EDGE.sun), and the
+     horizon is LIT.fogSky, so the haze, the far world and the sky meet with
+     no seam. The hills are geometry now (litFarWorld), not paint. */
   const c = litCanvas(1024, 512, (g, w, h) => {
-    const sky = g.createLinearGradient(0, 0, 0, h * 0.5);
-    sky.addColorStop(0.00, '#3a6fb3');          // zenith
-    sky.addColorStop(0.45, '#5b8fca');
-    sky.addColorStop(0.78, '#93b8dc');
-    sky.addColorStop(0.94, '#bccfe0');
-    sky.addColorStop(1.00, '#c8d6e1');          // the horizon, = LIT.fogSky
-    g.fillStyle = sky; g.fillRect(0, 0, w, h * 0.5);
-    const land = g.createLinearGradient(0, h * 0.5, 0, h);
-    land.addColorStop(0.00, '#aab6ab'); land.addColorStop(0.08, '#8d9a7f'); land.addColorStop(0.4, '#6c7d5a'); land.addColorStop(1, '#55663f');
-    g.fillStyle = land; g.fillRect(0, h * 0.5, w, h * 0.5);
+    const H = h * 0.5;
+    const sky = g.createLinearGradient(0, 0, 0, H);
+    /* An overcast sky is brightest straight up and about a third of that
+       at the horizon (the CIE overcast sky) - the opposite of a clear one.
+       Darker masses of cloud give it structure; the haze at the horizon is
+       a grey-blue, which is what the far world fades into. */
+    sky.addColorStop(0.00, '#c3c8cb');          // zenith
+    sky.addColorStop(0.45, '#b1b7bb');
+    sky.addColorStop(0.80, '#a3aaae');
+    sky.addColorStop(1.00, '#9da4a8');          // the horizon, = LIT.fogSky
+    g.fillStyle = sky; g.fillRect(0, 0, w, H);
+    g.fillStyle = '#9da4a8'; g.fillRect(0, H, w, H);
+    /* Where the sun is, in this canvas: SphereGeometry puts azimuth phi at
+       x = -cos(phi), z = sin(phi), and phi runs with the canvas's x. */
+    const sd = EDGE.sun, su = (Math.atan2(sd[2], -sd[0]) / (Math.PI * 2) + 1) % 1, sx = su * w;
     const rnd = litRand(31);
-    // clouds: soft flattened blobs in clusters, kept off the pole where a sphere pinches
-    for (let k = 0; k < 14; k++){
-      const cx = rnd() * w, cy = h * (0.20 + rnd() * 0.22), sc = 0.6 + rnd() * 0.9;
-      for (let i = 0; i < 9; i++){
-        const x = cx + (rnd() - 0.5) * 120 * sc, y = cy + (rnd() - 0.5) * 14 * sc, r = (16 + rnd() * 26) * sc;
-        for (const xx of [x, x - w, x + w]){
-          const gr = g.createRadialGradient(xx, y, 0, xx, y, r);
-          gr.addColorStop(0, 'rgba(255,255,255,0.50)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
-          g.save(); g.translate(xx, y); g.scale(1, 0.42); g.translate(-xx, -y);
-          g.fillStyle = gr; g.fillRect(xx - r, y - r, r * 2, r * 2); g.restore();
-        }
+    /* The cloud deck: big soft blobs, darker and lighter, flattened harder
+       toward the horizon where a layer is seen edge-on. Drawn three times
+       across the seam so it wraps. */
+    const blob = (x, y, r, flat, rgba) => {
+      for (const xx of [x, x - w, x + w]){
+        const gr = g.createRadialGradient(xx, y, 0, xx, y, r);
+        gr.addColorStop(0, rgba); gr.addColorStop(1, rgba.replace(/[\d.]+\)$/, '0)'));
+        g.save(); g.translate(xx, y); g.scale(1, flat); g.translate(-xx, -y);
+        g.fillStyle = gr; g.fillRect(xx - r, y - r, r * 2, r * 2); g.restore();
       }
+    };
+    for (let k = 0; k < 260; k++){
+      const y = H * (0.04 + Math.pow(rnd(), 0.8) * 0.9), flat = 0.25 + 0.5 * (1 - y / H), r = 30 + rnd() * 90 * (1.2 - y / H);
+      const dark = rnd() < 0.55;
+      blob(rnd() * w, y, r, flat, dark ? 'rgba(92,100,110,' + (0.10 + rnd() * 0.18).toFixed(3) + ')' : 'rgba(214,218,221,' + (0.08 + rnd() * 0.12).toFixed(3) + ')');
     }
-    // the far hills, then a nearer line of woods, both hazed toward the sky
-    const ridge = (base, amp, col, seed) => { const r2 = litRand(seed); g.fillStyle = col; g.beginPath(); g.moveTo(0, h * 0.5);
-      let y = base; for (let x = 0; x <= w; x += 8){ y += (r2() - 0.5) * amp; y = Math.max(base - amp * 2.2, Math.min(base + 0.5, y)); g.lineTo(x, h * 0.5 - y); }
-      g.lineTo(w, h * 0.5); g.closePath(); g.fill(); };
-    ridge(7, 1.8, 'rgba(128,146,160,0.85)', 41);
-    ridge(3, 1.4, 'rgba(84,104,86,0.80)', 43);
+    /* The break: warm light low in the sky, brightest just over the
+       horizon, with the cloud edges above it lit from below. */
+    blob(sx, H * 0.90, 120, 0.28, 'rgba(226,196,160,0.30)');
+    blob(sx, H * 0.94, 60, 0.30, 'rgba(250,226,196,0.40)');
+    for (let k = 0; k < 18; k++){
+      const x = sx + (rnd() - 0.5) * 220, y = H * (0.74 + rnd() * 0.16), fall = Math.exp(-Math.pow((x - sx) / 100, 2));
+      blob(x, y, 14 + rnd() * 30, 0.2, 'rgba(232,204,170,' + (0.16 * fall).toFixed(3) + ')');
+    }
+    /* A low band of haze over the horizon all round, so the far world's
+       tops go soft into it. */
+    const band = g.createLinearGradient(0, H * 0.82, 0, H);
+    band.addColorStop(0, 'rgba(157,164,168,0)'); band.addColorStop(1, 'rgba(157,164,168,0.85)');
+    g.fillStyle = band; g.fillRect(0, H * 0.82, w, H * 0.18);
   });
   const t = litTexOf(c, true); t.wrapS = THREE.RepeatWrapping; return t;
 }
+/* ---------------------------------------------------------------------
+   THE EDGE OF THE WORLD (2026-11-21)
+   Jack, after playing Saltline: "the graphic and how it took cared of the
+   boarders are good". What Saltline does at its edge is refuse to have
+   one. The level stops at a fence, and past the fence the world keeps
+   going - cranes, ships, a town, masts with red lights - each thing a
+   little paler than the one in front of it until it is the colour of the
+   sky. You never see where it ends because the haze takes it first.
+
+   Here: the treeline wall is gone. The site is closed by what really
+   closes a power station - a precast concrete wall with a steel palisade
+   on it - and over the fence are fields and tree belts, the station's own
+   power lines marching away on lattice pylons, a town, a neighbouring
+   works with two banded chimneys, and hills. All of it is cheap: one
+   unlit mesh with its shading baked into vertex colours, one set of
+   lines for the conductors, and the fog does the rest.
+
+   The collision wall is still 11m (the server's, maps.js). Only its lower
+   6.2m is drawn; above that it is air you cannot pass, as it always was.
+   --------------------------------------------------------------------- */
+const EDGE = {
+  wallH: 3.6, coping: 0.16, pierEvery: 6.0,      // precast panels between piers
+  fenceTop: 6.2,                                  // palisade from the coping to here
+  /* The sun the far world is shaded by: low in the south-west, the same
+     direction the key light now comes from (_litDir) and the sky's warm
+     break is painted at. */
+  sun: [-0.55, 0.42, 0.72],
+};
+/* A palisade panel: D-section pales with the triple-pointed head, on two
+   rails. Alpha-tested, so it is cut out rather than blended and needs no
+   sorting. One texture tile is 1.2m wide, five pales. */
+function litPalisadeTexture(){
+  return litCanvas(256, 512, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    const pale = w / 5;
+    for (let i = 0; i < 5; i++){
+      const x = i * pale + pale * 0.22, pw = pale * 0.56, top = 40;
+      const gr = g.createLinearGradient(x, 0, x + pw, 0);
+      gr.addColorStop(0, '#5c646b'); gr.addColorStop(0.45, '#8d969d'); gr.addColorStop(1, '#4a5157');
+      g.fillStyle = gr;
+      g.fillRect(x, top, pw, h - top);
+      g.beginPath();                                  // the triple point
+      g.moveTo(x, top); g.lineTo(x + pw * 0.17, top - 26); g.lineTo(x + pw * 0.33, top - 6);
+      g.lineTo(x + pw * 0.5, top - 38); g.lineTo(x + pw * 0.67, top - 6); g.lineTo(x + pw * 0.83, top - 26);
+      g.lineTo(x + pw, top); g.closePath(); g.fill();
+      g.fillStyle = 'rgba(60,40,28,0.35)';            // rust bleeding from the bolt heads
+      g.fillRect(x + pw * 0.3, 112, pw * 0.4, 30); g.fillRect(x + pw * 0.3, 420, pw * 0.4, 30);
+    }
+    g.fillStyle = '#4c5359';                          // the two rails
+    g.fillRect(0, 100, w, 18); g.fillRect(0, 410, w, 18);
+  });
+}
+/* The wall, the piers, the coping and the fence, round all four sides.
+   Inner faces only on the concrete (that is all you can stand in front
+   of), but the coping and the outside are there for anyone on a roof. */
+function litBoundary(D){
+  const E = EDGE, g = litGeo(), H = E.wallH, T = 0.25;
+  const sides = [  // origin, along, inward normal
+    { o: [-D, -D], u: [1, 0],  n: [0, 1] },
+    { o: [ D,  D], u: [-1, 0], n: [0, -1] },
+    { o: [-D,  D], u: [0, -1], n: [1, 0] },
+    { o: [ D, -D], u: [0, 1],  n: [-1, 0] },
+  ];
+  const L = 2 * D;
+  for (const s of sides){
+    const [ox, oz] = s.o, [ux, uz] = s.u, [nx, nz] = s.n;
+    /* the panels' inner face; u x v must equal the normal, so for each side
+       the grid runs along the wall with v = up */
+    const cr = (ax, ay, az, bx, by, bz) => [ay*bz - az*by, az*bx - ax*bz, ax*by - ay*bx];
+    let c = cr(ux, 0, uz, 0, 1, 0);
+    const flip = (c[0]*nx + c[2]*nz) < 0;
+    const sx = flip ? ox + ux * L : ox, sz = flip ? oz + uz * L : oz, du = flip ? -1 : 1;
+    litGrid(g, sx, 0, sz,  ux*du, 0, uz*du,  0, 1, 0,  L, H,  nx, 0, nz,  3, 1.2, 3, 3);
+    /* the outer face, a wall's thickness behind */
+    const bx = sx - nx * T + ux * du * L, bz = sz - nz * T + uz * du * L;
+    litGrid(g, bx, 0, bz,  -ux*du, 0, -uz*du,  0, 1, 0,  L, H,  -nx, 0, -nz,  3, 1.2, 3, 3);
+    /* piers, standing proud of the panels on the inside */
+    for (let a = E.pierEvery; a < L - 0.5; a += E.pierEvery){
+      const px = ox + ux * a, pz = oz + uz * a;             // on the wall's inner face
+      const x0 = ux ? px - 0.22 : Math.min(px, px + nx * 0.2), x1 = ux ? px + 0.22 : Math.max(px, px + nx * 0.2);
+      const z0 = uz ? pz - 0.22 : Math.min(pz, pz + nz * 0.2), z1 = uz ? pz + 0.22 : Math.max(pz, pz + nz * 0.2);
+      litBox(g, x0, 0, z0, x1, H + E.coping, z1, { bevel: 0.03, seg: 2, tile: 3 });
+    }
+    /* the coping: a capping strip a little wider than the wall */
+    const cx0 = Math.min(ox, ox + ux * L) - (nx ? 0 : 0), cz0 = Math.min(oz, oz + uz * L);
+    const cx1 = Math.max(ox, ox + ux * L), cz1 = Math.max(oz, oz + uz * L);
+    const ix0 = nx ? Math.min(ox + nx * 0.06, ox - nx * (T + 0.06)) : cx0, ix1 = nx ? Math.max(ox + nx * 0.06, ox - nx * (T + 0.06)) : cx1;
+    const iz0 = nz ? Math.min(oz + nz * 0.06, oz - nz * (T + 0.06)) : cz0, iz1 = nz ? Math.max(oz + nz * 0.06, oz - nz * (T + 0.06)) : cz1;
+    litBox(g, ix0, H, iz0, ix1, H + E.coping, iz1, { bevel: 0.02, seg: 3, tile: 3 });
+  }
+  litAdd(new THREE.Mesh(litGeoDone(g), litMaterial('concrete')), true);
+
+  /* The palisade: one quad per side on the wall's centre line, and a post
+     at every pier. Lit by the moving-things lights, not baked: it is a
+     cut-out, and the bake has no idea which texels are holes. */
+  const f = litGeo(), y0 = H + E.coping, fh = E.fenceTop - y0;
+  for (const s of sides){
+    const [ox, oz] = s.o, [ux, uz] = s.u, [nx, nz] = s.n;
+    const mx = ox - nx * T * 0.5, mz = oz - nz * T * 0.5;
+    litGrid(f, mx, y0, mz,  ux, 0, uz,  0, 1, 0,  L, fh,  nx, 0, nz,  L, fh, 1.2, fh);
+  }
+  const pt = litPalisadeTexture(), tex = litTexOf(pt, true);
+  const fm = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.35 });
+  lookTag(fm, { metalness: 0.35, roughness: 0.6 }, { metalness: 0, roughness: 0.6 });
+  fm.userData.envK = 0.5;
+  litAdd(new THREE.Mesh(litGeoDone(f), fm), false);
+  const posts = litGeo();
+  for (const s of sides){
+    const [ox, oz] = s.o, [ux, uz] = s.u, [nx, nz] = s.n;
+    for (let a = 0; a <= L + 0.01; a += EDGE.pierEvery){
+      const px = ox + ux * a - nx * T * 0.5, pz = oz + uz * a - nz * T * 0.5;
+      litBox(posts, px - 0.05, y0, pz - 0.05, px + 0.05, E.fenceTop + 0.1, pz + 0.05, { seg: 3, tile: 1 });
+    }
+  }
+  const pm = lookTag(new THREE.MeshStandardMaterial({ color: 0x3b4146, roughness: 0.55, metalness: 0.5 }), { metalness: 0.5, roughness: 0.55 }, { metalness: 0, roughness: 0.55 });
+  litAdd(new THREE.Mesh(litGeoDone(posts), pm), false);
+}
+/* Everything past the fence. Built with the same geometry helpers as the
+   site, then each vertex is given its colour times a simple sky-and-sun
+   shading, so the material can be unlit (MeshBasic, with fog). Points and
+   lines for the bits too thin for triangles. */
+function litFarWorld(map){
+  const A = map.arena, rnd = litRand(2111), g = litGeo(), col = [];
+  const sun = new THREE.Vector3().fromArray(EDGE.sun).normalize();
+  const paint = (from, c) => {                    // shade the vertices added since `from`
+    for (let i = from; i < g.p.length / 3; i++){
+      const nx = g.n[i*3], ny = g.n[i*3+1], nz = g.n[i*3+2];
+      const k = 0.50 + 0.30 * Math.max(0, ny) + 0.32 * Math.max(0, nx*sun.x + ny*sun.y + nz*sun.z);
+      col.push(c[0] * k, c[1] * k, c[2] * k);
+    }
+  };
+  const hex = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
+  const box = (x0, y0, z0, x1, y1, z1, c) => { const m = g.p.length / 3; litBox(g, x0, y0, z0, x1, y1, z1, { seg: 1e9, tile: 1e9 }); paint(m, c); };
+  const cyl = (x, z, y0, y1, r0, r1, sides, c, cap) => { const m = g.p.length / 3; litCyl(g, x, y0, z, x, y1, z, r0, r1, sides, 1e9, false, cap); paint(m, c); };
+  const rod = (a, b, r, c) => { const m = g.p.length / 3; litCyl(g, a[0], a[1], a[2], b[0], b[1], b[2], r, r, 4, 1e9, false, false); paint(m, c); };
+  const polar = (r, az) => [Math.sin(az) * r, Math.cos(az) * r];
+  const lines = [], beacons = [];
+
+  /* The ground out to the haze: fields in strips, a little darker under
+     the tree belts. A ring of quads from just outside the wall. */
+  { const m = g.p.length / 3, R0 = A + 0.5, R1 = 470, NA = 96, NR = 10;
+    for (let j = 0; j <= NR; j++) for (let i = 0; i <= NA; i++){
+      const r = R0 + (R1 - R0) * Math.pow(j / NR, 1.6), a = i / NA * Math.PI * 2;
+      /* the square site inside a round ring: clamp the inner edge to the wall */
+      let x = Math.sin(a) * r, z = Math.cos(a) * r;
+      if (j === 0){ const s = R0 / Math.max(Math.abs(x), Math.abs(z)); x *= s; z *= s; }
+      g.p.push(x, -0.03, z); g.n.push(0, 1, 0); g.uv.push(0, 0);
+      const field = Math.floor((a * 7 + r * 0.013) * 1.3) % 3;
+      const c = field === 0 ? hex(0x4a5240) : field === 1 ? hex(0x5b5c47) : hex(0x434b3c);
+      col.push(c[0] * 0.95, c[1] * 0.95, c[2] * 0.95);
+    }
+    for (let j = 0; j < NR; j++) for (let i = 0; i < NA; i++){
+      const q = m + j * (NA + 1) + i;
+      g.i.push(q, q + NA + 1, q + 1,  q + 1, q + NA + 1, q + NA + 2);
+    }
+  }
+  /* Tree belts: field boundaries of mixed broadleaf (squat cones, wide) and
+     conifer (tall, thin), broken into stretches so the line is ragged. */
+  /* A broadleaf crown is a cluster of puffs (two cones base to base), so
+     its outline is lumpy the way a tree's is; a conifer is two tiers of
+     cone. Belts are broken into stretches so the line is ragged. */
+  const puff = (x, y, z, r, hh, c) => { cyl(x, z, y - hh, y, r * 0.35, r, 6, c, false); cyl(x, z, y, y + hh, r, r * 0.3, 6, c, false); };
+  const trees = (r, az0, az1, n) => {
+    for (let i = 0; i < n; i++){
+      const az = az0 + (az1 - az0) * (i + rnd() * 0.6) / n, rr = r + (rnd() - 0.5) * 14, [x, z] = polar(rr, az);
+      const conifer = rnd() < 0.18, h = conifer ? 13 + rnd() * 9 : 9 + rnd() * 8;
+      cyl(x, z, 0, h * 0.4, 0.35, 0.25, 4, hex(0x2b2620), false);       // trunk
+      if (conifer){
+        const c = hex(0x262f22);
+        /* tiers of drooping boughs, each narrower, so the outline steps
+           in the way a spruce's does instead of running straight as a cone */
+        const r0 = 2.6 + rnd() * 0.8;
+        for (let k = 0; k < 4; k++){ const y0 = h * (0.14 + k * 0.2), r = r0 * (1 - k * 0.22);
+          cyl(x, z, y0, y0 + h * 0.3, r, r * 0.25, 7, c, false); }
+      } else {
+        const c = rnd() < 0.5 ? hex(0x363f2c) : hex(0x414830), w = 3.2 + rnd() * 2.6;
+        for (let k = 0; k < 4; k++)
+          puff(x + (rnd() - 0.5) * w, h * (0.55 + rnd() * 0.3), z + (rnd() - 0.5) * w, w * (0.6 + rnd() * 0.4), h * (0.16 + rnd() * 0.1), c);
+      }
+    }
+  };
+  for (const [r, a0, a1, n] of [[205, 0.10, 1.25, 74], [212, 1.55, 2.6, 64], [200, 2.95, 4.0, 66], [216, 4.3, 5.2, 56], [208, 5.45, 6.2, 50],
+                                [270, 0.4, 1.9, 60], [280, 3.3, 4.6, 56], [292, 5.0, 6.0, 36]]) trees(r, a0, a1, n);
+
+  /* The station's own power lines, leaving on lattice pylons. Each pylon:
+     four legs drawn in to a waist, a mast, three cross-arms, bracing;
+     conductors swing in a catenary between the arm tips. Three corridors,
+     leaving the site where its transformers are. */
+  const steel = hex(0x777d82);
+  const pylon = (x, z, az) => {
+    const ca = Math.cos(az), sa = Math.sin(az);                         // arms run ACROSS the line
+    const P = (u, y, v) => [x + u * ca + v * sa, y, z - u * sa + v * ca];
+    const base = 4.2, waist = 1.3, wy = 27, top = 41;
+    for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]){
+      rod(P(su * base, 0, sv * base), P(su * waist, wy, sv * waist), 0.22, steel);
+      rod(P(su * waist, wy, sv * waist), P(su * 0.6, top, sv * 0.6), 0.16, steel);
+    }
+    for (const [y, lu, lv] of [[9, 3.3, 3.3], [18, 2.3, 2.3]])             // a couple of bracing rings
+      for (const [a, b] of [[[-1, -1], [1, -1]], [[1, -1], [1, 1]], [[1, 1], [-1, 1]], [[-1, 1], [-1, -1]]])
+        rod(P(a[0] * lu, y, a[1] * lv), P(b[0] * lu, y, b[1] * lv), 0.1, steel);
+    const tips = [];
+    for (const [y, w] of [[26, 7.5], [32, 6.2], [38, 5.0]]){
+      rod(P(-w, y, 0), P(w, y, 0), 0.18, steel);
+      rod(P(-w, y, 0), P(0, y + 2.2, 0), 0.08, steel); rod(P(w, y, 0), P(0, y + 2.2, 0), 0.08, steel);
+      tips.push(P(-w, y - 2.2, 0), P(w, y - 2.2, 0));                   // insulator strings hang 2.2m
+    }
+    tips.push(P(0, top + 0.5, 0));                                      // the earth wire
+    return tips;
+  };
+  const corridor = (az, r0, r1, step) => {
+    let prev = null;
+    for (let r = r0; r <= r1; r += step){
+      const [x, z] = polar(r, az + (rnd() - 0.5) * 0.01), tips = pylon(x, z, az);
+      if (prev) for (let k = 0; k < tips.length; k++){                // catenary, 8 pieces a span
+        const a = prev[k], b = tips[k], sag = Math.hypot(b[0] - a[0], b[2] - a[2]) * 0.035;
+        for (let s = 0; s < 8; s++){
+          const t0 = s / 8, t1 = (s + 1) / 8, y = (t) => a[1] + (b[1] - a[1]) * t - sag * 4 * t * (1 - t);
+          lines.push(a[0] + (b[0] - a[0]) * t0, y(t0), a[2] + (b[2] - a[2]) * t0, a[0] + (b[0] - a[0]) * t1, y(t1), a[2] + (b[2] - a[2]) * t1);
+        }
+      }
+      prev = tips;
+    }
+  };
+  corridor(0.55, 140, 430, 62); corridor(2.45, 138, 430, 66); corridor(4.95, 142, 430, 60);
+
+  /* A town to the north-east: terraces and low blocks, a church spire,
+     two towers. Pale render, dark roofs. */
+  for (let i = 0; i < 90; i++){
+    const az = 0.95 + rnd() * 1.05, r = 300 + rnd() * 110, [x, z] = polar(r, az);
+    const w = 8 + rnd() * 18, d = 8 + rnd() * 14, h = 6 + Math.pow(rnd(), 2.2) * 26;
+    const c = rnd() < 0.6 ? hex(0x8e8a82) : (rnd() < 0.5 ? hex(0x6f6a62) : hex(0x7d8288));
+    box(x - w / 2, 0, z - d / 2, x + w / 2, h, z + d / 2, c);
+    if (h < 14) box(x - w / 2 - 0.3, h, z - d * 0.25, x + w / 2 + 0.3, h + 2.6, z + d * 0.25, hex(0x3b3a38));   // a ridged roof's bulk
+  }
+  for (const [r, az, h] of [[340, 1.35, 58], [372, 1.62, 72]]){
+    const [x, z] = polar(r, az); box(x - 9, 0, z - 9, x + 9, h, z + 9, hex(0x7a7f85));
+    beacons.push([x, h + 1.2, z]);
+  }
+  { const [x, z] = polar(318, 1.18); box(x - 4, 0, z - 9, x + 4, 14, z + 9, hex(0x8a857c)); box(x - 2.5, 0, z + 9, x + 2.5, 24, z + 14, hex(0x8a857c));
+    cyl(x, z + 11.5, 24, 40, 2.6, 0.1, 4, hex(0x55524d), false); }            // the church and its spire
+
+  /* The neighbouring works to the north-west: two banded chimneys, a
+     boiler house, a gas holder and tanks. */
+  { const [cx, cz] = polar(330, 5.55);
+    box(cx - 30, 0, cz - 18, cx + 30, 34, cz + 18, hex(0x6c7177));
+    box(cx - 30, 34, cz - 18, cx + 30, 37, cz + 18, hex(0x4c5055));
+    for (const [dx, dz, h] of [[-12, 30, 120], [14, 32, 104]]){
+      cyl(cx + dx, cz + dz, 0, h, 4.6, 3.0, 14, hex(0xa9aaa6), true);
+      for (const f of [0.82, 0.92]) cyl(cx + dx, cz + dz, h * f, h * f + h * 0.05, 3.0 + 1.6 * (1 - f) + 0.08, 3.0 + 1.6 * (1 - f - 0.05) + 0.08, 14, hex(0x8a2b20), false);
+      beacons.push([cx + dx, h + 1.5, cz + dz], [cx + dx, h * 0.55, cz + dz]);
+    }
+    const [gx, gz] = polar(285, 5.25);
+    cyl(gx, gz, 0, 30, 21, 21, 20, hex(0x5d6a64), true);
+    for (let k = 0; k < 4; k++){ const [tx, tz] = polar(300, 5.9 + k * 0.05); cyl(tx, tz, 0, 14, 8, 8, 14, hex(0x9a9d9c), true); }
+  }
+  /* And a second station far off to the south, its cooling towers just
+     shapes in the haze - an echo of the one you are standing in. */
+  for (const [r, az] of [[400, 3.55], [415, 3.68]]){
+    const [x, z] = polar(r, az), prof = [[0, 34], [30, 25], [60, 20], [82, 21.5], [95, 23.5]];
+    for (let k = 0; k < prof.length - 1; k++) cyl(x, z, prof[k][0], prof[k + 1][0], prof[k][1], prof[k + 1][1], 18, hex(0x9da3a6), false);
+  }
+  /* Hills, last and furthest: a ragged ring that the haze nearly takes. */
+  { const m = g.p.length / 3, N = 120, R = 455;
+    for (let i = 0; i <= N; i++){
+      const a = i / N * Math.PI * 2, h = 16 + 22 * (0.5 + 0.5 * Math.sin(a * 3 + 1.3)) * (0.6 + 0.4 * Math.sin(a * 7.7)) + rnd() * 4;
+      g.p.push(Math.sin(a) * R, -1, Math.cos(a) * R, Math.sin(a) * R, h, Math.cos(a) * R);
+      g.n.push(-Math.sin(a), 0.3, -Math.cos(a), -Math.sin(a), 0.6, -Math.cos(a)); g.uv.push(0, 0, 0, 0);
+      const c = hex(0x56604f); col.push(c[0], c[1], c[2], c[0] * 1.05, c[1] * 1.05, c[2] * 1.05);
+    }
+    for (let i = 0; i < N; i++){ const q = m + i * 2; g.i.push(q, q + 1, q + 2,  q + 1, q + 3, q + 2); }
+  }
+
+  const geo = litGeoDone(g);
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, fog: true, side: THREE.DoubleSide }));
+  mesh.frustumCulled = false; litAdd(mesh, false); mesh.receiveShadow = false;
+  const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
+  const wires = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x2a2e33, fog: true, transparent: true, opacity: 0.75 }));
+  wires.frustumCulled = false; litAdd(wires, false);
+  /* Aviation lights: red, slow, and seen through the haze, which is what
+     they are for - so not fogged, but sized by distance like any point. */
+  const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.Float32BufferAttribute(beacons.flat(), 3));
+  EDGE_BEACON = new THREE.Points(bg, new THREE.PointsMaterial({ color: 0xff2a1a, size: 3.2, sizeAttenuation: true, fog: false, transparent: true, depthWrite: false }));
+  EDGE_BEACON.frustumCulled = false; litAdd(EDGE_BEACON, false);
+}
+let EDGE_BEACON = null;
+
 /* The site boundary: an embankment of trees, which is what is actually round
    a station of this kind and is the one honest way to make a 10m wall nobody
    questions. Drawn as a silhouette band rather than trees — at the distance
@@ -1274,17 +1584,17 @@ function litGroundTexture(map){
     for (const q of of('grass')){
       const r = litGroundRect(q), x0 = X(r[0]), z0 = Z(r[1]), w = (r[2] - r[0]) * k, d = (r[3] - r[1]) * k;
       g.save(); g.beginPath(); g.rect(x0, z0, w, d); g.clip();
-      g.fillStyle = '#6c8743'; g.fillRect(x0, z0, w, d);
+      g.fillStyle = '#56603f'; g.fillRect(x0, z0, w, d);             // a worn verge under a grey sky, not a lawn
       const n = Math.ceil(w * d / 900);
       for (let i = 0; i < n; i++){
         const x = x0 + rnd() * w, z = z0 + rnd() * d, rr = 6 + rnd() * 28, t = rnd();
-        const col = t < 0.45 ? 'rgba(78,104,48,' : t < 0.8 ? 'rgba(128,154,76,' : 'rgba(166,160,104,';
+        const col = t < 0.45 ? 'rgba(66,78,46,' : t < 0.8 ? 'rgba(100,110,70,' : 'rgba(132,124,92,';
         const gr = g.createRadialGradient(x, z, 0, x, z, rr);
         gr.addColorStop(0, col + (0.25 + rnd() * 0.3).toFixed(2) + ')'); gr.addColorStop(1, col + '0)');
         g.fillStyle = gr; g.fillRect(x - rr, z - rr, rr * 2, rr * 2);
       }
       for (let i = 0, m = Math.ceil(w * d / 6); i < m; i++){
-        g.fillStyle = rnd() < 0.5 ? 'rgba(52,72,34,0.35)' : 'rgba(150,178,92,0.30)';
+        g.fillStyle = rnd() < 0.5 ? 'rgba(46,56,34,0.35)' : 'rgba(118,128,88,0.30)';
         g.fillRect(x0 + rnd() * w, z0 + rnd() * d, 1, 1);
       }
       g.restore();
@@ -1708,7 +2018,12 @@ function litMaterial(name){
     /* The sky. Painted, not lit: a vertical gradient from a pale hazy
        horizon to a deeper blue overhead, with the horizon band matching the
        fog colour so the two meet without a seam. */
-    case 'skydome': m = new THREE.MeshBasicMaterial({ map: litSkyTexture(), side: THREE.BackSide, fog: false, depthWrite: false }); break;
+    /* x1.8 (2026-11-21): the fog's colour is a hex three r128 takes as
+       LINEAR, the sky's is an sRGB texture it decodes, so the same stop in
+       both came out 0.34 in the sky and 0.62 in the haze - a dark sky with
+       a pale band where the far world met it. At 1.8 the two agree, and the
+       far world fades INTO the sky. */
+    case 'skydome': m = new THREE.MeshBasicMaterial({ map: litSkyTexture(), side: THREE.BackSide, fog: false, depthWrite: false }); m.color.setScalar(1.8); break;
     /* Not 'wall': that kind strips 78% of the colour and adds the hall's
        crimson strip, which drew the site boundary as a black band with a red
        line round it. */
@@ -2753,7 +3068,7 @@ function litUniformsFor(map){
   LITU.uLitLampHalf.value.set(L.w / 2, L.d / 2);
   /* A taller hall has more panels in reach of every point, so the same unit
      of light adds up to more. `gain` in the map trims it back. */
-  LITU.uLitGain.value = LIT.gain * (map.gain || 1);
+  LITU.uLitGain.value = LIT.gain * (map.gain || 1) * (map.sky ? LIT.skyGain : 1);
   LITU.uLitMarks.value = litMarksTexture(map);
   LITU.uLitGround.value = litGroundTexture(map);
   LITU.uLitTex.value = LIT_BLANK;                      // until this map's bake lands
@@ -2771,7 +3086,10 @@ function litBuildArena(map, flatFloor, flatRoof){
   for (const t of [flatFloor.map, flatFloor.normalMap, flatFloor.roughnessMap]) if (t) t.anisotropy = aniso;
 
   const sky = !!map.sky;
-  const fm = litPatch(litShare(flatFloor, { roughness: 0.66, metalness: 0, color: 0xd6d9dc }), 'floor', 1);
+  /* Outdoors the slab is weathered concrete under a grey sky, a step darker
+     than the hall's painted floor; brighter than the sky, nothing reads as
+     overcast (2026-11-21). */
+  const fm = litPatch(litShare(flatFloor, { roughness: 0.66, metalness: 0, color: sky ? 0xa9adb0 : 0xd6d9dc }), 'floor', 1);
   const fl = new THREE.Mesh(new THREE.PlaneGeometry(a * 2, a * 2), fm);
   fl.rotation.x = -Math.PI / 2; fl.userData.ownMaterial = true; litAdd(fl, false);
 
@@ -2782,7 +3100,10 @@ function litBuildArena(map, flatFloor, flatRoof){
   litGrid(g,  D, 0,  D, -1,0,0,  0,1,0, 2*D, H,  0,0,-1, LIT.wallSegU, LIT.wallSegV, 2*D, H);
   litGrid(g, -D, 0,  D,  0,0,-1, 0,1,0, 2*D, H,  1,0,0,  LIT.wallSegU, LIT.wallSegV, 2*D, H);
   litGrid(g,  D, 0, -D,  0,0,1,  0,1,0, 2*D, H, -1,0,0,  LIT.wallSegU, LIT.wallSegV, 2*D, H);
-  litAdd(new THREE.Mesh(litGeoDone(g), litMaterial(sky ? 'treeline' : 'wall')), true);
+  /* Outdoors the edge is a site boundary with the world past it (THE EDGE
+     OF THE WORLD, above); indoors it is the hall's own wall. */
+  if (sky){ litBoundary(D); litFarWorld(map); }
+  else litAdd(new THREE.Mesh(litGeoDone(g), litMaterial('wall')), true);
 
   if (!sky){
     g = litGeo();                                                       // roof
@@ -2901,8 +3222,38 @@ function litApplyLook(on){
    At the MENU none of this applies: the operator on the podium was lit and
    graded with the old figures, so those come back whenever the studio does.
    Called on a look change and again on walking in or out of the arena. */
+/* What metal reflects outdoors. The environment was always the hall's
+   ROOM (core.js) - right inside, and right for the menu's studio - but
+   under an open sky a rifle, a helmet, a steel rail all held a warm-lit
+   ceiling that is not there. This is the overcast instead: bright
+   overhead, grey at the horizon, the warm break where the sun is, a dull
+   ground below. Saltline's gun looks like metal mostly because of what it
+   reflects; this is the same idea for this sky. Made once. */
+let LIT_SKY_ENV = null;
+function litSkyEnv(){
+  if (LIT_SKY_ENV) return LIT_SKY_ENV.texture;
+  const env = new THREE.Scene(), geo = new THREE.SphereGeometry(10, 32, 16), col = [];
+  const sun = new THREE.Vector3().fromArray(EDGE.sun).normalize(), v = new THREE.Vector3();
+  const P = geo.attributes.position;
+  for (let i = 0; i < P.count; i++){
+    v.fromBufferAttribute(P, i).normalize();
+    let c = v.y > 0 ? [0.55 + 0.45 * v.y, 0.58 + 0.44 * v.y, 0.60 + 0.42 * v.y] : [0.20, 0.21, 0.20];
+    const s = Math.pow(Math.max(0, v.dot(sun)), 8) * 0.9;
+    c = [c[0] + s, c[1] + s * 0.82, c[2] + s * 0.6];
+    col.push(c[0], c[1], c[2]);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  env.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+  const pm = new THREE.PMREMGenerator(renderer);
+  LIT_SKY_ENV = pm.fromScene(env, 0.04); pm.dispose(); geo.dispose();
+  return LIT_SKY_ENV.texture;
+}
 function litLights(){
   const on = !!SETTINGS.look, play = on && LIT_OK && !menuBackdropOn;
+  {
+    const outside = !!(currentMap && currentMap.sky && !menuBackdropOn);
+    if (on) scene.environment = (outside && play) ? litSkyEnv() : environmentTexture();
+  }
   hemi.intensity = play ? LIT.dynFill : (on ? LOOK.hemi : LOOK.flatHemi);
   sun.intensity  = play ? LIT.dynKey  : (on ? LOOK.sun  : LOOK.flatSun);
   hemi.groundColor.setHex(play ? 0x3b3e44 : 0x1b1e24);
@@ -2919,7 +3270,8 @@ function litLights(){
   if (on) renderer.toneMappingExposure = (out && play) ? LIT.skyExposure : LOOK.exposure;
   if (typeof gradePass !== 'undefined' && gradePass){
     gradePass.uniforms.uWarm.value = (out && play) ? LIT.skyWarm : 1.0;
-    gradePass.uniforms.uSat.value  = (out && play) ? LIT.skySat  : 1.12; }
+    gradePass.uniforms.uSat.value  = (out && play) ? LIT.skySat  : 1.12;
+    gradePass.uniforms.uContrast.value = (out && play) ? LIT.skyContrast : 0.26; }
   /* The outline light on players (models.js): on in the arena only. */
   if (typeof RIMU !== 'undefined'){ if (play) RIMU.uRim.value.fromArray(LIT.rim); else RIMU.uRim.value.set(0, 0, 0); }
 }
@@ -2927,7 +3279,13 @@ function litLights(){
    figure throws a shadow that reaches most of a metre past their feet,
    which is enough to see one coming round a corner before its owner does.
    Dead overhead, the shadow hides under the body that casts it. */
-const _litDir = new THREE.Vector3(20, 55, 13).normalize();
+/* 2026-11-21: and outdoors, low. The sky now has a sun in it (a warm break
+   low in the south-west, EDGE.sun), and a key from straight overhead under
+   it read as two different days. At 25 degrees up a figure's shadow runs
+   four metres across the ground toward you - more warning round a corner,
+   not less. Indoors nothing changes: the hall's panels are baked, and
+   this light only ever reaches what moves. */
+const _litDir = (typeof EDGE !== 'undefined' ? new THREE.Vector3().fromArray(EDGE.sun) : new THREE.Vector3(20, 55, 13)).normalize();
 const _litRgt = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), _litDir).normalize();
 const _litUp  = new THREE.Vector3().crossVectors(_litDir, _litRgt).normalize();
 const _litF   = new THREE.Vector3();
@@ -3039,6 +3397,8 @@ let LIT_DOME = null;
 function litFrame(){
   STEAMU.uTime.value = performance.now() / 1000;
   if (LIT_DOME && LIT_DOME.parent) LIT_DOME.position.copy(camera.position);
+  /* Aviation lights on the far chimneys and towers: a slow red flash. */
+  if (EDGE_BEACON) EDGE_BEACON.material.opacity = (STEAMU.uTime.value % 1.6) < 0.8 ? 1 : 0.12;
   if (!SETTINGS.look || !LIT_OK || menuBackdropOn) return;
   const texel = LIT.shadowHalf * 2 / ((SETTINGS.shadows | 0) || 1024);
   _litF.set(camera.position.x, 0, camera.position.z);

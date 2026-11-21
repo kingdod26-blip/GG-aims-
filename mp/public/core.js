@@ -210,6 +210,11 @@ const GradeShader = {
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
     float luma(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
+    /* Grain wants a hash with no structure in it. The sine one above, fed
+       the screen UV, draws a faint regular lattice - invisible over the old
+       blue sky, plain as a net over a smooth grey overcast (2026-11-21).
+       This one is arithmetic only (Hoskins' hash12), on whole pixels. */
+    float hashG(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
     vec3 smoothEdges(){
       vec3 m  = texture2D(tDiffuse, vUv).rgb;
       float lNW = luma(texture2D(tDiffuse, vUv + vec2(-1.0, -1.0) * uPx).rgb);
@@ -242,7 +247,7 @@ const GradeShader = {
       c = mix(vec3(l), c, uSat);
       vec2 q = vUv - 0.5;
       c *= clamp(1.0 - uVig * dot(q, q) * 1.5, 0.0, 1.0);
-      float n = hash(vUv * vec2(1.0, 1.31) + fract(uTime));
+      float n = hashG(gl_FragCoord.xy + floor(fract(uTime * 7.13) * 64.0) * vec2(37.0, 91.0));
       c += (n - 0.5) * uGrain * (0.3 + 0.7 * (1.0 - l));
       c += (hash(gl_FragCoord.xy) - 0.5) / 255.0;          // dither the gradients
       gl_FragColor = vec4(max(c, 0.0), 1.0);

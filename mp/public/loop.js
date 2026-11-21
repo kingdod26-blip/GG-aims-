@@ -21,6 +21,8 @@ let stepDist=0, stepLeft=false;    // footstep pacing (distance-based)
    hitting a wall; just one you can count on. */
 const COAST_RATE = 28, STOP_SNAP = 0.2;
 const AIM_GAP = 0;                 // metres the gun's top sits below the eye line at full ADS: none, the tip meets the dot
+/* Where a gun rests at the hip unless its weapon says otherwise (`vm`). */
+const VM_POSE = { x:0.3, y:-0.225, z:-0.55, adsZ:0.12, rx:0, ry:0, rz:0, viewFov:0 };
 const REMOTE_STRIDE = 2.3;         // metres between another player's audible footsteps
 /* ---- Climb ----
    Press jump facing a ledge between CLIMB.minRise and CLIMB.maxRise above
@@ -481,15 +483,28 @@ function loop(){ requestAnimationFrame(loop);
     const w = curW();
     const adsX = w.redDot ? -0.02 : 0;                       // the model sits 0.02 right of the holder
     const adsY = w.redDot ? -((w.aimTop !== undefined ? w.aimTop : 0.06) + AIM_GAP) : -0.21;
-    const bx = 0.3 + (adsX - 0.3)*ads, by = -0.225 + (adsY + 0.225)*ads, bz = -0.55 + 0.12*ads;
+    /* A weapon may carry its own pose (`vm`): where it rests at the hip, how
+       far it comes toward the eye when aimed, a small resting cant, and the
+       lens it is drawn through. Only the PAC-9 has one (drawn.js); every
+       other gun keeps the numbers it always had. */
+    const V = w.vm || VM_POSE;
+    const bx = V.x + (adsX - V.x)*ads, by = V.y + (adsY - V.y)*ads, bz = V.z + V.adsZ*ads;
     // tuck the weapon down and in while rolling — you don't run a somersault
     // with the gun still levelled at the horizon
     const tuck = ROLL.tuck*rollPunch;
     // recoil is gentler at full ADS, so the gun does not leap across the view every shot
     gun.position.set(bx+rWob+sx - sw*0.26, by-rDip+sy + Math.abs(sw)*0.10 - tuck, bz+gunKick*(0.1-0.06*ads) - Math.abs(sw)*0.14 + tuck*0.5);
-    gun.rotation.set(gunKick*0.4*(1-ads*0.85) - rRot*0.85 - 0.18*sp - Math.abs(sw)*0.5,
-                     rRot*0.3 + sw*0.9,
-                     rRot*0.5 + sr + sw*1.1);
+    gun.rotation.set(gunKick*0.4*(1-ads*0.85) - rRot*0.85 - 0.18*sp - Math.abs(sw)*0.5 + V.rx*(1-ads),
+                     rRot*0.3 + sw*0.9 + V.ry*(1-ads),
+                     rRot*0.5 + sr + sw*1.1 + V.rz*(1-ads));
+    /* The viewmodel's own lens. Drawing the gun as if through a narrower
+       camera is the same as scaling its view-space x and y by the ratio of
+       the two lenses' half-widths: the camera is at the origin of view
+       space, so this moves every point of the gun along its own line of
+       sight. Aim lines stay on the centre of the screen, which is x = y = 0. */
+    const vk = V.viewFov ? Math.tan(camera.fov*Math.PI/360) / Math.tan(V.viewFov*Math.PI/360) : 1;
+    gun.position.x *= vk; gun.position.y *= vk;
+    gun.scale.set(vk, vk, 1);
   } else {
     // menu: spatial showcase — the 3D camera parallaxes with the mouse to match
     // the CSS glass layers, and the operator can be dragged to inspect.

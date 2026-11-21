@@ -215,6 +215,247 @@ function mountGun(slot, built){
   WEAPONS[slot].aimTop = centrelineTop(built.g.parent, 0.03);
 }
 [drawRifle(), drawSniper(), drawShotgun(), drawPistol(false), drawPistol(true)].forEach((b, i) => mountGun(i, b));
+/* ---- THE PAC-9 (2026-11-21) ----
+   Jack: "use that gun to replace the rifle". The rifle is now the PAC-9
+   "Longshore" carbine from Saltline (Mini games/SALETINE), the browser FPS
+   Claude Fable 5.2 built in one run for Felix Rieseberg (Anthropic). All
+   credit for its design is that game's. Saltline builds it in code at
+   start-up from about a thousand lines of hand-placed parts; what is here
+   is that model's finished geometry, read out of the running game once and
+   packed into assets/pac9.bin (~1MB, ~550KB gzipped): the receiver,
+   handguard, holographic sight, a tan magazine with brass in it, the
+   markings, and the two gloved hands posed on it.
+
+   The file holds one mesh per finish. The finish is what makes it look
+   real, so it is ported as it was: each is a dark base colour times a
+   per-vertex tint (part colour plus a little noise), then a small shader
+   that varies the roughness in object space - scuffs and smudges on the
+   anodised aluminium, machining rings on the phosphated steel, stipple on
+   the polymer - and bumps the normal by the same height, so a highlight
+   breaks up as it slides along the gun the way it does on a real one.
+
+   Until the file lands, slot 0 keeps the drawn rifle above, so the game
+   never shows an empty hand. */
+const PAC9 = { url: 'assets/pac9.bin', sightY: 0.069, muzzle: -0.531,
+  /* Where the model sits in the rig: its bore on the gun's own axis and its
+     muzzle at (0, 0, -0.55) in gun space, which is where the tracers leave
+     from (muzzleWorld, effects.js) - so they still leave the barrel. */
+  at: [0, 0.03, -0.069],
+  /* Saltline draws its gun through a second camera at 54 degrees while the
+     world uses 74, which is why the gun is large in the frame without the
+     wide-angle stretch a gun close to an 80 degree lens gets. The same
+     picture comes from one camera by scaling the gun's view-space x and y
+     by tan(fov/2) / tan(viewFov/2) - see the viewmodel pose in loop.js. */
+  vm: { x: 0.098, y: -0.122, z: -0.256, adsZ: 0.14, rx: 0.034, ry: 0.085, rz: -0.03, viewFov: 54 },
+  /* The left hand's trip to the magazine, from where it holds the handguard
+     to where it grips the magazine (Saltline's own two poses). */
+  magTrip: [0.0015, -0.088, 0.1615] };
+
+const PAC9_DETAIL_PARS = `
+varying vec3 vObjP; varying vec3 vWNrm; varying vec3 vONrm; uniform float uKind;
+float dh3(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float dn3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(dh3(i), dh3(i + vec3(1,0,0)), f.x), mix(dh3(i + vec3(0,1,0)), dh3(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(dh3(i + vec3(0,0,1)), dh3(i + vec3(1,0,1)), f.x), mix(dh3(i + vec3(0,1,1)), dh3(i + vec3(1,1,1)), f.x), f.y), f.z); }
+vec3 dBump(vec3 N, float h){ vec3 dpdx = dFdx(-vViewPosition), dpdy = dFdy(-vViewPosition); float dhx = dFdx(h), dhy = dFdy(h);
+  vec3 r1 = cross(dpdy, N), r2 = cross(N, dpdx); float det = dot(dpdx, r1); vec3 g = sign(det) * (dhx * r1 + dhy * r2);
+  return normalize(abs(det) * N - g); }
+`;
+const PAC9_DETAIL_ROUGH = `
+vec3 dP = vObjP;
+float dSm = dn3(dP * 36.0), dSm2 = dn3(dP * 150.0 + 7.0), dFine = dn3(dP * 2400.0);
+float dHt = 0.0, dR = 0.0;
+if (uKind < 0.5) {                       // anodised aluminium: scuffs and smudges
+  float scuff = smoothstep(0.70, 0.9, dn3(dP * vec3(420.0, 420.0, 26.0) + 3.0));
+  float smudge = smoothstep(0.55, 0.8, dn3(dP * 55.0 + 11.0));
+  dR = (dSm - 0.5) * 0.20 + (dSm2 - 0.5) * 0.10 + (dFine - 0.5) * 0.08 + scuff * 0.18 - smudge * 0.12;
+  dHt = dFine * 0.000010 - scuff * 0.000015;
+} else if (uKind < 1.5) {                // phosphated steel: turned rings and streaks along the bore
+  float ring = sin(dP.z * 5200.0) * 0.5 + 0.5, streak = dn3(vec3(dP.z * 950.0, 1.0, 2.0));
+  dR = (streak - 0.5) * 0.26 + (dSm - 0.5) * 0.14 + (dFine - 0.5) * 0.10;
+  dHt = ring * 0.000014 + dFine * 0.000010;
+} else {                                 // polymer and fabric: stipple
+  float st = dn3(dP * 1500.0) * 0.6 + dn3(dP * 3100.0 + 5.0) * 0.4;
+  dR = (dSm - 0.5) * 0.18 + (st - 0.5) * 0.14 - smoothstep(0.6, 0.85, dSm2) * 0.10;
+  dHt = st * 0.000075;
+}
+roughnessFactor = clamp(roughnessFactor + dR, 0.10, 1.0);
+`;
+function pac9Detail(m, kind){
+  m.extensions = { derivatives: true };            // dFdx under WebGL1; WebGL2 has it anyway
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uKind = { value: kind };
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vObjP; varying vec3 vWNrm; varying vec3 vONrm;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObjP = position; vONrm = normal; vWNrm = normalize(mat3(modelMatrix) * normal);');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\n' + PAC9_DETAIL_PARS)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n' + PAC9_DETAIL_ROUGH)
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = dBump(normal, dHt);');
+  };
+  m.customProgramCacheKey = () => 'pac9-detail-' + kind;
+  return m;
+}
+/* Colours are LINEAR, as Saltline gives them: three r128 takes a number
+   straight as linear, so these go in with setRGB, not as hex. */
+function pac9Mats(){
+  const std = (name, rgb, roughness, metalness, kind, envK) => {
+    const m = new THREE.MeshStandardMaterial({ roughness, metalness, vertexColors: true });
+    m.color.setRGB(rgb[0], rgb[1], rgb[2]); m.name = name; m.userData.envK = envK;
+    if (kind != null) pac9Detail(m, kind);
+    return lookTag(m, { metalness, roughness }, { metalness: 0, roughness });
+  };
+  return {
+    pac9_anodised:    std('pac9_anodised',    [0.0085, 0.009, 0.0105], 0.40, 0.45, 0, 1.0),
+    pac9_phosphate:   std('pac9_phosphate',   [0.016, 0.016, 0.0165],  0.50, 0.70, 1, 1.0),
+    pac9_polymer:     std('pac9_polymer',     [0.0125, 0.0128, 0.0135], 0.62, 0, 2, 0.8),
+    pac9_polymer_tan: std('pac9_polymer_tan', [0.105, 0.08, 0.05],     0.62, 0, 2, 0.8),
+    pac9_matte:       std('pac9_matte',       [1, 1, 1],               0.92, 0, null, 0.6),
+    /* These two were textured on the GPU in Saltline and cannot be read
+       back, so they are plain: woven fabric is rough and dark, brass is
+       brass. The glove's own vertex tint still carries its panels. */
+    /* The glove's tint is its real palette - tan leather palms, blue-grey
+       fabric - and in Saltline it is multiplied by a woven texture as
+       well; 0.4 of the base stands in for that texture's average. */
+    glove_fabric:     std('glove_fabric',     [0.0067, 0.0074, 0.0093], 0.95, 0, 2, 0.7),
+    brass:            std('brass',            [0.539, 0.323, 0.0595],  0.32, 1.0, 1, 1.0),
+  };
+}
+/* The sight's glass: a coated window that reflects the sky, and the
+   holographic reticle - a 65 MOA ring with four ticks - projected along the
+   bore, so it stays on the target as your eye moves behind the glass, which
+   is the point of a holographic sight. Saltline's shader, with one change:
+   no centre dot. The game's own red dot (weapons.js) is fixed to the camera
+   because that is where the shot goes, so it sits inside this ring. */
+const PAC9_LENS = {
+  /* The sky the glass reflects: this game's (litSkyTexture, linear), not
+     Saltline's - zenith, horizon, and the sun where the sky's break is. */
+  uniforms: { uBright: { value: 7 }, uSun: { value: new THREE.Vector3().fromArray(EDGE.sun).normalize() },
+              uSunCol: { value: new THREE.Vector3(1, 0.78, 0.55) }, uZen: { value: new THREE.Vector3(0.55, 0.58, 0.60) },
+              uHor: { value: new THREE.Vector3(0.34, 0.37, 0.39) }, uTilt: { value: 0.1 } },
+  vertexShader: `
+    varying vec3 vView, vFwd, vRight, vUp, vWPos, vWN; varying vec2 vUv;
+    uniform float uTilt;
+    void main(){
+      vUv = uv;
+      vec4 mv = modelViewMatrix * vec4(position, 1.0); vView = mv.xyz;
+      vFwd = (modelViewMatrix * vec4(0.0, 0.0, -1.0, 0.0)).xyz; vRight = (modelViewMatrix * vec4(1.0, 0.0, 0.0, 0.0)).xyz; vUp = (modelViewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz;
+      vWPos = (modelMatrix * vec4(position, 1.0)).xyz;
+      vWN = normalize(mat3(modelMatrix) * normalize(vec3(0.0, -uTilt, 1.0)));
+      gl_Position = projectionMatrix * mv;
+    }`,
+  fragmentShader: `
+    varying vec3 vView, vFwd, vRight, vUp, vWPos, vWN; varying vec2 vUv;
+    uniform float uBright; uniform vec3 uSun, uSunCol, uZen, uHor;
+    void main(){
+      vec3 d = normalize(vView), fw = normalize(vFwd);
+      float k = max(dot(d, fw), 1e-3);
+      vec2 a = vec2(dot(d, normalize(vRight)), dot(d, normalize(vUp))) / k;
+      float r = length(a), px = max(fwidth(r), 1e-5);
+      float ringW = max(0.00045, px * 0.6);
+      float ring = 1.0 - smoothstep(ringW - px * 0.5, ringW + px, abs(r - 0.0128));
+      float tick = (1.0 - smoothstep(0.0, px * 1.2 + 0.0004, min(abs(a.x), abs(a.y)))) * step(0.0128, r) * (1.0 - smoothstep(0.0165, 0.0175, r));
+      float ret = clamp(ring * 0.8 + tick * 0.8, 0.0, 1.0);
+      vec3 retCol = vec3(1.0, 0.11, 0.045) * ret * uBright;
+      vec3 wv = normalize(vWPos - cameraPosition); vec3 n = normalize(vWN); if (dot(n, wv) > 0.0) n = -n;
+      vec3 rf = reflect(wv, n);
+      float fres = pow(1.0 - abs(dot(wv, n)), 3.0);
+      vec3 sky = mix(uHor, uZen, clamp(rf.y * 1.4 + 0.2, 0.0, 1.0));
+      float sd = max(dot(rf, uSun), 0.0);
+      sky += uSunCol * (pow(sd, 6.0) * 0.6 + pow(sd, 90.0) * 6.0);
+      float band = smoothstep(0.25, 0.5, vUv.x * 0.6 + vUv.y) * (1.0 - smoothstep(0.62, 0.95, vUv.x * 0.6 + vUv.y));
+      vec3 coat = mix(vec3(0.30, 0.50, 0.95), vec3(1.0, 0.62, 0.28), clamp(fres * 2.2 + vUv.y * 0.75 - 0.15, 0.0, 1.0));
+      vec2 e = abs(vUv - 0.5) * 2.0; float edge = smoothstep(0.90, 1.0, max(e.x, e.y));
+      float refl = 0.12 + 0.60 * fres + 0.07 * band;
+      vec2 eg = (vUv - vec2(0.5, 0.16)) * vec2(1.0, 1.6); retCol += vec3(1.0, 0.10, 0.04) * 0.20 * exp(-dot(eg, eg) * 60.0) * (1.0 - smoothstep(0.985, 0.9995, k));
+      vec3 col = (sky * 1.5 + vec3(0.03, 0.035, 0.045)) * coat * refl * (1.0 - edge) + retCol;
+      float alpha = clamp(0.20 + 0.32 * fres + 0.05 * band + 0.6 * edge, 0.0, 0.94);
+      gl_FragColor = vec4(col, alpha);
+      #include <tonemapping_fragment>
+      #include <encodings_fragment>
+    }` };
+function pac9Lens(){
+  /* The window's outline in the sight's own plane, 4cm behind the hood's
+     front edge, with UVs across its bounding box as Saltline had them. */
+  const w = [[-0.01616, 0.05688], [-0.01616, 0.07728], [-0.01232, 0.08112], [0.01232, 0.08112], [0.01616, 0.07728], [0.01616, 0.05688]];
+  const p = [], uv = [];
+  for (const [x, y] of w){ p.push(x, y, -0.031); uv.push((x + 0.01616) / 0.03232, (y - 0.05688) / 0.02424); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex([1, 0, 5, 5, 4, 3, 3, 2, 1, 1, 5, 3]);
+  const m = new THREE.ShaderMaterial(Object.assign({ transparent: true, depthWrite: false, side: THREE.DoubleSide }, PAC9_LENS));
+  m.extensions = { derivatives: true };
+  const o = new THREE.Mesh(g, m); o.renderOrder = 5; o.frustumCulled = false;
+  return o;
+}
+/* Unpack assets/pac9.bin: [u32 header length][header JSON][chunks], each
+   mesh quantised - positions int16 across its own bounding box, normals
+   int8, tints uint16 across their own range - and indexed. */
+function pac9Build(buf){
+  const dv = new DataView(buf), hn = dv.getUint32(0, true);
+  const head = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, hn)));
+  const base = 4 + hn + ((4 - ((4 + hn) % 4)) % 4);
+  const mats = pac9Mats(), root = new THREE.Group(), groups = {};
+  for (const part of head.parts){
+    const nv = part.nv, g = new THREE.BufferGeometry();
+    const qp = new Int16Array(buf, base + part.pos, nv * 3), pos = new Float32Array(nv * 3);
+    for (let i = 0; i < nv * 3; i++){ const k = i % 3; pos[i] = part.min[k] + (qp[i] + 32768) / 65535 * part.size[k]; }
+    const qn = new Int8Array(buf, base + part.nrm, nv * 3), nrm = new Float32Array(nv * 3);
+    for (let i = 0; i < nv * 3; i++) nrm[i] = qn[i] / 127;
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+    if (part.col >= 0){
+      const qc = new Uint16Array(buf, base + part.col, nv * 3), col = new Float32Array(nv * 3);
+      for (let i = 0; i < nv * 3; i++) col[i] = qc[i] / 65535 * part.cmax;
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    }
+    if (part.uv >= 0) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(buf.slice(base + part.uv, base + part.uv + nv * 8)), 2));
+    const ib = buf.slice(base + part.idx, base + part.idx + part.ni * (part.big ? 4 : 2));
+    g.setIndex(new THREE.BufferAttribute(part.big ? new Uint32Array(ib) : new Uint16Array(ib), 1));
+    g.computeBoundingSphere();
+    let m;
+    if (part.mapImg){                              // the stencilled markings, as a decal over the receiver
+      const img = new Image(); img.src = part.mapImg;
+      const t = new THREE.Texture(img); img.onload = () => { t.needsUpdate = true; };
+      t.encoding = THREE.sRGBEncoding; t.flipY = part.flipY; t.anisotropy = 4;
+      m = lookTag(new THREE.MeshStandardMaterial({ map: t, transparent: true, depthWrite: false, roughness: part.rough, metalness: 0,
+        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }), { metalness: 0, roughness: part.rough }, { metalness: 0, roughness: part.rough });
+    } else m = mats[part.mat];
+    const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; mesh.castShadow = false;
+    /* Parts that move (the magazine, each hand) share a group, placed by the
+       matrix the part was exported with; the rest sit at the origin. */
+    if (part.role === 'gun') root.add(mesh);
+    else {
+      let grp = groups[part.role];
+      if (!grp){ grp = groups[part.role] = new THREE.Group();
+        new THREE.Matrix4().fromArray(part.matrix).decompose(grp.position, grp.quaternion, grp.scale); root.add(grp); }
+      grp.add(mesh);
+    }
+  }
+  const lens = pac9Lens(); root.add(lens);
+  return { root, mag: groups.g5, right: groups.g9, left: groups.g10, lens };
+}
+let PAC9_BUILT = null;
+function mountPac9(b){
+  const holder = weaponHolders[0];
+  while (holder.children.length) holder.remove(holder.children[0]);
+  const rig = new THREE.Group(); rig.position.set(0.02, -0.03, 0.05); holder.add(rig);
+  b.root.position.fromArray(PAC9.at); rig.add(b.root);
+  const fore = b.left.position.clone();
+  VM_RIGS[0] = { left: b.left, right: b.right, mag: b.mag, shell: false,
+    grip: b.right.position.clone(), fore, magAt: fore.clone().add(new THREE.Vector3().fromArray(PAC9.magTrip)),
+    magHome: b.mag.position.clone() };
+  /* Aiming brings the sight's window centre, not the hood's top, to the eye. */
+  WEAPONS[0].aimTop = rig.position.y + PAC9.at[1] + PAC9.sightY;
+  WEAPONS[0].vm = PAC9.vm;
+  PAC9_BUILT = b;
+  if (typeof lookSoon === 'function') lookSoon();     // give the new materials the current look
+}
+fetch(PAC9.url).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+  .then(buf => mountPac9(pac9Build(buf)))
+  .catch(e => console.warn('[pac9] kept the drawn rifle: ' + e));
+
 /* The abilities and the blade keep their own drawn shapes (weapons.js);
    they just get a hand to be held in. */
 for (let i = 5; i < weaponHolders.length; i++){

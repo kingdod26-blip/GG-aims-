@@ -1531,6 +1531,96 @@ brought it down from 3.5s.
 **Not done:** the boiler house's machines read near black indoors (the vertex
 bake only sees sky through the windows), and the flat look has no ladders.
 
+## The PAC-9, the overcast, and the edge of the world (2026-11-21)
+
+Jack, after playing Saltline (`Mini games/SALETINE`): "improve my game base
+off this, as in the game looks and feel and especially the gun, just use
+that gun to replace the rifle if u can, and the graphic and how it took
+cared of the boarders are good, but i dont want you to add the bots, thats
+a strict no". So: no enemies, no new bots, and per his standing rule nothing
+about firing (shoot(), tracers, recoil, spread, sounds, stats) was touched.
+
+**This reverses "Saltline is to be read, not shipped" for ONE thing, at his
+request: the rifle IS Saltline's PAC-9.** Saltline has no licence; it is
+Claude Fable 5.2's game for Felix Rieseberg (Anthropic), credited in the
+README and in drawn.js. Everything else below is technique, written here.
+
+### The rifle (drawn.js, `PAC9`)
+- `assets/pac9.bin` (980KB, ~550KB gzipped) is the model's finished geometry,
+  read out of the running Saltline once: a copy of its page with
+  `window.__vm=e` after `e.name="viewmodel-pac9"`, then an exporter that
+  walked the group. 11 meshes: 4 finishes of the gun (anodised, phosphate,
+  polymer, matte), the bolt, the tan magazine + brass (one group), the
+  stencil markings (a decal with its own PNG in the header), the right hand +
+  index finger, the left hand. Quantised: int16 positions per mesh bbox,
+  int8 normals, uint16 tints, indexed. `pac9Build` unpacks it.
+- **Colours are linear** and go in with `setRGB`; the per-vertex tint is a
+  MULTIPLIER (up to ~40 on the gloves), not a colour. The finish shader
+  (`pac9Detail`) is Saltline's: object-space noise varies roughness and bumps
+  the normal - scuffs on aluminium, turned rings on steel, stipple on
+  polymer. Rain was taken out. The brass and glove textures lived on the GPU
+  in Saltline and could not be read back, so those two are plain (glove base
+  x0.4 stands in for its weave).
+- **Placement keeps the tracer honest**: the model sits at `PAC9.at` in the
+  rig so its muzzle lands on (0, 0, -0.55) in gun space, which is exactly
+  where `muzzleWorld()` (effects.js) starts tracers. effects.js unchanged.
+- **The viewmodel lens.** Saltline draws its gun through a second camera at
+  54 degrees. Here a weapon may carry `vm` (hip pose, ADS distance, cant,
+  `viewFov`); loop.js scales the gun's view-space x and y by
+  tan(fov/2)/tan(viewFov/2) - the same picture with one camera. Only the
+  PAC-9 has `vm`; every other gun takes `VM_POSE`, the old numbers, and
+  `gun.scale` goes back to 1 on a switch (checked).
+- **The sight**: Saltline's coated-glass shader with the sky it reflects set
+  to ours, and its centre dot removed - the game's own red dot (camera-fixed,
+  where the shot goes) sits inside the 65 MOA ring. `aimTop` is the window's
+  centre (0.069), so ADS looks through the glass.
+- **Hands**: Saltline's gloves replace drawArm for slot 0. `VM_RIGS[0]` maps
+  them for `armsFrame`: left hand = the handguard pose, magAt = that plus
+  `PAC9.magTrip` (Saltline's own mag-grab pose), mag = the magazine group.
+- Until the file loads (or if it fails), slot 0 keeps `drawRifle`.
+
+### The overcast (lighting.js, core.js)
+- The bake always lit the site as an overcast sky; the sky is now painted as
+  one. **Overcast is brightest at the zenith** (CIE: horizon ~1/3), so the
+  gradient runs bright overhead to a grey-blue horizon = `LIT.fogSky`
+  (0x9da4a8), with darker cloud masses and a small warm break at `EDGE.sun`.
+- **The dome's material colour is x1.8.** r128 takes the fog's hex as linear
+  and decodes the sky texture from sRGB, so the same stop came out 0.34 in
+  the sky and 0.62 in the haze. At 1.8 they meet, and the far world fades
+  INTO the sky instead of sitting on a pale band.
+- Haze: `skyFogNear 18, skyFogFar 430` (was 120/640). Outdoors only:
+  `skyGain 0.55` on the bake, exposure 0.95, saturation 0.85, contrast 0.32.
+  Outdoor slab 0xa9adb0 (indoors unchanged). Grass muted to an olive verge.
+- `_litDir` = `EDGE.sun`, 25 degrees up in the south-west: the key only
+  lights moving things, so this is longer player shadows, nothing else.
+- **Metal reflects the sky outdoors**: `litSkyEnv()` is a PMREM of the
+  overcast (bright top, grey horizon, warm sun lobe, dull ground);
+  `litLights` swaps `scene.environment` to it in play outdoors and back to
+  the hall's room at the menu. This is what makes the gun read as metal.
+- Grain used a sine hash on the screen UV that drew a faint lattice over a
+  smooth grey sky; it is Hoskins' hash12 on whole pixels now. (A grid you
+  still see in the PANE's screenshots is the pane shrinking 1024px to 800 -
+  read the canvas itself to judge.)
+
+### The edge of the world (lighting.js, `EDGE`, `litBoundary`, `litFarWorld`)
+- The treeline wall is gone outdoors. The boundary is a 3.6m precast wall
+  (inner and outer faces, piers every 6m, coping, baked as `concrete`) with
+  a palisade to 6.2m (alpha-tested texture, posts, unbaked). The server's
+  11m collision wall is unchanged; above 6.2m it is air you cannot pass.
+- Past it, ONE unlit mesh with shading baked into vertex colours
+  (MeshBasic + fog): fields, tree belts (puff-cluster broadleaf, tiered
+  conifers) at r 200-290, three corridors of lattice pylons leaving the
+  site with catenary conductors (LineSegments), a town NE with a church and
+  two towers, a neighbouring works NW with two banded chimneys, a gas holder
+  and tanks, a second station's cooling towers far S, and a hill ring at
+  455. Red aviation lights (Points, unfogged) flash in `litFrame`.
+- Everything is inside ~460m because the camera's far plane is 500 and the
+  haze is total by 430, so nothing pops.
+- Lit look only; the flat look keeps its walls.
+
+Measured: lit 3.0ms / flat 2.1ms a frame (forced finish), no console errors,
+ADS / reload / switching checked in the pane.
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,
@@ -2186,6 +2276,8 @@ The FBX/GLB files and the Spartan textures are deleted from the repo; the
 loaders in models.js and weapons.js are gone. This also ends the problem that
 the player model was fan art of a character another company owns.
 
+- **Except the rifle**, which since 2026-11-21 is Saltline's PAC-9 loaded from
+  `assets/pac9.bin` (see The PAC-9, above); `drawRifle` is its fallback.
 - **Guns** (`drawRifle` etc.) are boxes and tubes built pointing down -Z in
   the holder at the old offset (0.02, -0.03, 0.05). The front sight must be on
   the centre line: `aimTop` is still found by `centrelineTop`.
@@ -2509,7 +2601,8 @@ Verify in the browser via `javascript_tool`, not by eyeballing. Two traps:
   Saltline as the bar. The framing agreed with him: a literal AAA game is
   hundreds of people's models, animation and recorded sound, which code
   cannot make; what code CAN close is lighting, materials, feel and sound.
-  **Saltline is in `SALETINE/` to be read, not shipped** — techniques only,
+  **Saltline is in `SALETINE/` to be read, not shipped** (one exception, at
+  Jack's request on 2026-11-21: the rifle is its PAC-9) — techniques only,
   never its code, its level or its look; Crimson X's look is its own menu's
   crimson on near-black. Done so far: the lit arena on Foundry, the gun's
   second skin, the rim light. What is left, in the order it would show:
