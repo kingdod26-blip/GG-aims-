@@ -838,8 +838,9 @@ const MAPC = {
 /* Which of those three a box is drawn in. A kind not named here is plant,
    which is the right default: most of a power station is machinery. */
 const MAPC_WALL = { cladding:1, firewall:1, block:1, wall:1, boiler:1, shed:1,
-                    hall:1, control:1, intake:1, tower:1, annex:1, pillar:1 };
-const MAPC_THIN = { lattice:1, column:1, step:1, hvtower:1, firebox:1 };
+                    hall:1, control:1, intake:1, tower:1, annex:1, pillar:1,
+                    facade:1, core:1, counter:1 };
+const MAPC_THIN = { lattice:1, column:1, step:1, hvtower:1, firebox:1, desk:1, bench:1 };
 
 /* Glass and raised boxes, on either plan. Glass is a thin pale line (a
    window, not a wall). A raised box - an upper floor's slab, a stair tread -
@@ -847,6 +848,14 @@ const MAPC_THIN = { lattice:1, column:1, step:1, hvtower:1, firebox:1 };
    a slab covers a whole building. Returns true when it drew the box. */
 function planRaised(g, b, x0, z0, w, d){
   if (b.mat === 'glass'){ g.fillStyle = 'rgba(150,205,230,.6)'; g.fillRect(x0, z0, Math.max(1, w), Math.max(1, d)); return true; }
+  /* A building's roof is its outline with the inside visible, like the
+     hall's; its floor slabs are not drawn at all (dozens of seams). */
+  if (b.mat === 'roofslab'){
+    g.fillStyle = 'rgba(120,140,170,.11)'; g.fillRect(x0, z0, w, d);
+    g.strokeStyle = 'rgba(160,175,192,.6)'; g.lineWidth = 1.5; g.strokeRect(x0 + 0.5, z0 + 0.5, w - 1, d - 1);
+    return true;
+  }
+  if (b.mat === 'slab') return true;
   if (boxY(b) < 0.05) return false;
   g.strokeStyle = 'rgba(160,175,192,.45)'; g.lineWidth = 1;
   g.strokeRect(x0 + 0.5, z0 + 0.5, Math.max(1, w - 1), Math.max(1, d - 1));
@@ -1024,7 +1033,7 @@ const PLAN = {
 };
 /* Buildings named on the plan that have no stencil on the ground. Keyed by
    what the map already calls them, so another map gets its names for free. */
-const PLAN_BOX_NAMES  = { boiler: 'map.boiler', intake: 'map.intake' };
+const PLAN_BOX_NAMES  = { boiler: 'map.boiler', intake: 'map.intake', roofslab: 'map.offices' };
 const PLAN_PROP_NAMES = { coolingtower: 'map.cooling', stack: 'map.stack' };
 const PLAN_COLS = 'ABCDEFGH', PLAN_CELLS = 8;
 
@@ -1128,8 +1137,8 @@ function drawSitePlan(g, W, S){
   };
   const big = Math.max(11, Math.round(S * 0.018)), small = Math.max(10, Math.round(S * 0.014));
   for (const p of (map.paint || [])) if (p.k === 'text') label(p.t, px(p.x), pz(p.z), big);
-  for (const b of map.boxes) if (PLAN_BOX_NAMES[b.mat])
-    label(t(PLAN_BOX_NAMES[b.mat]), px(b.x), pz(b.z), small, true);
+  for (const b of map.boxes) if (PLAN_BOX_NAMES[b.mat])                 // dark ink on a light (ground) building
+    label(t(PLAN_BOX_NAMES[b.mat]), px(b.x), pz(b.z), small, boxY(b) < 0.05);
   const groups = {};
   for (const p of (map.props || [])) if (PLAN_PROP_NAMES[p.kind]) (groups[p.kind] = groups[p.kind] || []).push(p);
   for (const k in groups){                           // one name for a group, under its middle

@@ -1369,6 +1369,68 @@ site is unchanged**; it is the engine an upper floor needs.
 - **Build + bake is ~2.6s on this machine, before AND after** (timed with
   the changes stashed): the 1.5s in "The works" was a faster machine.
 
+## The offices: a three-storey office block (2026-11-21)
+
+Jack: *"a real indoor office, whereby it has three levels, you can search
+online on how it looks like"*. Built in `scratchpad/works.js` ("THE
+OFFICES") on the raised-box engine above, to the numbers real ones use:
+
+- **Where:** x 55..95, z 80..92, south of the hall. The busbars (z 78 and
+  z 94, 11m up, the full width of the site) fix the depth: 12m between them,
+  which is inside the usual 12-15m window-to-window plan. Roof slab top
+  11.7, parapet to 12.6; the conductors pass 1.2m clear of either face.
+- **Storeys:** floors at 0 / 3.9 / 7.8, slabs 0.3 (3.6 clear: a real office
+  is 2.75-3m under a suspended ceiling, and there is none here). A jump
+  indoors meets the ceiling (feet stop at 1.8 above the floor, tested).
+- **Facades:** a ribbon of glass (sill 0.9, head 3.3) over a render sill,
+  mullions every ~3m, solid where the stairs and the core are. Entrance
+  (4m, no door leaf) facing the road, a back door beside the core, a paved
+  path to the kerb. Glass is `mat: 'glass'`: stops you, not a shot.
+- **Two switch-back stairs**, one at each end (`stairCore`, mirrored):
+  22 risers of 0.177 and 0.28 treads a storey, 1.85m flights either side of
+  a full-height wall, half landing at +1.95. Treads are thin raised boxes, so
+  there is a nook under the first flight. A rail on the top floor guards the
+  drop over the last flight.
+- **Inside:** a central lift and toilet core (closed), a double-height
+  lobby with a reception counter and benches, a glass balustrade round the
+  void on the first floor, a glass meeting room in the east bay on every
+  floor, and desk clusters (four desks, a raised screen down the middle:
+  knee-high cover with a head-high screen).
+- **Slabs** are the footprint minus the stairwells, the core and (first
+  floor) the lobby void, cut into the fewest boxes by `rectsMinus`.
+- **Placed by faces, not centres** (`ob`): `box()` rounds a centre to 2
+  places, which moved butting edges by 5mm and made overlaps.
+- **Lit look:** new plain paints (`render`, `mullion`, `paint`, `carpet`,
+  `desk`, `carcass`, `fabric`, `nosing`) and drawers for each office kind,
+  all flush to their boxes. Ceiling light panels are a prop
+  (`ceilinglights`), unlit and not baked, like the hall's. The ground floor
+  is a `floor` ground zone (1.2m stone tiles: 0.6m was a moire grid at 8.5
+  texels a metre), the path a `paving` zone.
+- **The yard's keep-clear lines are not painted round office boxes**
+  (`LIT_INDOOR`) or any raised box. They were, and drew a bright grid of
+  outlines over the whole ground floor - every slab strip and tread.
+- **Climbing checks the PATH now** (`segCrossesRect`): a sill is a 0.9m lip
+  with glass standing on it, the landing spot beyond is clear, and the climb
+  carried you through the pane.
+- **Plan:** the roof slab is drawn as an outline you can see into, labelled
+  OFFICES; floor slabs are not drawn; treads and screens are outlines.
+- **The generator reads maps.js with CRLF tolerated**: git hands the file
+  back with CRLF after a stash, and the anchor search then failed.
+
+**Measured:** 406 boxes (map 732). Pairwise 3D overlap: 0 new pairs (only
+the two turbine pedestals, by design). Walked by script: ground to top floor
+up the west stair, top to first down the east, every step "ok", 0 frames
+off the ground; window sill stops you 0.4 off; balustrade and top-floor rail
+hold; climbing onto a sill refused; meeting-room door and back door open.
+Server, in Node against the real map: a shot passes through the windows and
+the meeting-room glass, stops at a sill and at a slab's underside; 0 of
+2000 random spawns inside the block. MP join, standing on the first floor:
+connected, no errors either side. Build + bake 1.55s; a frame inside the
+office 10.0ms against 10.5ms elsewhere.
+
+**Not done:** the ground floor is dimmer than the upper floors - the slabs
+block the sky in the bake, and the ceiling panels add no light to it.
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,

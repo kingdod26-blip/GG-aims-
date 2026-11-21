@@ -1203,7 +1203,12 @@ function litMarksTexture(map){
        striped border of its own, and not round the 'hidden' steps of a
        casing, which would draw four boxes inside each other on the floor. */
     g.strokeStyle = 'rgba(214,220,228,0.30)'; g.lineWidth = 0.07 * k;
+    /* Nor round anything raised (a slab, a tread: there is no floor under
+       it to paint), nor round an office's walls and furniture, which stand
+       on a tiled floor, not on the yard - drawn round those, the lines made
+       a bright grid across the office's ground floor. */
     for (const b of map.boxes){ if (b.mat === 'hidden' || b.mat === 'plinth' || b.mat === 'transformer' || b.mat === 'column') continue;
+      if (boxY(b) > 0.05 || LIT_INDOOR[b.mat]) continue;
       g.strokeRect(X(b.x - b.w / 2 - 0.5), Z(b.z - b.d / 2 - 0.5), (b.w + 1) * k, (b.d + 1) * k); }
     const rs = map.resupply || { x: 0, z: 0 }, core = map.boxes[0];                   // hazard frame round the resupply core
     if (core){
@@ -1239,6 +1244,10 @@ function litMarksTexture(map){
    = world z, flipY off). Colours are the MEAN look; the shader multiplies in
    the concrete photoscan's grain, so up close every surface keeps texture. */
 const LIT_GROUND = {};
+/* The office's kinds (works.js): indoors, on a tiled floor, so the yard's
+   keep-clear lines are not painted round them. */
+const LIT_INDOOR = { facade: 1, core: 1, desk: 1, screen: 1, counter: 1, bench: 1, tread: 1, slab: 1,
+                     roofslab: 1, parapet: 1, rail: 1, glass: 1 };
 function litGroundRect(q, kerb){                 // a zone or a road as [x0, z0, x1, z1]
   if (q.k !== 'road') return [Math.min(q.x0, q.x1), Math.min(q.z0, q.z1), Math.max(q.x0, q.x1), Math.max(q.z0, q.z1)];
   const h = q.w / 2 + (kerb || 0), horiz = Math.abs(q.x1 - q.x0) > Math.abs(q.z1 - q.z0);
@@ -1287,6 +1296,23 @@ function litGroundTexture(map){
       }
       g.restore();
     }
+    /* Tiles: the offices' ground floor (pale stone, 1.2m) and the path to
+       its door (paving slabs, 0.9m). A grid of thin joints over a wash with
+       a little variation per tile, so it reads as laid, not printed. */
+    const tiles = (kind, col, joint, size, vary) => { for (const q of of(kind)){
+      const r = litGroundRect(q), x0 = X(r[0]), z0 = Z(r[1]), w = (r[2] - r[0]) * k, d = (r[3] - r[1]) * k, t = size * k;
+      g.save(); g.beginPath(); g.rect(x0, z0, w, d); g.clip();
+      g.fillStyle = col; g.fillRect(x0, z0, w, d);
+      for (let x = x0; x < x0 + w; x += t) for (let z = z0; z < z0 + d; z += t){
+        g.fillStyle = rnd() < 0.5 ? 'rgba(255,255,255,' + (rnd() * vary).toFixed(3) + ')' : 'rgba(0,0,0,' + (rnd() * vary).toFixed(3) + ')';
+        g.fillRect(x, z, t, t); }
+      g.fillStyle = joint;
+      for (let x = x0; x <= x0 + w; x += t) g.fillRect(x, z0, 1, d);
+      for (let z = z0; z <= z0 + d; z += t) g.fillRect(x0, z, w, 1);
+      g.restore();
+    } };
+    tiles('floor',  '#b9b6ae', 'rgba(70,68,64,0.28)', 1.2, 0.05);   // 1.2m: at 8.5px a metre, 0.6m tiles were a moire grid
+    tiles('paving', '#a9a59b', 'rgba(60,58,54,0.35)', 0.9, 0.08);
     /* Roads: every kerb, then every asphalt bed, then every line - and last,
        the asphalt again over each junction, so no kerb or line runs across
        the mouth of a crossing road. */
@@ -1718,6 +1744,16 @@ function litMaterial(name){
        foot and adds the strip's glow, which turned the aviation red navy. */
     case 'stackband': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litStackTexture(), true), roughness: 0.82, metalness: 0.05 }), 'cover', 0.12);
                    m.defines.CX_ROUND = ''; break;
+    /* THE OFFICES. Plain paints: an office is smooth painted surfaces, and
+       the bake and the grade do the work a texture would. */
+    case 'render':  m = litPatch(new THREE.MeshStandardMaterial({ color: 0xc9c6bf, roughness: 0.86, metalness: 0 }), 'cover', 0.25); break;   // the facade
+    case 'mullion': m = litPatch(new THREE.MeshStandardMaterial({ color: 0x30353b, roughness: 0.45, metalness: 0.6 }), 'cover', 0.7); break;   // window frames
+    case 'paint':   m = litPatch(new THREE.MeshStandardMaterial({ color: 0xb4b8bc, roughness: 0.9, metalness: 0 }), 'cover', 0.2); break;    // inside walls
+    case 'carpet':  m = litPatch(new THREE.MeshStandardMaterial({ color: 0x4a5560, roughness: 1, metalness: 0 }), 'cover', 0.05); break;      // upper floors
+    case 'desk':    m = litPatch(new THREE.MeshStandardMaterial({ color: 0xc8b89a, roughness: 0.6, metalness: 0 }), 'cover', 0.35); break;    // a light oak laminate
+    case 'carcass': m = litPatch(new THREE.MeshStandardMaterial({ color: 0x5e646b, roughness: 0.7, metalness: 0.2 }), 'cover', 0.4); break;   // desk pedestals
+    case 'fabric':  m = litPatch(new THREE.MeshStandardMaterial({ color: 0x2f5a63, roughness: 1, metalness: 0 }), 'cover', 0.1); break;       // screens, seats
+    case 'nosing':  m = litPatch(new THREE.MeshStandardMaterial({ color: 0x1e2227, roughness: 0.5, metalness: 0.3 }), 'cover', 0.5); break;   // stair nosings, rails
     default:       m = litPatch(new THREE.MeshStandardMaterial({ color: 0x8a8f99, roughness: 0.9 }), 'cover', 0.3);
   }
   return (LIT_MATS[name] = m);
@@ -2072,6 +2108,50 @@ const LIT_DRAW = {
 };
 LIT_DRAW.deck = LIT_DRAW.step = LIT_DRAW.tower = LIT_DRAW.plinth;
 
+/* THE OFFICES (works.js). Every one of these is drawn flush to its box: the
+   top you see is the top you stand on. Raised ones are lifted and given an
+   underside by the loop in litBuildArena. */
+Object.assign(LIT_DRAW, {
+  /* The facade: rendered walls. A thin piece - a mullion between two panes -
+     is a dark metal frame, as glazing bars are; everything else is render. */
+  facade(G, b, x0, z0, x1, z1){
+    const thin = Math.min(b.w, b.d) < 0.5 && Math.max(b.w, b.d) <= 0.31 && b.h < 2.5;
+    litBox(G(thin ? 'mullion' : 'render'), x0, 0, z0, x1, b.h, z1, { seg: LIT.coverSeg, tile: 3 });
+  },
+  parapet(G, b, x0, z0, x1, z1){
+    litBox(G('render'), x0, 0, z0, x1, b.h - 0.06, z1, { seg: LIT.coverSeg, tile: 3, noTop: true });
+    litBox(G('mullion'), x0, b.h - 0.06, z0, x1, b.h, z1, { seg: 4, tile: 2 });   // the coping, flush: an overhang laps the next one at the corners
+  },
+  core(G, b, x0, z0, x1, z1){ litBox(G('paint'), x0, 0, z0, x1, b.h, z1, { seg: LIT.coverSeg, tile: 3 }); },
+  /* A floor slab: concrete edge, carpet on top (the underside comes from
+     the raised-box loop). The roof's top is the concrete it is. */
+  slab(G, b, x0, z0, x1, z1){
+    litBox(G('concrete'), x0, 0, z0, x1, b.h, z1, { seg: LIT.coverSeg, tile: 120, tileV: 8, noTop: true });
+    litBox(G('carpet'), x0, 0, z0, x1, b.h, z1, { seg: LIT.coverSeg, tile: 2, noSides: true });
+  },
+  roofslab(G, b, x0, z0, x1, z1){ litBox(G('concrete'), x0, 0, z0, x1, b.h, z1, { seg: LIT.coverSeg, tile: 120, tileV: 8 }); },
+  /* A stair tread: concrete with a dark nosing along its top, flush. */
+  tread(G, b, x0, z0, x1, z1){
+    const n = 0.04;
+    litBox(G('concrete'), x0, 0, z0, x1, b.h - n, z1, { seg: LIT.coverSeg, tile: 120, tileV: 8, noTop: true });
+    litBox(G('nosing'), x0, b.h - n, z0, x1, b.h, z1, { seg: 2, tile: 1 });
+  },
+  rail(G, b, x0, z0, x1, z1){ litBox(G('nosing'), x0, 0, z0, x1, b.h, z1, { seg: 2, tile: 1 }); },
+  /* A desk: a laminate top on a dark pedestal, flush with the box. */
+  desk(G, b, x0, z0, x1, z1){
+    const t = 0.04;
+    litBox(G('carcass'), x0, 0, z0, x1, b.h - t, z1, { seg: LIT.coverSeg, tile: 2, noTop: true });
+    litBox(G('desk'), x0, b.h - t, z0, x1, b.h, z1, { seg: 2, tile: 2 });
+  },
+  counter(G, b, x0, z0, x1, z1){
+    const t = 0.05;
+    litBox(G('render'), x0, 0, z0, x1, b.h - t, z1, { seg: LIT.coverSeg, tile: 3, noTop: true });
+    litBox(G('desk'), x0, b.h - t, z0, x1, b.h, z1, { seg: 2, tile: 2 });
+  },
+  screen(G, b, x0, z0, x1, z1){ litBox(G('fabric'), x0, 0, z0, x1, b.h, z1, { seg: 2, tile: 1 }); },
+  bench(G, b, x0, z0, x1, z1){ litBox(G('fabric'), x0, 0, z0, x1, b.h, z1, { bevel: 0.04, seg: 2, tile: 1 }); },
+});
+
 /* What a map's `props` become. None of it is collision — so nothing in here
    may be shaped like a floor. The hall used to have `gallery`, a steel deck
    with handrails drawn along each aisle at 5.7m, and it was the one thing in
@@ -2079,6 +2159,23 @@ LIT_DRAW.deck = LIT_DRAW.step = LIT_DRAW.tower = LIT_DRAW.plinth;
    a walkway you can stand on has to be a box standing on the floor, which is
    a solid mezzanine, and that is what the operating decks are. */
 const LIT_PROP = {
+  /* Recessed light panels in an office's ceilings (works.js): 1.2 x 0.6,
+     on a 2.4m grid, 1cm under each slab's underside, kept out of the
+     stairwells, the core and the lobby void (`holes`, per level). Unlit
+     and not baked, as the hall's panels are: they show where the light
+     comes from without adding a light. */
+  ceilinglights(G, p){
+    const g = G('lamp');
+    p.levels.forEach((y, li) => {
+      const holes = p.holes.concat(p.extra[li] || []);
+      for (let x = p.x0 + 1.2; x + 0.6 <= p.x1 - 0.6; x += 2.4)
+        for (let z = p.z0 + 1.2; z + 0.3 <= p.z1 - 0.6; z += 2.4){
+          const a0 = x - 0.6, a1 = x + 0.6, b0 = z - 0.3, b1 = z + 0.3;
+          if (holes.some(h => a1 > h[0] - 0.3 && a0 < h[1] + 0.3 && b1 > h[2] - 0.3 && b0 < h[3] + 0.3)) continue;
+          litGrid(g, a0, y - 0.01, b0,  1,0,0,  0,0,1,  1.2, 0.6,  0,-1,0,  9, 9, 1, 1);
+        }
+    });
+  },
   /* A turbine-generator set, lying along x with its generator toward `dir`.
      It is drawn to the map's three 'hidden' steps, and the first cut of it
      was not: a plain cylinder, which is 0.6m narrower than the bottom step
@@ -2576,7 +2673,11 @@ function litBuildArena(map, flatFloor, flatRoof){
   }
   for (const p of (map.props || [])){ const draw = LIT_PROP[p.kind]; if (draw) draw(G, p, D, H); }
   for (const name in geos){
-    const m = litAdd(new THREE.Mesh(litGeoDone(geos[name]), litMaterial(name)), true);
+    /* A lamp is painted, not lit: the vertex bake must not visit it (it
+       would have no use for the light it computed, and an unlit material
+       has nothing to put it in). */
+    const m = litAdd(new THREE.Mesh(litGeoDone(geos[name]), litMaterial(name)), name !== 'lamp');
+    if (name === 'lamp') m.receiveShadow = false;
     if (LIT_RING_BAKE[name]) m.userData.bakeRings = true;
   }
 

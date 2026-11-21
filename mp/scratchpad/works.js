@@ -192,6 +192,174 @@ box(-100, -60, 14, 12, 7, 'shed');
 box(100, 100, 14, 12, 7, 'shed');
 
 /* ===================================================================== */
+/* THE OFFICES: a real three-storey office block (2026-11-21)            */
+/* ===================================================================== */
+/* Jack: "a real indoor office, whereby it has three levels". Built to the
+   numbers real ones are built to: a 12m-deep plan (window to window 12-15m
+   is the usual range), floor to floor 3.9m with a 0.3m slab (3.6m clear,
+   a little over the usual 2.75-3m, because there is no suspended ceiling
+   here to hide the services in), a ribbon of glazing over a 0.9m sill, two
+   switch-back escape stairs, one at each end, with 22 risers of 0.177m and
+   0.28m treads a storey, a central lift and toilet core, a double-height
+   lobby facing the road, glass meeting rooms and open-plan desks.
+
+   WHERE: south of the hall, between the two busbar rows (z 78 and z 94,
+   11m up, the whole width of the site) - so the block is 12m deep and the
+   roof can stand higher than the conductors without touching them.
+
+   Every box is placed by its FACES (ob), not its centre: the edges are
+   what has to butt, and a centre rounded to 2 places moved them 5mm. */
+note('THE OFFICES, south of the hall: three storeys, two stairs, a lobby');
+const OX0 = 55, OX1 = 95, OZ0 = 80, OZ1 = 92, OT = 0.3;          // footprint, wall thickness
+const FF = 3.9, SLAB = 0.3, STH = FF - SLAB;                      // floor to floor, slab, storey wall
+const LV = [0, FF, 2 * FF], ROOFY = 3 * FF;                       // floor levels; top of the roof slab
+const RISE = FF / 22, GOING = 0.28;
+const SILL = 0.9, HEAD = 3.3, DOORH = 2.7, GT = 0.06;             // window band, door head, glass
+const r4 = (v) => +v.toFixed(4);
+const ob = (x0, x1, z0, z1, y0, y1, mat) => {
+  if (x1 - x0 < 0.005 || z1 - z0 < 0.005 || y1 - y0 < 0.005) return;
+  const o = { x: r4((x0 + x1) / 2), z: r4((z0 + z1) / 2), w: r4(x1 - x0), d: r4(z1 - z0), h: r4(y1 - y0), mat };
+  if (y0 > 0.0005) o.y = r4(y0);
+  out.push(o);
+};
+
+/* A rectangle minus some holes, as few boxes as a grid merge gives. */
+function rectsMinus(R, holes){
+  const cut = (k0, k1, lo, hi) => [...new Set([lo, hi, ...holes.flatMap(h => [h[k0], h[k1]])])]
+    .filter(v => v >= lo && v <= hi).sort((a, b) => a - b);
+  const xs = cut('x0', 'x1', R.x0, R.x1), zs = cut('z0', 'z1', R.z0, R.z1);
+  const solid = (x, z) => !holes.some(h => x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1);
+  let strips = [];
+  for (let j = 0; j < zs.length - 1; j++){
+    const cz = (zs[j] + zs[j + 1]) / 2; let run = null;
+    for (let i = 0; i < xs.length - 1; i++){
+      const on = solid((xs[i] + xs[i + 1]) / 2, cz);
+      if (on && !run) run = { x0: xs[i], x1: xs[i + 1], z0: zs[j], z1: zs[j + 1] };
+      else if (on) run.x1 = xs[i + 1];
+      if ((!on || i === xs.length - 2) && run){ strips.push(run); run = null; }
+    }
+  }
+  const merged = [];                                   // stack strips with the same x span
+  for (const s of strips){
+    const m = merged.find(q => q.x0 === s.x0 && q.x1 === s.x1 && q.z1 === s.z0);
+    if (m) m.z1 = s.z1; else merged.push(Object.assign({}, s));
+  }
+  return merged;
+}
+
+/* The roof first, so the plan draws everything inside over it. */
+ob(OX0, OX1, OZ0, OZ1, ROOFY - SLAB, ROOFY, 'roofslab');
+ob(OX0, OX1, OZ0, OZ0 + OT, ROOFY, ROOFY + 0.9, 'parapet');
+ob(OX0, OX1, OZ1 - OT, OZ1, ROOFY, ROOFY + 0.9, 'parapet');
+ob(OX0, OX0 + OT, OZ0 + OT, OZ1 - OT, ROOFY, ROOFY + 0.9, 'parapet');
+ob(OX1 - OT, OX1, OZ0 + OT, OZ1 - OT, ROOFY, ROOFY + 0.9, 'parapet');
+
+/* A facade, one storey of it. `along` is 'x' (north and south faces) or
+   'z' (the ends); t0..t1 is the wall's thickness across it. A window run
+   is a sill, a head, mullions every 3m or so and glass between them, set
+   in the middle of the wall. A door is just its head. */
+function facade(along, t0, t1, a0, a1, kind, L){
+  const B = (p0, p1, y0, y1, mat, u0, u1) => along === 'x'
+    ? ob(p0, p1, u0 != null ? u0 : t0, u1 != null ? u1 : t1, y0, y1, mat)
+    : ob(u0 != null ? u0 : t0, u1 != null ? u1 : t1, p0, p1, y0, y1, mat);
+  if (kind === 'solid'){ B(a0, a1, L, L + STH, 'facade'); return; }
+  if (kind === 'door'){ B(a0, a1, L + DOORH, L + STH, 'facade'); return; }
+  B(a0, a1, L, L + SILL, 'facade');
+  B(a0, a1, L + HEAD, L + STH, 'facade');
+  const MW = 0.3, n = Math.max(1, Math.ceil((a1 - a0) / 3)), pw = (a1 - a0 - (n - 1) * MW) / n, mid = (t0 + t1) / 2;
+  for (let i = 0; i < n; i++){
+    const p0 = a0 + i * (pw + MW), p1 = p0 + pw;
+    B(p0, p1, L + SILL, L + HEAD, 'glass', mid - GT / 2, mid + GT / 2);
+    if (i < n - 1) B(p1, p1 + MW, L + SILL, L + HEAD, 'facade');
+  }
+}
+const W = 'win', S = 'solid';
+const NORTH = (s) => [[55, 55.6, S], [55.6, 72.7, W], [72.7, 73, S], [73, 77, s === 0 ? 'door' : W],
+                      [77, 77.3, S], [77.3, 94.4, W], [94.4, 95, S]];               // the entrance, facing the road
+const SOUTH = (s) => [[55, 59.55, S], [59.55, 72, W], [72, 80, S], [80, 81.9, s === 0 ? 'door' : W],
+                      [81.9, 82.2, S], [82.2, 90.45, W], [90.45, 95, S]];           // a back door beside the core
+const ENDS  = () => [[OZ0 + OT, 85, W], [85, OZ1 - OT, S]];                         // stairs behind the solid half
+
+/* A switch-back stair core. `X(u0, u1)` maps the core's own across-axis
+   (0 at the end wall, 4 at its inner wall) to world x, so one function
+   builds both ends. Flight A climbs south from the landing, the half
+   landing turns you, flight B climbs north back to the next floor. */
+const CZN = 85, CZL = 86.85, CZM = CZL + 10 * GOING;   // north wall, landing edge, half landing edge (89.65)
+function stairCore(X){
+  const part = (u0, u1, z0, z1, y0, y1, mat) => { const [a, b] = X(u0, u1); ob(a, b, z0, z1, y0, y1, mat); };
+  part(1.85, 2.15, CZL, CZM, 0, ROOFY - SLAB, 'core');                   // the wall between the flights, full height
+  LV.forEach((L, s) => {
+    part(0, 2.3, CZN, CZN + 0.25, L, L + STH, 'core');                   // north wall, with its door
+    part(3.9, 4.25, CZN, CZN + 0.25, L, L + STH, 'core');
+    part(2.3, 3.9, CZN, CZN + 0.25, L + 2.4, L + STH, 'core');
+    part(4.0, 4.25, CZN + 0.25, OZ1 - OT, L, L + STH, 'core');           // inner wall
+    if (s === LV.length - 1){                                            // top floor: no flight up, a rail over the drop
+      part(0, 1.85, CZL - 0.1, CZL, L, L + 1.1, 'rail');
+      return;
+    }
+    for (let k = 1; k <= 10; k++){                                       // flight A
+      const top = L + k * RISE, z0 = CZL + (k - 1) * GOING;
+      part(0, 1.85, z0, z0 + GOING, Math.max(L, top - 0.2), top, 'tread');
+    }
+    part(0, 4.0, CZM, OZ1 - OT, L + 11 * RISE - SLAB, L + 11 * RISE, 'slab');   // half landing
+    for (let j = 1; j <= 10; j++){                                       // flight B
+      const top = L + (11 + j) * RISE, z1 = CZM - (j - 1) * GOING;
+      part(2.15, 4.0, z1 - GOING, z1, top - 0.2, top, 'tread');
+    }
+  });
+}
+stairCore((u0, u1) => [OX0 + OT + u0, OX0 + OT + u1]);                    // west
+stairCore((u0, u1) => [OX1 - OT - u1, OX1 - OT - u0]);                    // east, mirrored
+
+/* The lift and the toilets: one closed core against the back wall. */
+ob(72, 80, 88.4, OZ1 - OT, 0, ROOFY - SLAB, 'core');
+
+/* A cluster of four desks with a screen down the middle: knee-high cover,
+   and the screen is a raised box standing on the desks. */
+const desks = (cx, cz, L) => {
+  ob(cx - 1.6, cx + 1.6, cz - 0.8, cz + 0.8, L, L + 0.75, 'desk');
+  ob(cx - 1.6, cx + 1.6, cz - 0.025, cz + 0.025, L + 0.75, L + 1.25, 'screen');
+};
+/* A glass meeting room in the east bay, against the back wall. */
+const meeting = (L) => {
+  ob(82.2, 82.26, 87, OZ1 - OT, L, L + STH, 'glass');                    // west side
+  ob(82.26, 83.0, 87, 87.06, L, L + STH, 'glass');                        // front, either side of the door
+  ob(84.2, 90.45, 87, 87.06, L, L + STH, 'glass');
+  ob(83.0, 84.2, 87, 87.06, L + 2.4, L + STH, 'glass');                   // over the door
+  ob(84.2, 88.6, 88.6, 90.2, L, L + 0.75, 'desk');                         // the table
+};
+
+LV.forEach((L, s) => {
+  for (const [a0, a1, k] of NORTH(s)) facade('x', OZ0, OZ0 + OT, a0, a1, k, L);
+  for (const [a0, a1, k] of SOUTH(s)) facade('x', OZ1 - OT, OZ1, a0, a1, k, L);
+  for (const [a0, a1, k] of ENDS())  { facade('z', OX0, OX0 + OT, a0, a1, k, L); facade('z', OX1 - OT, OX1, a0, a1, k, L); }
+  if (s > 0){
+    /* The floor: the whole footprint less the two stairwells, the core and
+       (on the first floor) the void over the lobby. */
+    const holes = [
+      { x0: OX0 + OT, x1: OX0 + OT + 4, z0: CZL, z1: OZ1 - OT },
+      { x0: OX1 - OT - 4, x1: OX1 - OT, z0: CZL, z1: OZ1 - OT },
+      { x0: 72, x1: 80, z0: 88.4, z1: OZ1 - OT },
+    ];
+    if (s === 1) holes.push({ x0: 68, x1: 82, z0: OZ0 + OT, z1: 84.5 });
+    for (const r of rectsMinus({ x0: OX0, x1: OX1, z0: OZ0, z1: OZ1 }, holes)) ob(r.x0, r.x1, r.z0, r.z1, L - SLAB, L, 'slab');
+  }
+  meeting(L);
+  for (const [cx, cz] of [[62.4, 83.2], [66.2, 83.2], [62.4, 87.4], [66.2, 87.4], [84.0, 83.0], [87.8, 83.0]]) desks(cx, cz, L);
+  if (s === 0){                                                          // the lobby: reception and seats
+    ob(73, 77, 85.6, 86.4, 0, 1.1, 'counter');
+    ob(69, 71.4, 81.4, 82, 0, 0.45, 'bench');
+    ob(78.6, 81, 81.4, 82, 0, 0.45, 'bench');
+  }
+  if (s === 1){                                                          // a glass balustrade round the void
+    ob(68, 82, 84.5, 84.56, L, L + 1.1, 'glass');
+    ob(67.94, 68, OZ0 + OT, 84.5, L, L + 1.1, 'glass');
+    ob(82, 82.06, OZ0 + OT, 84.5, L, L + 1.1, 'glass');
+  }
+  if (s === 2){ desks(71, 83.2, L); desks(77, 83.2, L); }                 // over the lobby, the top floor is floor
+});
+
+/* ===================================================================== */
 const P = M.MAPS.powerstation.props.map(p => {
   const q = Object.assign({}, p);
   if (q.x != null) q.x += HALL_DX;
@@ -215,6 +383,13 @@ P.push({ kind: 'piperack', x0: -11, x1: 29, px0: -15.8, px1: 29, z: RACK_Z, y: R
 P.push({ kind: 'pipebridge', x: 40, z0: -68, z1: -60, y: 9.5, rise: 25 });
 P.push({ kind: 'pipebridge', x: 66, z0: -68, z1: -60, y: 9.5, rise: 25 });   // between the boiler house's columns (62.75, 69.5); at 68 its risers grazed one
 P.push({ kind: 'flue', x0: 83, x1: 94, z: -94.5, w: 3, y0: 16, y1: 20 });
+/* The offices' ceiling lights: under the first-floor slab, the second, and
+   the roof. Kept out of both stairwells and the core; the lowest also
+   skips the void over the lobby (the panels there are the next ceiling up). */
+P.push({ kind: 'ceilinglights', x0: OX0 + OT, x1: OX1 - OT, z0: OZ0 + OT, z1: OZ1 - OT,
+         levels: [LV[1] - SLAB, LV[2] - SLAB, ROOFY - SLAB],
+         holes: [[OX0 + OT, OX0 + OT + 4.25, CZN, OZ1], [OX1 - OT - 4.25, OX1 - OT, CZN, OZ1], [72, 80, 88.4, OZ1]],
+         extra: [[[68, 82, OZ0, 84.5]]] });
 P.push({ kind: 'busbars', z: 78 });
 P.push({ kind: 'busbars', z: 94 });
 /* The yard's two gantries, with the lines swept from one to the other. */
@@ -319,6 +494,10 @@ ${lines.join('\n')}
       { k: 'road', x0: -112.5, z0: -73, x1: -112.5, z1: 73, w: 6 },
       { k: 'road', x0: -115.5, z0: -70, x1: -14, z1: -70, w: 6 },
       { k: 'road', x0: -115.5, z0:  70, x1: -14, z1:  70, w: 6 },
+      /* The offices: stone tiles inside on the ground floor, and a paved
+         path from the south road's kerb up to the door. */
+      { k: 'floor',  x0: 55.3, z0: 80.3, x1: 94.7, z1: 91.7 },
+      { k: 'paving', x0: 72.5, z0: 68.35, x1: 77.5, z1: 80 },
     ],
     signs: [],
   },
@@ -328,7 +507,7 @@ ${lines.join('\n')}
 /* Replace the whole of `works` in maps.js, between its own comment and the
    close of MAPS. It is the only entry there, so there is no next map to
    anchor on any more. */
-let src = fs.readFileSync(path, 'utf8');
+let src = fs.readFileSync(path, 'utf8').replace(/\r\n/g, '\n');   // git may hand it back with CRLF
 const a = src.indexOf('  /* THE WORKS');
 const b = src.indexOf('\n};\n\nconst DEFAULT_MAP');
 if (a < 0 || b < a) { console.error('maps.js: cannot find where `works` starts and MAPS ends'); process.exit(1); }

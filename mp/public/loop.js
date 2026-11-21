@@ -58,6 +58,16 @@ function headroom(x, z, y, body){
   }
   return true;
 }
+/* Does the flat segment (x0,z0)-(x1,z1) pass through this box's footprint? */
+function segCrossesRect(x0, z0, x1, z1, c){
+  let t0 = 0, t1 = 1;
+  for (const [p, d, lo, hi] of [[x0, x1 - x0, c.minx, c.maxx], [z0, z1 - z0, c.minz, c.maxz]]){
+    if (Math.abs(d) < 1e-9){ if (p < lo || p > hi) return false; continue; }
+    let a = (lo - p) / d, b = (hi - p) / d; if (a > b){ const t = a; a = b; b = t; }
+    t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) return false;
+  }
+  return true;
+}
 function findLedge(){
   if(climbT>0 || rollT>0 || dashT>0 || slideT>0) return null;
   if(me.stance!=='stand' || !me.alive) return null;
@@ -87,6 +97,14 @@ function findLedge(){
     if(c.maxy>topY+0.05 && c.miny<topY+STANCE.stand.body) return null;
   }
   if(!headroom(me.x, me.z, me.feetY, topY-me.feetY+STANCE.stand.body)) return null;
+  /* And nothing ACROSS the way. A window sill is a 0.9m lip with glass
+     standing on it: the landing spot is outside, clear, and the climb
+     carried you straight through the pane. Anything standing above the lip
+     and across the line from here to the landing refuses the climb. */
+  for(const c of colliders){
+    if(c.maxy<=topY+0.05 || c.miny>=topY+STANCE.stand.body) continue;
+    if(segCrossesRect(me.x, me.z, dx, dz, c)) return null;
+  }
   return { x:dx, z:dz, y:topY };
 }
 function startClimb(l){
