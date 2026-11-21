@@ -1673,6 +1673,47 @@ ADS / reload / switching checked in the pane.
   projecting the sights at full ADS: shotgun post (0, 0), ring on the same
   line; pistols front/rear within 0.006 NDC of centre.
 
+## The cooling tower tops (2026-11-22)
+
+Jack: "make the full top of the tower and not just a little platform, just
+make it like how the top of a real cooling tower would look like". The 1.8m
+grating landing is gone. What a real natural-draught shell has up there,
+and what is now drawn (`litTowerTop`, lighting.js, from the prop's `rim`):
+- the shell's INSIDE face (`litCylIn`: litCyl with normals and winding
+  turned round), in its own darker material `towerin` - on the outside
+  colour the bake, seeing only sky over the lip, made it nearly white;
+- the cap ring (cornice) at the lip;
+- an inspection gallery the whole way round: galvanised grating 1.4m wide
+  centred on the lip (r = R(33) +/- 0.7), cantilevered both sides on
+  brackets every 10 degrees, toe boards, and a yellow two-rail railing on
+  each edge; the outer railing has a 1.5m gate where the caged ladder
+  arrives (the ladder's own angle, atan2(0.93, 0.36));
+- four steady red aviation lights (`redlamp`, MeshBasic over 1 so the bloom
+  holds them) and eight lightning rods on the outer rail, with two
+  down-conductors running down the outside of the shell beside the ladder;
+- down the throat, on the ring beam's top at 5.6m: the cooling deck - a
+  dark eliminator floor, 24 radial distribution headers, a ring main and a
+  central riser.
+
+Collision (works.js, THE TOWER TOPS): 72 `ringdeck` boxes per tower, each
+the bounding box of a 5-degree sector of the annulus (33.3-33.5), and
+`ringrail` posts every 0.6m on both edges (1.1m, gaps of 0.52 - a 0.8m body
+cannot pass), skipped across the gate. `ringrail` is in MOVE_ONLY (maps.js):
+shots pass, players do not. Both draw nothing themselves (LIT_DRAW) and are
+left off the site plan. The map went from 1108 to 1570 boxes.
+
+Checked: client - walking inward stops at r 7.46, outward at 8.04, a 600-
+degree lap never leaves 33.5, walking out of the gate takes the ladder.
+Server - floor 33.5 round the rim (an exact sector seam samples 5.6 for the
+bolt's floorUnder, harmless), the throat open to 5.6, a shot passes the
+rail and stops on the deck, 210 move packets round the ring, none refused.
+
+**The shotgun's sights went back to flat** the same day ("make the aim flat
+like before"): the ghost ring and protected post are gone, the bead is the
+sight again (`aimTop: 0.044` given outright - the centreline probe misses a
+6mm bead), it aims at the old 0.43m, and `vm.adsPlain` fades its lens out as
+it comes up, so the aimed picture is exactly the old one.
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,

@@ -256,14 +256,10 @@ function drawShotgun(){
   { const loop = new THREE.Mesh(new THREE.TorusGeometry(0.009, 0.0022, 6, 14), st); loop.position.set(0, -0.030, -0.528); dAdd(g, loop); }   // ...with a sling loop
   dBox(g, st, 0.012, 0.046, 0.014, 0, 0.002, -0.50);                                                // barrel clamp
   dScrew(g, 0.0062, 0.002, -0.50, 'x', 0.0025);
-  // sights: a ghost ring at the back of the rail, a protected post at the muzzle
-  dBox(g, st, 0.024, 0.008, 0.016, 0, 0.042, 0.060);
-  for (const sx of [-1, 1]) dBox(g, st, 0.004, 0.018, 0.014, sx * 0.0105, 0.051, 0.060);           // the ears
-  { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.0062, 0.0016, 8, 18), st); ring.position.set(0, 0.0525, 0.060); dAdd(g, ring); }
-  dBox(g, st, 0.014, 0.006, 0.016, 0, 0.0335, -0.598);
-  dBox(g, st, 0.0028, 0.016, 0.006, 0, 0.0445, -0.598);                                             // the post...
-  dBox(g, M_WHITE(), 0.0024, 0.0024, 0.001, 0, 0.0505, -0.5948);                                    // ...with its dot
-  for (const sx of [-1, 1]) dBox(g, st, 0.003, 0.016, 0.010, sx * 0.0072, 0.0445, -0.598);
+  /* Sights: just the bead at the muzzle, as it always had. A ghost ring
+     and a protected post were tried (2026-11-21) and Jack had them taken
+     off the next day: "make the aim flat like before" - you look straight
+     down the receiver to the bead, with the red dot just over it. */
   /* Side saddle: six spare shells on the left of the receiver, red hulls
      and brass heads, standing up. */
   dBox(g, dk, 0.004, 0.040, 0.082, -0.0245, -0.002, -0.015);
@@ -286,10 +282,12 @@ function drawShotgun(){
   const mag = dTube(g, M_RED(), 0.0095, 0.058, 0, -0.050, -0.02);                                   // the shell in your hand on a reload
   mag.visible = false;
   return { g, grip: [0, -0.070, 0.150], fore: [0, -0.045, -0.245], mag, magAt: [0, -0.060, -0.02], shell: true,
-    /* Aim through the ghost ring onto the post: the line is the post's
-       top, which the ring's centre is set level with. */
-    aimTop: 0.0525,
-    vm: { x: 0.098, y: -0.11, z: -0.40, adsZ: 0.10, rx: 0.034, ry: 0.085, rz: -0.03, viewFov: 54, motion: 0.6 } };
+    /* Aimed, it sits where the old shotgun did (0.43m out), so the flat
+       down-the-rib picture is the one it always was: the bead's top on the
+       eye line, the red dot sitting on it. Given outright, because the
+       centreline probe misses a bead 6mm thick. */
+    aimTop: 0.044,
+    vm: { adsPlain: true, x: 0.098, y: -0.11, z: -0.40, adsZ: -0.03, rx: 0.034, ry: 0.085, rz: -0.03, viewFov: 54, motion: 0.6 } };
 }
 function drawPistol(heavy){
   const g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), po = M_POLY(), p2 = M_POLY2();

@@ -504,7 +504,11 @@ function loop(){ requestAnimationFrame(loop);
        swings its sight further across the screen for the same angle, so
        the PAC-9 moves at 0.6 to match the others on screen. The kick
        itself (gunKick, the camera's recoil) is untouched. */
-    const vk = V.viewFov ? Math.tan(camera.fov*Math.PI/360) / Math.tan(V.viewFov*Math.PI/360) : 1;
+    let vk = V.viewFov ? Math.tan(camera.fov*Math.PI/360) / Math.tan(V.viewFov*Math.PI/360) : 1;
+    /* `adsPlain`: the lens fades out as the gun comes up, so the aimed
+       picture is exactly the old one (the shotgun, 2026-11-22: "make the
+       aim flat like before"). */
+    if (V.adsPlain) vk = 1 + (vk - 1) * (1 - ads);
     const mk = V.motion != null ? V.motion : 1;
     gun.position.set(bx*vk + (rWob+sx - sw*0.26)*mk,
                      by*vk + (-rDip+sy + Math.abs(sw)*0.10 - tuck)*mk,

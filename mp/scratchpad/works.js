@@ -574,8 +574,10 @@ const P = M.MAPS.powerstation.props.map(p => {
   return q;
 });
 P.push({ kind: 'hallroof', x0: HX0 - HW, x1: HX1 + HW, z0: HZ0 - HW, z1: HZ1 + HW, y: HH });
-P.push({ kind: 'coolingtower', x: -74, z: -90, basin: 13, basinH: 2.6, beam: +shellR(5.6).toFixed(2), n: 9, y0: 5.6, y1: 33, rt: RT, yt: YT, a: AA });
-P.push({ kind: 'coolingtower', x: -24, z: -90, basin: 13, basinH: 2.6, beam: +shellR(5.6).toFixed(2), n: 9, y0: 5.6, y1: 33, rt: RT, yt: YT, a: AA });
+P.push({ kind: 'coolingtower', x: -74, z: -90, basin: 13, basinH: 2.6, beam: +shellR(5.6).toFixed(2), n: 9, y0: 5.6, y1: 33, rt: RT, yt: YT, a: AA ,
+         rim: { y: 33.5, half: 0.7, rail: 1.1, gateA: +Math.atan2(0.93, 0.36).toFixed(4), gate: 0.75 } });
+P.push({ kind: 'coolingtower', x: -24, z: -90, basin: 13, basinH: 2.6, beam: +shellR(5.6).toFixed(2), n: 9, y0: 5.6, y1: 33, rt: RT, yt: YT, a: AA ,
+         rim: { y: 33.5, half: 0.7, rail: 1.1, gateA: +Math.atan2(0.93, 0.36).toFixed(4), gate: 0.75 } });
 /* The stack, hollow (see THE STACK above): its wall is drawn as a ring
    with the two west doorways left out, matching the 36 boxes. */
 P.push({ kind: 'stack', x: STK.x, z: STK.z, r: STK.ro, ri: STK.ri, h: STK.h, n: 9,
@@ -619,8 +621,41 @@ for (const [tx, tz] of [[-74, -90], [-24, -90]]){
   for (let y = 2.6; y < 33.5; y += 1.5) path.push(at(y, 0.75));
   path.push(at(33.5, 0.75));
   LAD({ path, nx: TLX, nz: TLZ, y0: 2.6, y1: 33.5, ex: -1.1 * TLX, ez: -1.1 * TLZ, draw: false });
-  const c = at(33.5, -0.4);
-  ob(c[0] - 0.9, c[0] + 0.9, c[2] - 0.6, c[2] + 0.6, 33.3, 33.5, 'grating');
+}
+/* THE TOWER TOPS (2026-11-22). Jack: "make the full top of the tower and
+   not just a little platform ... like how the top of a real cooling tower
+   would look like". A real natural-draught shell ends in a thickened
+   stiffening ring, and on it runs an inspection gallery the whole way
+   round - grating, a railing on both edges - which is how anyone gets to
+   the aviation lights and the lightning rods on the rim. The caged ladder
+   arrives through a gate in its outer rail. Inside the rail the shell is
+   empty all the way down to the cooling deck.
+
+   Collision: the deck is 72 boxes ('ringdeck', drawn by the tower), each
+   the bounding box of a 5-degree sector of the annulus, so the walkable
+   ring is a hair wider than the drawn one at the diagonals and never
+   narrower. The rails are posts ('ringrail', movement only, like every
+   handrail: shots go through) every 0.6m, which leaves gaps of 0.52 - too
+   narrow for a 0.8m body - so the rail is continuous to a player. */
+const RIM = { y0: 33.3, y1: 33.5, half: 0.7, n: 72, post: 0.6, gate: 0.75, rail: 1.1 };
+const RIM_R = shellR(33), RIM_GATE = Math.atan2(TLZ, TLX);
+for (const [tx, tz] of [[-74, -90], [-24, -90]]){
+  const r0 = RIM_R - RIM.half, r1 = RIM_R + RIM.half;
+  for (let i = 0; i < RIM.n; i++){
+    const a0 = i / RIM.n * Math.PI * 2, a1 = (i + 1) / RIM.n * Math.PI * 2;
+    const xs = [], zs = [];
+    for (const r of [r0, r1]) for (const a of [a0, a1]){ xs.push(r * Math.cos(a)); zs.push(r * Math.sin(a)); }
+    ob(tx + Math.min(...xs), tx + Math.max(...xs), tz + Math.min(...zs), tz + Math.max(...zs), RIM.y0, RIM.y1, 'ringdeck');
+  }
+  for (const [r, gate] of [[r0 + 0.06, false], [r1 - 0.06, true]]){
+    const n = Math.ceil(2 * Math.PI * r / RIM.post);
+    for (let k = 0; k < n; k++){
+      const a = k / n * Math.PI * 2, d = Math.abs(Math.atan2(Math.sin(a - RIM_GATE), Math.cos(a - RIM_GATE))) * r;
+      if (gate && d < RIM.gate) continue;
+      const px = tx + r * Math.cos(a), pz = tz + r * Math.sin(a);
+      ob(px - 0.04, px + 0.04, pz - 0.04, pz + 0.04, RIM.y1, RIM.y1 + RIM.rail, 'ringrail');
+    }
+  }
 }
 /* Light panels in the new interiors, under each roof and gallery. */
 P.push({ kind: 'ceilinglights', x0: BH.x0 + BH.t, x1: BH.x1 - BH.t, z0: BH.z0 + BH.t, z1: BH.z1 - BH.t,

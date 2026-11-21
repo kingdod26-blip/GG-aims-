@@ -635,6 +635,114 @@ function litDrumOutline(e){
    which is cut into disjoint bands so no two coplanar faces overlap and
    fight. `inner` leaves the middle of the top open, for a basin whose shell
    stands in it. */
+/* A flat ring (annulus) facing up (sgn 1) or down (-1), N segments. */
+function litAnnulus(g, cx, y, cz, r0, r1, N, sgn){
+  const base = g.p.length / 3;
+  for (let i = 0; i <= N; i++){ const a = i / N * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+    g.p.push(cx + r0 * c, y, cz + r0 * s, cx + r1 * c, y, cz + r1 * s); g.n.push(0, sgn, 0, 0, sgn, 0);
+    g.uv.push(r0 * c / 2, r0 * s / 2, r1 * c / 2, r1 * s / 2); }
+  /* (inner_a, outer_a, inner_b) winds DOWN, so it is swapped for up */
+  for (let i = 0; i < N; i++){ const q = base + i * 2;
+    if (sgn > 0) g.i.push(q, q + 2, q + 1,  q + 1, q + 2, q + 3); else g.i.push(q, q + 1, q + 2,  q + 1, q + 3, q + 2); }
+}
+/* litCyl seen from INSIDE: the same tube, normals and winding turned round. */
+function litCylIn(g, ax, ay, az, bx, by, bz, r0, r1, sides, tile){
+  const v0 = g.p.length / 3, i0 = g.i.length;
+  litCyl(g, ax, ay, az, bx, by, bz, r0, r1, sides, tile, false, false);
+  for (let v = v0; v < g.p.length / 3; v++){ g.n[v*3] *= -1; g.n[v*3+1] *= -1; g.n[v*3+2] *= -1; }
+  for (let k = i0; k < g.i.length; k += 3){ const t = g.i[k + 1]; g.i[k + 1] = g.i[k + 2]; g.i[k + 2] = t; }
+}
+/* A ring of tube: N straight pieces round a circle, skipping any piece
+   whose middle is within `gap` metres (along the arc) of angle `gapA`. */
+function litRingTube(g, cx, y, cz, r, rr, N, gapA, gap){
+  for (let i = 0; i < N; i++){
+    const a = (i + 0.5) / N * Math.PI * 2;
+    if (gap && Math.abs(Math.atan2(Math.sin(a - gapA), Math.cos(a - gapA))) * r < gap) continue;
+    const b0 = i / N * Math.PI * 2, b1 = (i + 1) / N * Math.PI * 2;
+    litCyl(g, cx + r * Math.cos(b0), y, cz + r * Math.sin(b0), cx + r * Math.cos(b1), y, cz + r * Math.sin(b1), rr, rr, 5, 1, false, false);
+  }
+}
+/* THE TOP OF A COOLING TOWER (2026-11-22). Jack: "make the full top of the
+   tower and not just a little platform, just make it like how the top of a
+   real cooling tower would look like". What is up there on a real
+   natural-draught shell:
+   - the shell's own thickness, which you see the moment you look over the
+     edge, and its INSIDE face, bare concrete running down into the throat;
+   - the stiffening ring at the lip (the existing cap ring: the cornice);
+   - an inspection gallery all the way round: galvanised grating on the lip,
+     cantilevered both sides on brackets, toe boards, and a two-rail yellow
+     railing on each edge, with a gate where the caged ladder arrives;
+   - steady red aviation obstruction lights on the rim, and lightning rods
+     tied into down-conductors that run down the outside of the shell;
+   - and 28m down the throat, the cooling deck: drift eliminators across
+     the whole shell, the hot-water distribution headers on them, a ring
+     main and the riser that feeds them.
+   The deck and rails are the map's `ringdeck` / `ringrail` boxes; this
+   draws them at the same radii (p.rim). */
+function litTowerTop(G, p, R){
+  const x = p.x, z = p.z, y1 = p.y1, rim = p.rim, Rt = R(y1), yk = p.y0;
+  const shell = 0.25, yd = rim.y, r0 = Rt - rim.half, r1 = Rt + rim.half, N = 72;
+  const segs = 12;
+  for (let i = 0; i < segs; i++){
+    const ya = yk + (y1 - yk) * i / segs, yb = yk + (y1 - yk) * (i + 1) / segs;
+    litCylIn(G('towerin'), x, ya, z, x, yb, z, R(ya) - shell, R(yb) - shell, 28, 6);
+  }
+  litCylIn(G('concrete'), x, y1, z, x, yd - 0.2, z, Rt - shell, Rt - shell, 28, 3);
+  /* the gallery: grating on top, its underside, toe boards on both edges */
+  litAnnulus(G('galv'), x, yd, z, r0, r1, N, 1);
+  litAnnulus(G('galv'), x, yd - 0.2, z, r0, r1, N, -1);
+  litCyl(G('galv'), x, yd - 0.2, z, x, yd + 0.12, z, r1, r1, N, 1, false, false);
+  litCylIn(G('galv'), x, yd - 0.2, z, x, yd + 0.12, z, r0, r0, N, 1);
+  litCyl(G('galv'), x, yd, z, x, yd + 0.12, z, r0 + 0.02, r0 + 0.02, N, 1, false, false);
+  litCylIn(G('galv'), x, yd, z, x, yd + 0.12, z, r1 - 0.02, r1 - 0.02, N, 1);
+  /* brackets under the cantilevers, every 10 degrees, in and out */
+  for (let k = 0; k < 36; k++){
+    const a = k / 36 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a), yb = yd - 0.2;
+    for (const [ro, ri] of [[r1 - 0.05, Rt + 0.22], [r0 + 0.05, Rt - shell]])
+      litCyl(G('girder'), x + ro * c, yb, z + ro * s, x + ri * c, yb - 0.9, z + ri * s, 0.04, 0.04, 4, 1, false, false);
+  }
+  /* the railings: posts every ~1.5m, a top rail and a knee rail, both
+     edges; the outer one opens for the ladder */
+  for (const [r, gap] of [[r0 + 0.06, 0], [r1 - 0.06, rim.gate]]){
+    for (const h of [rim.rail, rim.rail * 0.5]) litRingTube(G('yellow'), x, yd + h, z, r, 0.025, 64, rim.gateA, gap);
+    const n = Math.ceil(2 * Math.PI * r / 1.5);
+    for (let k = 0; k < n; k++){
+      const a = k / n * Math.PI * 2;
+      if (gap && Math.abs(Math.atan2(Math.sin(a - rim.gateA), Math.cos(a - rim.gateA))) * r < gap + 0.1) continue;
+      litCyl(G('yellow'), x + r * Math.cos(a), yd, z + r * Math.sin(a), x + r * Math.cos(a), yd + rim.rail, z + r * Math.sin(a), 0.022, 0.022, 5, 1, false, false);
+    }
+    if (gap) for (const sg of [-1, 1]){
+      const a = rim.gateA + sg * (gap + 0.04) / r;
+      litCyl(G('yellow'), x + r * Math.cos(a), yd, z + r * Math.sin(a), x + r * Math.cos(a), yd + rim.rail + 0.05, z + r * Math.sin(a), 0.03, 0.03, 6, 1, false, true);
+    }
+  }
+  /* aviation lights (4) and lightning rods (8) on the outer rail */
+  for (let k = 0; k < 8; k++){
+    const a = rim.gateA + Math.PI / 8 + k / 8 * Math.PI * 2, r = r1 - 0.06, px = x + r * Math.cos(a), pz = z + r * Math.sin(a);
+    litCyl(G('steel'), px, yd + rim.rail, pz, px, yd + rim.rail + 2.0, pz, 0.018, 0.008, 5, 1, false, true);
+    if (k % 2 === 0){
+      litBox(G('girder'), px - 0.12, yd + rim.rail, pz - 0.12, px + 0.12, yd + rim.rail + 0.18, pz + 0.12, { seg: 1, tile: 1 });
+      litCyl(G('redlamp'), px, yd + rim.rail + 0.18, pz, px, yd + rim.rail + 0.42, pz, 0.1, 0.08, 10, 1, false, true);
+    }
+  }
+  /* down-conductors: tapes down the outside of the shell either side of the ladder */
+  for (const sg of [-1, 1]){
+    const a = rim.gateA + sg * 0.35, c = Math.cos(a), s = Math.sin(a);
+    for (let i = 0; i < 12; i++){
+      const ya = yk + (y1 - yk) * i / 12, yb = yk + (y1 - yk) * (i + 1) / 12, ra = R(ya) + 0.04, rb = R(yb) + 0.04;
+      litCyl(G('steel'), x + ra * c, ya, z + ra * s, x + rb * c, yb, z + rb * s, 0.02, 0.02, 4, 1, false, false);
+    }
+  }
+  /* down the throat: the cooling deck on the ring beam's top */
+  const rd = R(yk) - shell - 0.05;
+  litAnnulus(G('girder'), x, yk + 0.06, z, 0.0, rd, 48, 1);
+  for (let k = 0; k < 24; k++){
+    const a = k / 24 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+    litCyl(G('lagging'), x + 1.6 * c, yk + 0.45, z + 1.6 * s, x + (rd - 0.4) * c, yk + 0.45, z + (rd - 0.4) * s, 0.16, 0.16, 8, 2, false, true);
+  }
+  litRingTube(G('lagging'), x, yk + 0.45, z, rd * 0.55, 0.22, 36);
+  litCyl(G('lagging'), x, yk, z, x, yk + 2.6, z, 1.5, 1.5, 20, 3, false, true);
+}
 function litDrumPrism(g, cx, cz, R, N, y0, y1, o){
   o = o || {};
   const e = litDrumSteps(R, N), loop = litDrumOutline(e), dy = y1 - y0;
@@ -1558,7 +1666,7 @@ const LIT_GROUND = {};
    keep-clear lines are not painted round them. */
 /* What a raised box shows from below, by kind: a material, or null for a
    kind that draws itself (or nothing). Anything not listed is concrete. */
-const LIT_UNDER = { grating: 'galv', steptread: 'galv', handrail: null, pipewalk: null, stackwall: null,
+const LIT_UNDER = { grating: 'galv', steptread: 'galv', handrail: null, pipewalk: null, stackwall: null, ringdeck: null, ringrail: null,
                     shedroof: 'cladding', intakeroof: 'cladding', boilerroof: 'girder', duct: 'cladding' };
 const LIT_INDOOR = { facade: 1, core: 1, desk: 1, screen: 1, counter: 1, bench: 1, tread: 1, slab: 1,
                      roofslab: 1, parapet: 1, rail: 1, glass: 1,
@@ -1971,6 +2079,7 @@ function litMaterial(name){
     case 'wall':   m = litPatch(litShare(arenaMat('wall'), { roughness: 0.96, metalness: 0, color: 0x9aa1aa }), 'wall', 0.20); break;
     case 'fixture':m = litPatch(new THREE.MeshStandardMaterial({ color: 0x2a3038, roughness: 0.5, metalness: 0.65 }), 'ceil', 0.70); break;
     case 'lamp':   m = new THREE.MeshBasicMaterial({ color: new THREE.Color().fromArray(LIT.lampShow), fog: false }); break;
+    case 'redlamp': m = new THREE.MeshBasicMaterial({ color: new THREE.Color(5.0, 0.35, 0.22) }); break;   // aviation lights: over 1, so the bloom holds them
     case 'sky':    m = new THREE.MeshBasicMaterial({ color: new THREE.Color(4.6, 5.4, 6.4), fog: false }); break;   // a skylight: overcast daylight, not a lamp
     /* The power station's plant. `machine` is the block's panelled steel in
        a machinery green with no hazard band and no stencil. */
@@ -2060,6 +2169,11 @@ function litMaterial(name){
     /* The cooling tower's shell: weathered precast concrete, streaked down
        the way every one of them is. Round, so it needs CX_ROUND. */
     case 'towerskin': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litTowerTexture(), true), roughness: 0.94, metalness: 0 }), 'cover', 0.10);
+                   m.defines.CX_ROUND = ''; break;
+    /* The INSIDE of a tower's shell (litTowerTop): the same panels, but
+       wet, stained and in its own shadow - the bake only sees the sky over
+       the lip, so on the outside colour it came out nearly white. */
+    case 'towerin': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litTowerTexture(), true), color: 0x4f5558, roughness: 0.9, metalness: 0 }), 'cover', 0.06);
                    m.defines.CX_ROUND = ''; break;
     /* The stack, in its aviation bands. Both of these are 'cover', not
        'wall': the wall kind is for the hall's perimeter - it strips 78% of
@@ -2529,6 +2643,7 @@ Object.assign(LIT_DRAW, {
     for (let i = 0; i <= n; i++){ const a = Math.min(L - 0.04, Math.max(0, L * i / n - 0.02)); bar(a, a + 0.04, 0, b.h - 0.05, 0.02); }
   },
   pipewalk(){},                                 // the pipes are drawn by their rack or bridge
+  ringdeck(){}, ringrail(){},                   // the towers' rim gallery is drawn by the tower
   stackwall(){},                                // the ring is drawn by the stack prop
   /* The office facade: rendered walls. A thin piece - a mullion between two panes -
      is a dark metal frame, as glazing bars are; everything else is render. */
@@ -2837,7 +2952,7 @@ const LIT_PROP = {
       for (let k = 0; k < 3; k++){ const yr = y + k * 0.5, A = at(yr, 0.3, -0.3), B = at(yr, 0.3, 0.3);   // rungs
         litCyl(st, A[0], A[1], A[2], B[0], B[1], B[2], 0.02, 0.02, 4, 1, false, false); }
     }
-    /* (the hut at the top is gone: the landing is a grating box now) */
+    if (p.rim) litTowerTop(G, p, R);
     /* Steam: soft billows rolling off the lip and drifting downwind. */
     litSteam(x, y1 + 0.6, z, R(y1), 'tower');
   },
