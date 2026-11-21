@@ -831,8 +831,8 @@ const MAPC = {
   plant:  '#737c88',                  // machinery
   thin:   '#4e555f',                  // lattice, steps, columns
   grid:   'rgba(255,255,255,.045)',
-  you:    '#ff2d4a',
-  them:   '#ff6274',
+  you:    '#ffd23a',                  // yellow, as in the site plan's legend
+  them:   '#ff4d5e',
   supply: '#27ff9e',
 };
 /* Which of those three a box is drawn in. A kind not named here is plant,
@@ -957,10 +957,233 @@ function cycleMap(){
   const big = byId('bigmap'); if (!big) return;
   if (!big.classList.contains('hidden')){ big.classList.add('hidden'); setMapSize(0); return; }
   if (mapSize === 0){ setMapSize(1); return; }
-  big.classList.remove('hidden'); drawBigMap();
+  big.classList.remove('hidden'); bigAt = 0; drawBigMap();
 }
+/* The whole site, on M. Sized to its box in real pixels like the corner
+   map, and throttled the same way. */
+let bigAt = 0;
 function drawBigMap(){
   const c = byId('bigmapCv'); if (!c || typeof currentMap === 'undefined' || !currentMap) return;
-  drawMapPlan(c.getContext('2d'), c.width, c.height,
-              { cx: 0, cz: 0, span: currentMap.arena * 2 + 8, labels: true });
+  const now = performance.now(); if (now - bigAt < 90) return; bigAt = now;
+  const cw = c.clientWidth || 1100, ch = c.clientHeight || 900, r = Math.min(2, window.devicePixelRatio || 1);
+  const ww = Math.round(cw * r), wh = Math.round(ch * r);
+  if (c.width !== ww || c.height !== wh){ c.width = ww; c.height = wh; }
+  const g = c.getContext('2d');
+  g.setTransform(r, 0, 0, r, 0, 0);
+  drawSitePlan(g, cw, ch);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/* =======================================================================
+   THE SITE PLAN  —  a blueprint of the whole site
+   =======================================================================
+   Jack's reference: a dark blueprint, lettered A-H across the top and
+   numbered 1-8 down both sides, buildings in light grey, the big buildings
+   as an outline you can see into, area names in capitals, a legend, and you
+   as a yellow arrow with a soft view cone.
+
+   The game has no objectives, so the green ring is the RESUPPLY, and the
+   legend says so rather than pretending. Red is anyone else (the range's
+   bots, or the room in a match) and anything burning or smoking.
+
+   Same data as the corner map (`currentMap`), same north-up rule, so the two
+   can never disagree about where a wall is. */
+const PLAN = {
+  page:   '#070b10',
+  paper:  '#0b121b',
+  grid:   'rgba(120,160,200,.16)',
+  fine:   'rgba(120,160,200,.055)',
+  ref:    'rgba(170,196,222,.7)',     // the grid letters and numbers
+  edge:   'rgba(150,175,200,.55)',    // the site boundary
+  shell:  '#8e9aa8',                  // a big building's outline
+  inside: '#111c28',                  // and what you see through it
+  wall:   '#c5cdd6',
+  plant:  '#4b5764',
+  plantE: 'rgba(170,190,210,.25)',
+  thin:   '#343e4a',
+  label:  'rgba(222,230,238,.9)',
+  ink:    '#18212b',                  // a label written ON a light building
+  you:    '#ffd23a',
+  them:   '#ff3b4e',
+  fire:   '#ff6a1a',
+  smoke:  'rgba(170,176,186,.32)',
+  supply: '#27ff9e',
+};
+/* Buildings named on the plan that have no stencil on the ground. Keyed by
+   what the map already calls them, so another map gets its names for free. */
+const PLAN_BOX_NAMES  = { boiler: 'map.boiler', intake: 'map.intake' };
+const PLAN_PROP_NAMES = { coolingtower: 'map.cooling', stack: 'map.stack' };
+const PLAN_COLS = 'ABCDEFGH', PLAN_CELLS = 8;
+
+/* `W` x `S`: the plan is the S x S square on the right, and the strip to its
+   left holds the legend. The legend used to sit ON the plan, top-left, as in
+   the reference, and it covered a cooling tower: a key should never hide
+   part of what it is the key to. */
+function drawSitePlan(g, W, S){
+  const map = currentMap, A = map.arena, X = W - S;  // X = width of the legend strip
+  const M = Math.round(S * 0.036) + 12;              // margin for the grid references
+  const P = S - M * 2, s = P / (A * 2);
+  const px = x => M + (x + A) * s, pz = z => M + (z + A) * s;
+  const font = (wt, sz) => `${wt} ${sz}px 'Barlow Condensed','Segoe UI',ui-monospace,sans-serif`;
+  const spaced = v => { if ('letterSpacing' in g) g.letterSpacing = v; };
+
+  g.clearRect(0, 0, W, S);
+  g.fillStyle = PLAN.page;  g.fillRect(0, 0, W, S);
+  g.save(); g.translate(X, 0);                       // the plan, in its own square
+  g.fillStyle = PLAN.paper; g.fillRect(M, M, P, P);
+
+  /* The grid: a fine one every third of a cell, then the cells. */
+  const cell = P / PLAN_CELLS;
+  g.lineWidth = 1;
+  g.strokeStyle = PLAN.fine; g.beginPath();
+  for (let i = 1; i < PLAN_CELLS * 3; i++){ if (i % 3 === 0) continue;
+    const v = M + i * cell / 3; g.moveTo(v, M); g.lineTo(v, M + P); g.moveTo(M, v); g.lineTo(M + P, v); }
+  g.stroke();
+  g.strokeStyle = PLAN.grid; g.beginPath();
+  for (let i = 1; i < PLAN_CELLS; i++){
+    const v = Math.round(M + i * cell) + 0.5; g.moveTo(v, M); g.lineTo(v, M + P); g.moveTo(M, v); g.lineTo(M + P, v); }
+  g.stroke();
+
+  /* Grid references: letters across the top, numbers down both sides. */
+  g.fillStyle = PLAN.ref; g.font = font(700, Math.round(M * 0.42)); spaced('1px');
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (let i = 0; i < PLAN_CELLS; i++){
+    const c = M + (i + 0.5) * cell;
+    g.fillText(PLAN_COLS[i], c, M * 0.5);
+    g.fillText(String(i + 1), M * 0.5, c);
+    g.fillText(String(i + 1), S - M * 0.5, c);
+  }
+
+  /* Big buildings first, as an outline you can see into: the region under a
+     roof is the building, and the plant inside it is drawn on top. */
+  for (const r of (map.roofRects || [])){
+    const x = px(r.minx), z = pz(r.minz), w = (r.maxx - r.minx) * s, d = (r.maxz - r.minz) * s;
+    g.fillStyle = PLAN.inside; g.fillRect(x, z, w, d);
+  }
+
+  /* Round things are drawn round. Their colliders are rings of hidden boxes,
+     which the plan skips, so without this the cooling towers are missing. */
+  for (const p of (map.props || [])){
+    if (p.kind === 'coolingtower'){
+      g.fillStyle = PLAN.inside; g.strokeStyle = PLAN.wall; g.lineWidth = 1.5;
+      g.beginPath(); g.arc(px(p.x), pz(p.z), p.basin * s, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.strokeStyle = PLAN.shell; g.lineWidth = 1; g.setLineDash([3, 3]);
+      g.beginPath(); g.arc(px(p.x), pz(p.z), p.rt * s, 0, Math.PI * 2); g.stroke();
+      g.setLineDash([]);
+    } else if (p.kind === 'stack'){
+      g.fillStyle = PLAN.wall;
+      g.beginPath(); g.arc(px(p.x), pz(p.z), Math.max(2, p.r * s), 0, Math.PI * 2); g.fill();
+    }
+  }
+
+  for (const b of map.boxes){
+    if (b.mat === 'hidden') continue;
+    const x0 = px(b.x - b.w / 2), z0 = pz(b.z - b.d / 2), w = Math.max(1, b.w * s), d = Math.max(1, b.d * s);
+    if (MAPC_WALL[b.mat]){ g.fillStyle = PLAN.wall; g.fillRect(x0, z0, w, d); }
+    else if (MAPC_THIN[b.mat]){ g.fillStyle = PLAN.thin; g.fillRect(x0, z0, w, d); }
+    else { g.fillStyle = PLAN.plant; g.fillRect(x0, z0, w, d);
+      if (w > 4 && d > 4){ g.strokeStyle = PLAN.plantE; g.lineWidth = 0.75; g.strokeRect(x0 + 0.5, z0 + 0.5, w - 1, d - 1); } }
+  }
+
+  /* The outline goes on last, so cladding drawn as boxes cannot hide it. */
+  g.strokeStyle = PLAN.shell; g.lineWidth = 1.5;
+  for (const r of (map.roofRects || []))
+    g.strokeRect(px(r.minx), pz(r.minz), (r.maxx - r.minx) * s, (r.maxz - r.minz) * s);
+  g.strokeStyle = PLAN.edge; g.lineWidth = 1.5; g.strokeRect(M + 0.5, M + 0.5, P - 1, P - 1);
+
+  /* Hazards: what is burning and what is smoking, at their real size. */
+  if (typeof groundFires !== 'undefined') for (const f of groundFires){
+    const x = px(f.g.position.x), z = pz(f.g.position.z), r = GFIRE.radius * s;
+    const gr = g.createRadialGradient(x, z, 0, x, z, r);
+    gr.addColorStop(0, 'rgba(255,120,40,.75)'); gr.addColorStop(1, 'rgba(255,60,20,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(x, z, r, 0, Math.PI * 2); g.fill();
+    g.save(); g.shadowColor = PLAN.them; g.shadowBlur = 8; g.fillStyle = PLAN.them;   // the legend's red
+    g.beginPath(); g.arc(x, z, 3, 0, Math.PI * 2); g.fill(); g.restore();
+  }
+  if (typeof smokes !== 'undefined') for (const sm of smokes){
+    g.fillStyle = PLAN.smoke; g.beginPath(); g.arc(px(sm.x), pz(sm.z), SMOKEFX.radius * s, 0, Math.PI * 2); g.fill();
+  }
+
+  /* Area names. The stencils painted on the ground first, then the named
+     buildings. A name on a light building is written in dark ink. */
+  const label = (text, x, z, sz, ink) => {
+    g.font = font(700, sz); spaced(Math.round(sz * 0.16) + 'px');
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (!ink){ g.lineWidth = 3; g.strokeStyle = 'rgba(7,11,16,.85)'; g.strokeText(text, x, z); }
+    g.fillStyle = ink ? PLAN.ink : PLAN.label; g.fillText(text, x, z);
+  };
+  const big = Math.max(11, Math.round(S * 0.018)), small = Math.max(10, Math.round(S * 0.014));
+  for (const p of (map.paint || [])) if (p.k === 'text') label(p.t, px(p.x), pz(p.z), big);
+  for (const b of map.boxes) if (PLAN_BOX_NAMES[b.mat])
+    label(t(PLAN_BOX_NAMES[b.mat]), px(b.x), pz(b.z), small, true);
+  const groups = {};
+  for (const p of (map.props || [])) if (PLAN_PROP_NAMES[p.kind]) (groups[p.kind] = groups[p.kind] || []).push(p);
+  for (const k in groups){                           // one name for a group, under its middle
+    const ps = groups[k], x = ps.reduce((a, p) => a + p.x, 0) / ps.length, z = ps.reduce((a, p) => a + p.z, 0) / ps.length;
+    const r = Math.max(...ps.map(p => p.basin || p.r || 0));
+    label(t(PLAN_PROP_NAMES[k]), px(x), pz(z + r) + small + 2, small);
+  }
+
+  /* The resupply: a green ring that glows. */
+  const rs = map.resupply || { x: 0, z: 0 }, rx = px(rs.x), rz = pz(rs.z);
+  g.save(); g.shadowColor = PLAN.supply; g.shadowBlur = 12;
+  g.strokeStyle = PLAN.supply; g.lineWidth = 2.5;
+  g.beginPath(); g.arc(rx, rz, Math.max(7, 4 * s), 0, Math.PI * 2); g.stroke();
+  g.fillStyle = PLAN.supply; g.beginPath(); g.arc(rx, rz, 2.5, 0, Math.PI * 2); g.fill();
+  g.restore();
+
+  /* Everyone else, as glowing red dots. */
+  g.save(); g.shadowColor = PLAN.them; g.shadowBlur = 10; g.fillStyle = PLAN.them;
+  const dot = (x, z) => { g.beginPath(); g.arc(px(x), pz(z), 4, 0, Math.PI * 2); g.fill(); };
+  if (typeof others !== 'undefined' && others)
+    for (const p of others.values()) if (p.alive !== false) dot(p.bx != null ? p.bx : p.tx, p.bz != null ? p.bz : p.tz);
+  if (typeof localBots !== 'undefined' && localBots)
+    for (const b of localBots) if (b.alive) dot(b.x, b.z);
+  g.restore();
+
+  /* You: a soft view cone, the arrow, and YOU beside it. Same rotation as
+     the corner map: the forward vector for yaw is (-sin, -cos), so -yaw. */
+  const yx = px(me.x), yz = pz(me.z), reach = 42 * s, half = 0.55;
+  g.save(); g.translate(yx, yz); g.rotate(-me.yaw);
+  const cone = g.createRadialGradient(0, 0, 0, 0, 0, reach);
+  cone.addColorStop(0, 'rgba(255,210,58,.38)'); cone.addColorStop(1, 'rgba(255,210,58,0)');
+  g.fillStyle = cone; g.beginPath(); g.moveTo(0, 0);
+  g.arc(0, 0, reach, -Math.PI / 2 - half, -Math.PI / 2 + half); g.closePath(); g.fill();
+  g.shadowColor = 'rgba(0,0,0,.7)'; g.shadowBlur = 4;
+  g.fillStyle = PLAN.you; g.beginPath();
+  g.moveTo(0, -10); g.lineTo(7, 7); g.lineTo(0, 3.5); g.lineTo(-7, 7); g.closePath(); g.fill();
+  g.restore();
+  label(t('map.you'), yx + 16, yz - 14, small);
+  g.restore();                                       // back out of the plan's square
+
+  /* The legend, top-left, in its own strip, then which square you are in. */
+  const lx = Math.max(8, Math.round(X * 0.08)), ly = M, rowH = Math.round(small * 1.9);
+  g.font = font(700, small); spaced('1.5px');
+  const rows = [['you', t('map.you')], ['supply', t('map.supply')], ['them', t('map.enemy')]];
+  const lw = X - lx - 8, lh = rowH * (rows.length + 1) + 6;
+  g.fillStyle = 'rgba(7,11,16,.9)'; g.fillRect(lx, ly, lw, lh);
+  g.strokeStyle = PLAN.grid; g.lineWidth = 1; g.strokeRect(lx + 0.5, ly + 0.5, lw - 1, lh - 1);
+  g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.fillStyle = PLAN.ref; g.fillText(t('map.legend'), lx + 10, ly + rowH * 0.6 + 2);
+  rows.forEach((r, i) => {
+    const cy = ly + rowH * (i + 1.6) + 2, ix = lx + 18;
+    g.save();
+    if (r[0] === 'you'){ g.fillStyle = PLAN.you; g.beginPath();
+      g.moveTo(ix, cy - 7); g.lineTo(ix + 5, cy + 5); g.lineTo(ix, cy + 2.5); g.lineTo(ix - 5, cy + 5); g.closePath(); g.fill(); }
+    else if (r[0] === 'supply'){ g.shadowColor = PLAN.supply; g.shadowBlur = 6; g.strokeStyle = PLAN.supply; g.lineWidth = 2;
+      g.beginPath(); g.arc(ix, cy, 5.5, 0, Math.PI * 2); g.stroke(); }
+    else { g.shadowColor = PLAN.them; g.shadowBlur = 6; g.fillStyle = PLAN.them;
+      g.beginPath(); g.arc(ix, cy, 4, 0, Math.PI * 2); g.fill(); }
+    g.restore();
+    g.fillStyle = PLAN.label; g.fillText(r[1], lx + 32, cy);
+  });
+  /* "YOU ARE IN C5": the grid is only worth drawing if it answers this. */
+  const col = Math.floor((me.x + A) / (A * 2) * PLAN_CELLS), row = Math.floor((me.z + A) / (A * 2) * PLAN_CELLS);
+  if (col >= 0 && col < PLAN_CELLS && row >= 0 && row < PLAN_CELLS){
+    const gy = ly + lh + rowH * 1.4;
+    g.fillStyle = PLAN.ref; g.fillText(t('map.at'), lx + 2, gy);
+    g.fillStyle = PLAN.you; g.font = font(700, Math.round(small * 2.4));
+    g.fillText(PLAN_COLS[col] + (row + 1), lx + 2, gy + rowH * 1.5);
+  }
+  spaced('0px'); g.textAlign = 'left'; g.textBaseline = 'alphabetic';
 }

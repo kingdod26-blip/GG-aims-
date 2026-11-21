@@ -1202,6 +1202,40 @@ built from — so neither can show a room the match is not playing.
 - Strings `map.title` / `map.close` are in both language packs. Adding markup
   with `data-i18n` and no strings shows the raw keys, which it did at first.
 
+### The site plan is a blueprint (2026-11-21)
+
+Jack sent a reference: a dark blueprint of the whole site, lettered A-H
+across the top and numbered 1-8 down both sides, buildings light grey, the
+big ones as an outline you can see into, area names in capitals, a legend,
+YOU as a yellow arrow with a soft view cone, a green ring and red dots.
+`drawSitePlan` (hud.js) draws the M view; the corner sizes still use
+`drawMapPlan`. Both read `currentMap`.
+
+- **The grid is the site cut into 8 x 8** (30m squares on `works`), so the
+  references land on the site edge, not on round metres. Under the legend it
+  says which square you are in ("YOU ARE IN D5"); a grid that cannot answer
+  that is decoration.
+- **The game has no objectives**, so the green ring is the RESUPPLY and the
+  legend says RESUPPLY. Red is anyone else (range bots, or the room in a
+  match) and hazards: a fire pool is an orange glow with a red dot in it,
+  smoke a grey disc, both at their real radius.
+- **The legend is in its own strip, left of the plan, not on it.** On the
+  plan, top-left as in the reference, it covered the west cooling tower. The
+  canvas is 13:10 for that strip.
+- **Round plant is drawn round.** Cooling towers and the stack collide as
+  rings of `hidden` boxes, which the plan skips, so they were missing from
+  the plan entirely. They come from `props` now (`coolingtower` basin and
+  throat, `stack`).
+- **Names**: the ground stencils, plus buildings named by what the map
+  already calls them (`PLAN_BOX_NAMES` by box `mat`, `PLAN_PROP_NAMES` by prop
+  kind, one name under the middle of a group). A name on a light building is
+  written in dark ink. The stencils stay English in Chinese: they are what is
+  painted on the ground. The office (Task B) gets its name here.
+- **Your arrow is yellow on every size now**, and others red, so the corner
+  map and the legend agree.
+- The M view is throttled to ~11Hz like the corner map, and sized to its box
+  in real pixels. `cycleMap` zeroes `bigAt` so opening it draws at once.
+
 ### Three things that were clipping (2026-11-14)
 
 Jack: *"fix the things that is clipping"*. Found by differencing the map

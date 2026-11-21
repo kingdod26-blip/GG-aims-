@@ -572,9 +572,14 @@ body:not(.playing) #mapPanel{ display:none; }
 #bigmap{ position:fixed; inset:0; z-index:60; display:flex; align-items:center;
   justify-content:center; flex-direction:column; gap:14px;
   background:rgba(6,7,10,.86); backdrop-filter:blur(2px); }
-#bigmapCv{ width:min(78vmin,900px); height:min(78vmin,900px);
-  border:1px solid rgba(255,45,74,.4); border-radius:12px; background:rgba(8,9,12,.9); }
-#bigmapFoot{ font:600 12px/1 ui-monospace,monospace; letter-spacing:.16em; color:var(--t2); }
+/* Wider than tall: the plan is the square on the right, the legend strip on
+   its left (drawSitePlan). */
+#bigmapCv{ width:min(102vmin,1170px,96vw); height:auto; aspect-ratio:13/10;
+  border:1px solid rgba(140,170,200,.35); border-radius:12px; background:#070b10; }
+#bigmapFoot{ font:600 12px/1 ui-monospace,monospace; letter-spacing:.16em; color:var(--t2);
+  width:min(102vmin,1170px,96vw); display:flex; justify-content:space-between; align-items:center; }
+#bigmapFoot i{ font-style:normal; color:var(--t2); padding:5px 9px;
+  border:1px solid rgba(140,170,200,.35); background:rgba(11,18,27,.9); }
 #bigmapFoot span{ color:var(--t3); margin-left:10px; }
 
 /* ---- Settings, in tabs ---------------------------------------------------
