@@ -1793,6 +1793,21 @@ dressing the office interiors, ambient sound.
   finger, then glove and sword pitched forward together (-0.5 rad) to a
   guard about 30 degrees above the forearm, and rolled on its axis so the
   flat and fuller face you. Its own pose (`WEAPONS[BLADE].vm`).
+- **The sword is a LONGSWORD now, held upright** (same day, after the video
+  Jack sent - a first-person longsword set for UE4, `tSYZoErN2fA`). Frames
+  from it: idle is the sword nearly vertical at the right of the view, flat
+  toward you, a wide blade running off the top, a cross guard curving up,
+  the hilt low with the hand just under the guard. `buildSword` is a
+  two-handed longsword (0.25m grip, 0.98m blade, curved quillons,
+  scent-stopper pommel) built with its origin at the upper hand; held with
+  pivot turn [0.35, 0, 0.12] and roll 1.5, pose x .2 y -.12 z -.52. The
+  existing melee swing (loop.js) sweeps it across as a cut and was left as
+  it is. Not done: their second hand on the grip during cuts (the PAC-9
+  left glove is posed for a handguard, not a sword grip).
+  To read a YouTube video's frames: seek the <video>, draw it into a canvas,
+  show it as a fixed <img> sized to `innerWidth` (the pane's page is 400 CSS
+  px wide - an 800px overlay showed only the left half), and screenshot.
+  YouTube's CSP blocks posting frames to the local receiver.
 - **The sword and grenade redrawn** (drawn.js `buildSword`,
   `buildFragGrenade`, placed by `holdInGlove`): an arming sword - a blade
   tapering in width and thickness, flattened-diamond section, fullers, a

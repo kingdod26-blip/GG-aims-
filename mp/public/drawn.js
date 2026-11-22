@@ -660,9 +660,9 @@ function gloveEveryGun(b){
   /* The sword and the grenade are held, not just near a hand (THE SWORD AND
      THE GRENADE, REDRAWN). Their grip point is where the old arm's palm was. */
   const at = new THREE.Vector3(0.03, -0.11, 0.14);
-  if (typeof BLADE !== 'undefined' && BLADE >= 0) { holdInGlove(BLADE, b, rOff, at, buildSword(), true, [-0.5, 0.15, 0, -1.15]);
+  if (typeof BLADE !== 'undefined' && BLADE >= 0) { holdInGlove(BLADE, b, rOff, at, buildSword(), true, [0.35, 0, 0.12, 1.5]);
     /* held up in guard, the hand in the lower right, not off the bottom of the screen */
-    WEAPONS[BLADE].vm = { x: 0.17, y: -0.02, z: -0.42, adsZ: 0, rx: 0, ry: 0, rz: 0, viewFov: 0 }; }
+    WEAPONS[BLADE].vm = { x: 0.2, y: -0.12, z: -0.52, adsZ: 0, rx: 0, ry: 0, rz: 0, viewFov: 0 }; }
   if (typeof GRENADE !== 'undefined' && GRENADE >= 0){
     const gr = buildFragGrenade();
     gr.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), PAC9_GRIP_AXIS);   // fuze out of the top of the fist
@@ -724,23 +724,41 @@ function swordBladeGeo(len, w0, t0){
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
   return g;
 }
+/* THE LONGSWORD (2026-11-22, after the first-person longsword set Jack
+   pointed at: "look at how they done the sword"). What that does, and the
+   arming sword before it did not: a two-handed longsword - a long grip, a
+   wide blade a metre long that runs off the top of the screen, a cross
+   guard whose arms curve up toward the blade - held UPRIGHT at the right
+   of the view, flat toward you, the hilt low with the hand just under the
+   guard. Built along -Z with its origin where that upper hand grips:
+   guard just above it, the grip running back past the second hand's place
+   to the pommel. */
 function buildSword(){
   const g = new THREE.Group(), bl = M_BLADE(), gd = M_GUARD(), lt = M_LEATH(), st = M_STEEL();
-  /* grip: 0.13m, z +0.065 (pommel end) .. -0.065 (guard end) */
-  dTube(g, lt, 0.0155, 0.13, 0, 0, 0, 0.0145, 14);
-  for (let i = 0; i < 4; i++) dTube(g, lt, 0.0168, 0.004, 0, 0, -0.045 + i * 0.03, 0.0168, 14);        // risers under the leather
-  dTube(g, st, 0.0175, 0.012, 0, 0, -0.068, 0.0165, 14); dTube(g, st, 0.0165, 0.01, 0, 0, 0.068, 0.0175, 14);   // ferrules
-  /* the cross guard: across the edges (Y), turned finials */
-  dBox(g, gd, 0.022, 0.19, 0.018, 0, 0, -0.083);
-  for (const s of [-1, 1]){ const f = new THREE.Mesh(new THREE.SphereGeometry(0.0135, 12, 10), gd); f.position.set(0, s * 0.098, -0.083); dAdd(g, f); }
-  dBox(g, gd, 0.03, 0.05, 0.012, 0, 0, -0.096);                                                       // the langet over the blade's root
-  /* the blade, from the guard */
-  { const m = new THREE.Mesh(swordBladeGeo(0.74, 0.024, 0.0045), bl); m.position.z = -0.1; dAdd(g, m);
-    for (const s of [-1, 1]){ const fl = new THREE.Mesh(new THREE.BoxGeometry(0.001, 0.009, 0.46), M_GUARD());   // the fullers, dark
-      fl.position.set(s * 0.0034, 0, -0.1 - 0.25); dAdd(g, fl); } }
-  /* the wheel pommel and its peen */
-  { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.027, 0.027, 0.02, 20), gd); p.rotation.z = Math.PI / 2; p.position.set(0, 0, 0.09); dAdd(g, p);
-    const q = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.03, 10), st); q.rotation.z = Math.PI / 2; q.position.set(0, 0, 0.09); dAdd(g, q); }
+  /* the grip: 0.25m, a little waisted, leather over risers, ferrules */
+  dTube(g, lt, 0.0158, 0.12, 0, 0, 0.025, 0.0148, 14);
+  dTube(g, lt, 0.0148, 0.12, 0, 0, 0.145, 0.0162, 14);
+  for (let i = 0; i < 7; i++) dTube(g, lt, 0.0168, 0.004, 0, 0, -0.025 + i * 0.033, 0.0168, 14);
+  dTube(g, st, 0.0178, 0.014, 0, 0, -0.038, 0.0168, 14); dTube(g, st, 0.0168, 0.012, 0, 0, 0.212, 0.018, 14);
+  /* the cross guard: a block over the blade's root, and two arms that
+     sweep out and curve up toward the blade, flaring at their ends */
+  dBox(g, gd, 0.028, 0.06, 0.022, 0, 0, -0.05);
+  for (const sgn of [-1, 1]){
+    const pts = [[0.028, -0.05], [0.065, -0.051], [0.098, -0.055], [0.124, -0.062], [0.14, -0.071]];   // [out along Y, along Z]: a gentle sweep
+    for (let i = 0; i < pts.length - 1; i++){
+      const a0 = new THREE.Vector3(0, sgn * pts[i][0], pts[i][1]), a1 = new THREE.Vector3(0, sgn * pts[i + 1][0], pts[i + 1][1]);
+      const m = a0.clone().add(a1).multiplyScalar(0.5), len = a0.distanceTo(a1) + 0.004, th = 0.019 - i * 0.002;
+      const seg = new THREE.Mesh(new THREE.BoxGeometry(th, th, len), gd); seg.position.copy(m); seg.lookAt(a1); dAdd(g, seg);
+    }
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.014, 0.024), gd); tip.position.set(0, sgn * 0.143, -0.074); dAdd(g, tip);
+  }
+  /* the blade: a metre, wide at the guard, a long fuller each side */
+  { const m = new THREE.Mesh(swordBladeGeo(0.98, 0.029, 0.0052), bl); m.position.z = -0.061; dAdd(g, m);
+    for (const s of [-1, 1]){ const fl = new THREE.Mesh(new THREE.BoxGeometry(0.001, 0.011, 0.62), M_STEEL());
+      fl.position.set(s * 0.0042, 0, -0.061 - 0.34); dAdd(g, fl); } }
+  /* a scent-stopper pommel, and its peen */
+  { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.026, 0.05, 16), gd); p.rotation.x = Math.PI / 2; p.position.set(0, 0, 0.244); dAdd(g, p);
+    const q = new THREE.Mesh(new THREE.SphereGeometry(0.019, 12, 10), gd); q.position.set(0, 0, 0.272); dAdd(g, q); }
   return g;
 }
 /* The frag grenade, fuze up (+Y), spoon on the +Z side, centred on its body. */
