@@ -118,6 +118,11 @@ const LIT = {
      doing the job it was added for: the rooflights, the plume, a flash. */
   bloomSky: [0.15, 0.80, 1.75],
   dynFill: 0.62, dynKey: 1.05,     // the two real lights, which only reach moving things in this look
+  /* the fittings (litPanelLights): an office ceiling's panels, a hall's
+     high-bays, warm white */
+  panelL: 3.6, highbayL: 90, worklampL: 60, panelRGB: [1.0, 0.9, 0.76],
+  /* eye adaptation: how far exposure may rise indoors, and how fast */
+  adaptMax: 1.9, adaptRate: 0.025,
   rim: [0.40, 0.46, 0.56],         // the outline light on players
 };
 
@@ -148,9 +153,29 @@ function litContext(map){
      what lets an upper floor's slab shade the floor under it without
      standing on that floor (boxY, maps.js). Glass is left out: light goes
      through a window. */
-  const occ = map.boxes.filter(b => !MOVE_ONLY[b.mat]);
+  const occ = map.boxes.filter(b => !MOVE_ONLY[b.mat]).map(b => [b.x - b.w/2, b.x + b.w/2, b.z - b.d/2, b.z + b.d/2, boxY(b), boxY(b) + b.h]);
+  /* THE ROOF IS REAL TO THE LIGHT NOW (2026-11-22). Jack: "the lighting
+     inside the main building, there isnt any light but the whole building
+     is very bright ... mabey its the roof not real ... doesnt block the
+     light comming from on top". It was not: the turbine hall's roof is a
+     `roofRect` - it stops a bullet and not a player - and the bake only
+     knew about boxes, so the hall was baked as open sky and came out lit
+     like the yard. The roof's slab is an occluder here, LESS its rooflight
+     strips (the same strips hallroof draws), so daylight reaches the hall
+     floor only through the glazing you can see. */
+  for (const p of (map.props || [])) if (p.kind === 'hallroof'){
+    const y0 = p.y + 0.05, y1 = p.y + 0.6, sz0 = p.z0 + 3, sz1 = p.z1 - 3;
+    let x = p.x0;
+    for (const sx of litRooflights(p)){
+      occ.push([x, sx, p.z0, p.z1, y0, y1]);                                   // the slab between two strips
+      occ.push([sx, sx + 5, p.z0, sz0, y0, y1], [sx, sx + 5, sz1, p.z1, y0, y1]);   // and at each strip's ends
+      x = sx + 5;
+    }
+    occ.push([x, p.x1, p.z0, p.z1, y0, y1]);
+  }
   const nb = occ.length, boxes = new Float32Array(nb * 6);
-  occ.forEach((b, i) => boxes.set([b.x - b.w/2, b.x + b.w/2, b.z - b.d/2, b.z + b.d/2, boxY(b), boxY(b) + b.h], i * 6));
+  occ.forEach((r, i) => boxes.set(r, i * 6));
+  const panels = litPanelLights(map);
   /* A BROADPHASE over the boxes, because `litBlocked` is the whole cost of
      the bake and it used to try every box in the map against every shadow
      ray. The early reject is five comparisons, which sounds free until you
@@ -206,6 +231,7 @@ function litContext(map){
            boxes, nBoxes: nb,
            cs, gw, g0, cellAt, cellBox, seen: new Int32Array(nb), stamp: 0,
            strips: Float32Array.from(strips), nStrips: strips.length / 5,
+           panels: Float32Array.from(panels), nPanels: panels.length / 6,
            stripDA: st * LIT.stripHalf * 2, stripCull2: 17 * 17 };
 }
 
@@ -214,6 +240,45 @@ function litContext(map){
    walked with a DDA, which is the same march a software rasteriser does
    along a line. A box's y slab is [miny, maxy]: the floor for most, higher
    for a raised one. */
+/* Where hallroof's rooflight strips are: 5m wide, every 12m. */
+function litRooflights(p){ const xs = []; for (let x = p.x0 + 8; x < p.x1 - 6; x += 12) xs.push(x); return xs; }
+/* Every light fitting as an area light facing down: [x, y, z, half-x,
+   half-z, radiance], six numbers each. The office-style panels (the
+   `ceilinglights` props) are binned into 4.8m cells - the cell is the
+   light, its radiance scaled by how much of it is panel - because hundreds
+   of 1.2 x 0.6m lights would be hundreds of shadow rays a point. The
+   high-bays are one light each. */
+function litPanelLights(map){
+  const out = [], CELL = 4.8;
+  for (const p of (map.props || [])){
+    if (p.kind === 'ceilinglights'){
+      p.levels.forEach((y, li) => {
+        const holes = p.holes.concat(p.extra[li] || []), cells = new Map();
+        for (let x = p.x0 + 1.2; x + 0.6 <= p.x1 - 0.6; x += 2.4)
+          for (let z = p.z0 + 1.2; z + 0.3 <= p.z1 - 0.6; z += 2.4){
+            const a0 = x - 0.6, a1 = x + 0.6, b0 = z - 0.3, b1 = z + 0.3;
+            if (holes.some(h => a1 > h[0] - 0.3 && a0 < h[1] + 0.3 && b1 > h[2] - 0.3 && b0 < h[3] + 0.3)) continue;
+            const k = Math.floor(x / CELL) + ',' + Math.floor(z / CELL);
+            const c = cells.get(k) || [1e9, -1e9, 1e9, -1e9, 0];
+            c[0] = Math.min(c[0], a0); c[1] = Math.max(c[1], a1); c[2] = Math.min(c[2], b0); c[3] = Math.max(c[3], b1); c[4]++;
+            cells.set(k, c);
+          }
+        for (const c of cells.values()){
+          const hx = (c[1] - c[0]) / 2, hz = (c[3] - c[2]) / 2, cover = c[4] * 0.72 / (4 * hx * hz);
+          out.push((c[0] + c[1]) / 2, y - 0.01, (c[2] + c[3]) / 2, hx, hz, LIT.panelL * cover);
+        }
+      });
+    } else if (p.kind === 'boiler'){
+      /* the work lamp on its stand inside each furnace (litBoiler draws it) */
+      const d = p.door, ix0 = p.x0 + p.t, ix1 = p.x1 - p.t, lx = d.face === 'E' ? ix1 - 1.4 : ix0 + 1.4, lz = (d.a0 + d.a1) / 2 - 2.6;
+      out.push(lx, 2.74, lz, 0.25, 0.1, LIT.worklampL);
+    } else if (p.kind === 'highbay'){
+      for (const [x, z] of litHighbays(p)) out.push(x, p.y - 0.4, z, 0.3, 0.3, LIT.highbayL);
+    }
+  }
+  return out;
+}
+function litHighbays(p){ const o = []; for (let x = p.x0; x <= p.x1 + 0.01; x += p.step) for (let z = p.z0; z <= p.z1 + 0.01; z += p.step) o.push([x, z]); return o; }
 function litBlocked(c, px, py, pz, sx, sy, sz){
   const B = c.boxes;
   const dx = sx - px, dy = sy - py, dz = sz - pz;
@@ -300,6 +365,30 @@ function litDirect(c, px, py, pz, nx, ny, nz, seed, out){
       const w = acc * c.lampArea / (nu * nv) * c.lampL;
       r += w * c.lampRGB[0]; g += w * c.lampRGB[1]; b += w * c.lampRGB[2];
     }
+  }
+  /* THE LIGHT FITTINGS (2026-11-22). Every ceiling panel and high-bay lamp
+     in the interiors was drawn and lit nothing: an office was a ceiling of
+     glowing panels over a floor lit only by its windows. They are area
+     lights now, facing down, gathered into cells (litPanelLights). */
+  const Pn = c.panels, np = c.nPanels, PR = LIT.panelRGB;
+  for (let l = 0; l < np; l++){
+    const o = l * 6, lx = Pn[o], ly2 = Pn[o+1], lz = Pn[o+2], phx = Pn[o+3], phz = Pn[o+4], L = Pn[o+5];
+    const vyp = ly2 - oy; if (vyp < 0.05) continue;
+    const ddx = lx - ox, ddz = lz - oz, hd2 = ddx*ddx + ddz*ddz; if (hd2 > 400) continue;
+    const n2 = (seed && hd2 < 64) ? 2 : 1;
+    let acc = 0;
+    for (let a = 0; a < n2; a++) for (let q = 0; q < n2; q++){
+      let fu = 0.5, fv = 0.5;
+      if (seed){ seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; fu = seed / 4294967296;
+                 seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; fv = seed / 4294967296; }
+      const sx = lx + (((a + fu) / n2) * 2 - 1) * phx, sz = lz + (((q + fv) / n2) * 2 - 1) * phz;
+      const vx = sx - ox, vz = sz - oz, cs = nx*vx + ny*vyp + nz*vz; if (cs <= 0) continue;
+      const r2 = vx*vx + vyp*vyp + vz*vz;
+      if (litBlocked(c, ox, oy, oz, sx, ly2 - 0.03, sz)) continue;
+      acc += cs * vyp / (r2 * r2);
+    }
+    const w = acc * (4 * phx * phz) / (n2 * n2) * L;
+    r += w * PR[0]; g += w * PR[1]; b += w * PR[2];
   }
   /* The strip is an ACCENT. Left at full strength on what faces down it
      turned the whole roof red for ten metres in from every wall, and the
@@ -1889,7 +1978,7 @@ function litGroundTexture(map){
       for (let z = z0; z <= z0 + d; z += t) g.fillRect(x0, z, w, 1);
       g.restore();
     } };
-    tiles('floor',  '#b9b6ae', 'rgba(70,68,64,0.28)', 1.2, 0.05);   // 1.2m: at 8.5px a metre, 0.6m tiles were a moire grid
+    tiles('floor',  '#dcd9d0', 'rgba(70,68,64,0.28)', 1.2, 0.05);   // 1.2m: at 8.5px a metre, 0.6m tiles were a moire grid. Lighter (2026-11-22): the office's ground floor shares the outdoor slab, darkened for the overcast, and read a shade darker than the floors above it
     tiles('paving', '#a9a59b', 'rgba(60,58,54,0.35)', 0.9, 0.08);
     /* Roads: every kerb, then every asphalt bed, then every line - and last,
        the asphalt again over each junction, so no kerb or line runs across
@@ -2359,7 +2448,7 @@ function litMaterial(name){
                    /* Not litPatch'd: the lit look replaces a material's lighting with
                       the bake, emissive and all, and the bake sees nothing in here. A
                       plain material takes the moving-things lights and its own glow. */
-                   m = lookTag(new THREE.MeshStandardMaterial({ map: tt, emissiveMap: tt, emissive: new THREE.Color(0.5, 0.36, 0.26), roughness: 0.75, metalness: 0.3 }), { metalness: 0.3, roughness: 0.75 }, { metalness: 0, roughness: 0.75 });
+                   m = lookTag(new THREE.MeshStandardMaterial({ map: tt, emissiveMap: tt, emissive: new THREE.Color(0.95, 0.66, 0.46), roughness: 0.75, metalness: 0.3 }), { metalness: 0.3, roughness: 0.75 }, { metalness: 0, roughness: 0.75 });
                    m.userData.envK = 0.3; break; }
     case 'glow':    m = new THREE.MeshBasicMaterial({ color: new THREE.Color(4.2, 1.5, 0.45) }); break;   // a burner seen through its sight glass
     case 'towerin': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litTowerTexture(), true), color: 0x4f5558, roughness: 0.9, metalness: 0 }), 'cover', 0.06);
@@ -3315,6 +3404,10 @@ const LIT_PROP = {
     const ry = y + 0.05;
     litBox(G('roofblue'), x0, ry, z0, x1, ry + 0.55, z1, { seg: 4, tile: 3.2, tileV: 3.2 });
     litGrid(G('cladding'), x0, ry, z0, 1,0,0, 0,0,1, x1 - x0, z1 - z0, 0,-1,0, 4, 4, 3.2, 3.2, x0, z0);
+    /* ...and from INSIDE the hall, the same strips as glowing glazing in
+       the ceiling: the light the bake now lets through them has to come
+       from somewhere you can see (2026-11-22). */
+    for (const x of litRooflights(p)) litGrid(G('sky'), x, ry - 0.02, z0 + 3, 0,0,1, 1,0,0, (z1 - z0) - 6, 5, 0,-1,0, 99, 99, 1, 1);
     for (let x = x0 + 8; x < x1 - 6; x += 12){            // rooflight strips, both sides of the slab
       litGrid(G('sky'), x, ry + 0.57, z0 + 3, 1,0,0, 0,0,1, 5, (z1 - z0) - 6, 0,1,0, 99, 99, 1, 1);
       litGrid(G('sky'), x + 5, ry - 0.01, z0 + 3, -1,0,0, 0,0,1, 5, (z1 - z0) - 6, 0,-1,0, 99, 99, 1, 1);
@@ -3548,6 +3641,16 @@ const LIT_KIT = {
 };
 Object.assign(LIT_DRAW, LIT_KIT);
 LIT_PROP.boiler = litBoiler;          // the furnaces (THE BOILERS)
+/* High-bay lamps: a hall's real lighting, a spun reflector on a drop rod
+   with the lamp glowing in its mouth. They are lights in the bake
+   (litPanelLights), and these are what you see of them. */
+LIT_PROP.highbay = function(G, p){
+  for (const [x, z] of litHighbays(p)){
+    litCyl(G('steel'), x, p.y - 0.15, z, x, p.y + 1.2, z, 0.02, 0.02, 5, 1, false, false);
+    litCyl(G('steel'), x, p.y - 0.4, z, x, p.y - 0.15, z, 0.34, 0.12, 14, 1, false, true);
+    litCyl(G('lamp'), x, p.y - 0.41, z, x, p.y - 0.4, z, 0.3, 0.3, 14, 1, true, false);
+  }
+};
 /* Loose clutter gets no keep-clear outline painted round it: that line is
    for plant, and round a drum or a cone it read as a level editor. */
 for (const k in LIT_KIT) LIT_INDOOR[k] = 1;
@@ -4043,4 +4146,44 @@ function litFrame(){
   _litF.set(0, 0, 0).addScaledVector(_litRgt, r).addScaledVector(_litUp, u).addScaledVector(_litDir, d);
   sun.target.position.copy(_litF); sun.target.updateMatrixWorld();
   sun.position.copy(_litF).addScaledVector(_litDir, 80);
+  litDynamicLight();
+}
+/* MOVING THINGS ARE LIT BY WHERE YOU STAND (2026-11-22). The gun in your
+   hand and the bodies on the map are lit by the two real lights, which
+   were the same everywhere: the rifle was as bright in a shut furnace as in
+   the yard, and the sun shone on it through every roof. Every few frames
+   the bake's own light is measured at the camera - the sky and the
+   fittings, with their shadows - against the brightest open ground, and
+   the fill follows it; and a ray toward the sun says whether it can reach
+   you at all. Both ease, so walking through a door is a transition, not a
+   switch. (They are global lights, so other players are lit by where YOU
+   stand: right indoors, where you see them; a known limit.) */
+const LIT_DYN = { n: 0, ref: 0, refGen: -1, fill: 1, sun: 1, tFill: 1, tSun: 1, out: [0, 0, 0] };
+function litDynamicLight(){
+  const J = litJob; if (!J || !J.ctx || !(currentMap && currentMap.sky)) return;
+  const c = J.ctx, o = LIT_DYN.out, lum = () => 0.3 * o[0] + 0.6 * o[1] + 0.1 * o[2];
+  if (LIT_DYN.refGen !== J.gen){                 // the open-ground reference, once per bake
+    let best = 0;
+    for (const [x, z] of [[-30, 80], [0, -112], [-100, 10], [-60, 70]]){ litDirect(c, x, 1.5, z, 0, 1, 0, 0, o); best = Math.max(best, lum()); }
+    LIT_DYN.ref = best || 1; LIT_DYN.refGen = J.gen;
+  }
+  if ((LIT_DYN.n++ % 6) === 0){
+    const p = camera.position;
+    litDirect(c, p.x, p.y, p.z, 0, 1, 0, 0, o);
+    const k = Math.max(0, Math.min(1, lum() / LIT_DYN.ref));
+    LIT_DYN.tFill = 0.22 + 0.78 * Math.pow(k, 0.7);
+    LIT_DYN.tSun = litBlocked(c, p.x, p.y, p.z, p.x + _litDir.x * 90, p.y + _litDir.y * 90, p.z + _litDir.z * 90) ? 0 : 1;
+  }
+  LIT_DYN.fill += (LIT_DYN.tFill - LIT_DYN.fill) * 0.12;
+  LIT_DYN.sun  += (LIT_DYN.tSun  - LIT_DYN.sun)  * 0.12;
+  hemi.intensity = LIT.dynFill * LIT_DYN.fill;
+  sun.intensity  = LIT.dynKey  * LIT_DYN.sun;
+  /* EYE ADAPTATION. A lit office is a fifth as bright as an overcast yard,
+     which is true and which a fixed exposure shows as a dim room. An eye
+     (and every camera) opens up indoors: exposure rises as the light where
+     you stand falls, slowly, so stepping inside is a moment of dark and
+     looking back out through the door is a bright frame. */
+  const tExp = LIT.skyExposure * Math.min(LIT.adaptMax, 1 / (0.4 + 0.6 * LIT_DYN.fill));
+  LIT_DYN.exp = (LIT_DYN.exp || tExp) + (tExp - (LIT_DYN.exp || tExp)) * LIT.adaptRate;
+  renderer.toneMappingExposure = LIT_DYN.exp;
 }

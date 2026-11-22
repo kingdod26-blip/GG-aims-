@@ -1861,6 +1861,42 @@ touched at the top level before its declaration in the same file kills the
 whole script (TDZ) - LIT_PROP, LIT_NOGRIME here; and close any other game
 tab (Saltline) before timing anything.
 
+## Lighting that makes sense (2026-11-22)
+
+Jack: "look into the game and see the lighting, fix all the lighting that
+does not make sense ... the lighting inside the main building, there isnt
+any light but the whole building is very bright ... mabey its the roof not
+real ... doesnt block the light comming from on top". Toured 16 spots:
+- **The hall's roof was not real to the bake.** It is a `roofRect` (stops
+  bullets, not players), and `litContext` only took boxes as occluders, so
+  the hall was baked as open sky. The roof slab is an occluder now LESS its
+  rooflight strips (`litRooflights`, the same 5m strips every 12m hallroof
+  draws), and those strips are drawn on the UNDERSIDE too, glowing, so the
+  daylight comes from glazing you can see.
+- **No fitting lit anything.** Every `ceilinglights` panel and the new
+  hall `highbay` lamps (works.js, every 12m at HH-1.2) are area lights in
+  the bake (`litPanelLights` -> ctx.panels, six floats each; summed in
+  `litDirect`). Office panels are binned into 4.8m cells, radiance scaled
+  by how much of the cell is panel - hundreds of separate lights would be
+  hundreds of shadow rays a point. Each boiler's work lamp is one too.
+  `LIT.panelL 3.6, highbayL 90, worklampL 60, panelRGB` warm white. 322
+  lights on works; the bake finishes ~7s after load (behind the menu).
+- **Moving things are lit by where you stand** (`litDynamicLight`, in
+  `litFrame`): every 6 frames `litDirect` at the camera against the
+  brightest open ground sets the fill (hemi), and a ray toward the sun
+  (`litBlocked`) whether the key can reach you; both ease. They are global
+  lights, so other players are lit by where YOU stand.
+- **Eye adaptation**: exposure rises indoors (up to `adaptMax` 1.9x,
+  `adaptRate` 0.025 a frame) from that same measurement, so a lit room
+  reads as lit (it is a fifth of the yard's light) and the door back out is
+  bright.
+- The furnace tube walls glow more (emissive 0.95/0.66/0.46); the office's
+  ground-floor tiles are lighter (it shares the darkened outdoor slab).
+- Measured floor light: yard ~3, hall ~1.4, office ~0.6, under the boiler
+  house galleries ~0.15 (it gets exposure). Frame 6.4ms.
+- A "shade" found in the open at (-30, 80) was real: a 13m lamp post's
+  shadow. Check what blocks before calling a sun test wrong.
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,

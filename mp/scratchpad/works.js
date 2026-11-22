@@ -596,6 +596,12 @@ const P = M.MAPS.powerstation.props.map(p => {
 });
 P.push({ kind: 'hallroof', x0: HX0 - HW, x1: HX1 + HW, z0: HZ0 - HW, z1: HZ1 + HW, y: HH });
 P.push(...BOILERS);                 // the two furnaces (THE TWO BOILERS)
+/* The hall's own light (2026-11-22): high-bay lamps every 12m under the
+   roof, where the crane leaves room. Until now the hall had no fittings at
+   all and was lit, unseen, by the sky through a roof the bake could not
+   see; now its roof is solid to the light but for the rooflights, and
+   these light it (lighting.js litPanelLights). */
+P.push({ kind: 'highbay', x0: HX0 + 6, x1: HX1 - 6, z0: HZ0 + 6, z1: HZ1 - 6, y: HH - 1.2, step: 12 });
 P.push({ kind: 'coolingtower', x: -74, z: -90, basin: 13, basinH: 2.6, beam: +shellR(5.6).toFixed(2), n: 9, y0: 5.6, y1: 33, rt: RT, yt: YT, a: AA ,
          door: { a: 0, half: 0.95 },
          rim: { y: 33.5, half: 0.7, rail: 1.1, gateA: +Math.atan2(0.93, 0.36).toFixed(4), gate: 0.75 } });
@@ -813,7 +819,7 @@ kit('gascage', -45.8, 114.2, 0);
 cable([-24.5, 103.2], [-23.2, 104.8], [-22.4, 107.4]); cable([-24.5, 105.6], [-30, 106.4], [-36.5, 110.2], [-38.3, 110.2]);
 for (const [x, z] of [[-30.8, 109], [-26.4, 109.4], [-31, 114.2], [-26.2, 114.4], [-14, 104.6], [-8.6, 111.6]]) cone(x, z);
 oil(-11, 108.6, 1.4); oil(-24.5, 104.6, 0.9); oil(-32.6, 100.2, 1.0); oil(-29, 111.5, 1.6);
-sign('site', -49.6, 95.3, Math.PI, true); sign('ppe', -38.38, 107.4, Math.PI / 2, false, 1.25);
+sign('site', -49.6, 95.3, Math.PI, true); sign('ppe', -38.38, 107.8, Math.PI / 2, false, 1.25);   // between the window (to 107.4) and the door (from 108.1)
 
 /* 2. THE DOSING HOUSE: its chemical store outside the east door - totes,
    a pallet of drums, the gas cage - kept clear of the door itself. */
@@ -864,7 +870,7 @@ kit('drums4', 105, 34, -0.08); kit('ibc', 105.1, 31.4, 0.06);
 for (const [x, z] of [[20.5, -40], [23.5, -40], [20.5, -37], [23.5, -37]]) cone(x, z);
 CL.push({ k: 'hose', x: 22, z: -38.5, c: 'orange' });
 oil(16.6, -44.4, 0.9); oil(105, 34, 0.9);
-sign('ppe', 50, -58.98, 0, false, 1.6);
+sign('ppe', 44.5, -58.98, 0, false, 1.6);      // beside the north door (x 48-54), on the wall - not in the doorway
 
 /* 8. THE BOILER HOUSE FLOOR, east side: drums, a tote, a tool cart. */
 kit('drums4', 78.2, -92, 0.06); kit('ibc', 78.4, -89.4, -0.05); kit('toolcart', 79.2, -75, 0.3); kit('pallets', 79.8, -71.3, 0.12);

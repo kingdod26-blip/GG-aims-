@@ -2686,6 +2686,15 @@ const MAPS = {
                 }
           },
           {
+                kind: 'highbay',
+                x0: 3,
+                x1: 109,
+                z0: -53,
+                z1: 53,
+                y: 14.8,
+                step: 12
+          },
+          {
                 kind: 'coolingtower',
                 x: -74,
                 z: -90,
@@ -3374,7 +3383,7 @@ const MAPS = {
                             k: 'sign',
                             t: 'ppe',
                             x: -38.38,
-                            z: 107.4,
+                            z: 107.8,
                             ry: 1.5708,
                             post: false,
                             y: 1.25
@@ -3524,7 +3533,7 @@ const MAPS = {
                       {
                             k: 'sign',
                             t: 'ppe',
-                            x: 50,
+                            x: 44.5,
                             z: -58.98,
                             ry: 0,
                             post: false,
