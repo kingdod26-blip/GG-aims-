@@ -847,122 +847,20 @@ function holdInGlove(slot, b, rOff, at, thing, alignAxis, turn){
     const d0 = new THREE.Vector3(0, 0, -1).applyQuaternion(thing.quaternion).applyQuaternion(pivot.quaternion).normalize();
     BLADE_RIG = { pivot, wrist, base: pivot.quaternion.clone(), thingQ: thing.quaternion.clone(), d0, off: new THREE.Vector3(), q: pivot.quaternion.clone(), from: null, lastT: 0,
                   left, leftFist, leftGrip, at: at.clone(), rgrp };
-    /* JOINTED ARMS (2026-11-22). Jack: "i want you to add elbow so it looks
-       more logical, for example for the fifth hit ... a human would need to
-       bend his elbow to swing like that". Before this: a wrist bend (taken
-       out: "not the wrist"), then sleeves stretched off-screen (a cover, not
-       an arm). Now each arm is hand - forearm - ELBOW - upper arm - shoulder,
-       the elbow found every frame by two-bone IK (bladeArmsFrame).
-       The research (longsword cutting mechanics): the wind-up is made with
-       the elbows BENT and held out from the body, the sword by the shoulder
-       or over the head; the cut EXTENDS both arms forward through the
-       strike; the recovery bends them again. Two-bone IK gives exactly that
-       from where the hands are: hands drawn in bend the elbows, hands driven
-       out straighten them. The wrist does not bend: each hand is turned
-       round the handle it holds so its own forearm points at its elbow. */
-    BLADE_RIG.arms = [jointedArm(holder, rgrp, glove, false, [0.21, -0.38, 0.14], [0.9, -0.8, 0.3]),
-                      jointedArm(holder, left, lg, true, [-0.21, -0.38, 0.14], [-0.9, -0.8, 0.3])];
+    /* (2026-11-22: jointed arms with elbows - two-bone IK, an upper arm to
+       each shoulder, the hand turning on the grip - were built and then
+       taken out: "be like the original swing before all this, dont show too
+       much arm". The arm is the PAC-9 glove alone again.) */
   }
 }
-/* The glove's long axis, measured on the model: from the fingertips at
-   t -0.2 through the wrist (t 0.2, its narrowest) to the cuff at t 0.36. */
-const GLOVE_C = new THREE.Vector3(0.036, 0.006, 0.002), GLOVE_V = new THREE.Vector3(0.452, 0.244, 0.858).normalize();
-/* The PAC-9 glove is the hand AND the forearm (fist to cuff ~0.4m), so the
-   forearm is the glove itself, rigid with the hand, and the ELBOW is at its
-   cuff (t ARM.elbowT). */
-const ARM = { elbowT: 0.40, upper: 0.33,                       // the elbow on the glove's axis; elbow to shoulder (m)
-              tint: [5.0, 6.9, 9.0] };                        // the sleeve's own vertex tint, sampled off the glove
-function jointedArm(holder, grp, glove, mirrored, shoulder, pole){
-  const mat = glove.children[0].material;
-  const tint = (geo) => { const n = geo.attributes.position.count, c = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) c.set(ARM.tint, i * 3); geo.setAttribute('color', new THREE.BufferAttribute(c, 3)); return geo; };
-  const tube = (r0, r1) => tint(new THREE.CylinderGeometry(r1, r0, 1, 16, 1, true).translate(0, 0.5, 0));
-  /* smaller than the cuff, so the joint reads as an elbow and not a ball
-     (Jack: "the elbow should be a smaller") */
-  const upper = new THREE.Mesh(tube(0.062, 0.072), mat);
-  const elbow = new THREE.Mesh(tint(new THREE.SphereGeometry(0.064, 16, 12)), mat);
-  for (const m of [upper, elbow]){ m.frustumCulled = false; holder.add(m); }
-  /* fist to elbow: the fist is the hand group's origin; where is it on the glove's axis? */
-  glove.updateMatrix();
-  const fl = new THREE.Vector3().applyMatrix4(glove.matrix.clone().invert());
-  const reach = ARM.elbowT - fl.sub(GLOVE_C).dot(GLOVE_V);
-  /* the glove's long axis in the hand group's frame (before the turn round
-     the handle): the group is mirrored for the left hand */
-  const a = GLOVE_V.clone().applyQuaternion(glove.quaternion); if (mirrored) a.x = -a.x;
-  return { grp, glove, a, upper, elbow, reach, th: null,
-           shoulder: new THREE.Vector3().fromArray(shoulder), pole: new THREE.Vector3().fromArray(pole).normalize() };
-}
-const _aF = new THREE.Vector3(), _aS = new THREE.Vector3(), _aE = new THREE.Vector3(), _aW = new THREE.Vector3(), _aU = new THREE.Vector3(),
-      _aP = new THREE.Vector3(), _aD = new THREE.Vector3(), _aQ = new THREE.Quaternion(), _aY = new THREE.Vector3(0, 1, 0), _aK = new THREE.Vector3();
-/* Where a segment a->b (world) leaves the view, as a share of it: an arm
-   tube is cut there (a little past the edge), so nothing runs right by the
-   lens - an upper arm reaching the shoulder beside the camera filled the
-   corner as a flat dark slab. */
-const _cV = new THREE.Vector3(), _cInv = new THREE.Matrix4();     // the camera's inverse, refreshed each frame by bladeArmsFrame
-function armInView(p){
-  /* a tube's surface is ~0.09 off its centre line: stopping the centre
-     0.22m out keeps the whole tube clear of the near plane (0.05), which
-     otherwise slices it into a flat dark slab */
-  _cV.copy(p).applyMatrix4(_cInv); if (_cV.z > -0.22) return false;
-  const ty = Math.tan(camera.fov * Math.PI / 360), tx = ty * camera.aspect;
-  return Math.abs(_cV.x / -_cV.z) < tx * 1.25 && Math.abs(_cV.y / -_cV.z) < ty * 1.25;
-}
-function armClip(a, b, out){
-  if (!armInView(a)) return 0;
-  let t = 1;
-  for (let i = 1; i <= 24; i++){ out.copy(a).lerp(b, i / 24); if (!armInView(out)){ t = i / 24; break; } }
-  out.copy(a).lerp(b, t); return t;
-}
-const _cB = new THREE.Vector3();
-/* a tube mesh from a to b (holder-local) */
-function armSpan(m, a, b){
-  _aD.copy(b).sub(a); const L = _aD.length() || 1e-4;
-  m.position.copy(a); m.quaternion.setFromUnitVectors(_aY, _aD.divideScalar(L)); m.scale.set(1, L, 1);
-}
-/* Every frame with the blade out, after the viewmodel is placed. */
+/* Every frame with the blade out, after the viewmodel is placed: ONE hand on
+   the sword, except for the charged attack (Jack: "just remove the left
+   arm, only leave the left arm when there is a charge attack") - the left
+   hand comes onto the grip while the charge is held and through the stab,
+   and is gone for the five cuts. */
 function bladeArmsFrame(){
-  const R = BLADE_RIG; if (!R || !R.arms) return;
-  const k = PAC9_GRIP_AXIS;
-  camera.updateWorldMatrix(true, false); _cInv.copy(camera.matrixWorld).invert();   // (matrixWorldInverse is only refreshed at render)
-  /* ONE hand on the sword, except for the charged attack (Jack: "just
-     remove the left arm, only leave the left arm when there is a charge
-     attack"): the left hand comes onto the grip while the charge is held
-     and through the stab it releases, and is gone for the five cuts. */
-  const both = chargeFrom > 0 || (swingT > 0 && swingCut === HEAVY.cut);
-  R.left.visible = both;
-  for (const u of R.arms){
-    if (u.grp === R.left && !both){ u.elbow.visible = u.upper.visible = false; continue; }
-    u.grp.updateWorldMatrix(true, false);
-    const h = u.upper.parent;
-    u.grp.getWorldPosition(_aF);                                          // the fist, on the grip
-    _aS.copy(u.shoulder); camera.localToWorld(_aS);
-    _aP.copy(u.pole).applyQuaternion(camera.getWorldQuaternion(_aQ));
-    /* two-bone IK: the elbow where the forearm (fist to elbow) and the upper
-       arm meet, pushed out and down along the pole */
-    _aU.copy(_aS).sub(_aF); const d = _aU.length(); _aU.divideScalar(d || 1);
-    const L1 = u.reach, L2 = ARM.upper, dd = Math.min(d, L1 + L2 - 1e-4);
-    const along = (L1 * L1 - L2 * L2 + dd * dd) / (2 * dd), up = Math.sqrt(Math.max(0, L1 * L1 - along * along));
-    _aP.addScaledVector(_aU, -_aP.dot(_aU)).normalize();
-    _aE.copy(_aF).addScaledVector(_aU, along).addScaledVector(_aP, up);
-    /* turn the hand round the handle so its forearm points at the elbow:
-       the angle that best aligns the glove's axis, about the grip, with the
-       fist-to-elbow line (both in the frame the hand group turns in) */
-    _aD.copy(_aE).sub(_aF).normalize().applyQuaternion(u.grp.parent.getWorldQuaternion(_aQ).invert());
-    const ka = k.dot(u.a);
-    _aK.copy(u.a).addScaledVector(k, -ka);                                // a, across the grip
-    _aW.crossVectors(k, u.a);
-    const want = Math.atan2(_aW.dot(_aD), _aK.dot(_aD));
-    if (u.th === null) u.th = want;
-    else { let dth = want - u.th; dth -= Math.round(dth / (2 * Math.PI)) * 2 * Math.PI; u.th += dth * 0.5; }
-    u.grp.quaternion.setFromAxisAngle(k, u.th);
-    u.glove.updateWorldMatrix(true, false);
-    /* the elbow is where the forearm - the glove - actually ends, now it
-       points (as near as a turn round the handle can) at the IK elbow */
-    _aE.copy(GLOVE_C).addScaledVector(GLOVE_V, ARM.elbowT); u.glove.localToWorld(_aE);
-    const elbowSeen = armInView(_aE);
-    u.elbow.visible = u.upper.visible = elbowSeen;
-    if (elbowSeen){ armClip(_aE, _aS, _cB); h.worldToLocal(_aE); h.worldToLocal(_cB); armSpan(u.upper, _aE, _cB); u.elbow.position.copy(_aE); }
-  }
+  const R = BLADE_RIG; if (!R || !R.left) return;
+  R.left.visible = chargeFrom > 0 || (swingT > 0 && swingCut === HEAVY.cut);
 }
 /* THE FIVE CUTS (2026-11-22). Jack: "its the animation of the 5 swinging of
    the sword, i want you to make the swing like the video". The video's

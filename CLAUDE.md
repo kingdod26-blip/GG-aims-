@@ -1860,37 +1860,17 @@ dressing the office interiors, ambient sound.
   should be pointing to the aim"):
   - the left hand is turned 70 degrees round the handle (fist kept on it),
     so its forearm runs down-left instead of up across the view;
-  - **Jointed arms with elbows** (Jack: "add elbow so it looks more
-    logical, for example for the fifth hit ... a human would need to bend
-    his elbow", pointing at the video again). Researched longsword cutting:
-    the wind-up is made with the elbows BENT and held out, sword by the
-    shoulder or overhead; the cut EXTENDS both arms forward through the
-    strike; recovery bends them again. Two-bone IK gives that from where the
-    hands are (`bladeArmsFrame`, drawn.js): shoulders at (+-0.21, -0.38,
-    0.14) camera space, elbows pushed out and down by a pole. The PAC-9
-    glove is the hand AND the forearm (fist to cuff ~0.4m), so the forearm
-    IS the glove - rigid, no wrist bend - and the ELBOW is its cuff
-    (`ARM.elbowT` 0.40 on its axis, fist-to-elbow measured per glove,
-    0.497). Each frame the hand turns round the handle (analytically, the
-    angle about PAC9_GRIP_AXIS that best aims the glove's axis at the IK
-    elbow; eased) so the forearm points where the elbow belongs. An elbow
-    joint and an upper arm (in the glove's material, its sleeve tint) run
-    from the cuff toward the shoulder, cut where they leave the view
-    (`armClip`) and kept 0.22m off the lens - near the camera a tube was
-    sliced by the near plane into a flat dark slab. Tried and abandoned on
-    the way: a wrist bend toward the shoulders ("not the wrist"), stretched
-    sleeves running off-screen (a cover, not an arm), and a separate
-    forearm tube (the glove already is one; it kinked).
-    Then (Jack: "the elbow should be a smaller, also the 3 attack is
-    still blocking the screen"): the elbow joint is r 0.064 and the upper
-    arm 0.062-0.072, under the cuff's 0.088; cut 3 (rising) finishes with
-    the hands low and right (its last keys were at y +0.20/+0.28, which
-    laid the left arm across the middle of the view).
-    Then: "just remove the left arm, only leave the left arm when there is
-    a charge attack". bladeArmsFrame hides the left hand, elbow and upper
-    arm unless a charge is held (`chargeFrom`) or the stab is playing
-    (`swingCut === HEAVY.cut`): one hand for rest and the five cuts, two
-    for the charge and the stab.
+  - **Arms: the plain glove** (final, Jack: "be like the original swing
+    before all this, dont show too much arm"). Jointed arms were built the
+    same day - two-bone IK, an upper arm to each shoulder, an elbow joint,
+    the hand turning on the grip to meet its forearm - and taken out with
+    everything that led to them (a wrist bend, stretched sleeves, a
+    separate forearm tube). What stays: the PAC-9 glove alone, ONE hand on
+    the sword at rest and through the five cuts, the left hand on the grip
+    only while a charge is held (`chargeFrom`) and through the stab
+    (`swingCut === HEAVY.cut`) - `bladeArmsFrame` sets that each frame -
+    and cut 3's lowered finish. Lesson: in first person, every bit of arm
+    added is screen taken; the glove alone is what Jack wants.
   - the charge and the stab keys are `'aim'`: the blade laid along the line
     from the hand at that key to 8m down the crosshair (bladeKeyQuats).
     Measured: the blade's line at 8m lands at NDC (0.001, 0.002).
