@@ -1854,6 +1854,15 @@ dressing the office interiors, ambient sound.
   0.115m below the right hand every frame. Measured: 0.000mm off the grip
   through all six moves.
 
+**The range has unlimited ammo and no resupply** (2026-11-22, Jack: "remove
+the resupply in training, ammo in training should be unlimited").
+`training('infAmmo')` (core.js) is always true off a match, so the magazine
+never counts down there; the PRACTICE AMMO settings row is gone (nothing
+left to choose). The range's local resupply check (loop.js) is gone, its
+ring is hidden off a match, and both plans leave the ring and its legend row
+out. A match is unchanged: the server's ammo and resupply rules stand.
+Checked: 60 rifle shots on the range leave it at 30/120.
+
 **The red dot and the sight agree under recoil** (2026-11-22, Jack: "the
 actual position the bullet lands is suppose to be the same as what is
 shown on the scopes aim"). Aimed, the viewmodel still TIPPED with the kick

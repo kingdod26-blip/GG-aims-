@@ -281,7 +281,11 @@ const SET_DEFAULTS = { fpsCap:60, resScale:1, bloom:1, shadows:1024, hitZone:1, 
 /* Training aids. Gated to target practice on purpose — ammo and ability
    charges are client-side, so honouring these in a match would just be a
    cheat switch. */
-const training = key => gameMode !== 'mp' && !!SETTINGS[key];
+/* Practice-only aids. Unlimited ammo is no longer a choice on the range -
+   it is how the range works (Jack, 2026-11-22: "ammo in training should be
+   unlimited"), so its settings row is gone and it is always on there. A
+   match never gets any of these. */
+const training = key => gameMode !== 'mp' && (key === 'infAmmo' || !!SETTINGS[key]);
 const SET_PRESETS = {
   performance: { fpsCap:30, resScale:0.75, bloom:0, shadows:0    },
   balanced:    { fpsCap:60, resScale:1,    bloom:1, shadows:1024 },

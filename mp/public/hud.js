@@ -905,10 +905,13 @@ function drawMapPlan(g, W, H, o){
     g.fillRect(x0, z0, Math.max(1, w), Math.max(1, d));
   }
 
-  /* The resupply, in the green it has everywhere else. */
-  const rs = map.resupply || { x: 0, z: 0 };
-  g.strokeStyle = MAPC.supply; g.lineWidth = 1.5;
-  g.beginPath(); g.arc(px(rs.x), pz(rs.z), Math.max(3, 5 * s), 0, Math.PI * 2); g.stroke();
+  /* The resupply, in the green it has everywhere else - in a match only:
+     the range has none. */
+  if (gameMode === 'mp'){
+    const rs = map.resupply || { x: 0, z: 0 };
+    g.strokeStyle = MAPC.supply; g.lineWidth = 1.5;
+    g.beginPath(); g.arc(px(rs.x), pz(rs.z), Math.max(3, 5 * s), 0, Math.PI * 2); g.stroke();
+  }
 
   /* Labels, from the map's own floor stencils — so the names on the plan
      are the names painted on the ground. */
@@ -1152,13 +1155,15 @@ function drawSitePlan(g, W, S){
     label(t(PLAN_PROP_NAMES[k]), px(x), pz(z + r) + small + 2, small);
   }
 
-  /* The resupply: a green ring that glows. */
-  const rs = map.resupply || { x: 0, z: 0 }, rx = px(rs.x), rz = pz(rs.z);
-  g.save(); g.shadowColor = PLAN.supply; g.shadowBlur = 12;
-  g.strokeStyle = PLAN.supply; g.lineWidth = 2.5;
-  g.beginPath(); g.arc(rx, rz, Math.max(7, 4 * s), 0, Math.PI * 2); g.stroke();
-  g.fillStyle = PLAN.supply; g.beginPath(); g.arc(rx, rz, 2.5, 0, Math.PI * 2); g.fill();
-  g.restore();
+  /* The resupply: a green ring that glows (a match only: the range has none). */
+  if (gameMode === 'mp'){
+    const rs = map.resupply || { x: 0, z: 0 }, rx = px(rs.x), rz = pz(rs.z);
+    g.save(); g.shadowColor = PLAN.supply; g.shadowBlur = 12;
+    g.strokeStyle = PLAN.supply; g.lineWidth = 2.5;
+    g.beginPath(); g.arc(rx, rz, Math.max(7, 4 * s), 0, Math.PI * 2); g.stroke();
+    g.fillStyle = PLAN.supply; g.beginPath(); g.arc(rx, rz, 2.5, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
 
   /* Everyone else, as glowing red dots. */
   g.save(); g.shadowColor = PLAN.them; g.shadowBlur = 10; g.fillStyle = PLAN.them;
@@ -1187,7 +1192,7 @@ function drawSitePlan(g, W, S){
   /* The legend, top-left, in its own strip, then which square you are in. */
   const lx = Math.max(8, Math.round(X * 0.08)), ly = M, rowH = Math.round(small * 1.9);
   g.font = font(700, small); spaced('1.5px');
-  const rows = [['you', t('map.you')], ['supply', t('map.supply')], ['them', t('map.enemy')]];
+  const rows = [['you', t('map.you')], ['supply', t('map.supply')], ['them', t('map.enemy')]].filter(r => r[0] !== 'supply' || gameMode === 'mp');
   const lw = X - lx - 8, lh = rowH * (rows.length + 1) + 6;
   g.fillStyle = 'rgba(7,11,16,.9)'; g.fillRect(lx, ly, lw, lh);
   g.strokeStyle = PLAN.grid; g.lineWidth = 1; g.strokeRect(lx + 0.5, ly + 0.5, lw - 1, lh - 1);

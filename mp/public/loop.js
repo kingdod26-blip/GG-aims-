@@ -371,13 +371,11 @@ function loop(){ requestAnimationFrame(loop);
       updateArrows(dt);                      // flaming arrows + burn ticks
       updateGrenades(dt);                    // the range's grenades; a match's are in the snapshot
       updateBooms(dt);                       // explosions, either mode
-      // Resupply crate. In a match the server drives this (it also pays out);
-      // in target practice there is nobody to tell us, so check it here.
-      if(gameMode !== 'mp'){
-        const near = Math.hypot(me.x-RESUPPLY.x, me.z-RESUPPLY.z) <= RESUPPLY.radius;
-        if(near && !inResupply){ inResupply=true; refillAllWeapons(); updateHUD(); Sfx.swap(); toast('RESUPPLIED'); }
-        else if(!near) inResupply=false;
-      }
+      /* The resupply is a MATCH thing (the server drives it and pays out).
+         The range has none (Jack, 2026-11-22: "remove the resupply in
+         training, ammo in training should be unlimited" - training('infAmmo')
+         is always on there), so its ring only shows in a match. */
+      if(resupplyRing) resupplyRing.visible = gameMode === 'mp';
       abilityTick();
       if(pointerLocked){
         if(curW().auto){ if(wantFire) shoot(); }

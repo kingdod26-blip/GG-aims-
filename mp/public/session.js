@@ -85,7 +85,6 @@ const SET_DEFS = [
      options that quietly do nothing — and read as cheats to everyone else
      in the room. */
   { tab:'gameplay', key:'showBoxes',label:'HITBOXES',   opts:[[0,'HIDDEN'],[1,'SHOW']], practice:true },
-  { tab:'gameplay', key:'infAmmo',   label:'PRACTICE AMMO',   opts:[[0,'NORMAL'],[1,'UNLIMITED']], practice:true },
   { tab:'gameplay', key:'noSpread',  label:'PRACTICE SPREAD', opts:[[0,'NORMAL'],[1,'NONE']], practice:true },
 
   /* Only Aseed's bolts bank: the crossbow and the smoke tag both take it.
