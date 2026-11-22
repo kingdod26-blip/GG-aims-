@@ -1838,6 +1838,18 @@ dressing the office interiors, ambient sound.
   `scratchpad/meleeheavy.js` checks both on the server: heavy refused
   without a charge and after a 100ms tap; four misses then a hit lands the
   70 finisher; a 320ms charge then kills.
+
+**The red dot and the sight agree under recoil** (2026-11-22, Jack: "the
+actual position the bullet lands is suppose to be the same as what is
+shown on the scopes aim"). Aimed, the viewmodel still TIPPED with the kick
+(15% of the hip rotation, x0.6 motion: ~2 degrees on the PAC-9), so the
+sight's window rose off the camera-fixed dot and aimed ~1.8m high at 50m.
+loop.js now removes the tip entirely at full ADS on red-dot guns
+(`adsTip`); the camera's recoil, the shot, spread and the kick back along
+the barrel are untouched, so window, dot and shot rise together. Measured
+with gunKick 1 at full ADS: barrel 0.00 degrees off the shot line, the
+sight's aim 0.0px from the dot at 50m. **The sniper's open flip cap is
+gone** (Jack asked).
 - **The five cuts** (Jack: "its the animation of the 5 swinging of the
   sword, i want you to make the swing like the video"). The video's attacks,
   read at 0.05s steps: from the upright guard the sword is drawn back (over

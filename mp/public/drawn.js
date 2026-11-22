@@ -200,8 +200,8 @@ function drawSniper(){
   dTube(g, dk, 0.0215, 0.075, 0, 0.094, 0.165, 0.0155);
   dKnurl(g, dk, 0.0228, 0.094, 0.150, 0.178);                                                       // the eyepiece's focus ring
   dTube(g, gl, 0.0245, 0.003, 0, 0.094, -0.2555); dTube(g, gl, 0.019, 0.003, 0, 0.094, 0.2035);
-  { const cap = new THREE.Group(); cap.position.set(0, 0.094 + 0.028, -0.257); cap.rotation.x = -1.9; dAdd(g, cap);   // the flip cap, open
-    const d = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.006, 18), po); d.position.set(0, 0, 0.028); d.rotation.x = Math.PI / 2; cap.add(d); }
+  /* (the open flip cap that stood up off the objective is gone - Jack,
+     2026-11-22: "for the little cap for the sniper remove it") */
   dKnob(g, dk, 0.012, 0.024, 0, 0.122, -0.01);                                                      // elevation turret
   dKnob(g, dk, 0.012, 0.024, 0.028, 0.094, -0.01, 'x');                                             // windage
   dKnob(g, dk, 0.010, 0.018, -0.025, 0.094, -0.01, 'x');                                            // parallax, on the left

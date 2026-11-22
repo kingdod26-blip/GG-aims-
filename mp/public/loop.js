@@ -518,7 +518,15 @@ function loop(){ requestAnimationFrame(loop);
     gun.position.set(bx*vk + (rWob+sx - sw*0.26)*mk,
                      by*vk + (-rDip+sy + Math.abs(sw)*0.10 - tuck)*mk,
                      bz + (gunKick*(0.1-0.06*ads) - Math.abs(sw)*0.14 + tuck*0.5)*mk);
-    gun.rotation.set((gunKick*0.4*(1-ads*0.85) - rRot*0.85 - 0.18*sp - Math.abs(sw)*0.5)*mk + V.rx*(1-ads),
+    /* Aimed through a red dot the gun does NOT tip with the kick (Jack,
+       2026-11-22: "the actual position the bullet lands is suppose to be the
+       same as what is shown on the scopes aim"). The dot is camera-fixed and
+       is where the shot goes; a gun tipping 2 degrees on its own put the
+       sight's window above it, aiming 1.8m high at 50m. The camera's recoil
+       (unchanged) lifts the view, so window, dot and shot rise together. The
+       kick back along the barrel stays - it moves nothing off the line. */
+    const adsTip = w.redDot ? 1 : 0.85;
+    gun.rotation.set((gunKick*0.4*(1-ads*adsTip) - rRot*0.85 - 0.18*sp - Math.abs(sw)*0.5)*mk + V.rx*(1-ads),
                      (rRot*0.3 + sw*0.9)*mk + V.ry*(1-ads),
                      (rRot*0.5 + sr + sw*1.1)*mk + V.rz*(1-ads));
     gun.scale.set(vk, vk, 1);
