@@ -662,6 +662,145 @@ function litRingTube(g, cx, y, cz, r, rr, N, gapA, gap){
     litCyl(g, cx + r * Math.cos(b0), y, cz + r * Math.sin(b0), cx + r * Math.cos(b1), y, cz + r * Math.sin(b1), rr, rr, 5, 1, false, false);
   }
 }
+/* Part of a tube about a vertical axis, from angle a0 to a1 (radians,
+   a0 < a1), radius ra at ya to rb at yb; facing out, or in. */
+function litCylArc(g, x, z, ya, yb, ra, rb, sides, tile, a0, a1, inward){
+  const n = Math.max(2, Math.ceil(sides * (a1 - a0) / (Math.PI * 2))), base = g.p.length / 3, len = Math.hypot(rb - ra, yb - ya);
+  for (let i = 0; i <= n; i++){
+    const a = a0 + (a1 - a0) * i / n, c = Math.cos(a), s = Math.sin(a), sg = inward ? -1 : 1;
+    g.p.push(x + ra * c, ya, z + ra * s, x + rb * c, yb, z + rb * s);
+    g.n.push(c * sg, 0, s * sg, c * sg, 0, s * sg);
+    const u = a * (ra + rb) / 2 / tile; g.uv.push(u, 0, u, len / tile);
+  }
+  for (let i = 0; i < n; i++){ const q = base + i * 2;
+    if (!inward) g.i.push(q, q + 1, q + 2,  q + 2, q + 1, q + 3); else g.i.push(q, q + 2, q + 1,  q + 2, q + 3, q + 1); }
+}
+/* THE BOILERS (2026-11-22): a furnace you can walk into. Outside: the
+   aluminium-lagged casing in panels, a buckstay - a steel band - round it
+   every 3m, the burners on the front (south) wall in three rows, the steam
+   drum across the top on its saddles, four downcomers down the corners,
+   risers from the roof to the drum, the lagged main steam leads going off
+   south, soot blowers, inspection ports, a nameplate. Inside: the water
+   walls (tubes), the burner throats glowing on the front wall, the ash
+   hopper floor, the superheater platens hanging from the roof, a work lamp.
+   The walls and roof are the map's `boilerwall` boxes; this draws them. */
+function litBoilerTexture(){
+  return litCanvas(256, 256, (g, w, h) => {
+    g.fillStyle = '#2a2d30'; g.fillRect(0, 0, w, h);
+    for (let x = 0; x < w; x += 8){                      // tubes: a dark gap, a rounded highlight
+      const gr = g.createLinearGradient(x, 0, x + 8, 0);
+      gr.addColorStop(0, '#111315'); gr.addColorStop(0.45, '#5a5f63'); gr.addColorStop(0.7, '#3a3e41'); gr.addColorStop(1, '#111315');
+      g.fillStyle = gr; g.fillRect(x, 0, 8, h);
+    }
+    const r = litRand(5);
+    for (let i = 0; i < 90; i++){ g.fillStyle = r() < 0.5 ? 'rgba(120,60,30,0.18)' : 'rgba(10,8,6,0.25)'; g.fillRect(r() * w, r() * h, 2 + r() * 14, 10 + r() * 60); }
+  });
+}
+function litBoiler(G, p){
+  const { x0, x1, z0, z1, h, t, rt } = p, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, d = p.door;
+  const lag = G('lagging'), stl = G('girder');
+  /* outer casing, face by face, the door's face in three pieces */
+  const face = (fx, fz, ux, uz, nx, nz, L, cut) => {
+    if (!cut){ litGrid(lag, fx, 0, fz, ux, 0, uz, 0, 1, 0, L, h - 0.02, nx, 0, nz, 3, 3, 1.5, 1.5); return; }
+    const [c0, c1, ch] = cut;                              // along-face span of the door, and its height
+    litGrid(lag, fx, 0, fz, ux, 0, uz, 0, 1, 0, c0, h - 0.02, nx, 0, nz, 3, 3, 1.5, 1.5);
+    litGrid(lag, fx + ux * c1, 0, fz + uz * c1, ux, 0, uz, 0, 1, 0, L - c1, h - 0.02, nx, 0, nz, 3, 3, 1.5, 1.5);
+    litGrid(lag, fx + ux * c0, ch, fz + uz * c0, ux, 0, uz, 0, 1, 0, c1 - c0, h - 0.02 - ch, nx, 0, nz, 3, 3, 1.5, 1.5);
+  };
+  /* winding: u x up must be the face's normal */
+  face(x0, z1, 1, 0, 0, 1, x1 - x0, null);                                            // south (front)
+  face(x1, z0, -1, 0, 0, -1, x1 - x0, null);                                          // north
+  face(x0, z0, 0, 1, -1, 0, z1 - z0, d.face === 'W' ? [d.a0 - z0, d.a1 - z0, d.y1] : null);   // west
+  face(x1, z1, 0, -1, 1, 0, z1 - z0, d.face === 'E' ? [z1 - d.a1, z1 - d.a0, d.y1] : null);   // east
+  litGrid(lag, x0, h, z0, 0, 0, 1, 1, 0, 0, z1 - z0, x1 - x0, 0, 1, 0, 3, 3, 2, 2);  // the roof
+  /* the door: a steel frame round the opening, and the opened hatch folded back */
+  { const fx = d.face === 'E' ? x1 : x0, sg = d.face === 'E' ? 1 : -1;
+    litBox(stl, fx - 0.08, 0, d.a0 - 0.12, fx + 0.08, d.y1 + 0.12, d.a0, { seg: 2, tile: 1 });
+    litBox(stl, fx - 0.08, 0, d.a1, fx + 0.08, d.y1 + 0.12, d.a1 + 0.12, { seg: 2, tile: 1 });
+    litBox(stl, fx - 0.08, d.y1, d.a0 - 0.12, fx + 0.08, d.y1 + 0.12, d.a1 + 0.12, { seg: 2, tile: 1 });
+    litBox(G('steel'), fx + sg * 0.05, 0.05, d.a1 + 0.12, fx + sg * 0.1, d.y1, d.a1 + 0.12 + (d.a1 - d.a0), { seg: 2, tile: 1 }); }
+  /* buckstays: a steel band round the casing every 3m, standing proud */
+  for (let y = 3; y < h - 0.5; y += 3){
+    const yb = y + 0.35, o = 0.18;
+    litBox(stl, x0 - o, y, z1, x1 + o, yb, z1 + o, { seg: 4, tile: 2 });
+    litBox(stl, x0 - o, y, z0 - o, x1 + o, yb, z0, { seg: 4, tile: 2 });
+    if (!(d.face === 'W' && y < d.y1 + 0.5)) litBox(stl, x0 - o, y, z0, x0, yb, z1, { seg: 4, tile: 2 });
+    if (!(d.face === 'E' && y < d.y1 + 0.5)) litBox(stl, x1, y, z0, x1 + o, yb, z1, { seg: 4, tile: 2 });
+  }
+  /* burners on the front wall: three rows of three, each a windbox register
+     ringed in steel with a sight glass glowing */
+  for (const y of [4.5, 7.0, 9.5]) for (const f of [0.22, 0.5, 0.78]){
+    const bx = x0 + (x1 - x0) * f;
+    litCyl(G('steel'), bx, y, z1, bx, y, z1 + 0.55, 0.62, 0.62, 18, 1, false, true);
+    litCyl(G('girder'), bx, y, z1 + 0.55, bx, y, z1 + 0.75, 0.42, 0.36, 14, 1, false, true);
+    litCyl(G('glow'), bx + 0.2, y + 0.2, z1 + 0.75, bx + 0.2, y + 0.2, z1 + 0.78, 0.06, 0.06, 8, 1, false, true);
+    litCyl(G('lagging'), bx - 0.5, y + 0.6, z1 + 0.3, bx - 0.5, h - 2, z1 + 0.3, 0.12, 0.12, 8, 1, false, false);   // its air/fuel pipe
+  }
+  /* inspection ports and soot blowers up the sides */
+  for (let y = 5; y < h - 3; y += 4) for (const z of [z0 + 3, z1 - 3]){
+    litCyl(G('steel'), x0, y, z, x0 - 0.5, y, z, 0.12, 0.12, 8, 1, false, true);
+    litCyl(G('steel'), x1, y + 1.5, z, x1 + 0.9, y + 1.5, z, 0.08, 0.08, 6, 1, false, true);
+  }
+  /* the steam drum across the top, on saddles, with domed ends; risers up
+     to it from the roof, and the downcomers down the four corners */
+  const dy = h + 1.6, dr = 0.95;
+  litCyl(G('lagging'), x0 + 0.6, dy, cz, x1 - 0.6, dy, cz, dr, dr, 20, 2, false, false);
+  for (const ex of [x0 + 0.6, x1 - 0.6]){ const sg = ex < cx ? -1 : 1;
+    litCyl(G('lagging'), ex, dy, cz, ex + sg * 0.45, dy, cz, dr, 0.35, 20, 1, false, true); }
+  for (const f of [0.25, 0.75]) litBox(stl, x0 + (x1 - x0) * f - 0.3, h, cz - 0.9, x0 + (x1 - x0) * f + 0.3, dy - 0.6, cz + 0.9, { seg: 2, tile: 1 });
+  for (let k = 0; k < 6; k++){ const rx = x0 + 1.2 + k * (x1 - x0 - 2.4) / 5;
+    litCyl(G('steel'), rx, h, cz - 1.6, rx, dy - 0.3, cz - 0.6, 0.12, 0.12, 8, 1, false, false);
+    litCyl(G('steel'), rx, h, cz + 1.6, rx, dy - 0.3, cz + 0.6, 0.12, 0.12, 8, 1, false, false); }
+  for (const [qx, qz] of [[x0 - 0.5, z0 - 0.5], [x1 + 0.5, z0 - 0.5], [x0 - 0.5, z1 + 0.5], [x1 + 0.5, z1 + 0.5]]){
+    litCyl(G('lagging'), qx, 0.4, qz, qx, dy - 0.2, qz, 0.32, 0.32, 14, 2, false, false);
+    litCyl(G('steel'), qx, dy - 0.2, qz, qx + (cx - qx) * 0.25, dy, qz + (cz - qz) * 0.25, 0.3, 0.3, 12, 1, false, false);
+    litCyl(G('girder'), qx, 0, qz, qx, 0.4, qz, 0.5, 0.5, 14, 1, false, true);           // the lower header's foot
+  }
+  /* the main steam leads: two lagged pipes off the drum, south over the
+     galleries toward the pipe bridges */
+  for (const sg of [-1, 1]){ const px = cx + sg * 2.2;
+    litCyl(G('lagging'), px, dy, cz + 0.6, px, dy, z1 + 4.5, 0.38, 0.38, 14, 2, false, false);
+    litCyl(G('lagging'), px, dy - 0.38, z1 + 4.5, px, 10.4, z1 + 4.5, 0.38, 0.38, 14, 2, false, true); }
+  /* a nameplate */
+  litGrid(G('steel'), cx - 1.2, 3.0, z1 + 0.01, 1, 0, 0, 0, 1, 0, 2.4, 0.5, 0, 0, 1, 1, 1, 1, 1);
+  /* INSIDE: the water walls, the hopper, the throats, the platens */
+  const ix0 = x0 + t, ix1 = x1 - t, iz0 = z0 + t, iz1 = z1 - t, ih = h - rt, tw = G('tubewall');
+  litGrid(tw, ix1, 0, iz1, -1, 0, 0, 0, 1, 0, ix1 - ix0, ih, 0, 0, -1, 3, 3, 2, 2);   // front wall, inside
+  litGrid(tw, ix0, 0, iz0, 1, 0, 0, 0, 1, 0, ix1 - ix0, ih, 0, 0, 1, 3, 3, 2, 2);     // back wall
+  const sideIn = (fx, fz, uz, nx, cut) => {
+    const L = iz1 - iz0;
+    if (!cut){ litGrid(tw, fx, 0, fz, 0, 0, uz, 0, 1, 0, L, ih, nx, 0, 0, 3, 3, 2, 2); return; }
+    const [c0, c1, ch] = cut;
+    litGrid(tw, fx, 0, fz, 0, 0, uz, 0, 1, 0, c0, ih, nx, 0, 0, 3, 3, 2, 2);
+    litGrid(tw, fx, 0, fz + uz * c1, 0, 0, uz, 0, 1, 0, L - c1, ih, nx, 0, 0, 3, 3, 2, 2);
+    litGrid(tw, fx, ch, fz + uz * c0, 0, 0, uz, 0, 1, 0, c1 - c0, ih - ch, nx, 0, 0, 3, 3, 2, 2);
+  };
+  sideIn(ix0, iz1, -1, 1, d.face === 'W' ? [iz1 - d.a1, iz1 - d.a0, d.y1] : null);
+  sideIn(ix1, iz0, 1, -1, d.face === 'E' ? [d.a0 - iz0, d.a1 - iz0, d.y1] : null);
+  litGrid(tw, ix0, ih, iz0, 1, 0, 0, 0, 0, 1, ix1 - ix0, iz1 - iz0, 0, -1, 0, 3, 3, 2, 2);   // the roof, from below
+  /* the door's reveals through the casing */
+  { const fx0 = d.face === 'E' ? ix1 : x0, fx1 = d.face === 'E' ? x1 : ix0;
+    for (const zz of [d.a0, d.a1]) litBox(G('girder'), fx0, 0, zz - 0.01, fx1, d.y1, zz + 0.01, { seg: 1, tile: 1 });
+    litBox(G('girder'), fx0, d.y1 - 0.01, d.a0, fx1, d.y1 + 0.01, d.a1, { seg: 1, tile: 1 }); }
+  /* the hopper floor: ash and clinker, sloping sides at the foot of the walls */
+  litBox(G('rubble'), ix0, 0, iz0, ix1, 0.04, iz1, { seg: 3, tile: 2 });
+  litBox(G('girder'), ix0, 0, iz0, ix1, 0.9, iz0 + 0.5, { seg: 3, tile: 2 });
+  litBox(G('girder'), ix0, 0, iz1 - 0.5, ix1, 0.9, iz1, { seg: 3, tile: 2 });
+  /* the burner throats, from the inside: dark refractory rings, glowing */
+  for (const y of [4.5, 7.0, 9.5]) for (const f of [0.22, 0.5, 0.78]){
+    const bx = x0 + (x1 - x0) * f;
+    litCyl(G('rubble'), bx, y, iz1, bx, y, iz1 - 0.25, 0.65, 0.5, 16, 1, false, false);
+    litCylIn(G('rubble'), bx, y, iz1, bx, y, iz1 - 0.25, 0.42, 0.42, 16, 1);
+    litCyl(G('glow'), bx, y, iz1 - 0.02, bx, y, iz1 - 0.03, 0.42, 0.42, 16, 1, false, true);
+  }
+  /* superheater platens hanging under the roof */
+  for (let k = 1; k < 9; k++){ const px = ix0 + (ix1 - ix0) * k / 9;
+    litBox(G('steel'), px - 0.06, ih - 7, iz0 + 1.5, px + 0.06, ih, iz1 - 1.5, { seg: 3, tile: 2, bottom: true }); }
+  /* a temporary work lamp on a stand, as there is in any furnace on outage */
+  { const lx = (d.face === 'E' ? ix1 - 1.4 : ix0 + 1.4), lz = (d.a0 + d.a1) / 2 - 2.6;
+    litCyl(G('steel'), lx, 0, lz, lx, 2.4, lz, 0.03, 0.03, 6, 1, false, true);
+    litBox(G('lamp'), lx - 0.25, 2.4, lz - 0.1, lx + 0.25, 2.75, lz + 0.1, { seg: 1, tile: 1 }); }
+}
 /* THE TOP OF A COOLING TOWER (2026-11-22). Jack: "make the full top of the
    tower and not just a little platform, just make it like how the top of a
    real cooling tower would look like". What is up there on a real
@@ -685,6 +824,19 @@ function litTowerTop(G, p, R){
   const segs = 12;
   for (let i = 0; i < segs; i++){
     const ya = yk + (y1 - yk) * i / segs, yb = yk + (y1 - yk) * (i + 1) / segs;
+    if (i === 0 && p.door){
+      const hw = p.door.half / R(ya), a0 = p.door.a - hw, a1 = p.door.a + hw;
+      litCylArc(G('towerin'), x, z, ya, yb, R(ya) - shell, R(yb) - shell, 28, 6, a1, a0 + Math.PI * 2, true);
+      /* the doorway's reveals and its head: the shell's thickness, seen */
+      for (const a of [a0, a1]){ const c = Math.cos(a), sn = Math.sin(a), sg = a === a0 ? 1 : -1;
+        const P0 = [x + (R(ya) - shell) * c, ya, z + (R(ya) - shell) * sn], P1 = [x + R(ya) * c, ya, z + R(ya) * sn];
+        const P2 = [x + R(yb) * c, yb, z + R(yb) * sn], P3 = [x + (R(yb) - shell) * c, yb, z + (R(yb) - shell) * sn];
+        const n = [-sn * sg, 0, c * sg];
+        litTri(G('concrete'), P0, n, P1, n, P2, n, 0, 0); litTri(G('concrete'), P0, n, P2, n, P3, n, 0, 0); }
+      { const am = p.door.a, rr = R(yb) - shell / 2;
+        litBox(G('concrete'), x + rr * Math.cos(am) - shell / 2, yb - 0.05, z + rr * Math.sin(am) - p.door.half, x + rr * Math.cos(am) + shell / 2, yb, z + rr * Math.sin(am) + p.door.half, { seg: 2, tile: 2 }); }
+      continue;
+    }
     litCylIn(G('towerin'), x, ya, z, x, yb, z, R(ya) - shell, R(yb) - shell, 28, 6);
   }
   litCylIn(G('concrete'), x, y1, z, x, yd - 0.2, z, Rt - shell, Rt - shell, 28, 3);
@@ -1666,7 +1818,7 @@ const LIT_GROUND = {};
    keep-clear lines are not painted round them. */
 /* What a raised box shows from below, by kind: a material, or null for a
    kind that draws itself (or nothing). Anything not listed is concrete. */
-const LIT_UNDER = { grating: 'galv', steptread: 'galv', handrail: null, pipewalk: null, stackwall: null, ringdeck: null, ringrail: null,
+const LIT_UNDER = { grating: 'galv', steptread: 'galv', handrail: null, pipewalk: null, stackwall: null, ringdeck: null, ringrail: null, towerwall: null, boilerwall: null,
                     shedroof: 'cladding', intakeroof: 'cladding', boilerroof: 'girder', duct: 'cladding' };
 const LIT_INDOOR = { facade: 1, core: 1, desk: 1, screen: 1, counter: 1, bench: 1, tread: 1, slab: 1,
                      roofslab: 1, parapet: 1, rail: 1, glass: 1,
@@ -2200,6 +2352,16 @@ function litMaterial(name){
     /* The INSIDE of a tower's shell (litTowerTop): the same panels, but
        wet, stained and in its own shadow - the bake only sees the sky over
        the lip, so on the outside colour it came out nearly white. */
+    /* Inside a closed furnace the bake finds no light at all, and it read as
+       black. The tubes carry a little of their own - the glow off the burner
+       throats and the work lamps - through an emissive copy of their texture. */
+    case 'tubewall': { const tt = litTexOf(litBoilerTexture(), true);
+                   /* Not litPatch'd: the lit look replaces a material's lighting with
+                      the bake, emissive and all, and the bake sees nothing in here. A
+                      plain material takes the moving-things lights and its own glow. */
+                   m = lookTag(new THREE.MeshStandardMaterial({ map: tt, emissiveMap: tt, emissive: new THREE.Color(0.5, 0.36, 0.26), roughness: 0.75, metalness: 0.3 }), { metalness: 0.3, roughness: 0.75 }, { metalness: 0, roughness: 0.75 });
+                   m.userData.envK = 0.3; break; }
+    case 'glow':    m = new THREE.MeshBasicMaterial({ color: new THREE.Color(4.2, 1.5, 0.45) }); break;   // a burner seen through its sight glass
     case 'towerin': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litTowerTexture(), true), color: 0x4f5558, roughness: 0.9, metalness: 0 }), 'cover', 0.06);
                    m.defines.CX_ROUND = ''; break;
     /* The stack, in its aviation bands. Both of these are 'cover', not
@@ -2677,6 +2839,7 @@ Object.assign(LIT_DRAW, {
   },
   pipewalk(){},                                 // the pipes are drawn by their rack or bridge
   ringdeck(){}, ringrail(){},                   // the towers' rim gallery is drawn by the tower
+  towerwall(){}, boilerwall(){},                // the shell's collision bands; a boiler's casing (drawn by their props)
   stackwall(){},                                // the ring is drawn by the stack prop
   /* The office facade: rendered walls. A thin piece - a mullion between two panes -
      is a dark metal frame, as glazing bars are; everything else is render. */
@@ -2957,7 +3120,10 @@ const LIT_PROP = {
     const segs = 12;
     for (let i = 0; i < segs; i++){
       const ya = yk + (y1 - yk) * i / segs, yb = yk + (y1 - yk) * (i + 1) / segs;
-      litCyl(G('towerskin'), x, ya, z, x, yb, z, R(ya), R(yb), 28, 6, false, false);
+      /* the first course has the doorway in it (p.door: east, at deck level) */
+      if (i === 0 && p.door){ const hw = p.door.half / R(ya);
+        litCylArc(G('towerskin'), x, z, ya, yb, R(ya), R(yb), 28, 6, p.door.a + hw, p.door.a - hw + Math.PI * 2, false); }
+      else litCyl(G('towerskin'), x, ya, z, x, yb, z, R(ya), R(yb), 28, 6, false, false);
     }
     litCyl(G('concrete'), x, y1, z, x, y1 + 0.5, z, R(y1) + 0.22, R(y1) + 0.22, 28, 3, false, false);  // the cap ring
     /* Buttresses up the ring beam, on the staircase's own corners so they
@@ -3381,9 +3547,11 @@ const LIT_KIT = {
   },
 };
 Object.assign(LIT_DRAW, LIT_KIT);
+LIT_PROP.boiler = litBoiler;          // the furnaces (THE BOILERS)
 /* Loose clutter gets no keep-clear outline painted round it: that line is
    for plant, and round a drum or a cone it read as a level editor. */
 for (const k in LIT_KIT) LIT_INDOOR[k] = 1;
+LIT_INDOOR.towerwall = LIT_INDOOR.boilerwall = 1;
 LIT_UNDER.drum = LIT_UNDER.drums4 = LIT_UNDER.ibc = LIT_UNDER.barrier = LIT_UNDER.pallets = LIT_UNDER.palletload = null;
 LIT_UNDER.gascage = LIT_UNDER.reel = LIT_UNDER.skip = LIT_UNDER.van = LIT_UNDER.forklift = LIT_UNDER.toolcart = null;
 LIT_UNDER.bin = LIT_UNDER.gen = LIT_UNDER.cabin = LIT_UNDER.lighttower = null;
@@ -3446,7 +3614,7 @@ LIT_PROP.clutter = function(G, p){
    black, fading out upward, drawn over the surface (a dark wash darkens in
    any light, so it needs no lighting of its own). */
 const LIT_NOGRIME = { hidden: 1, glass: 1, handrail: 1, ringrail: 1, ringdeck: 1, pipewalk: 1, grating: 1, steptread: 1, tread: 1,
-                      step: 1, slab: 1, roofslab: 1, stackwall: 1, deck: 1 };
+                      step: 1, slab: 1, roofslab: 1, stackwall: 1, deck: 1, towerwall: 1 };
 function litGrimeTexture(){
   return litCanvas(8, 64, (g, w, h) => {
     /* an alphaMap is read from the GREEN channel: white is opaque */

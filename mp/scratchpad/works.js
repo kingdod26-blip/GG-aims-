@@ -216,6 +216,7 @@ note('THE BOILER HOUSE, against the hall\'s north wall: a hollow steel hall');
    onto the pipe rack from the first gallery (west), a ground door and the
    flue duct east, to the stack. */
 const BH = { x0: 29, x1: 83, z0: -96, z1: -68, t: 0.5, h: 28, rt: 0.4 };
+const BOILERS = [];                 // the boilers' props, added to P once it exists
 const BGAL = [7.6, 14, 21];
 const BAND = [[9.4, 11.6], [16.4, 18.6], [23.4, 25.2]];
 /* The stack moved 8m south (z -96 -> -88), onto the line of a door in the
@@ -242,9 +243,23 @@ for (const [y0, y1] of BAND){
 building(BH, bOps, 'bwall', 'boilerroof');
 {
   const ix0 = BH.x0 + BH.t, ix1 = BH.x1 - BH.t, iz0 = BH.z0 + BH.t, iz1 = BH.z1 - BH.t;
-  /* The two boilers: steel casings through all three galleries. */
-  ob(36, 47, -89, -75, 0, 24, 'boilerunit');
-  ob(52, 63, -89, -75, 0, 24, 'boilerunit');
+  /* THE TWO BOILERS (2026-11-22). They were two solid 11 x 14 x 24 m
+     blocks. Jack: "the main issue is the two big blocks that doesnt resemble
+     or do anything nor can i go inside". A utility boiler is a furnace: a
+     tall box of water-wall tubes, clad outside in aluminium lagging and held
+     by buckstays - steel bands round it every few metres - with the burners
+     on its front wall, the steam drum across the top and the downcomers
+     down its corners. Each is now hollow, with the furnace's access door at
+     the foot of the side facing the walkway between them: inside, tube
+     walls, burner throats glowing on the front wall, the superheater platens
+     hanging under the roof, an ash hopper floor - the furnace as it is
+     during an outage. Collision is its walls and roof (`boilerwall`, drawn
+     by the `boiler` prop). */
+  for (const [bx0, bx1, face] of [[36, 47, 'E'], [52, 63, 'W']]){
+    const B = { x0: bx0, x1: bx1, z0: -89, z1: -75, t: 0.4, h: 24, rt: 0.6 }, door = { face, a0: -83.2, a1: -80.8, y0: 0, y1: 2.4 };
+    building(B, [door], 'boilerwall', 'boilerwall');
+    BOILERS.push({ kind: 'boiler', x0: bx0, x1: bx1, z0: -89, z1: -75, h: 24, t: 0.4, rt: 0.6, door });   // props are gathered later (P)
+  }
   /* The open middle round them, either side of a walkway bridge between. */
   const voidA = { x0: 33.5, x1: 48.5, z0: -92.5, z1: -71.5 }, voidB = { x0: 50.5, x1: 66, z0: -92.5, z1: -71.5 };
   /* Stairs up the west end, two flights side by side (A west, B east). */
@@ -280,6 +295,12 @@ building(BH, bOps, 'bwall', 'boilerroof');
   ob(77, 81, -84, -79, 0, 4.5, 'machine');
   ob(37, 46, -73.4, -72.2, 0, 1.2, 'machine');
   ob(53, 62, -73.4, -72.2, 0, 1.2, 'machine');
+  /* (2026-11-22) and the rest of what stands on a boiler house floor: the
+     boiler feed pumps along the north wall, their control panel, the local
+     instrument racks, a cable drum and a hose by the walkway. */
+  for (const x of [39, 44.5, 54.5, 60]) ob(x - 1.4, x + 1.4, -94.2, -92.4, 0, 1.7, 'machine');
+  ob(49, 51, -95.4, -94.6, 0, 2.2, 'switch');
+  ob(47.6, 48.4, -91, -90, 0, 1.9, 'switch'); ob(50.6, 51.4, -91, -90, 0, 1.9, 'switch');
   /* On the galleries: an air heater on the second, fans on the third. */
   ob(70, 78, -80, -74, BGAL[1], BGAL[1] + 3, 'machine');
   ob(72, 76, -94, -91, BGAL[2], BGAL[2] + 2.2, 'machine');
@@ -574,9 +595,12 @@ const P = M.MAPS.powerstation.props.map(p => {
   return q;
 });
 P.push({ kind: 'hallroof', x0: HX0 - HW, x1: HX1 + HW, z0: HZ0 - HW, z1: HZ1 + HW, y: HH });
+P.push(...BOILERS);                 // the two furnaces (THE TWO BOILERS)
 P.push({ kind: 'coolingtower', x: -74, z: -90, basin: 13, basinH: 2.6, beam: +shellR(5.6).toFixed(2), n: 9, y0: 5.6, y1: 33, rt: RT, yt: YT, a: AA ,
+         door: { a: 0, half: 0.95 },
          rim: { y: 33.5, half: 0.7, rail: 1.1, gateA: +Math.atan2(0.93, 0.36).toFixed(4), gate: 0.75 } });
 P.push({ kind: 'coolingtower', x: -24, z: -90, basin: 13, basinH: 2.6, beam: +shellR(5.6).toFixed(2), n: 9, y0: 5.6, y1: 33, rt: RT, yt: YT, a: AA ,
+         door: { a: 0, half: 0.95 },
          rim: { y: 33.5, half: 0.7, rail: 1.1, gateA: +Math.atan2(0.93, 0.36).toFixed(4), gate: 0.75 } });
 /* The stack, hollow (see THE STACK above): its wall is drawn as a ring
    with the two west doorways left out, matching the 36 boxes. */
@@ -637,6 +661,42 @@ for (const [tx, tz] of [[-74, -90], [-24, -90]]){
    narrower. The rails are posts ('ringrail', movement only, like every
    handrail: shots go through) every 0.6m, which leaves gaps of 0.52 - too
    narrow for a 0.8m body - so the rail is continuous to a player. */
+/* THE SHELL IS SOLID NOW, AND HAS A WAY OUT (2026-11-22). Jack: "the
+   cooling tower i can just go through it, make it solid and at the bottom
+   i want to be able to come out if i drop inside". Above the ring beam
+   (5.6) the shell had no collision at all: you could walk off the cooling
+   deck straight through it, and shots went through the whole tower. It is
+   bands of boxes now, each band a ring of sector bounding boxes between the
+   shell's inner face (at its narrowest in the band) and its outer face:
+   72 to the ring in the two bands you can reach from the deck, 36 above,
+   where only a shot or a fall touches it. A real shell has access doors at
+   its foot; this one has a doorway on the east side at deck level, onto a
+   grating platform outside, and a steel stair down to the basin rim. */
+const TOWER_DOOR = { a: 0, half: 0.95, h: 2.28 };     // east; half-width in metres; to the first shell course
+function towerShell(tx, tz){
+  const segTop = 5.6 + (33 - 5.6) / 12;
+  const bands = [[5.6, segTop, 72, true], [segTop, 10.6, 72, false], [10.6, 14, 36], [14, 17.5, 36], [17.5, 21, 36],
+                 [21, 24.5, 36], [24.5, 28, 36], [28, 33.2, 36]];
+  for (const [ya, yb, n, door] of bands){
+    const rin = Math.min(shellR(ya), shellR(yb), ya < YT && yb > YT ? shellR(YT) : 1e9) - 0.27, rout = Math.max(shellR(ya), shellR(yb));
+    for (let i = 0; i < n; i++){
+      const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2, ac = (a0 + a1) / 2;
+      if (door && Math.abs(Math.atan2(Math.sin(ac - TOWER_DOOR.a), Math.cos(ac - TOWER_DOOR.a))) * rin < TOWER_DOOR.half + Math.PI / n * rin) continue;
+      const xs = [], zs = [];
+      for (const r of [rin, rout]) for (const a of [a0, a1]){ xs.push(r * Math.cos(a)); zs.push(r * Math.sin(a)); }
+      ob(tx + Math.min(...xs), tx + Math.max(...xs), tz + Math.min(...zs), tz + Math.max(...zs), ya, yb, 'towerwall');
+    }
+  }
+  ob(tx - 1.05, tx + 1.05, tz - 1.05, tz + 1.05, 5.6, 8.2, 'towerwall');              // the riser in the middle of the deck
+  /* outside the doorway: a grating landing, railed, and a stair down to the basin rim */
+  const px0 = tx + shellR(5.6) - 0.15, px1 = tx + 12.4;
+  ob(px0, px1, tz - 1.2, tz + 1.2, 5.4, 5.6, 'grating');
+  rail(px1 - 0.1, px1, tz - 1.2, tz + 1.2, 5.6); rail(px0 + 0.4, px1 - 0.1, tz + 1.1, tz + 1.2, 5.6);
+  const sx0 = tx + 10.9, sx1 = tx + 11.9, run = (Math.ceil(3 / 0.19 - 1e-9) - 1) * 0.25;
+  steelStair(sx0, sx1, tz - 1.2 - run, 1, 2.6, 5.6);
+  rail(sx1, sx1 + 0.1, tz - 1.2 - run, tz - 1.2, 2.6 + 1.6);
+}
+towerShell(-74, -90); towerShell(-24, -90);
 const RIM = { y0: 33.3, y1: 33.5, half: 0.7, n: 72, post: 0.6, gate: 0.75, rail: 1.1 };
 const RIM_R = shellR(33), RIM_GATE = Math.atan2(TLZ, TLX);
 for (const [tx, tz] of [[-74, -90], [-24, -90]]){
@@ -663,8 +723,12 @@ P.push({ kind: 'ceilinglights', x0: BH.x0 + BH.t, x1: BH.x1 - BH.t, z0: BH.z0 + 
          holes: [[33.5, 48.5, -92.5, -71.5], [50.5, 66, -92.5, -71.5], [29.5, 33.5, -95.5, -68.5]], extra: [] });
 for (const b of [[25.3, 54.7, 99.3, 108.7, 3.7], [71.3, 84.7, 99.8, 108.2, 4.7], [93.3, 106.7, 94.3, 105.7, 6.7], [-106.7, -93.3, -65.7, -54.3, 6.7]])
   P.push({ kind: 'ceilinglights', x0: b[0], x1: b[1], z0: b[2], z1: b[3], levels: [b[4]], holes: [], extra: [] });
-P.push({ kind: 'busbars', z: 78 });
-P.push({ kind: 'busbars', z: 94 });
+/* (2026-11-22) Two `busbars` runs used to be pushed here, at z 78 and 94:
+   three conductors on insulators 11.4m up, the full width of the site. They
+   came from the old hall, where they hung inside it; out here they crossed
+   the offices and connected nothing at either end. Jack: "the pips
+   connected beside the office is just hanging there, its not logical".
+   Gone. The drawer stays in lighting.js. */
 /* The yard's two gantries, with the lines swept from one to the other. */
 P.push({ kind: 'gantry', z: -24, y: 12, x0: SUB_DX - 40, x1: SUB_DX + 40, to: 24, sag: 3.0 });
 P.push({ kind: 'gantry', z:  24, y: 12, x0: SUB_DX - 40, x1: SUB_DX + 40 });
@@ -722,7 +786,21 @@ note('CLUTTER AND WEAR: the things people bring to a site and leave (kit)');
 /* 1. THE LAYDOWN YARD, south-west: a contractors' compound on the open
    ground below the tank farm - cabin, skip, cable drums waiting to go in,
    barriers, a generator feeding a lighting tower, the van they came in. */
-kit('cabin', -40, 110, 0);
+/* The site office (2026-11-22, Jack: "the building u added at bottom left
+   i want it to be indoors"): a 32ft steel cabin, hollow - a door and a
+   window toward the yard, a window behind, and inside what a site office
+   holds: desks along the back wall, a plan chest, lockers, a kettle bench. */
+building({ x0: -41.6, x1: -38.4, z0: 104.4, z1: 114.2, t: 0.12, h: 2.75, rt: 0.15 }, [
+  { face: 'E', a0: 108.1, a1: 109.1, y0: 0, y1: 2.15 },
+  { face: 'E', a0: 105.2, a1: 107.4, y0: 1.0, y1: 1.9, glass: true }, { face: 'E', a0: 110.2, a1: 113.4, y0: 1.0, y1: 1.9, glass: true },
+  { face: 'W', a0: 106, a1: 112.6, y0: 1.0, y1: 1.9, glass: true },
+  { face: 'N', a0: -40.8, a1: -39.2, y0: 1.0, y1: 1.9, glass: true },
+], 'shedwall', 'shedroof');
+ob(-41.48, -40.7, 105.2, 108.2, 0, 0.75, 'desk'); ob(-41.48, -40.7, 110.4, 113.4, 0, 0.75, 'desk');
+ob(-41.48, -40.9, 108.8, 109.6, 0, 1.0, 'carcass');                                              // plan chest
+ob(-39.2, -38.52, 113.3, 114.08, 0, 1.9, 'machine'); ob(-39.2, -38.52, 112.4, 113.2, 0, 1.9, 'machine');   // lockers
+ob(-39.0, -38.52, 104.55, 105.8, 0, 0.9, 'desk');                                                // the kettle bench
+P.push({ kind: 'ceilinglights', x0: -41.48, x1: -38.52, z0: 104.52, z1: 114.08, levels: [2.55], holes: [], extra: [] });
 kit('bin', -37.6, 105.4, 0.1); kit('bin', -36.8, 105.5, -0.08);
 kit('skip', -28.5, 111.5, 0.12);
 kit('reel', -21, 100, 0.08); kit('reel', -18.6, 100.4, -0.06); kit('reel', -16.2, 100.1, 0.1);
@@ -732,17 +810,17 @@ rowOf('barrier', -48, 95.6, 2.15, 0, 5, 0.12, 7);
 kit('gen', -24.5, 104.5, 1.62); kit('lighttower', -21.8, 108.4, 0.4);
 kit('van', -11, 108, 0.32);
 kit('gascage', -45.8, 114.2, 0);
-cable([-24.5, 103.2], [-23.2, 104.8], [-22.4, 107.4]); cable([-24.5, 105.6], [-30, 106.4], [-36.5, 108.8], [-38.6, 109.4]);
+cable([-24.5, 103.2], [-23.2, 104.8], [-22.4, 107.4]); cable([-24.5, 105.6], [-30, 106.4], [-36.5, 110.2], [-38.3, 110.2]);
 for (const [x, z] of [[-30.8, 109], [-26.4, 109.4], [-31, 114.2], [-26.2, 114.4], [-14, 104.6], [-8.6, 111.6]]) cone(x, z);
 oil(-11, 108.6, 1.4); oil(-24.5, 104.6, 0.9); oil(-32.6, 100.2, 1.0); oil(-29, 111.5, 1.6);
-sign('site', -49.6, 95.3, Math.PI, true); sign('ppe', -38.6, 106.9, Math.PI / 2, false, 1.35);
+sign('site', -49.6, 95.3, Math.PI, true); sign('ppe', -38.38, 107.4, Math.PI / 2, false, 1.25);
 
 /* 2. THE DOSING HOUSE: its chemical store outside the east door - totes,
    a pallet of drums, the gas cage - kept clear of the door itself. */
 kit('ibc', -90.6, -65.4, 0.05); kit('ibc', -90.6, -67, -0.04); kit('drums4', -88.6, -65.9, 0.1);
 kit('gascage', -91.4, -52.4, 0);
 oil(-89.6, -66.2, 1.1);
-sign('chem', -92.85, -63.4, Math.PI / 2, false, 1.4); sign('nosmk', -92.85, -56.6, Math.PI / 2, false, 1.4);
+sign('chem', -92.98, -63.4, Math.PI / 2, false, 1.4); sign('nosmk', -92.98, -56.6, Math.PI / 2, false, 1.4);
 
 /* 3. THE PIPE AND DRUM YARD, north, between the towers and the boiler
    house: cable drums, a skip, stacked pallets, a van, barriers along the
@@ -761,7 +839,7 @@ kit('forklift', 44.6, -66.8, Math.PI / 2 + 0.08); kit('palletload', 57.6, -66.9,
 kit('pallets', 40.8, -66.95, 0.1);
 kit('ibc', 26.4, -88.4, 0.06); kit('drum', 26.6, -79.4, 0); kit('drum', 25.9, -78.7, 0); kit('drum', 26.9, -78.4, 0);
 oil(44.6, -66.6, 1.2); oil(26.4, -79, 0.9);
-sign('fork', 54.6, -68.15, Math.PI, false, 1.6);
+sign('fork', 57.6, -67.98, 0, false, 1.6);
 
 /* 5. THE HV YARD strip between the switchyard and the hall: cable drums
    waiting for the next job, a barrier line. */
@@ -786,7 +864,7 @@ kit('drums4', 105, 34, -0.08); kit('ibc', 105.1, 31.4, 0.06);
 for (const [x, z] of [[20.5, -40], [23.5, -40], [20.5, -37], [23.5, -37]]) cone(x, z);
 CL.push({ k: 'hose', x: 22, z: -38.5, c: 'orange' });
 oil(16.6, -44.4, 0.9); oil(105, 34, 0.9);
-sign('ppe', 50, -58.2, 0, false, 1.6);
+sign('ppe', 50, -58.98, 0, false, 1.6);
 
 /* 8. THE BOILER HOUSE FLOOR, east side: drums, a tote, a tool cart. */
 kit('drums4', 78.2, -92, 0.06); kit('ibc', 78.4, -89.4, -0.05); kit('toolcart', 79.2, -75, 0.3); kit('pallets', 79.8, -71.3, 0.12);

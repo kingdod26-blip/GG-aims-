@@ -216,7 +216,7 @@ function movePlayer(dt){
   const sprint=(keys['ShiftLeft']||keys['ShiftRight']) && me.stance==='stand' && mv.lengthSq()>0 && !aiming
                && rollT<=0 && slideT<=0;
   me.sprinting = sprint;                       // drives the FOV kick + faster bob
-  const spd=(sprint ? (zoneOn() ? MOVE_SPD.zoneSprint : MOVE_SPD.sprint) : MOVE_SPD.walk)*st.spd;
+  const spd=(sprint ? (zoneOn() ? MOVE_SPD.zoneSprint : MOVE_SPD.sprint) : MOVE_SPD.walk)*st.spd*(curW().melee ? MOVE_SPD.bladeMul : 1);
 
   // --- Movement runs through a velocity that carries between states ---
   // Each source only says what velocity it WANTS; the real velocity eases

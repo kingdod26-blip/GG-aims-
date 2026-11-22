@@ -850,7 +850,7 @@ function planRaised(g, b, x0, z0, w, d){
   if (b.mat === 'glass'){ g.fillStyle = 'rgba(150,205,230,.6)'; g.fillRect(x0, z0, Math.max(1, w), Math.max(1, d)); return true; }
   /* A building's roof is its outline with the inside visible, like the
      hall's; its floor slabs are not drawn at all (dozens of seams). */
-  if (b.mat === 'handrail' || b.mat === 'pipewalk' || b.mat === 'ringdeck' || b.mat === 'ringrail') return true;        // rails and the pipes' walk: clutter on a plan
+  if (b.mat === 'handrail' || b.mat === 'pipewalk' || b.mat === 'ringdeck' || b.mat === 'ringrail' || b.mat === 'towerwall') return true;        // rails and the pipes' walk: clutter on a plan
   if (PLAN_ROOFS[b.mat]){
     g.fillStyle = 'rgba(120,140,170,.11)'; g.fillRect(x0, z0, w, d);
     g.strokeStyle = 'rgba(160,175,192,.6)'; g.lineWidth = 1.5; g.strokeRect(x0 + 0.5, z0 + 0.5, w - 1, d - 1);

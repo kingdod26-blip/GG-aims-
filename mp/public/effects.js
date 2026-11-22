@@ -638,6 +638,10 @@ const GREN = { fuseMs:2000, gravity:14, bounce:0.22, bodyBounce:0.12, bodyR:0.45
 const grenades = [];
 const _gray = new THREE.Raycaster();
 function makeGrenadeMesh(){
+  /* The same frag grenade as the one in your hand (drawn.js), half again
+     its real 64mm so it can be followed in the air. Visual only: the
+     bounce and the blast use GREN, not the mesh. */
+  if (typeof buildFragGrenade === 'function'){ const m = buildFragGrenade(); m.scale.setScalar(1.6); return m; }
   const g = new THREE.Group();
   const egg = new THREE.Mesh(new THREE.SphereGeometry(0.075,12,10), new THREE.MeshLambertMaterial({color:0x3a4a33}));
   egg.scale.set(1,1.25,1); g.add(egg);

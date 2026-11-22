@@ -555,6 +555,21 @@ document.getElementById('codeInput').addEventListener('keydown', e=>{
   if(e.key === 'Enter') document.getElementById('joinBtn').click();
 });
 
+/* The nearest point to (x, z) where a standing player overlaps nothing:
+   no box from the floor to head height within the body's radius (plus a
+   margin). Rings of 1m outward, 16 bearings each, up to 40m. */
+function clearSpawnSpot(x, z){
+  const rects = (typeof currentMap !== 'undefined' && currentMap) ? mapRects(currentMap) : [];
+  const R = (me.radius || 0.4) + 0.15, A = ARENA - 3;
+  const free = (px, pz) => Math.abs(px) < A && Math.abs(pz) < A &&
+    !rects.some(r => r.miny < 1.9 && r.maxy > 0.05 && px > r.minx - R && px < r.maxx + R && pz > r.minz - R && pz < r.maxz + R);
+  if (free(x, z)) return [x, z];
+  for (let d = 1; d <= 40; d++) for (let k = 0; k < 16; k++){
+    const a = k / 16 * Math.PI * 2, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d;
+    if (free(px, pz)) return [px, pz];
+  }
+  return [x, z];
+}
 function startPlay(mode){
   gameMode = mode; gameState='playing';
   warmTracers();                     // compile the tracer now, not on the first shot (effects.js)
@@ -576,6 +591,13 @@ function startPlay(mode){
   /* z=44 is a corner of Foundry and the WALL of anything smaller, so the
      spawn is clamped to the arena actually standing. */
   me.x=0; me.z=Math.min(44, ARENA-8); me.feetY=0; me.eyeH=1.7; me.stance='stand'; me.vy=0; me.hp=100; me.alive=true; me.ladder=null;
+  /* ...and then moved to the nearest spot where nothing stands (2026-11-22).
+     Jack: "every time when i enter the game i am pushed or moved a
+     distance". On the power station (0, 44) is inside the turbine hall's
+     corner tower, so the collision shoved you out on the first frame. The
+     search runs over the same boxes the movement does, in rings of 1m. */
+  { const p = clearSpawnSpot(me.x, me.z); me.x = p[0]; me.z = p[1]; }
+  me.hv.set(0, 0, 0);
   weaponAmmo = WEAPONS.map(w=>({ mag:w.magMax, reserve:w.reserveMax }));
   currentWeapon=0; weaponHolders.forEach((h,i)=>h.visible=i===0);
   reloading=false; clearTimeout(reloadTimer); aiming=false; ads=0; semiQueued=false; paused=false;

@@ -21,7 +21,12 @@ const STANCE = { stand:{eye:1.7,spd:1.0,body:1.8}, crouch:{eye:1.05,spd:0.5,body
    All three stay under MOVE.maxSpeed (20) on the server, which is the
    sustained ceiling its token bucket allows — go past it and the server
    clamps you back, which reads as rubber-banding rather than speed. */
-const MOVE_SPD = { walk:5.6, sprint:8.4, zoneSprint:12 };
+const MOVE_SPD = { walk:5.6, sprint:8.4, zoneSprint:12,
+  /* Blade out, you move a quarter faster (Jack, 2026-11-22: "i should be
+     moving faster when i equip the sword"): nothing to aim, nothing heavy.
+     The fastest it makes anything is the zone sprint at 15 m/s, inside the
+     server's 20 m/s movement budget (MOVE.maxSpeed). */
+  bladeMul:1.25 };
 const JUMP_V = 10.5, GRAV = 24;
 // jumps are per agent now: AGENTS[...].jumps (Blast's passive is the second)
 let jumpPressed = false;             // edge-triggered by keydown

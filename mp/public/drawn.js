@@ -657,7 +657,134 @@ function gloveEveryGun(b){
     const right = b.right.clone(); right.position.copy(old.position).add(rOff);
     old.parent.add(right); old.parent.remove(old); HOLD_ARMS[i] = right;
   }
+  /* The sword and the grenade are held, not just near a hand (THE SWORD AND
+     THE GRENADE, REDRAWN). Their grip point is where the old arm's palm was. */
+  const at = new THREE.Vector3(0.03, -0.11, 0.14);
+  if (typeof BLADE !== 'undefined' && BLADE >= 0) { holdInGlove(BLADE, b, rOff, at, buildSword(), true, [-0.5, 0.15, 0, -1.15]);
+    /* held up in guard, the hand in the lower right, not off the bottom of the screen */
+    WEAPONS[BLADE].vm = { x: 0.17, y: -0.02, z: -0.42, adsZ: 0, rx: 0, ry: 0, rz: 0, viewFov: 0 }; }
+  if (typeof GRENADE !== 'undefined' && GRENADE >= 0){
+    const gr = buildFragGrenade();
+    gr.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), PAC9_GRIP_AXIS);   // fuze out of the top of the fist
+    gr.position.copy(PAC9_GRIP_AXIS).multiplyScalar(0.012);
+    holdInGlove(GRENADE, b, rOff, at, gr, false, [0, 0, 0]);
+    WEAPONS[GRENADE].vm = { x: 0.13, y: 0.0, z: -0.32, adsZ: 0, rx: 0, ry: 0, rz: 0, viewFov: 0 };   // in the hand, in view
+  }
 }
+/* ---- THE SWORD AND THE GRENADE, REDRAWN (2026-11-22) ----
+   Jack: "the sword is not held correctly, u need to go look up how a real
+   sword is held" and "improve on the design of the grenade and the sword".
+
+   HOW A SWORD IS HELD. The handshake grip: the handle runs diagonally
+   across the palm and through the fist, the thumb and forefinger do the
+   controlling, the other three fingers close round it, and the blade
+   carries on in line with the forearm - raised a little in guard, never
+   cocked at a right angle to the arm, the edge in line with the knuckles.
+   The old blade lay flat along the view with the hand somewhere under its
+   guard.
+
+   So the sword is built in the HAND'S frame: the PAC-9 glove's fist is
+   shaped round a pistol grip, whose line runs up and forward through it
+   (PAC9_GRIP_AXIS). The sword's handle is put on exactly that line, so it
+   passes through the closed fingers, guard at the top of the fist, pommel
+   below the little finger. Then hand and sword are turned together about
+   the grip, pitched forward until the blade stands about 30 degrees above
+   the line of the forearm, which is a guard you can see past.
+
+   The sword: a one-handed arming sword. A blade that tapers in width and
+   thickness to its point, flattened-diamond in section with a fuller down
+   each flat; a straight cross guard with turned finials; a leather grip
+   with risers, steel ferrules at both ends; a wheel pommel.
+   The grenade: a fragmentation grenade as soldiers carry them now - a
+   smooth steel sphere, 64mm, in olive drab with its yellow band and
+   stencil, the fuze on top, the spoon down the side under the fingers,
+   the safety clip and the pull ring. The thrown one (effects.js) is the
+   same model. */
+const PAC9_GRIP_AXIS = new THREE.Vector3(0, 0.868, -0.496).normalize();
+const M_BLADE  = () => dmatL('blade',  [0.55, 0.56, 0.58], 0.95, 0.16, 1, 1.2);   // polished steel
+const M_GUARD  = () => dmatL('guard',  [0.05, 0.05, 0.055], 0.80, 0.38, 1);       // blackened steel
+const M_LEATH  = () => dmatL('leath',  [0.045, 0.024, 0.012], 0.00, 0.72, 2, 0.5);
+const M_OD     = () => dmatL('od',     [0.055, 0.065, 0.035], 0.20, 0.55, 2, 0.7); // olive drab paint
+const M_YEL    = () => dmatL('yel',    [0.55, 0.42, 0.04], 0.10, 0.50, 2, 0.6);
+/* The blade, along -Z from z0: width along Y (the edges), thickness along X
+   (the flats). Flat-shaded, as a ground bevel is. */
+function swordBladeGeo(len, w0, t0){
+  const N = 14, ring = (s) => {
+    const w = w0 * (s < 0.82 ? 1 - 0.22 * s : (1 - 0.22 * 0.82) * Math.sqrt(Math.max(0, (1 - s) / 0.18)));
+    const t = t0 * (1 - 0.55 * s);
+    return [[0, w], [t, w * 0.45], [t, -w * 0.45], [0, -w], [-t, -w * 0.45], [-t, w * 0.45]];
+  };
+  const pos = [];
+  for (let i = 0; i < N; i++){
+    const s0 = i / N, s1 = (i + 1) / N, A = ring(s0), B = ring(s1), z0 = -len * s0, z1 = -len * s1;
+    for (let k = 0; k < 6; k++){ const k2 = (k + 1) % 6;
+      const a = [A[k][0], A[k][1], z0], b = [A[k2][0], A[k2][1], z0], c = [B[k2][0], B[k2][1], z1], d = [B[k][0], B[k][1], z1];
+      pos.push(...a, ...c, ...b, ...a, ...d, ...c); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+  return g;
+}
+function buildSword(){
+  const g = new THREE.Group(), bl = M_BLADE(), gd = M_GUARD(), lt = M_LEATH(), st = M_STEEL();
+  /* grip: 0.13m, z +0.065 (pommel end) .. -0.065 (guard end) */
+  dTube(g, lt, 0.0155, 0.13, 0, 0, 0, 0.0145, 14);
+  for (let i = 0; i < 4; i++) dTube(g, lt, 0.0168, 0.004, 0, 0, -0.045 + i * 0.03, 0.0168, 14);        // risers under the leather
+  dTube(g, st, 0.0175, 0.012, 0, 0, -0.068, 0.0165, 14); dTube(g, st, 0.0165, 0.01, 0, 0, 0.068, 0.0175, 14);   // ferrules
+  /* the cross guard: across the edges (Y), turned finials */
+  dBox(g, gd, 0.022, 0.19, 0.018, 0, 0, -0.083);
+  for (const s of [-1, 1]){ const f = new THREE.Mesh(new THREE.SphereGeometry(0.0135, 12, 10), gd); f.position.set(0, s * 0.098, -0.083); dAdd(g, f); }
+  dBox(g, gd, 0.03, 0.05, 0.012, 0, 0, -0.096);                                                       // the langet over the blade's root
+  /* the blade, from the guard */
+  { const m = new THREE.Mesh(swordBladeGeo(0.74, 0.024, 0.0045), bl); m.position.z = -0.1; dAdd(g, m);
+    for (const s of [-1, 1]){ const fl = new THREE.Mesh(new THREE.BoxGeometry(0.001, 0.009, 0.46), M_GUARD());   // the fullers, dark
+      fl.position.set(s * 0.0034, 0, -0.1 - 0.25); dAdd(g, fl); } }
+  /* the wheel pommel and its peen */
+  { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.027, 0.027, 0.02, 20), gd); p.rotation.z = Math.PI / 2; p.position.set(0, 0, 0.09); dAdd(g, p);
+    const q = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.03, 10), st); q.rotation.z = Math.PI / 2; q.position.set(0, 0, 0.09); dAdd(g, q); }
+  return g;
+}
+/* The frag grenade, fuze up (+Y), spoon on the +Z side, centred on its body. */
+function buildFragGrenade(){
+  const g = new THREE.Group(), od = M_OD(), st = M_STEEL();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.032, 24, 18), od); dAdd(g, body);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.0275, 0.0306, 0.008, 24, 1, true), M_YEL()); band.position.y = 0.0135;   // the yellow band
+  band.material.side = THREE.DoubleSide; dAdd(g, band);
+  /* the fuze: body, the striker housing, the spoon pivot */
+  const fz = new THREE.Mesh(new THREE.CylinderGeometry(0.0105, 0.012, 0.022, 14), st); fz.position.y = 0.038; dAdd(g, fz);
+  const hd = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.0105, 0.008, 14), st); hd.position.y = 0.053; dAdd(g, hd);
+  /* the spoon: from the fuze head over and down the +Z side, following the body */
+  const sp = new THREE.Group(); dAdd(g, sp);
+  const pts = [[0.0, 0.057, 0.004], [0.0, 0.058, 0.014], [0.0, 0.046, 0.026], [0.0, 0.03, 0.034], [0.0, 0.01, 0.0365], [0.0, -0.01, 0.0355], [0.0, -0.022, 0.031]];
+  for (let i = 0; i < pts.length - 1; i++){
+    const a = new THREE.Vector3(...pts[i]), b = new THREE.Vector3(...pts[i + 1]), m = a.clone().add(b).multiplyScalar(0.5);
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.0022, a.distanceTo(b) + 0.002), st);
+    seg.position.copy(m); seg.lookAt(b.clone().add(sp.position)); dAdd(sp, seg);
+  }
+  /* the pull ring through its pin, on the -X side of the fuze, and the clip */
+  const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, 0.03, 6), st); pin.rotation.z = Math.PI / 2; pin.position.set(-0.004, 0.044, 0.004); dAdd(g, pin);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.0016, 6, 20), st); ring.position.set(-0.026, 0.044, 0.004); ring.rotation.y = Math.PI / 2; dAdd(g, ring);
+  const clip = new THREE.Mesh(new THREE.TorusGeometry(0.0125, 0.0012, 5, 16, Math.PI), st); clip.position.set(0, 0.034, 0); clip.rotation.x = Math.PI / 2; dAdd(g, clip);
+  /* stencilled */
+  { const d = dDecal(g, 'GREN HAND FRAG', 0.0302, -0.004, 0, 0.034, 0.0055, 1); d.rotation.y = Math.PI / 2; }
+  return g;
+}
+/* Put a held thing in the PAC-9's right glove: the glove at its offset from
+   the grip, the thing on the grip line (or at the grip, for a grenade), and
+   the two turned together about the grip by `turn`. */
+function holdInGlove(slot, b, rOff, at, thing, alignAxis, turn){
+  const holder = weaponHolders[slot];
+  while (holder.children.length) holder.remove(holder.children[0]);
+  const pivot = new THREE.Group(); pivot.position.copy(at); holder.add(pivot);
+  const glove = b.right.clone(); glove.position.copy(rOff); pivot.add(glove);
+  if (alignAxis) thing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), PAC9_GRIP_AXIS);
+  /* turned on its own axis so the flat, not the edge, faces you: the camera
+     looks at a held blade from above and to its left */
+  if (alignAxis && turn[3]) thing.rotateOnAxis(new THREE.Vector3(0, 0, 1), turn[3]);
+  pivot.add(thing);
+  pivot.rotation.set(turn[0], turn[1], turn[2]);
+  HOLD_ARMS[slot] = glove;
+}
+
 fetch(PAC9.url).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
   .then(buf => mountPac9(pac9Build(buf)))
   .catch(e => console.warn('[pac9] kept the drawn rifle: ' + e));

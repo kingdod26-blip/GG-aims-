@@ -1763,6 +1763,69 @@ barrier line stops on the first barrier; frame ~4.5-5ms at the spawn view
 rust runs, more signs and painted markings, wet ground and puddles,
 dressing the office interiors, ambient sound.
 
+## Jack's six fixes, and two more (2026-11-22)
+
+- **No push on spawning.** Practice spawned at (0, 44), inside the turbine
+  hall's corner tower, so collision shoved you out on the first frame.
+  `clearSpawnSpot` (session.js) moves the spawn to the nearest point where
+  no box stands between the floor and head height within the body's radius
+  (rings of 1m, 16 bearings, up to 40m). Spawns now at (-0.7, 43.3), still.
+- **The busbars are gone.** Two `busbars` props at z 78 and 94 ran three
+  conductors 11.4m up across the whole site, over the offices, connected to
+  nothing: leftovers from the old hall, where they hung inside it.
+- **The cooling towers are solid, with a way out.** The shell above the ring
+  beam had no collision: from the cooling deck you walked through it, and
+  shots passed through the whole tower. `towerShell` (works.js) adds bands
+  of `towerwall` sector boxes - 72 to the ring in the two bands reachable
+  from the deck (inner face at the band's narrowest), 36 above - and a box
+  round the central riser. A doorway faces east at deck level (the first
+  shell course, drawn with `litCylArc` leaving it out, its reveals and head
+  drawn), onto a railed grating landing at 5.6 and a steel stair to the
+  basin rim. Checked: inside, the wall stops you at r 9.24; out of the door,
+  down the stair, off the basin to the ground. Shots across the shell stop
+  on it (a ray EXACTLY on z = tz threads the seam between two sectors - the
+  slab test is open at the faces - so test off the seam).
+- **The sword is held.** Researched: the handshake grip - handle across the
+  palm and through the fist, thumb and forefinger controlling, edge in line
+  with the knuckles, the blade continuing the forearm's line. The sword is
+  built on the PAC-9 glove's own grip line (`PAC9_GRIP_AXIS`, the line the
+  fist closes round), guard at the top of the fist, pommel under the little
+  finger, then glove and sword pitched forward together (-0.5 rad) to a
+  guard about 30 degrees above the forearm, and rolled on its axis so the
+  flat and fuller face you. Its own pose (`WEAPONS[BLADE].vm`).
+- **The sword and grenade redrawn** (drawn.js `buildSword`,
+  `buildFragGrenade`, placed by `holdInGlove`): an arming sword - a blade
+  tapering in width and thickness, flattened-diamond section, fullers, a
+  cross guard with finials, a leather grip with risers and ferrules, a wheel
+  pommel; and a modern frag - a 64mm olive steel sphere, yellow band,
+  stencil, fuze, spoon down the side, clip, pin and ring. The THROWN grenade
+  (effects.js makeGrenadeMesh) is the same model at 1.6x, visual only.
+- **The boilers are furnaces you can enter.** The two solid 11x14x24 blocks
+  are `building()`s of `boilerwall` with a door at the foot of the side
+  facing the walkway, drawn by the `boiler` prop (`litBoiler`): lagged
+  casing, buckstays every 3m, nine burners on the front, inspection ports,
+  soot blowers, the steam drum on saddles with risers, four downcomers,
+  main steam leads, a nameplate; inside, tube walls (`tubewall`: NOT
+  litPatch'd - the lit look replaces lighting, emissive included, and the
+  bake sees nothing in a closed box - a plain material with an emissive copy
+  of its texture), burner throats glowing, platens under the roof, an ash
+  floor, a work lamp. Feed pumps, a panel and instrument racks on the floor.
+- **Signs on their walls**, not in front of them (the hall's hard-hat sign
+  stood 0.8m off its wall; the forklift sign faced into the boiler house).
+- **The site cabin is indoors**: a hollow 3.2 x 9.8m office cabin, door and
+  windows toward the yard, desks, plan chest, lockers, a kettle bench, a
+  ceiling light.
+- **Faster with the sword**: `MOVE_SPD.bladeMul` 1.25 (walk 7.0, sprint 10.5,
+  zone sprint 15 - inside the server's 20 m/s MOVE.maxSpeed).
+
+Map: 2441 boxes (714 tower-wall sectors). 0 of 4000 server spawns inside
+anything. Frame time: the pane measured ~10ms at every spot - and the
+previous commit, run beside it in a worktree, measured the same, so that
+is the pane's state (hidden), not this work. **Two lessons:** a `const`
+touched at the top level before its declaration in the same file kills the
+whole script (TDZ) - LIT_PROP, LIT_NOGRIME here; and close any other game
+tab (Saltline) before timing anything.
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,
