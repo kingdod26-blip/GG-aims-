@@ -879,6 +879,42 @@ oil(78.2, -91.4, 0.9);
 console.log(`  clutter: ${KIT_PLACED} placed, ${KIT_REFUSED} refused, ${CL.length} loose items`);
 P.push({ kind: 'clutter', items: CL });
 
+/* ===================================================================== */
+/* ON THE HALL ROOF (2026-11-22)                                          */
+/* ===================================================================== */
+/* Jack: "i want to be able to stand on the roof". The turbine hall's roof
+   was a `roofRect` only - it stopped a bullet and not a player - so there
+   was nothing up there to stand on. It is a deck now: the slab as
+   `hallroof` boxes (drawn by the hallroof prop, so they draw nothing) and
+   the rooflight strips as GLASS, which you can stand on, which a shot goes
+   through and which daylight still comes through (glass is MOVE_ONLY, out
+   of the bake's occluders). A rail runs round the edge, 16.6m up, with a
+   gap where each ladder arrives; two caged ladders come up the outside,
+   one on the west wall by the HV yard, one on the south wall by the road. */
+note('THE HALL ROOF: a deck you can stand on, a rail round it, two ladders up');
+{
+  const rx0 = HX0 - HW, rx1 = HX1 + HW, rz0 = HZ0 - HW, rz1 = HZ1 + HW, y0 = HH + 0.05, y1 = HH + 0.6;
+  const strips = []; for (let x = rx0 + 8; x < rx1 - 6; x += 12) strips.push(x);     // the rooflights hallroof draws
+  let x = rx0;
+  for (const sx of strips){
+    ob(x, sx, rz0, rz1, y0, y1, 'hallroof');
+    ob(sx, sx + 5, rz0, rz0 + 3, y0, y1, 'hallroof'); ob(sx, sx + 5, rz1 - 3, rz1, y0, y1, 'hallroof');
+    ob(sx, sx + 5, rz0 + 3, rz1 - 3, y1 - 0.1, y1, 'glass');                     // the glazing, flush with the deck
+    x = sx + 5;
+  }
+  ob(x, rx1, rz0, rz1, y0, y1, 'hallroof');
+  /* the ladders: [x, z, outward normal, step onto the roof] */
+  const LW = { x: rx0 - 0.5, z: -40 }, LS = { x: 40, z: rz1 + 0.5 };
+  LAD({ x: LW.x, z: LW.z, nx: -1, nz: 0, y0: 0, y1: y1, ex: 1.6, ez: 0 });
+  LAD({ x: LS.x, z: LS.z, nx: 0, nz: 1, y0: 0, y1: y1, ex: 0, ez: -1.6 });
+  /* the rail round the edge, 0.3m in, open 1.6m where each ladder arrives */
+  const e = 0.3, gap = 0.8;
+  rail(rx0 + e, rx1 - e, rz0 + e, rz0 + e + 0.1, y1);                                           // north
+  rail(rx0 + e, LS.x - gap, rz1 - e - 0.1, rz1 - e, y1); rail(LS.x + gap, rx1 - e, rz1 - e - 0.1, rz1 - e, y1);   // south, the ladder's gap
+  rail(rx0 + e, rx0 + e + 0.1, rz0 + e + 0.1, LW.z - gap, y1); rail(rx0 + e, rx0 + e + 0.1, LW.z + gap, rz1 - e - 0.1, y1);   // west, the gap
+  rail(rx1 - e - 0.1, rx1 - e, rz0 + e + 0.1, rz1 - e - 0.1, y1);                               // east
+}
+
 /* ---------------------------------------------------------------- emit -- */
 const lines = [];
 for (const o of out) {

@@ -1907,7 +1907,7 @@ const LIT_GROUND = {};
    keep-clear lines are not painted round them. */
 /* What a raised box shows from below, by kind: a material, or null for a
    kind that draws itself (or nothing). Anything not listed is concrete. */
-const LIT_UNDER = { grating: 'galv', steptread: 'galv', handrail: null, pipewalk: null, stackwall: null, ringdeck: null, ringrail: null, towerwall: null, boilerwall: null,
+const LIT_UNDER = { grating: 'galv', steptread: 'galv', handrail: null, pipewalk: null, stackwall: null, ringdeck: null, ringrail: null, towerwall: null, boilerwall: null, hallroof: null,
                     shedroof: 'cladding', intakeroof: 'cladding', boilerroof: 'girder', duct: 'cladding' };
 const LIT_INDOOR = { facade: 1, core: 1, desk: 1, screen: 1, counter: 1, bench: 1, tread: 1, slab: 1,
                      roofslab: 1, parapet: 1, rail: 1, glass: 1,
@@ -2929,6 +2929,7 @@ Object.assign(LIT_DRAW, {
   pipewalk(){},                                 // the pipes are drawn by their rack or bridge
   ringdeck(){}, ringrail(){},                   // the towers' rim gallery is drawn by the tower
   towerwall(){}, boilerwall(){},                // the shell's collision bands; a boiler's casing (drawn by their props)
+  hallroof(){},                                 // the hall roof's deck: the hallroof prop draws the slab
   stackwall(){},                                // the ring is drawn by the stack prop
   /* The office facade: rendered walls. A thin piece - a mullion between two panes -
      is a dark metal frame, as glazing bars are; everything else is render. */
@@ -3654,7 +3655,7 @@ LIT_PROP.highbay = function(G, p){
 /* Loose clutter gets no keep-clear outline painted round it: that line is
    for plant, and round a drum or a cone it read as a level editor. */
 for (const k in LIT_KIT) LIT_INDOOR[k] = 1;
-LIT_INDOOR.towerwall = LIT_INDOOR.boilerwall = 1;
+LIT_INDOOR.towerwall = LIT_INDOOR.boilerwall = LIT_INDOOR.hallroof = 1;
 LIT_UNDER.drum = LIT_UNDER.drums4 = LIT_UNDER.ibc = LIT_UNDER.barrier = LIT_UNDER.pallets = LIT_UNDER.palletload = null;
 LIT_UNDER.gascage = LIT_UNDER.reel = LIT_UNDER.skip = LIT_UNDER.van = LIT_UNDER.forklift = LIT_UNDER.toolcart = null;
 LIT_UNDER.bin = LIT_UNDER.gen = LIT_UNDER.cabin = LIT_UNDER.lighttower = null;

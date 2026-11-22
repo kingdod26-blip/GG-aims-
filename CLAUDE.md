@@ -1897,6 +1897,23 @@ real ... doesnt block the light comming from on top". Toured 16 spots:
 - A "shade" found in the open at (-30, 80) was real: a 13m lamp post's
   shadow. Check what blocks before calling a sun test wrong.
 
+## The hall roof is walkable (2026-11-22)
+
+Jack: "i want to be able to stand on the roof". The turbine hall's roof was
+a `roofRect` only (stops bullets, not players). works.js THE HALL ROOF adds
+a deck: the slab as `hallroof` boxes (HH+0.05..HH+0.6 = 16.6 top; drawn by
+the hallroof prop, so LIT_DRAW draws nothing, LIT_UNDER null, off the plan)
+split round the rooflight strips, which are `glass` boxes flush with the
+deck - you stand on them, shots pass them, daylight passes them (glass is
+MOVE_ONLY, so out of the bake's occluders and the roofRect still stops
+shots from above). A rail 0.3m in from every edge, open 1.6m where each
+ladder arrives; ladders up the west wall at z -40 (by the HV yard) and the
+south wall at x 40 (by the road). Checked: climb, top-out at 16.6, walk
+over a rooflight without dropping, rails stop you at the north and west
+edges; server floorUnder 16.6 everywhere on it. (Testing note: `vetMove`
+RETURNS the accepted position, it does not move `p`; feed packets at a
+real running speed or the budget clips them.)
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,
