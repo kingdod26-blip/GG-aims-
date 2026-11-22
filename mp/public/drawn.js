@@ -924,7 +924,14 @@ function bladeArmsFrame(){
   const R = BLADE_RIG; if (!R || !R.arms) return;
   const k = PAC9_GRIP_AXIS;
   camera.updateWorldMatrix(true, false); _cInv.copy(camera.matrixWorld).invert();   // (matrixWorldInverse is only refreshed at render)
+  /* ONE hand on the sword, except for the charged attack (Jack: "just
+     remove the left arm, only leave the left arm when there is a charge
+     attack"): the left hand comes onto the grip while the charge is held
+     and through the stab it releases, and is gone for the five cuts. */
+  const both = chargeFrom > 0 || (swingT > 0 && swingCut === HEAVY.cut);
+  R.left.visible = both;
   for (const u of R.arms){
+    if (u.grp === R.left && !both){ u.elbow.visible = u.upper.visible = false; continue; }
     u.grp.updateWorldMatrix(true, false);
     const h = u.upper.parent;
     u.grp.getWorldPosition(_aF);                                          // the fist, on the grip

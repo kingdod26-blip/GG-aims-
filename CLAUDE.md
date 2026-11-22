@@ -1886,6 +1886,11 @@ dressing the office interiors, ambient sound.
     arm 0.062-0.072, under the cuff's 0.088; cut 3 (rising) finishes with
     the hands low and right (its last keys were at y +0.20/+0.28, which
     laid the left arm across the middle of the view).
+    Then: "just remove the left arm, only leave the left arm when there is
+    a charge attack". bladeArmsFrame hides the left hand, elbow and upper
+    arm unless a charge is held (`chargeFrom`) or the stab is playing
+    (`swingCut === HEAVY.cut`): one hand for rest and the five cuts, two
+    for the charge and the stab.
   - the charge and the stab keys are `'aim'`: the blade laid along the line
     from the hand at that key to 8m down the crosshair (bladeKeyQuats).
     Measured: the blade's line at 8m lands at NDC (0.001, 0.002).
