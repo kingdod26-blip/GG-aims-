@@ -1860,15 +1860,27 @@ dressing the office interiors, ambient sound.
   should be pointing to the aim"):
   - the left hand is turned 70 degrees round the handle (fist kept on it),
     so its forearm runs down-left instead of up across the view;
-  - a PAC-9 glove is the hand plus ~16cm of sleeve; in the cuts and the
-    stab that sleeve's cut-off END hung in plain view and gave the arm away.
-    `sleeveRunsOff` (drawn.js) gives the blade's two gloves their own
-    geometry with the sleeve stretched back along its own line (past t 0.24
-    on the glove's long axis, x3.2), so the end lies past the screen edge.
-    Straight: nothing bends - the elbows are off-screen;
-  - a WRIST bend toward the shoulders was built and taken out the same day
-    ("no, not the wrist"): it laid whole arms across the screen. Do not
-    bend at the wrist; bend only at an elbow, and only if one is in view;
+  - **Jointed arms with elbows** (Jack: "add elbow so it looks more
+    logical, for example for the fifth hit ... a human would need to bend
+    his elbow", pointing at the video again). Researched longsword cutting:
+    the wind-up is made with the elbows BENT and held out, sword by the
+    shoulder or overhead; the cut EXTENDS both arms forward through the
+    strike; recovery bends them again. Two-bone IK gives that from where the
+    hands are (`bladeArmsFrame`, drawn.js): shoulders at (+-0.21, -0.38,
+    0.14) camera space, elbows pushed out and down by a pole. The PAC-9
+    glove is the hand AND the forearm (fist to cuff ~0.4m), so the forearm
+    IS the glove - rigid, no wrist bend - and the ELBOW is its cuff
+    (`ARM.elbowT` 0.40 on its axis, fist-to-elbow measured per glove,
+    0.497). Each frame the hand turns round the handle (analytically, the
+    angle about PAC9_GRIP_AXIS that best aims the glove's axis at the IK
+    elbow; eased) so the forearm points where the elbow belongs. An elbow
+    joint and an upper arm (in the glove's material, its sleeve tint) run
+    from the cuff toward the shoulder, cut where they leave the view
+    (`armClip`) and kept 0.22m off the lens - near the camera a tube was
+    sliced by the near plane into a flat dark slab. Tried and abandoned on
+    the way: a wrist bend toward the shoulders ("not the wrist"), stretched
+    sleeves running off-screen (a cover, not an arm), and a separate
+    forearm tube (the glove already is one; it kinked).
   - the charge and the stab keys are `'aim'`: the blade laid along the line
     from the hand at that key to 8m down the crosshair (bladeKeyQuats).
     Measured: the blade's line at 8m lands at NDC (0.001, 0.002).
