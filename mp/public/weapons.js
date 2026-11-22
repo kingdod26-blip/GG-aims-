@@ -141,11 +141,22 @@ const WEAPONS = [
     charges:2, cooldownMs:30000, speed:17,
     recoil:0.01, spread:0, adsSpread:0, range:60, adsFov:75, scope:false },
 ];
-// MELEE: five-hit combo. Each landed hit within the window advances the chain,
-// and the fifth is a heavy finisher. Missing or pausing resets you to hit 1.
+// MELEE: five-hit combo. Every swing moves the chain on, hit or miss, and the
+// fifth is a heavy finisher. Stop swinging for comboWindowMs and it restarts.
 WEAPONS.push({ name:'BLADE', mode:'MELEE', melee:true, auto:false, fireRate:360,
   combo:[22,22,28,28,70], comboWindowMs:1600, reach:3.2, arc:0.55,
   recoil:0.004, spread:0, adsSpread:0, range:3.2, adsFov:75, scope:false });
+/* THE CHARGED CUT (2026-11-22). Jack: "the right click aim should allow me
+   to use a charge up swing". With the blade out, right-click no longer
+   zooms: HOLD it and the sword is drawn back over the shoulder, RELEASE and
+   it comes down as one heavy cut. Under `minMs` it is called off; from
+   there the damage climbs to `max` at `fullMs`, and the cut reaches a
+   little further. It resets the combo. The SERVER times the hold (from
+   its own `meleeCharge` packet to the `melee` one) - keep its
+   MELEE.heavy in step with this. */
+const HEAVY = { minMs:250, fullMs:1100, min:35, max:85, reachAdd:0.6, cut:5 };
+let chargeFrom = 0;                       // performance.now() the hold began; 0 = not charging
+function heavyCharge(now){ return chargeFrom ? Math.min(1, (now - chargeFrom) / HEAVY.fullMs) : 0; }
 const XBOW  = WEAPONS.findIndex(w=>w.kind==='xbow');    // crossbow slot
 const GRENADE = WEAPONS.findIndex(w=>w.kind==='grenade');   // Blast's frag slot
 const SMOKE = WEAPONS.findIndex(w=>w.kind==='smoke');   // smoke slot

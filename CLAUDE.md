@@ -1821,6 +1821,23 @@ dressing the office interiors, ambient sound.
   The strikes are moved to the middle of the view, arms out, angled across
   the screen (a blade aimed at the camera shrinks to a stub). Measured:
   the edge's share of the tip's motion through each strike is 0.98-1.00.
+- **The charged cut** (Jack: "the right click aim should allow me to use a
+  charge up swing"). With the blade out right-click no longer zooms: HOLD
+  it and the sword is drawn back over the shoulder (SWORD_CUTS' sixth
+  entry's first key, trembling when full), RELEASE and it comes down as one
+  cut. `HEAVY` (weapons.js) and `MELEE.heavy` (server.js) - keep in step:
+  under 250ms it is called off; 35 rising to 85 damage at 1.1s; +0.6m
+  reach at full; resets the combo. **The server times the hold itself**
+  (`meleeCharge` -> `melee` with `heavy`, 60ms slack, stale after 15s), so
+  a client cannot claim a full charge. Left-click does nothing while
+  charging; a weapon switch, death or pause drops the charge.
+- **The five cuts are yours anytime** (Jack: "i can do it anytime anywhere
+  it doesnt have to be only when i hit someone"): every swing moves the
+  chain on, hit or miss, client and server; stop swinging for
+  `comboWindowMs` and it restarts. Before, a miss reset it to cut 1.
+  `scratchpad/meleeheavy.js` checks both on the server: heavy refused
+  without a charge and after a 100ms tap; four misses then a hit lands the
+  70 finisher; a 320ms charge then kills.
 - **The five cuts** (Jack: "its the animation of the 5 swinging of the
   sword, i want you to make the swing like the video"). The video's attacks,
   read at 0.05s steps: from the upright guard the sword is drawn back (over

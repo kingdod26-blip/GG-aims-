@@ -859,6 +859,11 @@ const SWORD_CUTS = [
   /* 5 the finisher: raised high overhead, straight down the middle */
   [[0.24, [-0.30, 0.36, 0.06], [0.06, 0.55, 0.83]], [0.36, [-0.30, 0.30, -0.10], [0.06, 0.95, -0.30]],
    [0.48, [-0.30, 0.14, -0.18], [-0.08, -0.35, -0.93]], [0.68, [-0.32, 0.06, -0.10], [-0.30, -0.70, -0.65]]],
+  /* 6 the CHARGED cut (right-click, HEAVY in weapons.js): its first key is
+     the drawn-back pose the charge rises into, so the release starts from
+     there and comes straight down across the middle, harder and wider */
+  [[0.06, [-0.04, 0.36, 0.08], [0.35, 0.85, 0.40]], [0.18, [-0.22, 0.26, -0.14], [0.50, 0.70, -0.50]],
+   [0.32, [-0.38, 0.06, -0.18], [-0.82, -0.35, -0.45]], [0.60, [-0.48, -0.06, -0.06], [-0.85, -0.50, -0.15]]],
 ];
 const _cutI = new THREE.Quaternion(), _cutQ = new THREE.Quaternion(), _cutA = new THREE.Vector3(), _cutB = new THREE.Vector3();
 const _kM = new THREE.Matrix4(), _kF = new THREE.Vector3(), _kZ = new THREE.Vector3();
@@ -890,12 +895,21 @@ function bladeKeyQuats(R, K){
 }
 /* Called every frame while the blade is out: returns the hand's offset to
    add to the gun's position, and turns the blade's pivot. */
-function bladeSwingFrame(swingT, cut){
+function bladeSwingFrame(swingT, cut, charge){
   const R = BLADE_RIG; if (!R) return null;
   const p = 1 - swingT;
   if (swingT > R.lastT + 0.05) R.from = { off: R.off.clone(), q: R.q.clone() };   // a new cut began
   R.lastT = swingT;
-  if (swingT <= 0){ R.off.set(0, 0, 0); R.q.copy(R.base); R.from = null; }
+  if (swingT <= 0 && charge > 0){
+    /* charging: drawn back into the charged cut's first key, eased, with a
+       tremble once it is full */
+    const K = SWORD_CUTS[SWORD_CUTS.length - 1], q0 = bladeKeyQuats(R, K)[0];
+    const e = 1 - Math.pow(1 - Math.min(1, charge * 1.6), 3);
+    R.off.set(0, 0, 0).lerp(_cutA.fromArray(K[0][1]), e);
+    if (charge >= 1){ const n = performance.now() * 0.05; R.off.x += Math.sin(n * 1.7) * 0.004; R.off.y += Math.sin(n * 2.3) * 0.004; }
+    R.q.copy(R.base).slerp(q0, e); R.from = null;
+  }
+  else if (swingT <= 0){ R.off.set(0, 0, 0); R.q.copy(R.base); R.from = null; }
   else {
     const K = SWORD_CUTS[Math.max(0, Math.min(SWORD_CUTS.length - 1, cut | 0))], KQ = bladeKeyQuats(R, K);
     const keys = [[0, R.from ? R.from.off.toArray() : [0, 0, 0], R.from ? R.from.q : R.base],

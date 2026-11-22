@@ -464,7 +464,12 @@ const FIRE = { radius: 4.35, ms: 9000, top: 1.0, graceMs: 1200, dps: 18,
                lingerDps: 6, lingerMs: 5000 };
 
 // Blade melee (must match the client's BLADE entry)
-const MELEE = { combo: [22,22,28,28,70], windowMs: 1600, rateMs: 320, reach: 3.4, arc: 0.5 };
+const MELEE = { combo: [22,22,28,28,70], windowMs: 1600, rateMs: 320, reach: 3.4, arc: 0.5,
+  /* the charged cut: timed HERE, from 'meleeCharge' to the 'melee' that
+     carries heavy - keep in step with HEAVY in public/weapons.js. `slack`
+     forgives jitter between the two packets; `maxHoldMs` lets a hold go
+     stale (a charge is not a cut banked for later). */
+  heavy: { minMs: 250, fullMs: 1100, min: 35, max: 85, reachAdd: 0.6, slack: 60, maxHoldMs: 15000 } };
 let arrowSeq = 0;
 /* ----------------------------- Match format ------------------------------
    Multiplayer is round-based and has no bots. Kill the opposition to take a
@@ -1175,6 +1180,11 @@ io.on('connection', (socket) => {
                             mag: bag.mag, reserve: bag.reserve });
   });
 
+  // ---- Blade: the charged cut starts here; 'melee' with heavy ends it ----
+  socket.on('meleeCharge', (d) => {
+    const p = players.get(socket.id); if (!p || !p.alive) return;
+    p.chargeAt = (d && d.off) ? 0 : Date.now();
+  });
   // ---- Blade: five-hit melee combo, validated server-side ----
   socket.on('melee', (d) => {
     if (match.phase !== 'live') return;      // only during a live round
@@ -1183,6 +1193,16 @@ io.on('connection', (socket) => {
     if (now - (p.lastMelee || 0) < MELEE.rateMs) return;      // rate limit
     p.lastMelee = now;
     if (now > (p.comboUntil || 0)) p.comboStep = 0;           // chain timed out
+    /* a charged cut: how hard is how long the SERVER saw it held */
+    let heavyDmg = 0, reach = MELEE.reach;
+    if (d && d.heavy){
+      const H = MELEE.heavy, held = now - (p.chargeAt || 0);
+      p.chargeAt = 0;
+      if (held + H.slack < H.minMs || held > H.maxHoldMs) return;          // no charge it could be
+      const k = Math.min(1, Math.max(0, (held - H.minMs) / (H.fullMs - H.minMs)));
+      heavyDmg = Math.round(H.min + (H.max - H.min) * k); reach += H.reachAdd * k;
+      p.comboStep = 0;
+    }
     const dir = normalize(d.dx, d.dy, d.dz);
     const ox = d.ox, oy = d.oy, oz = d.oz;
     // nearest target inside the reach cone
@@ -1190,7 +1210,7 @@ io.on('connection', (socket) => {
     const tryT = (cx, cy, cz, ref) => {
       const vx = cx-ox, vy = cy-oy, vz = cz-oz;
       const dist = Math.hypot(vx, vy, vz);
-      if (dist > MELEE.reach) return;
+      if (dist > reach) return;
       if ((vx*dir.x + vy*dir.y + vz*dir.z)/(dist||1) < MELEE.arc) return;
       /* The blade used to check distance and angle only, so with 3.4m of
          reach you could stab someone standing on the far side of a wall.
@@ -1213,18 +1233,24 @@ io.on('connection', (socket) => {
       tryT(h.x, h.y + 1.1, h.z, { kind:'player', ref:pl });
     }
 
-    if (!best) { p.comboStep = 0; return; }                   // a miss breaks the chain
+    /* every swing moves the chain on, hit or miss: the five cuts are yours
+       to throw anywhere (a charged cut starts it again) */
+    if (!best) {
+      p.comboStep = heavyDmg ? 0 : ((p.comboStep || 0) + 1) % MELEE.combo.length;
+      p.comboUntil = heavyDmg ? 0 : now + MELEE.windowMs;
+      return;
+    }
     const step = Math.min(p.comboStep || 0, MELEE.combo.length-1);
     const t = best.ref, isPlayer = best.kind === 'player';
-    t.hp -= MELEE.combo[step];
+    t.hp -= heavyDmg || MELEE.combo[step];
     io.to(room.id).emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false, by: p.id });
     if (isPlayer) io.to(t.id).emit('hurt', { x: p.x, z: p.z });
-    p.comboStep = (step + 1) % MELEE.combo.length;
-    p.comboUntil = now + MELEE.windowMs;
+    p.comboStep = heavyDmg ? 0 : (step + 1) % MELEE.combo.length;
+    p.comboUntil = heavyDmg ? 0 : now + MELEE.windowMs;
     if (t.hp <= 0 && t.alive) {
       eliminate(room, t, isPlayer); p.kills++;
       if (isPlayer) t.deaths++;
-      io.to(room.id).emit('kill', { by: p.name, byId: p.id, victim: isPlayer ? t.name : 'a bot', head: step === MELEE.combo.length-1 });
+      io.to(room.id).emit('kill', { by: p.name, byId: p.id, victim: isPlayer ? t.name : 'a bot', head: heavyDmg ? heavyDmg >= MELEE.heavy.max : step === MELEE.combo.length-1 });
     }
   });
 

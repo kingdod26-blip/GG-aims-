@@ -470,6 +470,7 @@ function loop(){ requestAnimationFrame(loop);
     /* The longsword cuts with its own keyframed arcs (drawn.js SWORD_CUTS),
        so the generic swing - a sine of the whole viewmodel - is for nothing
        else now: with the blade out, `sw` is zero and the cut moves the hand. */
+    if (chargeFrom && (!curW().melee || !me.alive || paused)) chargeFrom = 0;   // switched, died or paused mid-charge
     const bladeOut = curW().melee && typeof bladeSwingFrame === 'function' && BLADE_RIG;
     const sw = bladeOut ? 0 : Math.sin(swingT*Math.PI) * swingDir;
     const sp = sprintAmt*(1-ads);
@@ -521,7 +522,7 @@ function loop(){ requestAnimationFrame(loop);
                      (rRot*0.3 + sw*0.9)*mk + V.ry*(1-ads),
                      (rRot*0.5 + sr + sw*1.1)*mk + V.rz*(1-ads));
     gun.scale.set(vk, vk, 1);
-    if (bladeOut){ const o = bladeSwingFrame(swingT, swingCut); if (o) gun.position.add(o); }
+    if (bladeOut){ const o = bladeSwingFrame(swingT, swingCut, heavyCharge(performance.now())); if (o) gun.position.add(o); }
   } else {
     // menu: spatial showcase — the 3D camera parallaxes with the mouse to match
     // the CSS glass layers, and the operator can be dragged to inspect.

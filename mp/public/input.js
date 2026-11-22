@@ -119,11 +119,12 @@ addEventListener('mousemove',e=>{ if(!pointerLocked) return;
 addEventListener('mousedown',e=>{
   if(e.button===0){ wantFire=true; semiQueued=true; }
   // crossbow: right-click switches fire mode instead of aiming
-  if(e.button===2){ if(curW().ability && !curW().melee){ ricochet=!ricochet; Sfx.swap(); updateHUD(); }
-                    else if(!curW().ability) aiming=true; } });   // abilities don't ADS
+  if(e.button===2){ if(curW().melee) startCharge();                 // the blade: hold to charge a cut
+                    else if(curW().ability){ ricochet=!ricochet; Sfx.swap(); updateHUD(); }
+                    else aiming=true; } });   // abilities don't ADS
 addEventListener('mouseup',e=>{
   if(e.button===0){ wantFire=false; dryClicked=false; }   // the next pull may click again
-  if(e.button===2) aiming=false; });
+  if(e.button===2){ aiming=false; if(chargeFrom) releaseCharge(); } });
 /* Scroll to change weapon: through your guns and the blade, never onto the
    crossbow or smoke — landing on an ability mid-fight because you nudged the
    wheel would be miserable. They stay on G and H. */
@@ -170,12 +171,45 @@ function reload(){ const w=curW();
   reloadTimer=setTimeout(()=>{ const need=w.magMax-a.mag, take=Math.min(need,a.reserve); a.mag+=take; a.reserve-=take; reloading=false; updateHUD(); }, rms);
   reloadSfxTimers=[t1,t2]; }
 let reloadSfxTimers=[];
+/* The charged cut (HEAVY, weapons.js). */
+function startCharge(){
+  const now=performance.now(), w=curW();
+  if(!w.melee || !me.alive || chargeFrom || gameState!=='playing' || paused) return;
+  if(now-lastShot<w.fireRate || swingT>0.4) return;          // let the last cut land first
+  chargeFrom=now; Sfx.swap();
+  if(gameMode==='mp' && socket) socket.emit('meleeCharge');
+}
+function releaseCharge(){
+  const now=performance.now(), w=curW(), held=now-chargeFrom;
+  chargeFrom=0;
+  if(!w.melee || !me.alive) return;
+  if(held<HEAVY.minMs){ if(gameMode==='mp' && socket) socket.emit('meleeCharge', { off:true }); return; }   // called off
+  const k=Math.min(1, (held-HEAVY.minMs)/(HEAVY.fullMs-HEAVY.minMs));
+  const dmg=Math.round(HEAVY.min+(HEAVY.max-HEAVY.min)*k), reach=w.reach+HEAVY.reachAdd*k;
+  lastShot=now; swingT=1; swingCut=HEAVY.cut; comboStep=0; comboUntil=0; Sfx.swap();
+  const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(me.pitch,me.yaw,0,'YXZ'));
+  const o=camera.position.clone();
+  if(gameMode==='mp' && socket){ socket.emit('melee',{ ox:o.x,oy:o.y,oz:o.z, dx:dir.x,dy:dir.y,dz:dir.z, heavy:true }); updateHUD(); return; }
+  let best=null, bestD=Infinity;
+  for(const b of localBots){ if(!b.alive) continue;
+    const to=new THREE.Vector3(b.x-o.x, 1.1-o.y, b.z-o.z); const d=to.length();
+    if(d>reach) continue;
+    if(to.normalize().dot(dir) < w.arc) continue;
+    if(d<bestD){ bestD=d; best=b; } }
+  if(best){
+    best.hp-=dmg; hitmark(); Sfx.hit(); if(k>=1){ gunKick=1; Sfx.land(); }
+    if(best.hp<=0 && best.alive){ best.alive=false; best.mesh.visible=false; extinguish(best);
+      localKills++; creditKill(); setTimeout(()=>respawnLocalBot(best),2000); }
+  }
+  updateHUD();
+}
 function shoot(){
   const now=performance.now(), w=curW();
   if(reloading||now-lastShot<w.fireRate||!me.alive) return;
 
   // --- BLADE: five-hit melee combo, cone hit test in front of you ---
   if(w.melee){
+    if(chargeFrom) return;                          // charging: the release is the cut
     lastShot=now;
     if(now>comboUntil) comboStep=0;                 // chain timed out
     swingT=1; swingDir=-swingDir;                   // alternate slash direction
@@ -200,11 +234,14 @@ function shoot(){
       if(d<bestD){ bestD=d; best=b; } }
     if(best){
       best.hp-=dmg; hitmark(); Sfx.hit();
-      comboStep=(comboStep+1)%w.combo.length; comboUntil=now+w.comboWindowMs;
       if(finisher){ gunKick=1; Sfx.land(); }
       if(best.hp<=0 && best.alive){ best.alive=false; best.mesh.visible=false; extinguish(best);
         localKills++; creditKill(); setTimeout(()=>respawnLocalBot(best),2000); }
-    } else { comboStep=0; }                          // a miss breaks the chain
+    }
+    /* Every swing moves the chain on, hit or miss (Jack, 2026-11-22: "i can
+       do it anytime anywhere it doesnt have to be only when i hit
+       someone"). Stop swinging for comboWindowMs and it starts again. */
+    comboStep=(comboStep+1)%w.combo.length; comboUntil=now+w.comboWindowMs;
     updateHUD();
     return;
   }
