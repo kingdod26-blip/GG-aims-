@@ -669,6 +669,132 @@ P.push({ kind: 'busbars', z: 94 });
 P.push({ kind: 'gantry', z: -24, y: 12, x0: SUB_DX - 40, x1: SUB_DX + 40, to: 24, sag: 3.0 });
 P.push({ kind: 'gantry', z:  24, y: 12, x0: SUB_DX - 40, x1: SUB_DX + 40 });
 
+/* ===================================================================== */
+/* CLUTTER AND WEAR (2026-11-22)                                         */
+/* ===================================================================== */
+/* Jack, after the Saltline comparison: "Yes, start it" - the clutter and
+   wear pass. Saltline's port carries 7.7 loose objects per 100 m2, about
+   half of them turned off the grid; the works carried 0.4 and none. So:
+   the things people bring to a power station and leave, in the places
+   they would leave them, in clusters that tell you what happens there -
+   a contractors' laydown yard, a drum store by the dosing house, loading
+   at the boiler house doors, cable drums in the HV yard, tool carts and
+   stock along the hall's walls.
+
+   `kit(kind, x, z, ry)` places one: its collision is the turned
+   footprint's bounding box, and it REFUSES to go where anything already
+   stands (any box, at any height it would share), printing what it hit -
+   so a cluster can be written by eye and the generator keeps it honest.
+   `CL` is what has no collision: cones, cable runs, hoses, signs, and the
+   oil stains painted into the ground. */
+const KIT = {           // footprint across (x), along (z), height
+  drum: [0.6, 0.6, 0.92], drums4: [1.22, 1.22, 1.08], ibc: [1.0, 1.2, 1.16], barrier: [2.0, 0.62, 0.82],
+  pallets: [1.2, 1.0, 0.86], palletload: [1.2, 1.0, 1.35], gascage: [1.3, 0.8, 1.9], reel: [1.0, 1.6, 1.6],
+  skip: [1.8, 3.7, 1.5], van: [2.0, 5.2, 2.45], forklift: [1.2, 2.4, 2.15], toolcart: [0.5, 0.9, 1.0],
+  bin: [0.62, 0.72, 1.08], gen: [1.1, 2.4, 1.45], cabin: [2.5, 6.0, 2.65], lighttower: [1.2, 2.0, 1.4],
+};
+const CL = [];
+let KIT_PLACED = 0, KIT_REFUSED = 0;
+function kit(kind, x, z, ry, h){
+  ry = ry || 0;
+  const [fw, fd, hh] = KIT[kind], H = h || hh, c = Math.abs(Math.cos(ry)), s = Math.abs(Math.sin(ry));
+  const w = fw * c + fd * s, d = fw * s + fd * c;
+  for (const o of out){
+    if (o.note || o.mat === 'ringrail') continue;
+    const oy = o.y || 0;
+    if (Math.abs(o.x - x) < (o.w + w) / 2 - 0.01 && Math.abs(o.z - z) < (o.d + d) / 2 - 0.01 && oy < H - 0.01 && oy + o.h > 0.01){
+      console.log(`  clutter refused: ${kind} at ${x.toFixed(1)},${z.toFixed(1)} hits ${o.mat} at ${o.x},${o.z}`); KIT_REFUSED++; return false; }
+  }
+  const o = { x: r4(x), z: r4(z), w: r4(w), d: r4(d), h: r4(H), mat: kind };
+  if (ry) Object.assign(o, { ry: r4(ry), fw, fd });
+  out.push(o); KIT_PLACED++; return true;
+}
+const rowOf = (kind, x, z, dx, dz, n, jit, seed) => {
+  let r = seed || 1; const rnd = () => (r = (r * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < n; i++) kit(kind, x + dx * i + (rnd() - 0.5) * jit, z + dz * i + (rnd() - 0.5) * jit, (rnd() - 0.5) * 0.3);
+};
+const cone = (x, z) => CL.push({ k: 'cone', x: r4(x), z: r4(z) });
+const oil = (x, z, r) => CL.push({ k: 'oil', x: r4(x), z: r4(z), r: r || 1.2 });
+const cable = (...pts) => CL.push({ k: 'cable', pts: pts.map(p => [r4(p[0]), r4(p[1])]) });
+const sign = (t, x, z, ry, post, y) => CL.push(Object.assign({ k: 'sign', t, x: r4(x), z: r4(z), ry: r4(ry), post: !!post }, y != null ? { y } : {}));
+
+note('CLUTTER AND WEAR: the things people bring to a site and leave (kit)');
+/* 1. THE LAYDOWN YARD, south-west: a contractors' compound on the open
+   ground below the tank farm - cabin, skip, cable drums waiting to go in,
+   barriers, a generator feeding a lighting tower, the van they came in. */
+kit('cabin', -40, 110, 0);
+kit('bin', -37.6, 105.4, 0.1); kit('bin', -36.8, 105.5, -0.08);
+kit('skip', -28.5, 111.5, 0.12);
+kit('reel', -21, 100, 0.08); kit('reel', -18.6, 100.4, -0.06); kit('reel', -16.2, 100.1, 0.1);
+kit('pallets', -46, 100.5, 0.06); kit('pallets', -44.4, 101.6, -0.25, 1.15); kit('palletload', -34.5, 100.4, 0.1);
+kit('drums4', -32.6, 100.2, -0.12);
+rowOf('barrier', -48, 95.6, 2.15, 0, 5, 0.12, 7);
+kit('gen', -24.5, 104.5, 1.62); kit('lighttower', -21.8, 108.4, 0.4);
+kit('van', -11, 108, 0.32);
+kit('gascage', -45.8, 114.2, 0);
+cable([-24.5, 103.2], [-23.2, 104.8], [-22.4, 107.4]); cable([-24.5, 105.6], [-30, 106.4], [-36.5, 108.8], [-38.6, 109.4]);
+for (const [x, z] of [[-30.8, 109], [-26.4, 109.4], [-31, 114.2], [-26.2, 114.4], [-14, 104.6], [-8.6, 111.6]]) cone(x, z);
+oil(-11, 108.6, 1.4); oil(-24.5, 104.6, 0.9); oil(-32.6, 100.2, 1.0); oil(-29, 111.5, 1.6);
+sign('site', -49.6, 95.3, Math.PI, true); sign('ppe', -38.6, 106.9, Math.PI / 2, false, 1.35);
+
+/* 2. THE DOSING HOUSE: its chemical store outside the east door - totes,
+   a pallet of drums, the gas cage - kept clear of the door itself. */
+kit('ibc', -90.6, -65.4, 0.05); kit('ibc', -90.6, -67, -0.04); kit('drums4', -88.6, -65.9, 0.1);
+kit('gascage', -91.4, -52.4, 0);
+oil(-89.6, -66.2, 1.1);
+sign('chem', -92.85, -63.4, Math.PI / 2, false, 1.4); sign('nosmk', -92.85, -56.6, Math.PI / 2, false, 1.4);
+
+/* 3. THE PIPE AND DRUM YARD, north, between the towers and the boiler
+   house: cable drums, a skip, stacked pallets, a van, barriers along the
+   road edge. */
+kit('reel', -1, -100, 0.1); kit('reel', 1.5, -100.6, -0.12); kit('reel', 0.4, -103.2, 0.05);
+kit('pallets', 7.6, -104.2, 0.2); kit('palletload', 9.4, -102.6, -0.1);
+kit('skip', 14, -92, 0.1); kit('van', 19, -104, -0.42);
+rowOf('barrier', -6, -79.2, 2.15, 0, 4, 0.15, 11);
+kit('drums4', 4.8, -96.5, 0.3); kit('drum', 6.4, -95.4, 0); kit('drum', 6.6, -94.6, 0);
+for (const [x, z] of [[12, -95.3], [16.2, -95.1], [12.2, -88.8]]) cone(x, z);
+oil(19, -104, 1.5); oil(5, -96, 1.0); oil(14, -92, 1.4);
+
+/* 4. THE BOILER HOUSE DOORS: loading on the apron by the south roll-up
+   door, drums and a tote by the west door. */
+kit('forklift', 44.6, -66.8, Math.PI / 2 + 0.08); kit('palletload', 57.6, -66.9, 0.05); kit('drums4', 59.9, -66.95, -0.06);
+kit('pallets', 40.8, -66.95, 0.1);
+kit('ibc', 26.4, -88.4, 0.06); kit('drum', 26.6, -79.4, 0); kit('drum', 25.9, -78.7, 0); kit('drum', 26.9, -78.4, 0);
+oil(44.6, -66.6, 1.2); oil(26.4, -79, 0.9);
+sign('fork', 54.6, -68.15, Math.PI, false, 1.6);
+
+/* 5. THE HV YARD strip between the switchyard and the hall: cable drums
+   waiting for the next job, a barrier line. */
+kit('reel', -8.2, -52.6, 0.08); kit('reel', -8.1, -50.2, -0.1); kit('reel', -8.4, 52.4, 0.12);
+kit('barrier', -8.4, -56.4, Math.PI / 2 + 0.06);
+sign('hv', -12.6, -0.2, -Math.PI / 2, true);
+oil(-8.2, -51, 1.0);
+
+/* 6. THE QUAY AND THE WORKSHOPS: a drum store by the intake house, bins and
+   pallets at the workshops. */
+kit('drums4', 21.2, 100.6, 0.12); kit('ibc', 22.8, 103.2, -0.08); kit('drum', 21.3, 102.6, 0);
+kit('pallets', 69.6, 97.2, 0.15); kit('bin', 86.4, 97, 0.1); kit('bin', 87.2, 97.1, -0.1);
+kit('toolcart', 91, 96.6, 0.4);
+oil(21.4, 101.2, 1.1); oil(73, 97.6, 0.8);
+
+/* 7. THE TURBINE HALL, along its walls: tool carts, stock on pallets,
+   drums, a cable drum, cones round a job. */
+kit('toolcart', 10.4, -41.8, 0.25); kit('palletload', 14, -44.2, 0.08); kit('drums4', 16.6, -44.4, -0.1);
+kit('palletload', 14.2, 44.2, -0.06); kit('toolcart', 10.6, 41.6, -0.3); kit('reel', 17, 44.6, 0.1);
+kit('palletload', 105, -34, 0.1); kit('pallets', 105.2, -31.4, -0.08); kit('toolcart', 103.4, -28, 0.3);
+kit('drums4', 105, 34, -0.08); kit('ibc', 105.1, 31.4, 0.06);
+for (const [x, z] of [[20.5, -40], [23.5, -40], [20.5, -37], [23.5, -37]]) cone(x, z);
+CL.push({ k: 'hose', x: 22, z: -38.5, c: 'orange' });
+oil(16.6, -44.4, 0.9); oil(105, 34, 0.9);
+sign('ppe', 50, -58.2, 0, false, 1.6);
+
+/* 8. THE BOILER HOUSE FLOOR, east side: drums, a tote, a tool cart. */
+kit('drums4', 78.2, -92, 0.06); kit('ibc', 78.4, -89.4, -0.05); kit('toolcart', 79.2, -75, 0.3); kit('pallets', 79.8, -71.3, 0.12);
+oil(78.2, -91.4, 0.9);
+
+console.log(`  clutter: ${KIT_PLACED} placed, ${KIT_REFUSED} refused, ${CL.length} loose items`);
+P.push({ kind: 'clutter', items: CL });
+
 /* ---------------------------------------------------------------- emit -- */
 const lines = [];
 for (const o of out) {
@@ -676,8 +802,10 @@ for (const o of out) {
   /* `y` is a raised box's base (an upper floor, a stair tread): left off
      for anything on the floor, so the existing lines are unchanged. */
   const ex = (o.r != null ? `, r: ${o.r}, n: ${o.n}` : '') + (o.y ? `, y: ${+o.y.toFixed(3)}` : '');
+  /* a turned box (the clutter kit): its angle and the footprint it was turned from */
+  const exr = o.ry ? `, ry: ${o.ry}, fw: ${o.fw}, fd: ${o.fd}` : '';
   lines.push(`      { x: ${String(o.x).padStart(7)}, z: ${String(o.z).padStart(7)}, w: ${String(o.w).padStart(7)}, ` +
-             `d: ${String(o.d).padStart(7)}, h: ${String(o.h).padStart(4)}, mat: ${("'" + o.mat + "'").padEnd(13)}${ex} },`);
+             `d: ${String(o.d).padStart(7)}, h: ${String(o.h).padStart(4)}, mat: ${("'" + o.mat + "'").padEnd(13)}${ex}${exr} },`);
 }
 
 const body = `  /* THE WORKS — all three maps on one site.
@@ -759,9 +887,14 @@ ${lines.join('\n')}
       { k: 'grass',  x0: -120, z0:  113, x1: 120, z1:  120 },
       { k: 'grass',  x0: -120, z0: -120, x1: -116, z1: 120 },
       { k: 'grass',  x0: -109, z0: -113, x1:  27, z1:  -74 },
-      { k: 'grass',  x0:  -19, z0:   74, x1:   5, z1:  113 },
+      /* (2026-11-22) the verge east of the laydown yard was grass from
+         -19; the yard's van and generator stand on it, so it is concrete
+         hardstanding now from -19 to -5, and the yard's drum store north of
+         the towers gets a gravel pad of its own. */
+      { k: 'grass',  x0:   -5, z0:   74, x1:   5, z1:  113 },
       { k: 'gravel', x0: -104, z0:  -46, x1: -20, z1:   46 },
       { k: 'gravel', x0: -115.5, z0: 74, x1: -20, z1:  113 },
+      { k: 'gravel', x0:   -9, z0: -108, x1:  23, z1:  -82 },
       { k: 'road', x0: -24, z0: -64,  x1: 117, z1: -64,  w: 6 },
       { k: 'road', x0: -24, z0: 65, x1: 117, z1: 65, w: 6 },
       { k: 'road', x0: -112.5, z0: -73, x1: -112.5, z1: 73, w: 6 },

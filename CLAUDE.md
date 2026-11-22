@@ -1714,6 +1714,55 @@ sight again (`aimTop: 0.044` given outright - the centreline probe misses a
 6mm bead), it aims at the old 0.43m, and `vm.adsPlain` fades its lens out as
 it comes up, so the aimed picture is exactly the old one.
 
+## Clutter and wear, first pass (2026-11-22)
+
+From the Saltline comparison: its port carries 7.7 loose objects per 100 m2,
+about half turned off the grid; the works carried 0.4 and none. Jack: "Yes,
+start it".
+
+- **The kit** (lighting.js, THE CLUTTER KIT; `LIT_KIT` merged into
+  LIT_DRAW): drum, drums4 (on a pallet, strapped), ibc, barrier (jersey),
+  pallets (stack, each a little off true), palletload (boxed, wrapped,
+  strapped), gascage, reel (cable drum, axle along X), skip, van, forklift,
+  toolcart, bin, gen, cabin, lighttower. Each is a real box kind with
+  collision - cover, and shots stop on it. Paints are `LIT_KIT_MATS`
+  (muted on purpose: a drum a year in the weather is not catalogue blue).
+- **Turned boxes.** A box may carry `ry` with its footprint `fw` x `fd`:
+  the build loop draws it about that footprint and rotates the new vertices
+  and normals about the box centre; its collision `w` x `d` is the turned
+  footprint's bounding box (a few cm generous at the corners, never short).
+  The emitter writes `ry, fw, fd`. Only kit boxes are turned. The grime
+  pass skips turned boxes, and kit boxes get no keep-clear outline
+  (LIT_INDOOR).
+- **Placing** (works.js, CLUTTER AND WEAR): `kit(kind, x, z, ry, h)` refuses
+  anything that would overlap an existing box at a shared height and
+  prints what it hit, so clusters are written by eye and kept honest.
+  Clusters: a contractors' laydown yard SW (cabin, skip, three cable drums,
+  pallets, a drum pallet, barrier line, generator cabled to a lighting
+  tower, van, gas cage, cones), the dosing house's chemical store, a pipe and
+  drum yard north of the boiler house, loading at the boiler house's south
+  and west doors (forklift), cable drums in the HV yard, drums and bins at
+  the quay and workshops, stock and tool carts along the turbine hall's
+  walls with a coned-off job and a hose, and drums on the boiler house
+  floor. 72 items, 63 turned, 0 refused.
+- **Loose things** (no collision): the `clutter` prop's `items` - cones,
+  cable runs, hoses, signs (`LIT_SIGNS`: hv, ppe, chem, nosmk, fork, site;
+  canvas-painted and weathered, on posts or flat on a wall), and `oil`
+  stains, which litGroundTexture paints into the ground.
+- **Ground**: the yard east of the laydown gravel is concrete hardstanding
+  now (grass x -19..-5 removed) and the north drum yard has a gravel pad.
+- **Wear**: `litFootGrime` lays a black decal strip (alphaMap - read from
+  GREEN, so the gradient is white to black) round the foot of every box on
+  the floor, 0.55 of its height up to 0.9m. NOTE the name: there was
+  already a `litGrime(g, S, n, rnd)` for block textures, and a second
+  function declaration of the same name silently replaced it.
+
+Checked: 0 of 4000 server spawns touch a kit box; a shot along the
+barrier line stops on the first barrier; frame ~4.5-5ms at the spawn view
+(the grime layer is ~0.6ms of it). Not done yet from the comparison list:
+rust runs, more signs and painted markings, wet ground and puddles,
+dressing the office interiors, ambient sound.
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,

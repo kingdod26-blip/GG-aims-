@@ -1764,6 +1764,21 @@ function litGroundTexture(map){
       const r = [Math.max(A[0], B[0]), Math.max(A[1], B[1]), Math.min(A[2], B[2]), Math.min(A[3], B[3])];
       if (r[2] > r[0] && r[3] > r[1]) tar(r);
     }
+    /* Oil and leak stains (the clutter list, 2026-11-22): a dark core, a
+       softer rim, a few drips leading off it. Saltline puts one under
+       every vehicle and every drum store, and so does a real site. */
+    const srnd = litRand(91);
+    for (const p of (map.props || [])) if (p.kind === 'clutter') for (const it of p.items){
+      if (it.k !== 'oil') continue;
+      const cx = X(it.x), cz = Z(it.z), r = it.r * k;
+      for (let n = 0; n < 5; n++){
+        const ox = cx + (srnd() - 0.5) * r, oz = cz + (srnd() - 0.5) * r, rr = r * (0.35 + srnd() * 0.6);
+        const gr = g.createRadialGradient(ox, oz, 0, ox, oz, rr);
+        gr.addColorStop(0, 'rgba(18,16,14,' + (0.45 + srnd() * 0.25).toFixed(2) + ')'); gr.addColorStop(0.6, 'rgba(24,22,20,0.22)'); gr.addColorStop(1, 'rgba(24,22,20,0)');
+        g.save(); g.translate(ox, oz); g.scale(1, 0.6 + srnd() * 0.6); g.translate(-ox, -oz);
+        g.fillStyle = gr; g.fillRect(ox - rr, oz - rr, rr * 2, rr * 2); g.restore();
+      }
+    }
   });
   const t = new THREE.CanvasTexture(c);
   t.flipY = false; t.premultiplyAlpha = true;
@@ -2065,6 +2080,18 @@ function litShare(src, extra){
     { map: src.map, normalMap: src.normalMap, roughnessMap: src.roughnessMap }, extra));
 }
 const LIT_MATS = {};
+/* name: [colour, roughness, metalness, envK, round]. Muted on purpose: a
+   drum that has stood in the weather a year is not catalogue blue. */
+const LIT_KIT_MATS = {
+  drumblue: [0x243552, 0.5, 0.3, 0.5, 1], drumred: [0x652219, 0.5, 0.3, 0.5, 1], drumgrey: [0x55595c, 0.55, 0.35, 0.5, 1],
+  drumgreen: [0x31422f, 0.55, 0.3, 0.5, 1], hdpe: [0xb9b5a6, 0.55, 0, 0.3, 0], pallet: [0x725637, 0.92, 0, 0.1, 0],
+  cardboard: [0x8c6b48, 0.95, 0, 0.1, 0], wrap: [0xaeb3b8, 0.22, 0, 0.8, 0], cable: [0x111214, 0.6, 0, 0.3, 1],
+  bottlemaroon: [0x5a1414, 0.45, 0.3, 0.6, 1], bottleblack: [0x161718, 0.45, 0.3, 0.6, 1], bottlegrey: [0x6a6e70, 0.45, 0.3, 0.6, 1],
+  brasskit: [0x9a7a30, 0.35, 0.9, 0.9, 1], skip: [0x87681c, 0.7, 0.2, 0.35, 0], rubble: [0x4a4744, 1, 0, 0.05, 0],
+  vanwhite: [0xc2c4c2, 0.32, 0.25, 0.8, 0], vanstripe: [0x9c1828, 0.4, 0.2, 0.6, 0], tyre: [0x141414, 0.9, 0, 0.1, 1],
+  forkyellow: [0xa6821e, 0.5, 0.2, 0.5, 0], bingreen: [0x2a4630, 0.7, 0, 0.3, 0], gengreen: [0x394837, 0.6, 0.2, 0.4, 0],
+  orange: [0xd0511a, 0.6, 0, 0.3, 1], white: [0xd8d8d4, 0.5, 0, 0.4, 1],
+};
 function litMaterial(name){
   if (LIT_MATS[name]) return LIT_MATS[name];
   let m, t;
@@ -2191,7 +2218,13 @@ function litMaterial(name){
     case 'carcass': m = litPatch(new THREE.MeshStandardMaterial({ color: 0x5e646b, roughness: 0.7, metalness: 0.2 }), 'cover', 0.4); break;   // desk pedestals
     case 'fabric':  m = litPatch(new THREE.MeshStandardMaterial({ color: 0x2f5a63, roughness: 1, metalness: 0 }), 'cover', 0.1); break;       // screens, seats
     case 'nosing':  m = litPatch(new THREE.MeshStandardMaterial({ color: 0x1e2227, roughness: 0.5, metalness: 0.3 }), 'cover', 0.5); break;   // stair nosings, rails
-    default:       m = litPatch(new THREE.MeshStandardMaterial({ color: 0x8a8f99, roughness: 0.9 }), 'cover', 0.3);
+    default:
+      /* The clutter kit's paints (2026-11-22), and its signs. */
+      if (LIT_KIT_MATS[name]){ const [c, r, mt, k, round] = LIT_KIT_MATS[name];
+        m = litPatch(new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: mt }), 'cover', k);
+        if (round) m.defines.CX_ROUND = ''; break; }
+      if (name.startsWith('sign_')){ m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litSignTexture(name.slice(5)), true), roughness: 0.55, metalness: 0 }), 'cover', 0.3); break; }
+      m = litPatch(new THREE.MeshStandardMaterial({ color: 0x8a8f99, roughness: 0.9 }), 'cover', 0.3);
   }
   return (LIT_MATS[name] = m);
 }
@@ -3135,6 +3168,313 @@ const LIT_PROP = {
 };
 
 /* ---------------------------------------------------------------------
+   THE CLUTTER KIT (2026-11-22)
+   Jack asked for the first item of the Saltline comparison: "clutter and
+   wear". Saltline's port is 7.7 loose objects per 100 m2, about half of
+   them turned off the grid; the works was 0.4 and none. A real site is
+   full of the things people bring to it and leave: drums on pallets,
+   chemical totes, cable drums, gas bottles in a cage, jersey barriers, a
+   skip, a van, a forklift, a site cabin. These draw them.
+
+   Each is a map box of its own kind (works.js `kit`), so it is cover with
+   real collision. A box may be TURNED (`ry`): it is drawn about its own
+   footprint (`fw` x `fd`) and rotated, and its collision is the footprint's
+   bounding box - a few centimetres generous at the corners, never short.
+   Every drawer works in the footprint's frame, long side along Z unless
+   said otherwise, and never draws below 0 or a collision face above b.h.
+   --------------------------------------------------------------------- */
+const LIT_KIT_COLOURS = ['drumblue', 'drumred', 'drumgrey', 'drumblue', 'drumgreen'];
+const litHash = (b) => Math.abs(Math.round(b.x * 7.3 + b.z * 13.1));
+/* A drum: rolling hoops, a top with its two bungs. */
+function litDrum(G, mat, cx, y0, cz, r, h){
+  litCyl(G(mat), cx, y0, cz, cx, y0 + h, cz, r, r, 16, 1.2, false, true);
+  for (const f of [0.33, 0.66]) litCyl(G(mat), cx, y0 + h * f - 0.012, cz, cx, y0 + h * f + 0.012, cz, r + 0.012, r + 0.012, 16, 1, false, false);
+  litCyl(G('steel'), cx, y0 + h - 0.01, cz, cx, y0 + h + 0.008, cz, r + 0.006, r + 0.006, 16, 1, false, false);    // the chime
+  litCyl(G('steel'), cx + r * 0.55, y0 + h, cz, cx + r * 0.55, y0 + h + 0.018, cz, 0.03, 0.03, 8, 1, false, true);
+  litCyl(G('steel'), cx - r * 0.6, y0 + h, cz + r * 0.1, cx - r * 0.6, y0 + h + 0.012, cz + r * 0.1, 0.02, 0.02, 8, 1, false, true);
+}
+/* A wooden pallet: three runners, deck boards over them. 0.144 tall. */
+function litPallet(G, x0, y0, z0, x1, z1){
+  const w = x1 - x0;
+  for (const f of [0.04, 0.5, 0.96]){ const x = x0 + w * f; litBox(G('pallet'), x - 0.05, y0, z0, x + 0.05, y0 + 0.1, z1, { seg: 2, tile: 1 }); }
+  const n = 7, d = z1 - z0;
+  for (let i = 0; i < n; i++){ const z = z0 + d * (i + 0.5) / n; litBox(G('pallet'), x0, y0 + 0.1, z - 0.05, x1, y0 + 0.144, z + 0.05, { seg: 2, tile: 1 }); }
+}
+const LIT_KIT = {
+  drum(G, b, x0, z0, x1, z1){
+    litDrum(G, LIT_KIT_COLOURS[litHash(b) % LIT_KIT_COLOURS.length], (x0 + x1) / 2, 0, (z0 + z1) / 2, Math.min(x1 - x0, z1 - z0) / 2 - 0.01, b.h - 0.02);
+  },
+  /* four drums on a pallet, strapped */
+  drums4(G, b, x0, z0, x1, z1){
+    litPallet(G, x0, 0, z0, x1, z1);
+    const mat = LIT_KIT_COLOURS[litHash(b) % LIT_KIT_COLOURS.length], r = (x1 - x0) / 4 - 0.015, h = b.h - 0.17;
+    for (const fx of [0.25, 0.75]) for (const fz of [0.25, 0.75]) litDrum(G, mat, x0 + (x1 - x0) * fx, 0.144, z0 + (z1 - z0) * fz, r, h);
+    litCyl(G('cable'), x0 + 0.02, 0.144 + h * 0.5, (z0 + z1) / 2, x1 - 0.02, 0.144 + h * 0.5, (z0 + z1) / 2, 0.012, 0.012, 4, 1, false, false);
+  },
+  /* an IBC: a white bottle in a galvanised cage on a steel pallet */
+  ibc(G, b, x0, z0, x1, z1){
+    const h = b.h;
+    litBox(G('galv'), x0, 0, z0, x1, 0.14, z1, { seg: 2, tile: 1 });
+    litBox(G('hdpe'), x0 + 0.05, 0.14, z0 + 0.05, x1 - 0.05, h - 0.06, z1 - 0.05, { bevel: 0.06, seg: 2, tile: 1 });
+    for (let k = 0; k <= 5; k++){                                             // the cage's uprights round the sides
+      const fx = k / 5;
+      for (const z of [z0 + 0.03, z1 - 0.03]) litBox(G('galv'), x0 + (x1 - x0) * fx - 0.012, 0.14, z - 0.012, x0 + (x1 - x0) * fx + 0.012, h - 0.02, z + 0.012, { seg: 2, tile: 1 });
+      for (const x of [x0 + 0.03, x1 - 0.03]) litBox(G('galv'), x - 0.012, 0.14, z0 + (z1 - z0) * fx - 0.012, x + 0.012, h - 0.02, z0 + (z1 - z0) * fx + 0.012, { seg: 2, tile: 1 });
+    }
+    for (const y of [0.45, 0.75, h - 0.04]){                                  // and its rails
+      litBox(G('galv'), x0 + 0.02, y - 0.012, z0 + 0.02, x1 - 0.02, y + 0.012, z0 + 0.045, { seg: 3, tile: 1 });
+      litBox(G('galv'), x0 + 0.02, y - 0.012, z1 - 0.045, x1 - 0.02, y + 0.012, z1 - 0.02, { seg: 3, tile: 1 });
+      litBox(G('galv'), x0 + 0.02, y - 0.012, z0 + 0.02, x0 + 0.045, y + 0.012, z1 - 0.02, { seg: 3, tile: 1 });
+      litBox(G('galv'), x1 - 0.045, y - 0.012, z0 + 0.02, x1 - 0.02, y + 0.012, z1 - 0.02, { seg: 3, tile: 1 });
+    }
+    const cx = (x0 + x1) / 2;
+    litCyl(G('drumgrey'), cx, h - 0.06, (z0 + z1) / 2, cx, h + 0.0, (z0 + z1) / 2, 0.075, 0.075, 12, 1, false, true);      // the filler cap
+    litCyl(G('drumgrey'), cx, 0.22, z1 - 0.04, cx, 0.22, z1 + 0.06, 0.04, 0.04, 8, 1, false, true);                       // the valve
+  },
+  /* a jersey barrier: wide foot, sloping face, narrow top, lifting slots */
+  barrier(G, b, x0, z0, x1, z1){
+    const cz = (z0 + z1) / 2, d = z1 - z0;
+    litBox(G('concrete'), x0, 0, z0, x1, 0.26, z1, { bevel: 0.02, seg: 2, tile: 2 });
+    litBox(G('concrete'), x0, 0.26, cz - d * 0.36, x1, 0.46, cz + d * 0.36, { bevel: 0.03, seg: 2, tile: 2 });
+    litBox(G('concrete'), x0, 0.46, cz - d * 0.2, x1, b.h, cz + d * 0.2, { bevel: 0.03, seg: 2, tile: 2 });
+    for (const f of [0.2, 0.8]) litBox(G('cable'), x0 + (x1 - x0) * f - 0.12, 0, cz - d / 2 - 0.002, x0 + (x1 - x0) * f + 0.12, 0.08, cz + d / 2 + 0.002, { seg: 2, tile: 1 });
+  },
+  /* a stack of empty pallets, each a little off true */
+  pallets(G, b, x0, z0, x1, z1){
+    const n = Math.max(1, Math.round(b.h / 0.144)), r = litRand(litHash(b) + 3);
+    for (let i = 0; i < n; i++){ const ox = (r() - 0.5) * 0.06, oz = (r() - 0.5) * 0.06;
+      litPallet(G, x0 + 0.03 + ox, i * 0.144, z0 + 0.03 + oz, x1 - 0.03 + ox, z1 - 0.03 + oz); }
+  },
+  /* a pallet of boxed stock, shrink-wrapped, two straps */
+  palletload(G, b, x0, z0, x1, z1){
+    litPallet(G, x0, 0, z0, x1, z1);
+    litBox(G('cardboard'), x0 + 0.03, 0.144, z0 + 0.03, x1 - 0.03, b.h - 0.01, z1 - 0.03, { bevel: 0.015, seg: 2, tile: 0.6 });
+    litBox(G('wrap'), x0 + 0.02, 0.18, z0 + 0.02, x1 - 0.02, b.h, z1 - 0.02, { bevel: 0.03, seg: 2, tile: 1 });
+    for (const f of [0.3, 0.7]){ const z = z0 + (z1 - z0) * f;
+      litBox(G('cable'), x0 + 0.015, 0.144, z - 0.018, x1 - 0.015, b.h + 0.005, z + 0.018, { seg: 2, tile: 1, noTop: false }); }
+  },
+  /* a gas bottle cage: galvanised frame and mesh, a roof sheet, bottles inside */
+  gascage(G, b, x0, z0, x1, z1){
+    const h = b.h, cx = (x0 + x1) / 2;
+    litBox(G('concrete'), x0, 0, z0, x1, 0.1, z1, { seg: 2, tile: 2 });
+    for (const x of [x0 + 0.03, x1 - 0.03]) for (const z of [z0 + 0.03, z1 - 0.03])
+      litBox(G('galv'), x - 0.025, 0.1, z - 0.025, x + 0.025, h - 0.05, z + 0.025, { seg: 2, tile: 1 });
+    litBox(G('galv'), x0 - 0.04, h - 0.05, z0 - 0.04, x1 + 0.04, h, z1 + 0.04, { seg: 2, tile: 1 });
+    for (let k = 1; k < 12; k++){ const x = x0 + (x1 - x0) * k / 12;                         // mesh on the back and the ends
+      litBox(G('galv'), x - 0.006, 0.1, z0 + 0.02, x + 0.006, h - 0.05, z0 + 0.032, { seg: 2, tile: 1 }); }
+    for (let y = 0.3; y < h - 0.1; y += 0.3) litBox(G('galv'), x0, y - 0.01, z0 + 0.015, x1, y + 0.01, z0 + 0.035, { seg: 2, tile: 1 });
+    const cols = ['bottlemaroon', 'bottleblack', 'bottlemaroon', 'bottlegrey', 'bottleblack'];
+    for (let i = 0; i < 5; i++){ const x = x0 + 0.15 + i * (x1 - x0 - 0.3) / 4, z = (z0 + z1) / 2 - 0.05, top = 0.1 + 1.35;
+      litCyl(G(cols[i]), x, 0.1, z, x, top, z, 0.11, 0.11, 12, 1, false, false);
+      litCyl(G(cols[i]), x, top, z, x, top + 0.12, z, 0.11, 0.05, 12, 1, false, true);
+      litCyl(G('brasskit'), x, top + 0.12, z, x, top + 0.2, z, 0.03, 0.03, 8, 1, false, true); }
+    litBox(G('galv'), x0, 0.9, z1 - 0.04, x1, 0.94, z1 - 0.01, { seg: 2, tile: 1 });             // the chain across the front
+  },
+  /* a cable drum on its side: two wooden flanges, black cable wound on.
+     Axle along X. */
+  reel(G, b, x0, z0, x1, z1){
+    const R = b.h / 2, cz = (z0 + z1) / 2, y = R;
+    for (const x of [x0 + 0.03, x1 - 0.03]) litCyl(G('pallet'), x - 0.03, y, cz, x + 0.03, y, cz, R, R, 18, 1, true, true);
+    litCyl(G('cable'), x0 + 0.06, y, cz, x1 - 0.06, y, cz, R * 0.72, R * 0.72, 18, 1, false, false);
+    litCyl(G('pallet'), x0 - 0.02, y, cz, x1 + 0.02, y, cz, 0.08, 0.08, 10, 1, true, true);
+    litCyl(G('cable'), x1 - 0.2, y + R * 0.7, cz, x1 - 0.2, 0.02, cz + R * 0.9, 0.035, 0.035, 6, 1, false, false);   // a tail off it
+  },
+  /* a builder's skip: tapered steel body, the lifting lugs, rubble in it.
+     Long side along Z. */
+  skip(G, b, x0, z0, x1, z1){
+    const h = b.h, cx = (x0 + x1) / 2, w = x1 - x0;
+    const tiers = 4;
+    for (let i = 0; i < tiers; i++){                    // narrower at the floor: a skip's ends rake out
+      const y0 = h * i / tiers, y1 = h * (i + 1) / tiers, inset = (1 - (i + 1) / tiers) * 0.45;
+      litBox(G('skip'), x0, y0, z0 + inset, x1, y1, z1 - inset, { seg: 2, tile: 2, noTop: i < tiers - 1 });
+    }
+    litBox(G('rubble'), x0 + 0.08, h - 0.25, z0 + 0.12, x1 - 0.08, h - 0.02, z1 - 0.12, { seg: 2, tile: 2 });
+    for (const z of [z0 + 0.9, z1 - 0.9]) for (const x of [x0 - 0.06, x1 + 0.01])
+      litBox(G('skip'), x, h * 0.55, z - 0.1, x + 0.05, h * 0.85, z + 0.1, { seg: 1, tile: 1 });
+    litBox(G('skip'), x0 + 0.05, h, z0 + 0.02, x1 - 0.05, h + 0.04, z0 + 0.08, { seg: 2, tile: 1 });
+    litBox(G('skip'), x0 + 0.05, h, z1 - 0.08, x1 - 0.05, h + 0.04, z1 - 0.02, { seg: 2, tile: 1 });
+  },
+  /* a panel van: box body, sloped cab at the -Z end, glass, four wheels,
+     the works' crimson stripe. Long side along Z. */
+  van(G, b, x0, z0, x1, z1){
+    const h = b.h, cx = (x0 + x1) / 2, w = x1 - x0, L = z1 - z0, wr = 0.34;
+    litBox(G('vanwhite'), x0, 0.36, z0 + 1.05, x1, h, z1, { bevel: 0.1, seg: 2, tile: 3 });          // the load box
+    litBox(G('vanwhite'), x0, 0.36, z0 + 0.05, x1, 1.15, z0 + 1.1, { bevel: 0.1, seg: 2, tile: 3 });  // the bonnet
+    litBox(G('vanwhite'), x0 + 0.03, 1.15, z0 + 0.55, x1 - 0.03, h - 0.12, z0 + 1.1, { bevel: 0.08, seg: 2, tile: 3 });
+    litBox(G('glass'), x0 + 0.1, 1.2, z0 + 0.52, x1 - 0.1, h - 0.2, z0 + 0.6, { seg: 2, tile: 3 });   // the windscreen
+    for (const x of [x0 - 0.005, x1 - 0.005]) litBox(G('glass'), x, 1.25, z0 + 0.7, x + 0.01, h - 0.25, z0 + 1.6, { seg: 2, tile: 3 });   // door windows
+    litBox(G('vanstripe'), x0 - 0.004, 0.95, z0 + 1.7, x1 + 0.004, 1.12, z1 - 0.2, { seg: 2, tile: 3 });
+    litBox(G('cable'), x0 - 0.01, 0.3, z0 + 0.02, x1 + 0.01, 0.55, z0 + 0.12, { seg: 2, tile: 1 });   // the front bumper
+    litBox(G('cable'), x0 - 0.01, 0.3, z1 - 0.1, x1 + 0.01, 0.5, z1 + 0.01, { seg: 2, tile: 1 });
+    for (const x of [x0 + 0.25, x1 - 0.25]) litBox(G('white'), x - 0.15, 0.78, z0 + 0.04, x + 0.15, 0.9, z0 + 0.06, { seg: 1, tile: 1 });   // headlamps, off
+    for (const z of [z0 + 0.8, z1 - 0.85]) for (const [xa, xb] of [[x0 - 0.02, x0 + 0.24], [x1 - 0.24, x1 + 0.02]]){
+      litCyl(G('tyre'), xa, wr, z, xb, wr, z, wr, wr, 16, 1, true, true);
+      litCyl(G('steel'), xa - 0.005, wr, z, xb + 0.005, wr, z, wr * 0.5, wr * 0.5, 12, 1, true, true);
+    }
+  },
+  /* a counterbalance forklift: body and counterweight, the overhead guard,
+     the mast and forks at the -Z end. Long side along Z. */
+  forklift(G, b, x0, z0, x1, z1){
+    const h = b.h, cx = (x0 + x1) / 2, wr = 0.3;
+    litBox(G('forkyellow'), x0 + 0.05, 0.25, z0 + 0.7, x1 - 0.05, 1.05, z1 - 0.1, { bevel: 0.06, seg: 2, tile: 2 });
+    litBox(G('cable'), x0 + 0.08, 0.3, z1 - 0.45, x1 - 0.08, 1.2, z1, { bevel: 0.08, seg: 2, tile: 2 });   // counterweight
+    for (const x of [x0 + 0.08, x1 - 0.08]) for (const z of [z0 + 0.85, z1 - 0.5])
+      litBox(G('cable'), x - 0.03, 1.05, z - 0.03, x + 0.03, h - 0.06, z + 0.03, { seg: 2, tile: 1 });
+    litBox(G('cable'), x0 + 0.05, h - 0.06, z0 + 0.8, x1 - 0.05, h, z1 - 0.45, { seg: 2, tile: 1 });       // the guard's roof
+    litBox(G('cable'), cx - 0.25, 1.05, z1 - 1.05, cx + 0.25, 1.25, z1 - 0.65, { bevel: 0.04, seg: 2, tile: 1 });   // seat
+    for (const x of [cx - 0.3, cx + 0.3]) litBox(G('steel'), x - 0.05, 0.1, z0 + 0.5, x + 0.05, h + 0.05, z0 + 0.6, { seg: 2, tile: 1 });   // mast
+    litBox(G('steel'), cx - 0.4, 0.15, z0 + 0.45, cx + 0.4, 0.45, z0 + 0.5, { seg: 2, tile: 1 });          // carriage
+    for (const x of [cx - 0.25, cx + 0.25]) litBox(G('steel'), x - 0.05, 0.06, z0, x + 0.05, 0.11, z0 + 0.5, { seg: 2, tile: 1 });   // forks
+    for (const z of [z0 + 0.85, z1 - 0.45]) for (const [xa, xb] of [[x0, x0 + 0.22], [x1 - 0.22, x1]])
+      litCyl(G('tyre'), xa, wr, z, xb, wr, z, wr, wr, 14, 1, true, true);
+  },
+  /* a roller tool cabinet: drawers, a tray top, a push handle */
+  toolcart(G, b, x0, z0, x1, z1){
+    const h = b.h;
+    litBox(G('firered'), x0, 0.1, z0, x1, h - 0.06, z1, { bevel: 0.015, seg: 2, tile: 1 });
+    for (let i = 0; i < 5; i++){ const y = 0.2 + i * (h - 0.4) / 5;
+      litBox(G('steel'), x1 - 0.002, y + 0.06, z0 + 0.12, x1 + 0.012, y + 0.08, z1 - 0.12, { seg: 1, tile: 1 }); }   // drawer handles
+    litBox(G('cable'), x0 - 0.01, h - 0.06, z0 - 0.01, x1 + 0.01, h, z1 + 0.01, { seg: 2, tile: 1 });
+    litBox(G('steel'), x0 + 0.05, h - 0.02, z1 + 0.02, x1 - 0.05, h + 0.02, z1 + 0.06, { seg: 1, tile: 1 });
+    for (const x of [x0 + 0.06, x1 - 0.06]) for (const z of [z0 + 0.06, z1 - 0.06])
+      litCyl(G('tyre'), x, 0.05, z - 0.02, x, 0.05, z + 0.02, 0.05, 0.05, 8, 1, true, true);
+  },
+  /* a wheelie bin */
+  bin(G, b, x0, z0, x1, z1){
+    const h = b.h, m = litHash(b) % 2 ? 'bingreen' : 'drumgrey';
+    litBox(G(m), x0 + 0.04, 0.08, z0 + 0.06, x1 - 0.04, h - 0.06, z1, { bevel: 0.03, seg: 2, tile: 1 });
+    litBox(G(m), x0, h - 0.06, z0, x1, h, z1 + 0.02, { bevel: 0.015, seg: 2, tile: 1 });
+    for (const x of [x0 + 0.03, x1 - 0.1]) litCyl(G('tyre'), x, 0.1, z1 - 0.08, x + 0.07, 0.1, z1 - 0.08, 0.1, 0.1, 10, 1, true, true);
+  },
+  /* a generator set: a sound-proofed canopy on a skid, an exhaust stack */
+  gen(G, b, x0, z0, x1, z1){
+    const h = b.h, cx = (x0 + x1) / 2;
+    litBox(G('steel'), x0, 0, z0, x1, 0.15, z1, { seg: 2, tile: 1 });
+    litBox(G('gengreen'), x0 + 0.04, 0.15, z0 + 0.04, x1 - 0.04, h, z1 - 0.04, { bevel: 0.04, seg: 2, tile: 2 });
+    for (let i = 0; i < 6; i++){ const z = z0 + 0.4 + i * 0.12; litBox(G('cable'), x1 - 0.045, 0.6, z, x1 - 0.03, h - 0.25, z + 0.06, { seg: 1, tile: 1 }); }   // louvres
+    litCyl(G('steel'), cx, h, z1 - 0.35, cx, h + 0.35, z1 - 0.35, 0.06, 0.06, 8, 1, false, true);
+  },
+  /* a portable site cabin: ribbed steel, a window band, a door, steps, skids.
+     Long side along Z. */
+  cabin(G, b, x0, z0, x1, z1){
+    const h = b.h;
+    for (const x of [x0 + 0.2, x1 - 0.2]) litBox(G('steel'), x - 0.08, 0, z0, x + 0.08, 0.18, z1, { seg: 2, tile: 1 });
+    litBox(G('cladding'), x0, 0.18, z0, x1, h, z1, { bevel: 0.04, seg: 2, tile: 3.2, tileV: 3.2 });
+    litBox(G('glass'), x1 - 0.002, 1.2, z0 + 0.6, x1 + 0.012, 1.9, z0 + 2.6, { seg: 2, tile: 3 });
+    litBox(G('glass'), x1 - 0.002, 1.2, z1 - 1.6, x1 + 0.012, 1.9, z1 - 0.6, { seg: 2, tile: 3 });
+    litBox(G('nosing'), x1 - 0.002, 0.2, z0 + 3.0, x1 + 0.014, 2.25, z0 + 3.9, { seg: 2, tile: 3 });   // the door
+    litBox(G('galv'), x1, 0, z0 + 2.95, x1 + 0.5, 0.18, z0 + 3.95, { seg: 2, tile: 1 });                 // its step
+  },
+  /* a mobile lighting tower: a trailer base, a mast, four lamp heads */
+  lighttower(G, b, x0, z0, x1, z1){
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, mast = 7.0;
+    litBox(G('forkyellow'), x0 + 0.05, 0.35, z0 + 0.1, x1 - 0.05, b.h, z1 - 0.1, { bevel: 0.04, seg: 2, tile: 2 });
+    for (const x of [x0, x1 - 0.16]) litCyl(G('tyre'), x, 0.3, cz, x + 0.16, 0.3, cz, 0.3, 0.3, 12, 1, true, true);
+    for (const [dx, dz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]])                    // outriggers
+      litBox(G('steel'), cx + dx * 0.9 - 0.05, 0, cz + dz * 1.2 - 0.05, cx + dx * 0.9 + 0.05, 0.4, cz + dz * 1.2 + 0.05, { seg: 1, tile: 1 });
+    litCyl(G('steel'), cx, b.h, cz, cx, mast, cz, 0.07, 0.05, 8, 1, false, true);
+    litBox(G('steel'), cx - 0.8, mast - 0.05, cz - 0.05, cx + 0.8, mast + 0.05, cz + 0.05, { seg: 2, tile: 1 });
+    for (const dx of [-0.6, -0.2, 0.2, 0.6]){
+      litBox(G('cable'), cx + dx - 0.16, mast + 0.05, cz - 0.08, cx + dx + 0.16, mast + 0.35, cz + 0.08, { seg: 1, tile: 1 });
+      litBox(G('lamp'), cx + dx - 0.13, mast + 0.08, cz - 0.085, cx + dx + 0.13, mast + 0.32, cz - 0.08, { seg: 1, tile: 1 });
+    }
+  },
+};
+Object.assign(LIT_DRAW, LIT_KIT);
+/* Loose clutter gets no keep-clear outline painted round it: that line is
+   for plant, and round a drum or a cone it read as a level editor. */
+for (const k in LIT_KIT) LIT_INDOOR[k] = 1;
+LIT_UNDER.drum = LIT_UNDER.drums4 = LIT_UNDER.ibc = LIT_UNDER.barrier = LIT_UNDER.pallets = LIT_UNDER.palletload = null;
+LIT_UNDER.gascage = LIT_UNDER.reel = LIT_UNDER.skip = LIT_UNDER.van = LIT_UNDER.forklift = LIT_UNDER.toolcart = null;
+LIT_UNDER.bin = LIT_UNDER.gen = LIT_UNDER.cabin = LIT_UNDER.lighttower = null;
+
+/* ---- the loose things on the ground: no collision ----
+   `clutter` is a prop holding a list: traffic cones, cable runs across the
+   floor, coiled hoses, signs. (Oil and leak stains are in the same list
+   but are painted into the ground, litGroundTexture.) */
+const LIT_SIGNS = {
+  hv:    { bg: '#f2c400', fg: '#111', title: 'DANGER', lines: ['HIGH VOLTAGE', 'KEEP OUT'], bolt: true },
+  ppe:   { bg: '#1f5fa8', fg: '#fff', title: 'HARD HATS', lines: ['AND HI-VIS', 'MUST BE WORN'] },
+  chem:  { bg: '#f2c400', fg: '#111', title: 'CAUTION', lines: ['CHEMICAL', 'STORE'] },
+  nosmk: { bg: '#e8e6df', fg: '#b0161b', title: 'NO SMOKING', lines: ['OR NAKED', 'FLAMES'] },
+  fork:  { bg: '#f2c400', fg: '#111', title: 'WARNING', lines: ['FORK LIFT', 'TRUCKS'] },
+  site:  { bg: '#1d2b22', fg: '#e8e6df', title: 'COMPOUND B', lines: ['CONTRACTORS', 'ONLY'] },
+};
+function litSignTexture(key){
+  const s = LIT_SIGNS[key];
+  return litCanvas(256, 320, (g, w, h) => {
+    g.fillStyle = s.bg; g.fillRect(0, 0, w, h);
+    g.strokeStyle = s.fg; g.lineWidth = 8; g.strokeRect(10, 10, w - 20, h - 20);
+    g.fillStyle = s.fg; g.textAlign = 'center'; g.font = '700 40px "Barlow Condensed", "Arial Narrow", sans-serif';
+    g.fillText(s.title, w / 2, 70);
+    if (s.bolt){ g.beginPath(); g.moveTo(140, 95); g.lineTo(100, 175); g.lineTo(130, 175); g.lineTo(112, 235); g.lineTo(160, 150); g.lineTo(130, 150); g.closePath(); g.fill(); }
+    g.font = '600 32px "Barlow Condensed", "Arial Narrow", sans-serif';
+    s.lines.forEach((l, i) => g.fillText(l, w / 2, (s.bolt ? 270 : 150) + i * 38 - (s.bolt ? 0 : 0)));
+    const rnd = litRand(key.length * 31);                     // weathering
+    for (let i = 0; i < 60; i++){ g.fillStyle = 'rgba(60,40,20,' + (rnd() * 0.12).toFixed(3) + ')'; g.fillRect(rnd() * w, rnd() * h, 2 + rnd() * 10, 2 + rnd() * 30); }
+  });
+}
+LIT_PROP.clutter = function(G, p){
+  for (const it of p.items){
+    if (it.k === 'cone'){
+      const x = it.x, z = it.z;
+      litBox(G('cable'), x - 0.19, 0, z - 0.19, x + 0.19, 0.04, z + 0.19, { seg: 1, tile: 1 });
+      litCyl(G('orange'), x, 0.04, z, x, 0.72, z, 0.15, 0.025, 12, 1, false, true);
+      litCyl(G('white'), x, 0.36, z, x, 0.5, z, 0.096, 0.072, 12, 1, false, false);
+    } else if (it.k === 'cable'){
+      const P = it.pts;
+      for (let i = 0; i < P.length - 1; i++) litCyl(G('cable'), P[i][0], 0.03, P[i][1], P[i + 1][0], 0.03, P[i + 1][1], 0.028, 0.028, 5, 1, false, false);
+    } else if (it.k === 'hose'){
+      for (let k = 0; k < 4; k++) litRingTube(G(it.c || 'orange'), it.x, 0.03 + k * 0.045, it.z, 0.32 - k * 0.012, 0.022, 16);
+    } else if (it.k === 'sign'){
+      /* a plate on two posts (it.post) or flat on a wall, facing angle it.ry */
+      const c = Math.cos(it.ry), s = Math.sin(it.ry), W = 0.5, H = 0.62, y0 = it.y != null ? it.y : 1.1;
+      const nx = s, nz = c, ux = c, uz = -s;                              // face normal and the plate's own right
+      const ox = it.x - ux * W / 2, oz = it.z - uz * W / 2;
+      litGrid(G('sign_' + it.t), ox, y0, oz, ux, 0, uz, 0, 1, 0, W, H, nx, 0, nz, 1, 1, W, H);
+      litGrid(G('galv'), ox + ux * W, y0, oz + uz * W, -ux, 0, -uz, 0, 1, 0, W, H, -nx, 0, -nz, 1, 1, 1, 1);   // its back
+      if (it.post) for (const f of [0.15, 0.85]){ const px = ox + ux * W * f - nx * 0.03, pz = oz + uz * W * f - nz * 0.03;
+        litCyl(G('galv'), px, 0, pz, px, y0 + H, pz, 0.025, 0.025, 6, 1, false, true); }
+    }
+  }
+};
+
+/* ---- WEAR: grime at the foot of everything ----
+   Saltline darkens the bottom of every wall, plinth and machine, where
+   splash and dirt collect; here nothing met the floor except cleanly. One
+   mesh of thin decal strips round the foot of every box on the floor:
+   black, fading out upward, drawn over the surface (a dark wash darkens in
+   any light, so it needs no lighting of its own). */
+const LIT_NOGRIME = { hidden: 1, glass: 1, handrail: 1, ringrail: 1, ringdeck: 1, pipewalk: 1, grating: 1, steptread: 1, tread: 1,
+                      step: 1, slab: 1, roofslab: 1, stackwall: 1, deck: 1 };
+function litGrimeTexture(){
+  return litCanvas(8, 64, (g, w, h) => {
+    /* an alphaMap is read from the GREEN channel: white is opaque */
+    const gr = g.createLinearGradient(0, h, 0, 0);
+    gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.25, '#8c8c8c'); gr.addColorStop(1, '#000000');
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  });
+}
+function litFootGrime(map){
+  const g = litGeo();
+  for (const b of map.boxes){
+    if (LIT_NOGRIME[b.mat] || boxY(b) > 0.05 || b.h < 0.4 || b.r != null || b.ry) continue;
+    const gh = Math.min(0.9, b.h * 0.55), e = 0.012;
+    const x0 = b.x - b.w / 2 - e, x1 = b.x + b.w / 2 + e, z0 = b.z - b.d / 2 - e, z1 = b.z + b.d / 2 + e;
+    litGrid(g, x0, 0, z1,  1, 0, 0,  0, 1, 0,  x1 - x0, gh,  0, 0, 1,   99, 99, 1, gh);
+    litGrid(g, x1, 0, z0, -1, 0, 0,  0, 1, 0,  x1 - x0, gh,  0, 0, -1,  99, 99, 1, gh);
+    litGrid(g, x0, 0, z0,  0, 0, 1,  0, 1, 0,  z1 - z0, gh, -1, 0, 0,   99, 99, 1, gh);
+    litGrid(g, x1, 0, z1,  0, 0, -1, 0, 1, 0,  z1 - z0, gh,  1, 0, 0,   99, 99, 1, gh);
+  }
+  const t = litTexOf(litGrimeTexture(), false); t.wrapS = THREE.ClampToEdgeWrapping; t.wrapT = THREE.ClampToEdgeWrapping;
+  const m = new THREE.MeshBasicMaterial({ color: 0x000000, alphaMap: t, transparent: true, opacity: 0.5, depthWrite: false,
+                                          polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const mesh = new THREE.Mesh(litGeoDone(g), m); mesh.renderOrder = 1;
+  litAdd(mesh, false); mesh.receiveShadow = false;
+}
+
+
+/* ---------------------------------------------------------------------
    5. BUILDING IT
    --------------------------------------------------------------------- */
 function litAdd(mesh, baked){
@@ -3261,10 +3601,19 @@ function litBuildArena(map, flatFloor, flatRoof){
   for (const b of map.boxes){
     if (b.mat === 'glass') continue;
     const x0 = b.x - b.w / 2, z0 = b.z - b.d / 2, x1 = b.x + b.w / 2, z1 = b.z + b.d / 2, draw = LIT_DRAW[b.mat];
-    const y = boxY(b), mark = {};
-    if (y) for (const k in geos) mark[k] = geos[k].p.length;
-    if (draw) draw(G, b, x0, z0, x1, z1);
-    else litBox(G(b.mat), x0, 0, z0, x1, b.h, z1, { bevel: LIT.bevel, seg: LIT.coverSeg, tile: LIT_TILE[b.mat] || 3 });
+    const y = boxY(b), mark = {}, ry = b.ry || 0;
+    if (y || ry) for (const k in geos) mark[k] = geos[k].p.length;
+    /* A TURNED box (the clutter kit) is drawn about its own footprint and
+       then rotated about its centre; its collision is that footprint's
+       bounding box (works.js `kit`). */
+    const fx0 = ry ? b.x - b.fw / 2 : x0, fx1 = ry ? b.x + b.fw / 2 : x1, fz0 = ry ? b.z - b.fd / 2 : z0, fz1 = ry ? b.z + b.fd / 2 : z1;
+    if (draw) draw(G, b, fx0, fz0, fx1, fz1);
+    else litBox(G(b.mat), fx0, 0, fz0, fx1, b.h, fz1, { bevel: LIT.bevel, seg: LIT.coverSeg, tile: LIT_TILE[b.mat] || 3 });
+    if (ry){ const c = Math.cos(ry), sn = Math.sin(ry);
+      for (const k in geos){ const P = geos[k].p, Nn = geos[k].n;
+        for (let i = (mark[k] || 0); i < P.length; i += 3){
+          const dx = P[i] - b.x, dz = P[i + 2] - b.z; P[i] = b.x + dx * c - dz * sn; P[i + 2] = b.z + dx * sn + dz * c;
+          const nx = Nn[i], nz = Nn[i + 2]; Nn[i] = nx * c - nz * sn; Nn[i + 2] = nx * sn + nz * c; } } }
     if (y){
       for (const k in geos){ const p = geos[k].p; for (let i = (mark[k] || 0) + 1; i < p.length; i += 3) p[i] += y; }
       /* And an UNDERSIDE. No drawer gives a box a bottom face, because a box
@@ -3278,6 +3627,7 @@ function litBuildArena(map, flatFloor, flatRoof){
     }
   }
   for (const p of (map.props || [])){ const draw = LIT_PROP[p.kind]; if (draw) draw(G, p, D, H); }
+  if (sky) litFootGrime(map);  // the dirt at the foot of everything (THE CLUTTER KIT)
   for (const name in geos){
     /* A lamp is painted, not lit: the vertex bake must not visit it (it
        would have no use for the light it computed, and an unlit material
