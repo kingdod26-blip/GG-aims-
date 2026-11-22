@@ -660,9 +660,13 @@ function gloveEveryGun(b){
   /* The sword and the grenade are held, not just near a hand (THE SWORD AND
      THE GRENADE, REDRAWN). Their grip point is where the old arm's palm was. */
   const at = new THREE.Vector3(0.03, -0.11, 0.14);
-  if (typeof BLADE !== 'undefined' && BLADE >= 0) { holdInGlove(BLADE, b, rOff, at, buildSword(), true, [0.35, 0, 0.12, 1.5]);
+  if (typeof BLADE !== 'undefined' && BLADE >= 0) { holdInGlove(BLADE, b, rOff, at, buildSword(), true, [-0.15, 0, -0.4, 1.5]);
     /* held up in guard, the hand in the lower right, not off the bottom of the screen */
-    WEAPONS[BLADE].vm = { x: 0.2, y: -0.12, z: -0.52, adsZ: 0, rx: 0, ry: 0, rz: 0, viewFov: 0 }; }
+    /* Lower and leaning out to the right (Jack, 2026-11-22: "the sword is
+       too up right ... a bit lower, as a whole and the angle too, its
+       blocking the sight too much"): the hilt low at the right edge, the
+       blade tilted toward the upper right, the middle of the view clear. */
+    WEAPONS[BLADE].vm = { x: 0.3, y: -0.2, z: -0.5, adsZ: 0, rx: 0, ry: 0, rz: 0, viewFov: 0 }; }
   if (typeof GRENADE !== 'undefined' && GRENADE >= 0){
     const gr = buildFragGrenade();
     gr.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), PAC9_GRIP_AXIS);   // fuze out of the top of the fist

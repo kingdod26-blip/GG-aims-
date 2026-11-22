@@ -1804,6 +1804,11 @@ dressing the office interiors, ambient sound.
   existing melee swing (loop.js) sweeps it across as a cut and was left as
   it is. Not done: their second hand on the grip during cuts (the PAC-9
   left glove is posed for a handguard, not a sword grip).
+  **Lowered and leaned out** (Jack: "the sword is too up right ... a bit
+  lower, as a whole and the angle too, its blocking the sight too much"):
+  turn [-0.15, 0, -0.4] roll 1.5, pose x .3 y -.2 z -.5. The hilt sits low
+  at the right edge and the blade leans toward the upper right corner,
+  clear of the centre. The five cuts start from it unchanged.
 - **The five cuts** (Jack: "its the animation of the 5 swinging of the
   sword, i want you to make the swing like the video"). The video's attacks,
   read at 0.05s steps: from the upright guard the sword is drawn back (over
