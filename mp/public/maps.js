@@ -650,7 +650,7 @@ const MAPS = {
       { x: 98.6518, z: -88.7301, w:  0.6052, d:  0.5919, h:   68, mat: 'stackwall'   },
       { x:  98.731, z: -88.2605, w:   0.538, d:  0.5209, h:   68, mat: 'stackwall'   },
 
-      // THE SWITCHYARD, south-west: two rows of portals and the gear beneath
+      // THE SWITCHYARD, south-west: seven portals, a bay of gear under each span, fenced
       { x:    -110, z:      78, w:     1.4, d:     1.4, h:   13, mat: 'lattice'     },
       { x:     -96, z:      78, w:     1.4, d:     1.4, h:   13, mat: 'lattice'     },
       { x:     -82, z:      78, w:     1.4, d:     1.4, h:   13, mat: 'lattice'     },
@@ -665,12 +665,60 @@ const MAPS = {
       { x:     -54, z:      94, w:     1.4, d:     1.4, h:   13, mat: 'lattice'     },
       { x:     -40, z:      94, w:     1.4, d:     1.4, h:   13, mat: 'lattice'     },
       { x:     -26, z:      94, w:     1.4, d:     1.4, h:   13, mat: 'lattice'     },
-      { x:    -104, z:      86, w:     3.4, d:       3, h:  2.4, mat: 'gear'        },
-      { x:     -90, z:      86, w:     3.4, d:       3, h:  2.4, mat: 'gear'        },
-      { x:     -76, z:      86, w:     3.4, d:       3, h:  2.4, mat: 'gear'        },
-      { x:     -62, z:      86, w:     3.4, d:       3, h:  2.4, mat: 'gear'        },
-      { x:     -48, z:      86, w:     3.4, d:       3, h:  2.4, mat: 'gear'        },
-      { x:     -34, z:      86, w:     3.4, d:       3, h:  2.4, mat: 'gear'        },
+      { x:    -103, z:      86, w:     2.2, d:     8.6, h:  2.4, mat: 'breaker'     },
+      { x:  -107.2, z:      82, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -98.8, z:      82, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:  -107.2, z:      86, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -98.8, z:      86, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:  -107.2, z:      90, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -98.8, z:      90, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:     -89, z:      86, w:     2.2, d:     8.6, h:  2.4, mat: 'breaker'     },
+      { x:   -93.2, z:      82, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -84.8, z:      82, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:   -93.2, z:      86, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -84.8, z:      86, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:   -93.2, z:      90, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -84.8, z:      90, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:     -75, z:      86, w:     2.2, d:     8.6, h:  2.4, mat: 'breaker'     },
+      { x:   -79.2, z:      82, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -70.8, z:      82, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:   -79.2, z:      86, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -70.8, z:      86, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:   -79.2, z:      90, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -70.8, z:      90, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:     -61, z:      86, w:     2.2, d:     8.6, h:  2.4, mat: 'breaker'     },
+      { x:   -65.2, z:      82, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -56.8, z:      82, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:   -65.2, z:      86, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -56.8, z:      86, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:   -65.2, z:      90, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -56.8, z:      90, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:     -47, z:      86, w:     2.2, d:     8.6, h:  2.4, mat: 'breaker'     },
+      { x:   -51.2, z:      82, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -42.8, z:      82, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:   -51.2, z:      86, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -42.8, z:      86, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:   -51.2, z:      90, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -42.8, z:      90, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:     -33, z:      86, w:     2.2, d:     8.6, h:  2.4, mat: 'breaker'     },
+      { x:   -37.2, z:      82, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -28.8, z:      82, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:   -37.2, z:      86, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -28.8, z:      86, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:   -37.2, z:      90, w:     0.5, d:     0.5, h:  2.6, mat: 'hviso'       },
+      { x:   -28.8, z:      90, w:     0.5, d:     0.5, h:  2.6, mat: 'hvct'        },
+      { x:     -89, z:   76.45, w:     2.4, d:     1.1, h:  2.2, mat: 'kiosk'       },
+      { x:     -47, z:   76.45, w:     2.4, d:     1.1, h:  2.2, mat: 'kiosk'       },
+      { x:  -113.2, z:    95.6, w:     0.6, d:     0.6, h:   16, mat: 'mast'        },
+      { x:   -22.8, z:    76.4, w:     0.6, d:     0.6, h:   16, mat: 'mast'        },
+      { x: -113.65, z:      75, w:     1.7, d:     0.1, h:  2.6, mat: 'palisade'    },
+      { x:   -85.9, z:      75, w:    45.8, d:     0.1, h:  2.6, mat: 'palisade'    },
+      { x:  -40.25, z:      75, w:    37.5, d:     0.1, h:  2.6, mat: 'palisade'    },
+      { x:   -72.5, z:      97, w:      84, d:     0.1, h:  2.6, mat: 'palisade'    },
+      { x:     -24, z:      97, w:       5, d:     0.1, h:  2.6, mat: 'palisade'    },
+      { x:  -114.5, z:      86, w:     0.1, d:    21.9, h:  2.6, mat: 'palisade'    },
+      { x:   -21.5, z:  79.525, w:     0.1, d:    8.95, h:  2.6, mat: 'palisade'    },
+      { x:   -21.5, z:  92.475, w:     0.1, d:    8.95, h:  2.6, mat: 'palisade'    },
 
       // THE OIL TANKS, the far south-west corner
       { x:    -100, z:     108, w:  11.662, d:   2.828, h:   10, mat: 'tank'       , r: 6, n: 9 },
@@ -2511,11 +2559,11 @@ const MAPS = {
       { x:   -44.4, z:   101.6, w:  1.4101, d:  1.2658, h: 1.15, mat: 'pallets'    , ry: -0.25, fw: 1.2, fd: 1 },
       { x:   -34.5, z:   100.4, w:  1.2938, d:  1.1148, h: 1.35, mat: 'palletload' , ry: 0.1, fw: 1.2, fd: 1 },
       { x:   -32.6, z:   100.2, w:  1.3573, d:  1.3573, h: 1.08, mat: 'drums4'     , ry: -0.12, fw: 1.22, fd: 1.22 },
-      { x:  -48.06, z: 95.6505, w:  2.0352, d:  0.7451, h: 0.82, mat: 'barrier'    , ry: -0.0632, fw: 2, fd: 0.62 },
-      { x: -45.8847, z: 95.6275, w:   2.006, d:  0.6396, h: 0.82, mat: 'barrier'    , ry: 0.0098, fw: 2, fd: 0.62 },
-      { x: -43.7205, z: 95.6302, w:  2.0415, d:  0.7711, h: 0.82, mat: 'barrier'    , ry: 0.0765, fw: 2, fd: 0.62 },
-      { x: -41.5449, z: 95.6221, w:  2.0236, d:   0.701, h: 0.82, mat: 'barrier'    , ry: 0.0408, fw: 2, fd: 0.62 },
-      { x: -39.362, z:  95.569, w:   2.022, d:   0.695, h: 0.82, mat: 'barrier'    , ry: -0.0377, fw: 2, fd: 0.62 },
+      { x:  -48.06, z: 98.6505, w:  2.0352, d:  0.7451, h: 0.82, mat: 'barrier'    , ry: -0.0632, fw: 2, fd: 0.62 },
+      { x: -45.8847, z: 98.6275, w:   2.006, d:  0.6396, h: 0.82, mat: 'barrier'    , ry: 0.0098, fw: 2, fd: 0.62 },
+      { x: -43.7205, z: 98.6302, w:  2.0415, d:  0.7711, h: 0.82, mat: 'barrier'    , ry: 0.0765, fw: 2, fd: 0.62 },
+      { x: -41.5449, z: 98.6221, w:  2.0236, d:   0.701, h: 0.82, mat: 'barrier'    , ry: 0.0408, fw: 2, fd: 0.62 },
+      { x: -39.362, z:  98.569, w:   2.022, d:   0.695, h: 0.82, mat: 'barrier'    , ry: -0.0377, fw: 2, fd: 0.62 },
       { x:   -24.5, z:   104.5, w:  2.4512, d:  1.2167, h: 1.45, mat: 'gen'        , ry: 1.62, fw: 1.1, fd: 2.4 },
       { x:   -21.8, z:   108.4, w:  1.8841, d:  2.3094, h:  1.4, mat: 'lighttower' , ry: 0.4, fw: 1.2, fd: 2 },
       { x:     -11, z:     108, w:  3.5342, d:  5.5652, h: 2.45, mat: 'van'        , ry: 0.32, fw: 2, fd: 5.2 },
@@ -2728,6 +2776,104 @@ const MAPS = {
                       a1: -80.8,
                       y0: 0,
                       y1: 2.4
+                }
+          },
+          {
+                kind: 'switchyard',
+                xs: [
+                      -110,
+                      -96,
+                      -82,
+                      -68,
+                      -54,
+                      -40,
+                      -26
+                ],
+                zN: 78,
+                zS: 94,
+                ph: [
+                      82,
+                      86,
+                      90
+                ],
+                fh: 2.6,
+                runs: [
+                      [
+                            -114.5,
+                            75,
+                            -112.8,
+                            75
+                      ],
+                      [
+                            -108.8,
+                            75,
+                            -63,
+                            75
+                      ],
+                      [
+                            -59,
+                            75,
+                            -21.5,
+                            75
+                      ],
+                      [
+                            -114.5,
+                            97,
+                            -30.5,
+                            97
+                      ],
+                      [
+                            -26.5,
+                            97,
+                            -21.5,
+                            97
+                      ],
+                      [
+                            -114.5,
+                            75.05,
+                            -114.5,
+                            96.95
+                      ],
+                      [
+                            -21.5,
+                            75.05,
+                            -21.5,
+                            84
+                      ],
+                      [
+                            -21.5,
+                            88,
+                            -21.5,
+                            96.95
+                      ]
+                ],
+                kiosks: [
+                      [
+                            -89,
+                            77
+                      ],
+                      [
+                            -47,
+                            77
+                      ]
+                ],
+                entry: {
+                      tx: -24,
+                      tz: 40,
+                      th: 26,
+                      xs: [
+                            -37,
+                            -33,
+                            -29
+                      ],
+                      x0: -40,
+                      x1: -26
+                },
+                exit: {
+                      x: -150,
+                      z: 86,
+                      y: 17.6,
+                      peak: 21.5
                 }
           },
           {
@@ -3418,9 +3564,117 @@ const MAPS = {
                       },
                       {
                             k: 'sign',
+                            t: 'hv',
+                            x: -110.3,
+                            z: 74.92,
+                            ry: 3.1416,
+                            post: false,
+                            y: 1.5
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -65.4,
+                            z: 74.92,
+                            ry: 3.1416,
+                            post: false,
+                            y: 1.5
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -56.6,
+                            z: 74.92,
+                            ry: 3.1416,
+                            post: false,
+                            y: 1.5
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -88,
+                            z: 74.92,
+                            ry: 3.1416,
+                            post: false,
+                            y: 1.5
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -36,
+                            z: 74.92,
+                            ry: 3.1416,
+                            post: false,
+                            y: 1.5
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -21.42,
+                            z: 81.6,
+                            ry: 1.5708,
+                            post: false,
+                            y: 1.5
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -21.42,
+                            z: 90.4,
+                            ry: 1.5708,
+                            post: false,
+                            y: 1.5
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -33,
+                            z: 97.08,
+                            ry: 0,
+                            post: false,
+                            y: 1.5
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -24,
+                            z: 97.08,
+                            ry: 0,
+                            post: false,
+                            y: 1.5
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -70,
+                            z: 97.08,
+                            ry: 0,
+                            post: false,
+                            y: 1.5
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -100,
+                            z: 97.08,
+                            ry: 0,
+                            post: false,
+                            y: 1.5
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -114.58,
+                            z: 86,
+                            ry: -1.5708,
+                            post: false,
+                            y: 1.5
+                      },
+                      {
+                            k: 'sign',
                             t: 'site',
-                            x: -49.6,
-                            z: 95.3,
+                            x: -50.9,
+                            z: 98.5,
                             ry: 3.1416,
                             post: true
                       },
@@ -3686,7 +3940,7 @@ function mapById(id) {
 function boxY(b) { return b.y || 0; }
 /* What stops a player and NOT a shot: glass, and a handrail - a shot goes
    between the rails. Both carry `glass: true` on their rect. */
-const MOVE_ONLY = { glass: 1, handrail: 1, ringrail: 1 };   // ringrail: the cooling towers' rim gallery posts
+const MOVE_ONLY = { glass: 1, handrail: 1, ringrail: 1, palisade: 1 };   // ringrail: the cooling towers' rim gallery posts; palisade: the switchyard fence
 /* The ladders on a map (props of kind 'ladder'). See works.js. */
 function mapLadders(map) { return (map.props || []).filter(p => p.kind === 'ladder'); }
 function mapRects(map) {

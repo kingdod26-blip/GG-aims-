@@ -1440,6 +1440,17 @@ function litPalisadeTexture(){
     g.fillRect(0, 100, w, 18); g.fillRect(0, 410, w, 18);
   });
 }
+/* One palisade material for every fence (the boundary's and the
+   switchyard's): alpha-tested, both sides, lit only by the moving-things
+   lights (the bake cannot know which texels are holes). Cached. */
+let LIT_PALISADE_MAT = null;
+function litPalisadeMat(){
+  if (LIT_PALISADE_MAT) return LIT_PALISADE_MAT;
+  const fm = new THREE.MeshStandardMaterial({ map: litTexOf(litPalisadeTexture(), true), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.35 });
+  lookTag(fm, { metalness: 0.35, roughness: 0.6 }, { metalness: 0, roughness: 0.6 });
+  fm.userData.envK = 0.5;
+  return (LIT_PALISADE_MAT = fm);
+}
 /* The wall, the piers, the coping and the fence, round all four sides.
    Inner faces only on the concrete (that is all you can stand in front
    of), but the coping and the outside are there for anyone on a roof. */
@@ -1489,11 +1500,7 @@ function litBoundary(D){
     const mx = ox - nx * T * 0.5, mz = oz - nz * T * 0.5;
     litGrid(f, mx, y0, mz,  ux, 0, uz,  0, 1, 0,  L, fh,  nx, 0, nz,  L, fh, 1.2, fh);
   }
-  const pt = litPalisadeTexture(), tex = litTexOf(pt, true);
-  const fm = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.35 });
-  lookTag(fm, { metalness: 0.35, roughness: 0.6 }, { metalness: 0, roughness: 0.6 });
-  fm.userData.envK = 0.5;
-  litAdd(new THREE.Mesh(litGeoDone(f), fm), false);
+  litAdd(new THREE.Mesh(litGeoDone(f), litPalisadeMat()), false);
   const posts = litGeo();
   for (const s of sides){
     const [ox, oz] = s.o, [ux, uz] = s.u, [nx, nz] = s.n;
@@ -1612,6 +1619,37 @@ function litFarWorld(map){
     }
   };
   corridor(0.55, 140, 430, 62); corridor(2.45, 138, 430, 66); corridor(4.95, 142, 430, 60);
+  /* THE SWITCHYARD'S LINE (2026-11-22): it leaves the yard's west portal
+     for a terminal tower 40m beyond the wall - the switchyard prop strings
+     its conductors to this tower's arm from the same numbers (p.exit) - and
+     goes on west on ordinary pylons. */
+  { const sy = (map.props || []).find(p => p.kind === 'switchyard');
+    if (sy){
+      const T = sy.exit, tx = T.x, tz = T.z, zs = sy.ph;
+      for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]){
+        rod([tx + su * 2.6, 0, tz + sv * 2.6], [tx + su * 0.9, T.y - 1, tz + sv * 0.9], 0.2, steel);
+        rod([tx + su * 0.9, T.y - 1, tz + sv * 0.9], [tx + su * 0.45, T.peak, tz + sv * 0.45], 0.14, steel);
+      }
+      for (const [y, l] of [[5, 2.1], [10, 1.6]])
+        for (const [a, b] of [[[-1, -1], [1, -1]], [[1, -1], [1, 1]], [[1, 1], [-1, 1]], [[-1, 1], [-1, -1]]])
+          rod([tx + a[0] * l, y, tz + a[1] * l], [tx + b[0] * l, y, tz + b[1] * l], 0.1, steel);
+      const arm = Math.max(...zs.map(z => Math.abs(z - tz))) + 2;
+      rod([tx, T.y, tz - arm], [tx, T.y, tz + arm], 0.22, steel);                   // the crossarm, along the line's width
+      rod([tx, T.y, tz - arm], [tx, T.y + 2.4, tz], 0.08, steel); rod([tx, T.y, tz + arm], [tx, T.y + 2.4, tz], 0.08, steel);
+      let prev = [...zs.map(z => [tx, T.y - 0.4, z]), [tx, T.peak + 0.3, tz]];
+      for (let x = tx - 62; x >= -430; x -= 62){
+        const tips = pylon(x, tz, Math.PI / 2), use = [tips[0], tips[2], tips[4], tips[6]];   // one circuit + the earth
+        for (let k = 0; k < use.length; k++){
+          const a = prev[k], b = use[k], sag = Math.hypot(b[0] - a[0], b[2] - a[2]) * 0.035;
+          for (let s = 0; s < 8; s++){
+            const t0 = s / 8, t1 = (s + 1) / 8, y = (t) => a[1] + (b[1] - a[1]) * t - sag * 4 * t * (1 - t);
+            lines.push(a[0] + (b[0] - a[0]) * t0, y(t0), a[2] + (b[2] - a[2]) * t0, a[0] + (b[0] - a[0]) * t1, y(t1), a[2] + (b[2] - a[2]) * t1);
+          }
+        }
+        prev = use;
+      }
+    }
+  }
 
   /* A town to the north-east: terraces and low blocks, a church spire,
      two towers. Pale render, dark roofs. */
@@ -1914,7 +1952,10 @@ const LIT_INDOOR = { facade: 1, core: 1, desk: 1, screen: 1, counter: 1, bench: 
                      /* the walls of the hollow sheds and the boiler house: a
                         keep-clear line round a wall drew a white outline on
                         the floor INSIDE the dosing house (2026-11-21) */
-                     shedwall: 1, bwall: 1 };
+                     shedwall: 1, bwall: 1,
+                     /* the switchyard stands on gravel: no painted outlines
+                        round its legs, posts, masts or fence (2026-11-22) */
+                     lattice: 1, breaker: 1, hviso: 1, hvct: 1, mast: 1, palisade: 1 };
 function litGroundRect(q, kerb){                 // a zone or a road as [x0, z0, x1, z1]
   if (q.k !== 'road') return [Math.min(q.x0, q.x1), Math.min(q.z0, q.z1), Math.max(q.x0, q.x1), Math.max(q.z0, q.z1)];
   const h = q.w / 2 + (kerb || 0), horiz = Math.abs(q.x1 - q.x0) > Math.abs(q.z1 - q.z0);
@@ -2686,7 +2727,7 @@ const LIT_DRAW = {
       }
     }
     /* Crossarms, and the insulator strings hanging off them. */
-    for (const [y, reach] of [[H * 0.62, 5.2], [H * 0.78, 4.4], [H * 0.92, 3.2]]){
+    for (const [f, reach] of HVT_ARMS){ const y = H * f;
       for (const s of [-1, 1]){
         litCyl(G('galv'), cx, y, cz, cx + s * reach, y + 0.5, cz, 0.13, 0.09, 4, 2, false, false);
         litCyl(G('galv'), cx, y + 0.9, cz, cx + s * reach, y + 0.5, cz, 0.07, 0.05, 4, 2, false, false);
@@ -3645,6 +3686,167 @@ LIT_PROP.boiler = litBoiler;          // the furnaces (THE BOILERS)
 /* High-bay lamps: a hall's real lighting, a spun reflector on a drop rod
    with the lamp glowing in its mouth. They are lights in the bake
    (litPanelLights), and these are what you see of them. */
+/* ---- THE SWITCHYARD (2026-11-22) ----
+   Jack: "why does this look so empty, where are the wires on top". The
+   ground gear are boxes (works.js THE SWITCHYARD); everything overhead is
+   the `switchyard` prop and is not collision. */
+const HVT_ARMS = [[0.62, 5.2], [0.78, 4.4], [0.92, 3.2]];   // a transmission tower's crossarms: height share, reach (hvtower)
+Object.assign(LIT_DRAW, {
+  palisade(){},                                  // the fence: drawn by the switchyard prop, as a cut-out
+  /* A three-pole circuit breaker on a common frame: plinth, the mechanism
+     cabinet, the galvanised support on it - that is the box - and one
+     pole per phase along z: a porcelain column with the interrupter head. */
+  breaker(G, b, x0, z0, x1, z1){
+    litBox(G('concrete'), x0, 0, z0, x1, 0.3, z1, { seg: 2, tile: 120, tileV: 8 });
+    litBox(G('machine'), x0, 0.3, z0, x1, 1.6, z1, { bevel: 0.04, seg: LIT.coverSeg, tile: 2 });
+    litBox(G('girder'), x0, 1.6, z0, x1, b.h, z1, { bevel: 0.03, seg: LIT.coverSeg, tile: 1.6 });
+    for (const o of [-1, 0, 1]){
+      const pz = b.z + o * (b.d / 2 - 0.3), cx = b.x, y = b.h;
+      litCyl(G('hvwhite'), cx, y, pz, cx, y + 1.45, pz, 0.15, 0.12, 10, 1.4, false, false);
+      for (let j = 0; j < 6; j++){ const yy = y + 0.12 + j * 0.22, r = 0.27 - j * 0.012;
+        litCyl(G('hvwhite'), cx, yy, pz, cx, yy + 0.06, pz, r, r * 0.7, 10, 1, true, true); }
+      litCyl(G('girder'), cx - 0.55, y + 1.6, pz, cx + 0.55, y + 1.6, pz, 0.17, 0.17, 12, 1, true, true);   // the interrupter
+      for (const s of [-1, 1]) litBox(G('girder'), cx + s * 0.55 - 0.06, y + 1.72, pz - 0.06, cx + s * 0.55 + 0.06, y + 1.82, pz + 0.06, { seg: 1 });
+    }
+  },
+  /* A disconnector: a galvanised post (the box) and on it two porcelain
+     columns with the blade across their tops. */
+  hviso(G, b, x0, z0, x1, z1){
+    litBox(G('concrete'), x0 - 0.1, 0, z0 - 0.1, x1 + 0.1, 0.25, z1 + 0.1, { seg: 1, tile: 120, tileV: 8 });
+    litBox(G('girder'), x0, 0.25, z0, x1, b.h, z1, { bevel: 0.02, seg: 2, tile: 1.6 });
+    const y = b.h, cx = b.x, cz = b.z;
+    litBox(G('girder'), cx - 0.6, y, cz - 0.1, cx + 0.6, y + 0.12, cz + 0.1, { seg: 1 });
+    for (const s of [-1, 1]){
+      const px = cx + s * 0.45;
+      litCyl(G('hvwhite'), px, y + 0.12, cz, px, y + 1.6, cz, 0.1, 0.08, 10, 1.4, false, false);
+      for (let j = 0; j < 6; j++){ const yy = y + 0.2 + j * 0.23, r = 0.19 - j * 0.008;
+        litCyl(G('hvwhite'), px, yy, cz, px, yy + 0.05, cz, r, r * 0.7, 10, 1, true, true); }
+      litBox(G('girder'), px - 0.08, y + 1.6, cz - 0.08, px + 0.08, y + 1.75, cz + 0.08, { seg: 1 });
+    }
+    litCyl(G('steel'), cx - 0.45, y + 1.72, cz, cx + 0.45, y + 1.72, cz, 0.04, 0.04, 6, 1, false, false);   // the blade, closed
+  },
+  /* A current transformer: a post, one fat porcelain column, the tank head. */
+  hvct(G, b, x0, z0, x1, z1){
+    litBox(G('concrete'), x0 - 0.1, 0, z0 - 0.1, x1 + 0.1, 0.25, z1 + 0.1, { seg: 1, tile: 120, tileV: 8 });
+    litBox(G('girder'), x0, 0.25, z0, x1, b.h, z1, { bevel: 0.02, seg: 2, tile: 1.6 });
+    const y = b.h, cx = b.x, cz = b.z;
+    litCyl(G('girder'), cx, y, cz, cx, y + 0.15, cz, 0.3, 0.3, 12, 1, true, true);
+    litCyl(G('hvwhite'), cx, y + 0.15, cz, cx, y + 1.55, cz, 0.16, 0.13, 12, 1.4, false, false);
+    for (let j = 0; j < 6; j++){ const yy = y + 0.22 + j * 0.22, r = 0.29 - j * 0.012;
+      litCyl(G('hvwhite'), cx, yy, cz, cx, yy + 0.06, cz, r, r * 0.7, 12, 1, true, true); }
+    litCyl(G('girder'), cx, y + 1.55, cz, cx, y + 2.0, cz, 0.3, 0.32, 14, 1, true, true);       // the head
+    litCyl(G('steel'), cx, y + 2.0, cz, cx, y + 2.12, cz, 0.18, 0.1, 10, 1, false, true);     // the bellows dome
+    for (const s of [-1, 1]) litBox(G('girder'), cx + s * 0.3 - 0.05, y + 1.9, cz - 0.05, cx + s * 0.42, y + 1.98, cz + 0.05, { seg: 1 });
+  },
+  /* A floodlight mast: a tapered pole and a head of three lamps looking down. */
+  mast(G, b, x0, z0, x1, z1){
+    const x = b.x, z = b.z, h = b.h;
+    litBox(G('concrete'), x0, 0, z0, x1, 0.4, z1, { seg: 1, tile: 120, tileV: 8 });
+    litCyl(G('girder'), x, 0.4, z, x, h - 0.3, z, 0.2, 0.11, 10, 2, false, false);
+    litBox(G('girder'), x - 0.95, h - 0.4, z - 0.12, x + 0.95, h - 0.28, z + 0.12, { seg: 1 });
+    for (const o of [-0.65, 0, 0.65]){
+      litBox(G('steel'), x + o - 0.24, h - 0.28, z - 0.18, x + o + 0.24, h + 0.05, z + 0.18, { seg: 1 });
+      litBox(G('lamp'), x + o - 0.2, h - 0.3, z - 0.14, x + o + 0.2, h - 0.28, z + 0.14, { seg: 1 });
+    }
+  },
+});
+/* The overhead: portal beams, earth peaks and wires, the three phase
+   conductors on their strings, every bay's droppers and jumpers, the line
+   in from the HV compound's corner tower and out to the terminal tower, the
+   palisade fence. (Trench covers were tried and taken out: a flat plate
+   in the open yard read as a white stripe under the sky.) */
+LIT_PROP.switchyard = function(G, p){
+  const { xs, zN, zS, ph } = p, bY = 12.3, tY = 13.0, sY = 10.95, SAG = 0.35, PK = 15.1;
+  const cat = (g, a, b, sag, r, n) => {
+    n = n || 8;
+    for (let i = 0; i < n; i++){
+      const f = (t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t - sag * 4 * t * (1 - t), a[2] + (b[2] - a[2]) * t];
+      const A = f(i / n), B = f((i + 1) / n);
+      litCyl(g, A[0], A[1], A[2], B[0], B[1], B[2], r, r, 6, 1, false, false);
+    }
+  };
+  const discs = (ax, ay, az, bx, by, bz, n) => {                 // an insulator string from a to b
+    for (let j = 0; j < n; j++){
+      const t0 = (j + 0.2) / n, t1 = (j + 0.55) / n;
+      litCyl(G('hvwhite'), ax + (bx - ax) * t0, ay + (by - ay) * t0, az + (bz - az) * t0,
+                           ax + (bx - ax) * t1, ay + (by - ay) * t1, az + (bz - az) * t1, 0.14, 0.14, 8, 1, true, true);
+    }
+    litCyl(G('girder'), ax, ay, az, bx, by, bz, 0.025, 0.025, 4, 1, false, false);
+  };
+  const busY = (x) => {                                          // the conductor's height at x (it sags between beams)
+    for (let i = 0; i < xs.length - 1; i++) if (x >= xs[i] && x <= xs[i + 1]){ const t = (x - xs[i]) / (xs[i + 1] - xs[i]); return sY - SAG * 4 * t * (1 - t); }
+    return sY;
+  };
+  const brace = (ax, az, bx, bz, w, along) => {                 // a lattice girder's zigzag on both faces
+    const L = Math.hypot(bx - ax, bz - az), n = Math.max(2, Math.round(L / 1.6)), nx = along === 'z' ? 1 : 0, nz = along === 'z' ? 0 : 1;
+    for (const s of [-1, 1]) for (let i = 0; i < n; i++){
+      const t0 = i / n, t1 = (i + 1) / n, up = i % 2 ? 1 : 0;
+      litCyl(G('girder'), ax + (bx - ax) * t0 + s * w * nx, up ? tY : bY, az + (bz - az) * t0 + s * w * nz,
+                        ax + (bx - ax) * t1 + s * w * nx, up ? bY : tY, az + (bz - az) * t1 + s * w * nz, 0.04, 0.04, 4, 1, false, false);
+    }
+  };
+  /* the portal beams across each pair of legs, and the entry beam along the north row */
+  for (const x of xs){
+    litBox(G('girder'), x - 0.35, bY, zN, x + 0.35, bY + 0.12, zS, { seg: 4, tile: 2, bottom: true });
+    litBox(G('girder'), x - 0.35, tY - 0.12, zN, x + 0.35, tY, zS, { seg: 4, tile: 2, bottom: true });
+    brace(x, zN, x, zS, 0.33, 'z');
+  }
+  const E = p.entry;
+  litBox(G('girder'), E.x0 + 0.35, bY + 0.05, zN - 0.33, E.x1 - 0.35, bY + 0.17, zN + 0.33, { seg: 4, tile: 2, bottom: true });
+  litBox(G('girder'), E.x0 + 0.35, tY - 0.17, zN - 0.33, E.x1 - 0.35, tY - 0.05, zN + 0.33, { seg: 4, tile: 2, bottom: true });
+  brace(E.x0 + 0.35, zN, E.x1 - 0.35, zN, 0.31, 'x');
+  /* earth peaks on every leg, and an earth wire along each row */
+  for (const z of [zN, zS]){
+    for (const x of xs) litCyl(G('girder'), x, 13, z, x, PK + 0.1, z, 0.1, 0.05, 4, 1, false, true);
+    for (let i = 0; i < xs.length - 1; i++) cat(G('steel'), [xs[i], PK, z], [xs[i + 1], PK, z], 0.25, 0.022, 6);
+    cat(G('steel'), [xs[0], PK, z], [p.exit.x, p.exit.peak + 0.3, p.exit.z], 1.0, 0.022, 10);
+  }
+  cat(G('steel'), [xs[xs.length - 1], PK, zN], [E.tx, E.th + 1.6, E.tz], 1.0, 0.022, 10);
+  /* the three phases: a string under every beam, the conductor sagging beam to beam */
+  for (const z of ph){
+    for (const x of xs) discs(x, bY, z, x, sY, z, 6);
+    for (let i = 0; i < xs.length - 1; i++) cat(G('bus'), [xs[i], sY, z], [xs[i + 1], sY, z], SAG, 0.045, 8);
+  }
+  /* every bay: down from the bus to the disconnector, across through the
+     breaker and the CTs, and back up to the bus */
+  for (let i = 0; i < xs.length - 1; i++){
+    const xc = (xs[i] + xs[i + 1]) / 2, iso = xc - 4.2, ct = xc + 4.2;
+    for (const z of ph){
+      const w = G('bus'), r = 0.035;
+      cat(w, [iso - 0.45, busY(iso - 0.45) - 0.05, z], [iso - 0.45, 4.42, z], 0.0, r, 1);
+      cat(w, [iso + 0.45, 4.42, z], [xc - 0.55, 4.25, z], 0.12, r, 5);
+      cat(w, [xc + 0.55, 4.25, z], [ct - 0.36, 4.55, z], 0.12, r, 5);
+      cat(w, [ct + 0.36, 4.55, z], [ct + 0.36, busY(ct + 0.36) - 0.05, z], 0.0, r, 1);
+    }
+  }
+  /* OUT, west: strain strings off the west portal, the span to the terminal
+     tower, and a jumper loop from the strain to the bus */
+  const X = p.exit;
+  for (const z of ph){
+    discs(xs[0] - 0.35, 12.05, z, xs[0] - 1.9, 12.05, z, 7);
+    cat(G('bus'), [xs[0] - 1.9, 12.05, z], [X.x, X.y - 0.4, z], 1.3, 0.04, 14);
+    cat(G('bus'), [xs[0] - 1.9, 12.0, z], [xs[0], sY, z], 0.45, 0.035, 5);
+  }
+  /* IN, east: from the compound tower's west arms, strain strings off the
+     entry beam, then a jumper down under the beam to each phase's bus */
+  for (let k = 0; k < 3; k++){
+    const [f, reach] = HVT_ARMS[k], tip = [E.tx - reach, E.th * f - 0.66, E.tz], xe = E.xs[k], z = ph[k];
+    discs(xe, 12.05, zN - 0.33, xe, 12.05, zN - 1.9, 7);
+    cat(G('bus'), [xe, 12.05, zN - 1.9], tip, 1.0, 0.04, 14);
+    cat(G('bus'), [xe, 12.0, zN - 1.9], [xe, busY(xe), z], 0.9, 0.035, 8);
+  }
+  /* the palisade: one cut-out quad per run, posts every 2.4m, gate posts */
+  const f = litGeo(), H = p.fh;
+  for (const [ax, az, bx, bz] of p.runs){
+    const L = Math.hypot(bx - ax, bz - az); if (L < 0.05) continue;
+    const ux = (bx - ax) / L, uz = (bz - az) / L;
+    litGrid(f, ax, 0, az, ux, 0, uz, 0, 1, 0, L, H, uz, 0, -ux, Math.max(1, Math.round(L)), 1, 1.2, H);
+    for (let a = 0; a <= L + 0.01; a += 2.4){ const px = ax + ux * Math.min(a, L), pz = az + uz * Math.min(a, L);
+      litBox(G('steel'), px - 0.05, 0, pz - 0.05, px + 0.05, H + 0.08, pz + 0.05, { seg: 1, tile: 1 }); }
+    for (const [px, pz] of [[ax, az], [bx, bz]]) litBox(G('steel'), px - 0.09, 0, pz - 0.09, px + 0.09, H + 0.15, pz + 0.09, { seg: 1, tile: 1 });
+  }
+  litAdd(new THREE.Mesh(litGeoDone(f), litPalisadeMat()), false);
+};
 LIT_PROP.highbay = function(G, p){
   for (const [x, z] of litHighbays(p)){
     litCyl(G('steel'), x, p.y - 0.15, z, x, p.y + 1.2, z, 0.02, 0.02, 5, 1, false, false);
@@ -3718,7 +3920,7 @@ LIT_PROP.clutter = function(G, p){
    black, fading out upward, drawn over the surface (a dark wash darkens in
    any light, so it needs no lighting of its own). */
 const LIT_NOGRIME = { hidden: 1, glass: 1, handrail: 1, ringrail: 1, ringdeck: 1, pipewalk: 1, grating: 1, steptread: 1, tread: 1,
-                      step: 1, slab: 1, roofslab: 1, stackwall: 1, deck: 1, towerwall: 1 };
+                      step: 1, slab: 1, roofslab: 1, stackwall: 1, deck: 1, towerwall: 1, palisade: 1 };
 function litGrimeTexture(){
   return litCanvas(8, 64, (g, w, h) => {
     /* an alphaMap is read from the GREEN channel: white is opaque */
@@ -3769,7 +3971,7 @@ function litUniformsFor(map){
      the floor's shading. The power station has 107 boxes and offers 60 — the
      treads alone were 24 of them, which would have pushed the real plant off
      the end of the list. Without them it offers 36. */
-  const SKIP_FLOOR = { column: 1, hidden: 1, step: 1, lattice: 1, hvtower: 1 };
+  const SKIP_FLOOR = { column: 1, hidden: 1, step: 1, lattice: 1, hvtower: 1, hviso: 1, hvct: 1, mast: 1, palisade: 1 };
   /* ^ too thin to shade the floor or hide a panel. A transmission tower
      has a 4m footprint but is four legs and some bracing: treating it as
      a solid 4m block would lay a shadow under it that nothing casts. */

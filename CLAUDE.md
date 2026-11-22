@@ -1850,6 +1850,37 @@ the barrel are untouched, so window, dot and shot rise together. Measured
 with gunKick 1 at full ADS: barrel 0.00 degrees off the shot line, the
 sight's aim 0.0px from the dot at 50m. **The sniper's open flip cap is
 gone** (Jack asked).
+
+## The switchyard rebuilt (2026-11-22)
+
+Jack, with a screenshot of the south-west yard: "why does this look so
+empty, where are the wires on top". Fourteen lattice legs held nothing: the
+conductors over them were the `busbars` runs taken out that morning because
+they also crossed the site over the offices. works.js THE SWITCHYARD and
+lighting.js `LIT_PROP.switchyard` now make it a working outdoor yard:
+- **Portals**: each leg pair (rows z 78 / 94, x -110..-26 every 14m) has a
+  lattice beam across at 12.3-13m; earth peaks on every leg, an earth wire
+  along each row.
+- **Three phases** (z 82 / 86 / 90) on insulator strings under every beam,
+  sagging beam to beam. **Every bay**: disconnector (`hviso`), three-pole
+  breaker (`breaker`, poles along z), CTs (`hvct`), each phase dropped from
+  the bus and jumpered through and back up.
+- **Lines that go somewhere**: IN from the HV compound's corner tower
+  (-24, 40; its arms are `HVT_ARMS`, shared with `hvtower`) onto an entry
+  beam along the north row; OUT from the west portal to a terminal tower at
+  (-150, 86) beyond the wall, and on west on pylons (`litFarWorld`, from the
+  prop's `exit`).
+- **Ground**: palisade fence (`palisade`, MOVE_ONLY - stops players, not
+  shots; drawn by the prop with the boundary's cut-out material, now
+  `litPalisadeMat()`), gates to the road (two), the HV strip and the
+  laydown yard, DANGER signs, two floodlight `mast`s, two kiosks. The
+  laydown barrier line and its sign moved outside the fence.
+- **`galv` reads near white under the open sky** - the yard's steel is
+  `girder`, like the legs. Flat steel trench covers read as a white stripe
+  and were taken out. No keep-clear outlines on the gravel (LIT_INDOOR).
+Checked: 0 overlaps among the new boxes; walking - in through the north and
+east gates, stopped 0.4m off the fence and by the breakers; the server marks
+the fence shots-pass; frame 2.5-5.4ms in the yard. Map 2532 boxes.
 - **The five cuts** (Jack: "its the animation of the 5 swinging of the
   sword, i want you to make the swing like the video"). The video's attacks,
   read at 0.05s steps: from the upright guard the sword is drawn back (over

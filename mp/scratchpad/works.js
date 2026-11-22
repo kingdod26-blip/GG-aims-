@@ -332,9 +332,53 @@ for (let i = 0; i < 36; i++){
   for (const [y0, y1] of ys) ob(Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs), y0, y1, 'stackwall');
 }
 
-note('THE SWITCHYARD, south-west: two rows of portals and the gear beneath');
-for (const z of [78, 94]) for (let i = 0; i < 7; i++) box(-110 + i * 14, z, 1.4, 1.4, 13, 'lattice');
-for (let i = 0; i < 6; i++) box(-104 + i * 14, 86, 3.4, 3.0, 2.4, 'gear');
+note('THE SWITCHYARD, south-west: seven portals, a bay of gear under each span, fenced');
+/* (2026-11-22) Jack: "why does this look so empty, where are the wires on
+   top". It was fourteen lattice legs holding nothing - the conductors over
+   them were the `busbars` that also ran on across the site and were taken
+   out. Rebuilt as a working outdoor yard:
+   - each pair of legs (north row z 78, south row z 94) is a PORTAL: a
+     lattice beam across at 12.3-13m, an earth peak on every leg;
+   - three phase conductors (z 82 / 86 / 90) run the length of the yard on
+     insulator strings under the beams, an earth wire along each row;
+   - under every span a BAY: disconnector, three-pole breaker, current
+     transformers, each phase dropped from the bus and jumpered through;
+   - the line comes IN at the east end from the HV compound's corner tower
+     (-24, 40) onto an entry beam along the north row, and goes OUT at the
+     west end to a terminal tower outside the wall and on west on pylons;
+   - a palisade fence (stops a player, not a shot: MOVE_ONLY), gates to the
+     road, the laydown yard and the HV strip, danger signs, two floodlight
+     masts, kiosks, cable trench covers.
+   Everything overhead is drawn by the `switchyard` prop and is not
+   collision. What stands on the ground is a box. */
+const SY = { xs: [-110, -96, -82, -68, -54, -40, -26], zN: 78, zS: 94, ph: [82, 86, 90],
+             fence: { x0: -114.5, x1: -21.5, z0: 75, z1: 97 },
+             gates: { N: [[-112.8, -108.8], [-63, -59]], S: [[-30.5, -26.5]], W: [], E: [[84, 88]] } };
+for (const z of [SY.zN, SY.zS]) for (const x of SY.xs) box(x, z, 1.4, 1.4, 13, 'lattice');
+for (let i = 0; i < SY.xs.length - 1; i++){
+  const xc = (SY.xs[i] + SY.xs[i + 1]) / 2;
+  box(xc, 86, 2.2, 8.6, 2.4, 'breaker');                                   // three poles along z, one per phase
+  for (const z of SY.ph){ box(xc - 4.2, z, 0.5, 0.5, 2.6, 'hviso'); box(xc + 4.2, z, 0.5, 0.5, 2.6, 'hvct'); }
+}
+box(-89, 76.45, 2.4, 1.1, 2.2, 'kiosk'); box(-47, 76.45, 2.4, 1.1, 2.2, 'kiosk');
+box(-113.2, 95.6, 0.6, 0.6, 16, 'mast'); box(-22.8, 76.4, 0.6, 0.6, 16, 'mast');
+{ const F = SY.fence, FH = 2.6, t = 0.05, runs = (a0, a1, gs) => {
+    const o = []; let a = a0; for (const [g0, g1] of gs.slice().sort((p, q) => p[0] - q[0])){ o.push([a, g0]); a = g1; } o.push([a, a1]); return o; };
+  SY.runs = [];
+  for (const [a, b] of runs(F.x0, F.x1, SY.gates.N)){ ob(a, b, F.z0 - t, F.z0 + t, 0, FH, 'palisade'); SY.runs.push([a, F.z0, b, F.z0]); }
+  for (const [a, b] of runs(F.x0, F.x1, SY.gates.S)){ ob(a, b, F.z1 - t, F.z1 + t, 0, FH, 'palisade'); SY.runs.push([a, F.z1, b, F.z1]); }
+  for (const [a, b] of runs(F.z0 + t, F.z1 - t, SY.gates.W)){ ob(F.x0 - t, F.x0 + t, a, b, 0, FH, 'palisade'); SY.runs.push([F.x0, a, F.x0, b]); }
+  for (const [a, b] of runs(F.z0 + t, F.z1 - t, SY.gates.E)){ ob(F.x1 - t, F.x1 + t, a, b, 0, FH, 'palisade'); SY.runs.push([F.x1, a, F.x1, b]); }
+  SY.fh = FH;
+}
+BOILERS.push({ kind: 'switchyard', xs: SY.xs, zN: SY.zN, zS: SY.zS, ph: SY.ph, fh: SY.fh, runs: SY.runs,
+  kiosks: [[-89, 77.0], [-47, 77.0]],
+  /* in from the compound's north-east corner tower, onto a beam along the
+     north row between the last two portals; out from the west portal to a
+     terminal tower 40m beyond the wall (lighting.js draws that tower and
+     the pylons after it in the far world from these same numbers) */
+  entry: { tx: -24, tz: 40, th: 26, xs: [-37, -33, -29], x0: -40, x1: -26 },
+  exit: { x: -150, z: 86, y: 17.6, peak: 21.5 } });
 
 note('THE OIL TANKS, the far south-west corner');
 for (const [tx, tz] of [[-100, 108], [-80, 112], [-60, 106]]) drum(tx, tz, 6.0, 10.0, 'tank');
@@ -595,7 +639,7 @@ const P = M.MAPS.powerstation.props.map(p => {
   return q;
 });
 P.push({ kind: 'hallroof', x0: HX0 - HW, x1: HX1 + HW, z0: HZ0 - HW, z1: HZ1 + HW, y: HH });
-P.push(...BOILERS);                 // the two furnaces (THE TWO BOILERS)
+P.push(...BOILERS);                 // the two furnaces (THE TWO BOILERS), and the switchyard's overhead (THE SWITCHYARD)
 /* The hall's own light (2026-11-22): high-bay lamps every 12m under the
    roof, where the crane leaves room. Until now the hall had no fittings at
    all and was lit, unseen, by the sky through a roof the bake could not
@@ -812,14 +856,19 @@ kit('skip', -28.5, 111.5, 0.12);
 kit('reel', -21, 100, 0.08); kit('reel', -18.6, 100.4, -0.06); kit('reel', -16.2, 100.1, 0.1);
 kit('pallets', -46, 100.5, 0.06); kit('pallets', -44.4, 101.6, -0.25, 1.15); kit('palletload', -34.5, 100.4, 0.1);
 kit('drums4', -32.6, 100.2, -0.12);
-rowOf('barrier', -48, 95.6, 2.15, 0, 5, 0.12, 7);
+rowOf('barrier', -48, 98.6, 2.15, 0, 5, 0.12, 7);              // outside the switchyard fence (z 97)
 kit('gen', -24.5, 104.5, 1.62); kit('lighttower', -21.8, 108.4, 0.4);
 kit('van', -11, 108, 0.32);
 kit('gascage', -45.8, 114.2, 0);
 cable([-24.5, 103.2], [-23.2, 104.8], [-22.4, 107.4]); cable([-24.5, 105.6], [-30, 106.4], [-36.5, 110.2], [-38.3, 110.2]);
 for (const [x, z] of [[-30.8, 109], [-26.4, 109.4], [-31, 114.2], [-26.2, 114.4], [-14, 104.6], [-8.6, 111.6]]) cone(x, z);
 oil(-11, 108.6, 1.4); oil(-24.5, 104.6, 0.9); oil(-32.6, 100.2, 1.0); oil(-29, 111.5, 1.6);
-sign('site', -49.6, 95.3, Math.PI, true); sign('ppe', -38.38, 107.8, Math.PI / 2, false, 1.25);   // between the window (to 107.4) and the door (from 108.1)
+/* the switchyard fence: DANGER signs facing out beside every gate, and along it */
+for (const x of [-114.9 + 4.6, -65.4, -56.6, -88, -36]) sign('hv', x, 74.92, Math.PI, false, 1.5);
+for (const z of [81.6, 90.4]) sign('hv', -21.42, z, Math.PI / 2, false, 1.5);
+for (const x of [-33, -24, -70, -100]) sign('hv', x, 97.08, 0, false, 1.5);
+sign('hv', -114.58, 86, -Math.PI / 2, false, 1.5);
+sign('site', -50.9, 98.5, Math.PI, true); sign('ppe', -38.38, 107.8, Math.PI / 2, false, 1.25);   // between the window (to 107.4) and the door (from 108.1)
 
 /* 2. THE DOSING HOUSE: its chemical store outside the east door - totes,
    a pallet of drums, the gas cage - kept clear of the door itself. */
