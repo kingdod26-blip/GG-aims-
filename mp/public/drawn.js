@@ -828,11 +828,81 @@ function holdInGlove(slot, b, rOff, at, thing, alignAxis, turn){
     const leftFist = new THREE.Vector3();                                 // the group's origin IS the fist
     const leftGrip = PAC9_GRIP_AXIS.clone().multiplyScalar(-0.115);       // where it holds, in the pivot's frame
     left.position.copy(leftGrip);
+    /* turned 70 degrees round the handle (the fist stays on it): its
+       forearm then runs down and out to the left instead of up across the
+       view (Jack: "the second hand should not be blocking the screen too
+       much, it should be lower") */
+    left.quaternion.setFromAxisAngle(PAC9_GRIP_AXIS, -1.2);
     wrist.add(left);
     pivot.updateMatrix();
     const d0 = new THREE.Vector3(0, 0, -1).applyQuaternion(thing.quaternion).applyQuaternion(pivot.quaternion).normalize();
     BLADE_RIG = { pivot, wrist, base: pivot.quaternion.clone(), thingQ: thing.quaternion.clone(), d0, off: new THREE.Vector3(), q: pivot.quaternion.clone(), from: null, lastT: 0,
-                  left, leftFist, leftGrip };
+                  left, leftFist, leftGrip, at: at.clone(),
+                  arms: [bendableGlove(glove, [0.26, -0.55, 0.25]), bendableGlove(lg, [-0.30, -0.62, 0.25])] };
+  }
+}
+/* THE WRISTS BEND (2026-11-22). Jack: "it would be good to add some
+   banding to the arm, because right now there just look like two sticks
+   ... adding a bending to the animation would make it look not so stiff".
+   A PAC-9 glove is the hand and about 16cm of sleeve, all one rigid mesh,
+   so the sleeve pointed wherever the hand did and ran off the screen as a
+   straight stick. Each blade glove gets its OWN copy of the geometry, and
+   every frame the sleeve is turned about the wrist toward that arm's
+   shoulder (a point below and behind the camera), blended in over the
+   wrist so it bends rather than kinks, at most ~40 degrees. The hand stays
+   on the grip; the forearm now answers to where the body is, so it swings
+   and bends through a cut instead of riding the sword.
+   Measured on the glove (its own frame): the long axis runs from the
+   fingertips (t -0.2) to the cuff (t +0.36), narrowest at the wrist
+   (t 0.2). */
+const GLOVE_AXIS = { c: new THREE.Vector3(0.036, 0.006, 0.002), v: new THREE.Vector3(0.452, 0.244, 0.858).normalize(), wrist: 0.2, w0: 0.10, w1: 0.28, max: 0.7 };
+/* The bend runs in the glove's VERTEX SHADER: each vertex carries its
+   weight (`bendW`, 0 at the wrist to 1 down the sleeve) and the shader turns
+   it about the wrist by that share of one rotation (`uBendQ`). Doing it on
+   the CPU was cheap (0.7ms) but re-sent both gloves' buffers to the GPU
+   every frame, which nearly doubled the frame. Each blade glove gets its
+   own geometry (for the weights) and its own material (for the uniforms),
+   chained onto the PAC-9 finish shader it already had. */
+function bendableGlove(g, shoulder){
+  const A = GLOVE_AXIS, pw = A.c.clone().addScaledVector(A.v, A.wrist);
+  const U = { q: { value: new THREE.Vector4(0, 0, 0, 1) }, p: { value: pw.clone() } };
+  for (const m of g.children){
+    if (!m.geometry || !m.geometry.attributes.position) continue;
+    m.geometry = m.geometry.clone();
+    const P = m.geometry.attributes.position, n = P.count, w = new Float32Array(n);
+    for (let i = 0; i < n; i++){
+      const t = (P.getX(i) - A.c.x) * A.v.x + (P.getY(i) - A.c.y) * A.v.y + (P.getZ(i) - A.c.z) * A.v.z;
+      const u = Math.min(1, Math.max(0, (t - A.w0) / (A.w1 - A.w0))); w[i] = u * u * (3 - 2 * u);
+    }
+    m.geometry.setAttribute('bendW', new THREE.BufferAttribute(w, 1));
+    const base = m.material, mat = base.clone(), prev = base.onBeforeCompile, key = base.customProgramCacheKey;
+    mat.onBeforeCompile = (sh, r) => {
+      if (prev) prev.call(mat, sh, r);
+      sh.uniforms.uBendQ = U.q; sh.uniforms.uBendP = U.p;
+      sh.vertexShader = 'attribute float bendW;\nuniform vec4 uBendQ;\nuniform vec3 uBendP;\n' + sh.vertexShader
+        .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvec4 bq = normalize(mix(vec4(0.0, 0.0, 0.0, 1.0), uBendQ, bendW));\nobjectNormal += 2.0 * cross(bq.xyz, cross(bq.xyz, objectNormal) + bq.w * objectNormal);')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\n{ vec3 rel = transformed - uBendP; transformed = uBendP + rel + 2.0 * cross(bq.xyz, cross(bq.xyz, rel) + bq.w * rel); }');
+    };
+    mat.customProgramCacheKey = () => (key ? key.call(base) : '') + '|bend';
+    m.material = mat;
+  }
+  return { g, pw, shoulder: new THREE.Vector3().fromArray(shoulder), U };
+}
+const _bS = new THREE.Vector3(), _bF = new THREE.Vector3(), _bQ = new THREE.Quaternion(), _bI = new THREE.Quaternion();
+/* Called every frame with the blade out, after the viewmodel is placed:
+   aims each sleeve at its shoulder, as far as a wrist goes. */
+function bladeArmsFrame(){
+  const R = BLADE_RIG; if (!R || !R.arms) return;
+  /* last frame's world matrices (the renderer refreshes them): forcing an
+     update of the whole camera rig here cost more than the bend; a frame's
+     lag on a wrist is invisible */
+  for (const a of R.arms){
+    _bS.copy(a.shoulder); camera.localToWorld(_bS); a.g.worldToLocal(_bS);        // the shoulder, in the glove's frame
+    _bF.copy(_bS).sub(a.pw).normalize();
+    const ang = GLOVE_AXIS.v.angleTo(_bF);
+    _bQ.setFromUnitVectors(GLOVE_AXIS.v, _bF);
+    if (ang > GLOVE_AXIS.max) _bQ.copy(_bI.identity().slerp(_bQ, GLOVE_AXIS.max / ang));
+    a.U.q.value.set(_bQ.x, _bQ.y, _bQ.z, _bQ.w);
   }
 }
 /* THE FIVE CUTS (2026-11-22). Jack: "its the animation of the 5 swinging of
@@ -881,12 +951,14 @@ const SWORD_CUTS = [
   /* 6 the CHARGED STAB (right-click, HEAVY in weapons.js; Jack: "the
      charge attack for the sword should be a stab", then "charge at the
      left side and stab"). Its first key is the pose the charge draws into:
-     the hilt pulled back on the LEFT, point levelled in across the view. The release drives the hand forward and in
+     the hilt pulled back on the LEFT, the point ON the crosshair (every
+     key here is 'aim': "when charging the sword should be pointing to the
+     aim"). The release drives the hand forward and in
      along that line, arm out, holds at full extension, and recovers. The
      point is aimed a little across the view rather than dead down it, or
      the blade foreshortens to a stub; its line still runs into the dot. */
-  [[0.04, [-0.40, 0.0, 0.02], [0.30, 0.14, -0.94]], [0.14, [-0.34, 0.08, -0.20], [0.12, 0.07, -0.99]],
-   [0.24, [-0.30, 0.12, -0.38], [0.05, 0.04, -1.00]], [0.55, [-0.30, 0.10, -0.32], [0.06, 0.04, -1.00]]],
+  [[0.04, [-0.40, 0.0, 0.02], 'aim'], [0.14, [-0.34, 0.08, -0.20], 'aim'],
+   [0.24, [-0.30, 0.12, -0.38], 'aim'], [0.55, [-0.30, 0.10, -0.32], 'aim']],
 ];
 const _cutI = new THREE.Quaternion(), _cutQ = new THREE.Quaternion(), _cutA = new THREE.Vector3(), _cutB = new THREE.Vector3();
 const _kM = new THREE.Matrix4(), _kF = new THREE.Vector3(), _kZ = new THREE.Vector3();
@@ -901,13 +973,22 @@ function bladeKeyQuats(R, K){
   if (R.kq.has(K)) return R.kq.get(K);
   const inv = R.thingQ.clone().invert(), out = [];
   let prevE = new THREE.Vector3(0, 1, 0).applyQuaternion(R.thingQ).applyQuaternion(R.base);
+  /* A key's direction may be 'aim': the blade laid along the line from
+     where the hand is at that key to a point 8m down the crosshair (the
+     charge and the stab, Jack: "when charging the sword should be pointing
+     to the aim"). The hand's place in view space is the blade's resting
+     pose plus its grip point plus the key's offset. */
+  const vm = WEAPONS[BLADE].vm || { x: 0, y: 0, z: 0 };
+  const dirs = K.map(k => k[2] === 'aim'
+    ? new THREE.Vector3(-(vm.x + R.at.x + k[1][0]), -(vm.y + R.at.y + k[1][1]), -8 - (vm.z + R.at.z + k[1][2])).normalize()
+    : new THREE.Vector3(...k[2]).normalize());
   for (let i = 0; i < K.length; i++){
-    const d = new THREE.Vector3(...K[i][2]).normalize();
-    const a = i === 0 ? d.clone() : new THREE.Vector3(...K[i - 1][2]).normalize();
-    const b = new THREE.Vector3(...K[Math.min(K.length - 1, i + 1)][2]).normalize();
+    const d = dirs[i].clone();
+    const a = i === 0 ? d.clone() : dirs[i - 1].clone();
+    const b = dirs[Math.min(K.length - 1, i + 1)].clone();
     if (i === K.length - 1) b.copy(d);
     const e = b.sub(a); e.addScaledVector(d, -e.dot(d));
-    if (e.lengthSq() < 1e-6) e.copy(prevE).addScaledVector(d, -prevE.dot(d));
+    if (K[i][2] === 'aim' || e.lengthSq() < 1e-6) e.copy(prevE).addScaledVector(d, -prevE.dot(d));   // a thrust: keep the blade's roll
     e.normalize();
     prevE = e.clone();
     _kZ.copy(d).negate(); _kF.crossVectors(e, _kZ);

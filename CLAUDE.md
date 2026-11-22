@@ -1853,6 +1853,26 @@ dressing the office interiors, ambient sound.
   of a cut) and bladeSwingFrame puts its origin, the fist, on the grip
   0.115m below the right hand every frame. Measured: 0.000mm off the grip
   through all six moves.
+- **The left hand lower, the wrists bend, the charge on the aim** (Jack:
+  "the second hand should not be blocking the screen too much, it should be
+  lower ... add some banding to the arm ... look like two sticks", "when
+  charging the sword should be pointing to the aim"):
+  - the left hand is turned 70 degrees round the handle (fist kept on it),
+    so its forearm runs down-left instead of up across the view;
+  - a PAC-9 glove is the hand plus ~16cm of sleeve as one rigid mesh, so
+    the sleeve pointed wherever the hand did. Each blade glove has its own
+    geometry with a `bendW` weight per vertex (0 at the wrist, t 0.2 on the
+    glove's long axis, to 1 down the sleeve) and its own material chained
+    onto the PAC-9 finish shader; the VERTEX SHADER turns the sleeve about
+    the wrist by that share of `uBendQ`, which `bladeArmsFrame` (drawn.js,
+    called from loop.js) aims each frame at that arm's shoulder (a point
+    below and behind the camera), capped at 0.7 rad. Bending on the CPU
+    meant re-uploading both gloves every frame; this sends one quaternion;
+  - the charge and the stab keys are `'aim'`: the blade laid along the line
+    from the hand at that key to 8m down the crosshair (bladeKeyQuats).
+    Measured: the blade's line at 8m lands at NDC (0.001, 0.002).
+  Frame cost of the bend: lost in this pane's noise (median ~1ms, A/B
+  interleaved five times).
 
 **The range has unlimited ammo and no resupply** (2026-11-22, Jack: "remove
 the resupply in training, ammo in training should be unlimited").
