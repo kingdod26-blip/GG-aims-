@@ -1804,6 +1804,26 @@ dressing the office interiors, ambient sound.
   existing melee swing (loop.js) sweeps it across as a cut and was left as
   it is. Not done: their second hand on the grip during cuts (the PAC-9
   left glove is posed for a handguard, not a sword grip).
+- **The five cuts** (Jack: "its the animation of the 5 swinging of the
+  sword, i want you to make the swing like the video"). The video's attacks,
+  read at 0.05s steps: from the upright guard the sword is drawn back (over
+  a shoulder or down to one side), then CUTS in about 0.2s - an arc right
+  through the view, both arms extending, the blade leaving the frame -
+  holds in the follow-through and comes back up to the guard. Seen: 18.8s
+  forehand diagonal, 21.1s left-to-right horizontal, 26.8/32.2s rising cut;
+  35-57s is a held blocking guard, 0-4s and 23.6-25s draw/put away.
+  `SWORD_CUTS` (drawn.js) is five keyframed cuts, one per combo hit: 1
+  forehand diagonal, 2 horizontal, 3 rising, 4 backhand diagonal, 5 the
+  finisher straight down from overhead. Each key is [time, hand offset in
+  view space, blade direction]; `bladeSwingFrame` (called from loop.js when
+  the blade is out, where the generic sine swing `sw` is now zero) moves
+  the hand and turns the blade about the grip; the glove hangs from its
+  own WRIST group and follows only 35% of the turn, so a downward cut does
+  not swing the sleeve up across the view. A cut chained before the last
+  one ended starts from where that one had got to. `swingCut` (input.js,
+  set at the swing) picks the cut - nothing about damage, reach, timing or
+  the hit test changed. Keep blade directions mostly ACROSS the screen: a
+  blade pointed at the camera foreshortens to a stub.
   To read a YouTube video's frames: seek the <video>, draw it into a canvas,
   show it as a fixed <img> sized to `innerWidth` (the pane's page is 400 CSS
   px wide - an 800px overlay showed only the left half), and screenshot.

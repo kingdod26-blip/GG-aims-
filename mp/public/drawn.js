@@ -793,14 +793,86 @@ function holdInGlove(slot, b, rOff, at, thing, alignAxis, turn){
   const holder = weaponHolders[slot];
   while (holder.children.length) holder.remove(holder.children[0]);
   const pivot = new THREE.Group(); pivot.position.copy(at); holder.add(pivot);
-  const glove = b.right.clone(); glove.position.copy(rOff); pivot.add(glove);
+  /* For a blade the glove hangs from its own WRIST group at the same grip,
+     so a cut can turn the blade further than the forearm (bladeSwingFrame). */
+  const wrist = alignAxis ? new THREE.Group() : pivot;
+  if (alignAxis){ wrist.position.copy(at); holder.add(wrist); }
+  const glove = b.right.clone(); glove.position.copy(rOff); wrist.add(glove);
   if (alignAxis) thing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), PAC9_GRIP_AXIS);
   /* turned on its own axis so the flat, not the edge, faces you: the camera
      looks at a held blade from above and to its left */
   if (alignAxis && turn[3]) thing.rotateOnAxis(new THREE.Vector3(0, 0, 1), turn[3]);
   pivot.add(thing);
   pivot.rotation.set(turn[0], turn[1], turn[2]);
+  if (wrist !== pivot) wrist.rotation.set(turn[0], turn[1], turn[2]);
   HOLD_ARMS[slot] = glove;
+  if (alignAxis){                          // a blade: remember how it rests, for the cuts (SWORD_CUTS)
+    pivot.updateMatrix();
+    const d0 = new THREE.Vector3(0, 0, -1).applyQuaternion(thing.quaternion).applyQuaternion(pivot.quaternion).normalize();
+    BLADE_RIG = { pivot, wrist, base: pivot.quaternion.clone(), d0, off: new THREE.Vector3(), dir: d0.clone(), from: null, lastT: 0 };
+  }
+}
+/* THE FIVE CUTS (2026-11-22). Jack: "its the animation of the 5 swinging of
+   the sword, i want you to make the swing like the video". The video's
+   attacks, frame by frame: from the upright guard the sword is drawn back
+   (over the right shoulder, or down to one side), then CUTS - a fast arc
+   right through the view, both arms extending with it, the blade passing
+   out of the frame in about a fifth of a second - holds a beat in the
+   follow-through, and comes back up to the guard. Four different lines of
+   cut, and here a fifth for the finisher:
+     1  forehand diagonal: over the right shoulder, down to the lower left
+     2  horizontal: from the left, flat across to the right
+     3  rising: from low left up across to the upper right
+     4  backhand diagonal: over the left shoulder, down to the lower right
+     5  the finisher: raised high overhead, straight down the middle
+   Each key is [time 0..1, hand offset (view space, metres), blade
+   direction]. The hand moves the whole hold; the blade turns about the
+   grip as a wrist does. A cut chained before the last one finished starts
+   from wherever that one had got to. */
+let BLADE_RIG = null;
+const SWORD_CUTS = [
+  /* 1 forehand diagonal: up over the right shoulder, down across to the lower left */
+  [[0.20, [0.02, 0.20, 0.06], [0.55, 0.75, 0.35]], [0.32, [-0.15, 0.16, -0.06], [-0.60, 0.55, -0.55]],
+   [0.44, [-0.40, -0.02, -0.06], [-0.85, -0.30, -0.42]], [0.62, [-0.48, -0.14, 0.00], [-0.70, -0.62, -0.20]]],
+  /* 2 horizontal: from the left, flat across to the right */
+  [[0.20, [-0.42, 0.06, 0.04], [-0.90, 0.20, 0.35]], [0.32, [-0.14, 0.08, -0.06], [-0.35, 0.15, -0.92]],
+   [0.44, [0.12, 0.06, -0.04], [0.88, 0.12, -0.45]], [0.62, [0.18, 0.02, 0.02], [0.92, 0.05, 0.35]]],
+  /* 3 rising: from low left up across to the upper right */
+  [[0.20, [-0.38, -0.12, 0.04], [-0.75, -0.50, 0.40]], [0.32, [-0.15, 0.00, -0.06], [-0.20, 0.45, -0.87]],
+   [0.44, [0.08, 0.14, -0.04], [0.65, 0.68, -0.35]], [0.62, [0.12, 0.20, 0.02], [0.55, 0.80, 0.20]]],
+  /* 4 backhand diagonal: up over the left shoulder, down across to the lower right */
+  [[0.20, [-0.36, 0.20, 0.06], [-0.60, 0.72, 0.35]], [0.32, [-0.18, 0.14, -0.06], [0.30, 0.80, -0.50]],
+   [0.44, [0.05, -0.04, -0.06], [0.85, -0.30, -0.42]], [0.62, [0.10, -0.14, 0.00], [0.65, -0.70, -0.20]]],
+  /* 5 the finisher: raised high overhead, straight down the middle */
+  [[0.24, [-0.16, 0.26, 0.08], [-0.05, 0.60, 0.80]], [0.36, [-0.20, 0.22, -0.08], [-0.05, 0.95, -0.30]],
+   [0.48, [-0.22, -0.06, -0.10], [-0.05, -0.45, -0.89]], [0.68, [-0.22, -0.16, -0.06], [0.00, -0.75, -0.66]]],
+];
+const _cutI = new THREE.Quaternion(), _cutQ = new THREE.Quaternion(), _cutA = new THREE.Vector3(), _cutB = new THREE.Vector3();
+/* Called every frame while the blade is out: returns the hand's offset to
+   add to the gun's position, and turns the blade's pivot. */
+function bladeSwingFrame(swingT, cut){
+  const R = BLADE_RIG; if (!R) return null;
+  const p = 1 - swingT;
+  if (swingT > R.lastT + 0.05) R.from = { off: R.off.clone(), dir: R.dir.clone() };   // a new cut began
+  R.lastT = swingT;
+  if (swingT <= 0){ R.off.set(0, 0, 0); R.dir.copy(R.d0); R.from = null; }
+  else {
+    const K = SWORD_CUTS[Math.max(0, Math.min(SWORD_CUTS.length - 1, cut | 0))];
+    const keys = [[0, R.from ? R.from.off.toArray() : [0, 0, 0], R.from ? R.from.dir.toArray() : R.d0.toArray()], ...K, [1, [0, 0, 0], R.d0.toArray()]];
+    let i = 0; while (i < keys.length - 2 && p > keys[i + 1][0]) i++;
+    const a = keys[i], b = keys[i + 1], t0 = Math.min(1, Math.max(0, (p - a[0]) / (b[0] - a[0])));
+    const t = t0 * t0 * (3 - 2 * t0);
+    R.off.fromArray(a[1]).lerp(_cutA.fromArray(b[1]), t);
+    R.dir.copy(_cutA.fromArray(a[2]).normalize()).lerp(_cutB.fromArray(b[2]).normalize(), t);
+    if (R.dir.lengthSq() < 1e-4) R.dir.copy(_cutB); R.dir.normalize();
+  }
+  _cutQ.setFromUnitVectors(R.d0, R.dir);
+  R.pivot.quaternion.copy(_cutQ).multiply(R.base);
+  /* the forearm follows a third of the turn; the wrist bends the rest, as
+     a real one does, so a downward cut does not swing the sleeve up across
+     the view */
+  if (R.wrist !== R.pivot) R.wrist.quaternion.copy(_cutI.identity().slerp(_cutQ, 0.35)).multiply(R.base);
+  return R.off;
 }
 
 fetch(PAC9.url).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })

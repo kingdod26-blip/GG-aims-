@@ -432,7 +432,7 @@ if (THREE.FBXLoader) ABILITY_MODELS.filter(am => am.slots.includes(XBOW)).forEac
     }, undefined, onErr);
   } catch(e){ onErr(e); }
 });
-let comboStep = 0, comboUntil = 0, swingT = 0, swingDir = 1;
+let comboStep = 0, comboUntil = 0, swingT = 0, swingDir = 1, swingCut = 0;
 let currentWeapon = 0;
 let weaponAmmo = WEAPONS.map(w=>({ mag:w.magMax, reserve:w.reserveMax }));
 const curW = ()=>WEAPONS[currentWeapon];

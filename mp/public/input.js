@@ -179,6 +179,7 @@ function shoot(){
     lastShot=now;
     if(now>comboUntil) comboStep=0;                 // chain timed out
     swingT=1; swingDir=-swingDir;                   // alternate slash direction
+    swingCut=comboStep;                             // which of the five cuts to draw (drawn.js SWORD_CUTS)
     Sfx.swap();
     const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(me.pitch,me.yaw,0,'YXZ'));
     const o=camera.position.clone();

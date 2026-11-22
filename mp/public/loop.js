@@ -467,7 +467,11 @@ function loop(){ requestAnimationFrame(loop);
     stanceAmt += ((me.stance==='prone' ? 1 : me.stance==='crouch' ? 0.5 : 0) - stanceAmt) * Math.min(1, dt*10);
     // melee swing: arcs the blade across the screen, alternating each hit
     if(swingT>0) swingT=Math.max(0, swingT-dt*(1000/curW().fireRate)*0.55);
-    const sw = Math.sin(swingT*Math.PI) * swingDir;
+    /* The longsword cuts with its own keyframed arcs (drawn.js SWORD_CUTS),
+       so the generic swing - a sine of the whole viewmodel - is for nothing
+       else now: with the blade out, `sw` is zero and the cut moves the hand. */
+    const bladeOut = curW().melee && typeof bladeSwingFrame === 'function' && BLADE_RIG;
+    const sw = bladeOut ? 0 : Math.sin(swingT*Math.PI) * swingDir;
     const sp = sprintAmt*(1-ads);
     // stance and sprint poses give way while aiming: you shoulder the gun
     const sx = (-0.06*stanceAmt + 0.10*sp)*(1-ads);
@@ -517,6 +521,7 @@ function loop(){ requestAnimationFrame(loop);
                      (rRot*0.3 + sw*0.9)*mk + V.ry*(1-ads),
                      (rRot*0.5 + sr + sw*1.1)*mk + V.rz*(1-ads));
     gun.scale.set(vk, vk, 1);
+    if (bladeOut){ const o = bladeSwingFrame(swingT, swingCut); if (o) gun.position.add(o); }
   } else {
     // menu: spatial showcase — the 3D camera parallaxes with the mouse to match
     // the CSS glass layers, and the operator can be dragged to inspect.
