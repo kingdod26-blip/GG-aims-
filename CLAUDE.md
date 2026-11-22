@@ -1860,17 +1860,27 @@ dressing the office interiors, ambient sound.
   should be pointing to the aim"):
   - the left hand is turned 70 degrees round the handle (fist kept on it),
     so its forearm runs down-left instead of up across the view;
-  - **Arms: the plain glove** (final, Jack: "be like the original swing
-    before all this, dont show too much arm"). Jointed arms were built the
-    same day - two-bone IK, an upper arm to each shoulder, an elbow joint,
-    the hand turning on the grip to meet its forearm - and taken out with
-    everything that led to them (a wrist bend, stretched sleeves, a
-    separate forearm tube). What stays: the PAC-9 glove alone, ONE hand on
-    the sword at rest and through the five cuts, the left hand on the grip
-    only while a charge is held (`chargeFrom`) and through the stab
-    (`swingCut === HEAVY.cut`) - `bladeArmsFrame` sets that each frame -
-    and cut 3's lowered finish. Lesson: in first person, every bit of arm
-    added is screen taken; the glove alone is what Jack wants.
+  - **Arms: plain glove for the swings, jointed arms for the charge**
+    (Jack: "be like the original swing before all this, dont show too much
+    arm" - "only for the swing not for the charge"). For rest and the five
+    cuts the sword is held by the plain right glove alone: no elbow, no
+    upper arm, the hand at its default turn on the grip. While a charge is
+    held (`chargeFrom`) and through the stab (`swingCut === HEAVY.cut`)
+    both hands are on it with JOINTED ARMS: two-bone IK from the fist to a
+    shoulder (+-0.21, -0.38, 0.14 camera space) with the elbow pushed out
+    and down; the glove IS the forearm (the PAC-9 glove runs fist to cuff
+    ~0.4m), the elbow is its cuff (`ARM.elbowT` 0.40), and the hand turns
+    round the handle each frame (analytically, about PAC9_GRIP_AXIS) so the
+    forearm points at the IK elbow - no wrist bend. A small elbow joint
+    (r 0.064) and an upper arm run toward the shoulder, cut where they
+    leave the view (`armClip`) and kept 0.22m off the lens (the near plane
+    sliced a tube into a flat slab). `bladeArmsFrame` switches all of it.
+    Research behind it: longsword wind-ups are made with the elbows bent
+    and out, the cut extends the arms forward through the strike. Tried and
+    dropped on the way: a wrist bend ("not the wrist"), sleeves stretched
+    off-screen (a cover, not an arm), a separate forearm tube (it kinked).
+    Cut 3 finishes low and right. Lesson: in first person every bit of
+    arm is screen taken - keep it for the moves that need it.
   - the charge and the stab keys are `'aim'`: the blade laid along the line
     from the hand at that key to 8m down the crosshair (bladeKeyQuats).
     Measured: the blade's line at 8m lands at NDC (0.001, 0.002).
