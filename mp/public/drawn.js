@@ -811,9 +811,28 @@ function holdInGlove(slot, b, rOff, at, thing, alignAxis, turn){
   if (wrist !== pivot) wrist.rotation.set(turn[0], turn[1], turn[2]);
   HOLD_ARMS[slot] = glove;
   if (alignAxis){                          // a blade: remember how it rests, for the cuts (SWORD_CUTS)
+    /* BOTH HANDS ON IT (Jack, 2026-11-22: "add in both hands for the
+       swinging ... when using the sword"). A longsword is held in two: the
+       left hand closes on the grip just below the right, toward the pommel.
+       It is the right glove MIRRORED in x - the fist closes round the same
+       grip line (PAC9_GRIP_AXIS has no x) - slid 0.115m down it. Like the right hand it hangs from the WRIST group, so its forearm
+       follows only part of a cut (riding the pivot swung the sleeve up across
+       the view); bladeSwingFrame puts its fist back on the grip every frame.
+       (three.js flips the winding itself for a negative scale.) */
+    /* Mirrored as a GROUP, not the glove on its own axis: the glove model
+       carries its own rotation, so flipping its local x was no mirror image
+       and the forearm pointed up out of the fist. The group reflects the
+       whole right hand through the grip's plane; its origin is the fist. */
+    const left = new THREE.Group(); left.scale.x = -1;
+    const lg = b.right.clone(); lg.position.copy(rOff); left.add(lg);
+    const leftFist = new THREE.Vector3();                                 // the group's origin IS the fist
+    const leftGrip = PAC9_GRIP_AXIS.clone().multiplyScalar(-0.115);       // where it holds, in the pivot's frame
+    left.position.copy(leftGrip);
+    wrist.add(left);
     pivot.updateMatrix();
     const d0 = new THREE.Vector3(0, 0, -1).applyQuaternion(thing.quaternion).applyQuaternion(pivot.quaternion).normalize();
-    BLADE_RIG = { pivot, wrist, base: pivot.quaternion.clone(), thingQ: thing.quaternion.clone(), d0, off: new THREE.Vector3(), q: pivot.quaternion.clone(), from: null, lastT: 0 };
+    BLADE_RIG = { pivot, wrist, base: pivot.quaternion.clone(), thingQ: thing.quaternion.clone(), d0, off: new THREE.Vector3(), q: pivot.quaternion.clone(), from: null, lastT: 0,
+                  left, leftFist, leftGrip };
   }
 }
 /* THE FIVE CUTS (2026-11-22). Jack: "its the animation of the 5 swinging of
@@ -859,11 +878,15 @@ const SWORD_CUTS = [
   /* 5 the finisher: raised high overhead, straight down the middle */
   [[0.24, [-0.30, 0.36, 0.06], [0.06, 0.55, 0.83]], [0.36, [-0.30, 0.30, -0.10], [0.06, 0.95, -0.30]],
    [0.48, [-0.30, 0.14, -0.18], [-0.08, -0.35, -0.93]], [0.68, [-0.32, 0.06, -0.10], [-0.30, -0.70, -0.65]]],
-  /* 6 the CHARGED cut (right-click, HEAVY in weapons.js): its first key is
-     the drawn-back pose the charge rises into, so the release starts from
-     there and comes straight down across the middle, harder and wider */
-  [[0.06, [-0.04, 0.36, 0.08], [0.35, 0.85, 0.40]], [0.18, [-0.22, 0.26, -0.14], [0.50, 0.70, -0.50]],
-   [0.32, [-0.38, 0.06, -0.18], [-0.82, -0.35, -0.45]], [0.60, [-0.48, -0.06, -0.06], [-0.85, -0.50, -0.15]]],
+  /* 6 the CHARGED STAB (right-click, HEAVY in weapons.js; Jack: "the
+     charge attack for the sword should be a stab", then "charge at the
+     left side and stab"). Its first key is the pose the charge draws into:
+     the hilt pulled back on the LEFT, point levelled in across the view. The release drives the hand forward and in
+     along that line, arm out, holds at full extension, and recovers. The
+     point is aimed a little across the view rather than dead down it, or
+     the blade foreshortens to a stub; its line still runs into the dot. */
+  [[0.04, [-0.40, 0.0, 0.02], [0.30, 0.14, -0.94]], [0.14, [-0.34, 0.08, -0.20], [0.12, 0.07, -0.99]],
+   [0.24, [-0.30, 0.12, -0.38], [0.05, 0.04, -1.00]], [0.55, [-0.30, 0.10, -0.32], [0.06, 0.04, -1.00]]],
 ];
 const _cutI = new THREE.Quaternion(), _cutQ = new THREE.Quaternion(), _cutA = new THREE.Vector3(), _cutB = new THREE.Vector3();
 const _kM = new THREE.Matrix4(), _kF = new THREE.Vector3(), _kZ = new THREE.Vector3();
@@ -928,6 +951,10 @@ function bladeSwingFrame(swingT, cut, charge){
      with the blade reads as a broken arm */
   _cutQ.setFromUnitVectors(R.d0, _cutA.set(0, 0, -1).applyQuaternion(R.thingQ).applyQuaternion(R.q).normalize());
   if (R.wrist !== R.pivot) R.wrist.quaternion.copy(_cutI.identity().slerp(_cutQ, 0.35)).multiply(R.base);
+  /* the left hand's fist back on the grip: the grip point turned with the
+     blade, taken into the wrist's frame (both groups share one origin) */
+  if (R.left) R.left.position.copy(R.leftGrip).applyQuaternion(R.pivot.quaternion)
+                .applyQuaternion(_cutI.copy(R.wrist.quaternion).invert()).sub(R.leftFist);
   return R.off;
 }
 

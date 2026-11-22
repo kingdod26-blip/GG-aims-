@@ -1838,6 +1838,21 @@ dressing the office interiors, ambient sound.
   `scratchpad/meleeheavy.js` checks both on the server: heavy refused
   without a charge and after a 100ms tap; four misses then a hit lands the
   70 finisher; a 320ms charge then kills.
+- **The charged attack is a STAB, charged on the left** (Jack: "the charge
+  attack for the sword should be a stab", "charge at the left side and
+  stab"). SWORD_CUTS' sixth entry: the charge draws the hilt back on the
+  left with the point levelled in across the view, the release drives the
+  hand forward to the middle along the line to the dot, holds at full
+  reach, recovers. Damage, reach and the server's timing are unchanged.
+- **Both hands on the sword** ("add in both hands for the swinging ...
+  when using the sword"): the left hand is the right glove reflected
+  through the grip's plane - a GROUP with scale.x -1 holding a clone of the
+  right glove, because the glove model carries its own rotation and
+  flipping its own x left the forearm pointing up out of the fist. It
+  hangs from the wrist group like the right (its forearm follows a third
+  of a cut) and bladeSwingFrame puts its origin, the fist, on the grip
+  0.115m below the right hand every frame. Measured: 0.000mm off the grip
+  through all six moves.
 
 **The red dot and the sight agree under recoil** (2026-11-22, Jack: "the
 actual position the bullet lands is suppose to be the same as what is
