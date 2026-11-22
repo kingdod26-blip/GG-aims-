@@ -1809,6 +1809,18 @@ dressing the office interiors, ambient sound.
   turn [-0.15, 0, -0.4] roll 1.5, pose x .3 y -.2 z -.5. The hilt sits low
   at the right edge and the blade leans toward the upper right corner,
   clear of the centre. The five cuts start from it unchanged.
+  **Edge first, in front** (Jack: "i am slicing with the blade not the
+  metal, and the swinging should be swinging infront not at the side").
+  The keys only aimed the point and the roll fell wherever the shortest
+  turn left it, so most cuts led with the flat. Each key is now a whole
+  orientation (`bladeKeyQuats`): blade along its direction, the sword's
+  +Y edge turned into the direction of travel there, and the keys are
+  slerped. ALWAYS the same edge - choosing whichever edge needed less roll
+  put opposite edges on two keys of one strike and it rolled flat-first
+  through the middle. The forearm follows only the swing, not the roll.
+  The strikes are moved to the middle of the view, arms out, angled across
+  the screen (a blade aimed at the camera shrinks to a stub). Measured:
+  the edge's share of the tip's motion through each strike is 0.98-1.00.
 - **The five cuts** (Jack: "its the animation of the 5 swinging of the
   sword, i want you to make the swing like the video"). The video's attacks,
   read at 0.05s steps: from the upright guard the sword is drawn back (over

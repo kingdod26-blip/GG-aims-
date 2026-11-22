@@ -813,7 +813,7 @@ function holdInGlove(slot, b, rOff, at, thing, alignAxis, turn){
   if (alignAxis){                          // a blade: remember how it rests, for the cuts (SWORD_CUTS)
     pivot.updateMatrix();
     const d0 = new THREE.Vector3(0, 0, -1).applyQuaternion(thing.quaternion).applyQuaternion(pivot.quaternion).normalize();
-    BLADE_RIG = { pivot, wrist, base: pivot.quaternion.clone(), d0, off: new THREE.Vector3(), dir: d0.clone(), from: null, lastT: 0 };
+    BLADE_RIG = { pivot, wrist, base: pivot.quaternion.clone(), thingQ: thing.quaternion.clone(), d0, off: new THREE.Vector3(), q: pivot.quaternion.clone(), from: null, lastT: 0 };
   }
 }
 /* THE FIVE CUTS (2026-11-22). Jack: "its the animation of the 5 swinging of
@@ -834,47 +834,85 @@ function holdInGlove(slot, b, rOff, at, thing, alignAxis, turn){
    grip as a wrist does. A cut chained before the last one finished starts
    from wherever that one had got to. */
 let BLADE_RIG = null;
+/* EDGE FIRST, IN FRONT (2026-11-22). Jack: "it should be sideways and not
+   like ur wacking it using the body, i am slicing with the blade not the
+   metal, and the swinging should be swinging infront not at the side".
+   The keys used to give only where the point aimed, and the roll fell
+   wherever the shortest turn left it - so most cuts led with the FLAT. Now
+   every key is a whole orientation: the blade along its direction and the
+   EDGE turned into the way the blade is travelling there (bladeKeyQuats),
+   so the cut slices. And the strikes pass through the middle of the view,
+   arms out in front, not out at the right where the sword rests. */
 const SWORD_CUTS = [
   /* 1 forehand diagonal: up over the right shoulder, down across to the lower left */
-  [[0.20, [0.02, 0.20, 0.06], [0.55, 0.75, 0.35]], [0.32, [-0.15, 0.16, -0.06], [-0.60, 0.55, -0.55]],
-   [0.44, [-0.40, -0.02, -0.06], [-0.85, -0.30, -0.42]], [0.62, [-0.48, -0.14, 0.00], [-0.70, -0.62, -0.20]]],
+  [[0.20, [-0.08, 0.32, 0.04], [0.40, 0.85, 0.35]], [0.32, [-0.20, 0.24, -0.10], [0.55, 0.70, -0.45]],
+   [0.44, [-0.32, 0.10, -0.14], [-0.80, -0.30, -0.50]], [0.62, [-0.42, -0.02, -0.06], [-0.85, -0.50, -0.15]]],
   /* 2 horizontal: from the left, flat across to the right */
-  [[0.20, [-0.42, 0.06, 0.04], [-0.90, 0.20, 0.35]], [0.32, [-0.14, 0.08, -0.06], [-0.35, 0.15, -0.92]],
-   [0.44, [0.12, 0.06, -0.04], [0.88, 0.12, -0.45]], [0.62, [0.18, 0.02, 0.02], [0.92, 0.05, 0.35]]],
+  [[0.20, [-0.46, 0.16, 0.02], [-0.90, 0.15, 0.40]], [0.32, [-0.36, 0.16, -0.12], [-0.80, 0.12, -0.58]],
+   [0.44, [-0.16, 0.16, -0.14], [0.80, 0.10, -0.58]], [0.62, [-0.02, 0.12, -0.04], [0.92, 0.05, 0.30]]],
   /* 3 rising: from low left up across to the upper right */
-  [[0.20, [-0.38, -0.12, 0.04], [-0.75, -0.50, 0.40]], [0.32, [-0.15, 0.00, -0.06], [-0.20, 0.45, -0.87]],
-   [0.44, [0.08, 0.14, -0.04], [0.65, 0.68, -0.35]], [0.62, [0.12, 0.20, 0.02], [0.55, 0.80, 0.20]]],
+  [[0.20, [-0.44, -0.04, 0.02], [-0.75, -0.55, 0.35]], [0.32, [-0.34, 0.06, -0.12], [-0.75, -0.35, -0.55]],
+   [0.44, [-0.18, 0.20, -0.14], [0.70, 0.50, -0.50]], [0.62, [-0.08, 0.28, -0.02], [0.55, 0.80, 0.20]]],
   /* 4 backhand diagonal: up over the left shoulder, down across to the lower right */
-  [[0.20, [-0.36, 0.20, 0.06], [-0.60, 0.72, 0.35]], [0.32, [-0.18, 0.14, -0.06], [0.30, 0.80, -0.50]],
-   [0.44, [0.05, -0.04, -0.06], [0.85, -0.30, -0.42]], [0.62, [0.10, -0.14, 0.00], [0.65, -0.70, -0.20]]],
+  [[0.20, [-0.44, 0.32, 0.04], [-0.50, 0.80, 0.33]], [0.32, [-0.36, 0.24, -0.10], [-0.55, 0.70, -0.45]],
+   [0.44, [-0.22, 0.10, -0.14], [0.80, -0.30, -0.50]], [0.62, [-0.10, -0.02, -0.06], [0.85, -0.50, -0.15]]],
   /* 5 the finisher: raised high overhead, straight down the middle */
-  [[0.24, [-0.16, 0.26, 0.08], [-0.05, 0.60, 0.80]], [0.36, [-0.20, 0.22, -0.08], [-0.05, 0.95, -0.30]],
-   [0.48, [-0.22, -0.06, -0.10], [-0.05, -0.45, -0.89]], [0.68, [-0.22, -0.16, -0.06], [0.00, -0.75, -0.66]]],
+  [[0.24, [-0.30, 0.36, 0.06], [0.06, 0.55, 0.83]], [0.36, [-0.30, 0.30, -0.10], [0.06, 0.95, -0.30]],
+   [0.48, [-0.30, 0.14, -0.18], [-0.08, -0.35, -0.93]], [0.68, [-0.32, 0.06, -0.10], [-0.30, -0.70, -0.65]]],
 ];
 const _cutI = new THREE.Quaternion(), _cutQ = new THREE.Quaternion(), _cutA = new THREE.Vector3(), _cutB = new THREE.Vector3();
+const _kM = new THREE.Matrix4(), _kF = new THREE.Vector3(), _kZ = new THREE.Vector3();
+/* Each key of a cut as a whole pivot orientation. The sword's own frame:
+   blade along -Z, edges along Y, flats facing X. The edge is set to the way
+   the blade is moving at that key (from the keys either side; the wind-up
+   key already faces the way the cut will go). ALWAYS the same edge: picking
+   whichever edge needed less roll put opposite edges on two keys of one
+   strike, and the blade rolled flat-first through the middle of it. */
+function bladeKeyQuats(R, K){
+  if (!R.kq) R.kq = new Map();
+  if (R.kq.has(K)) return R.kq.get(K);
+  const inv = R.thingQ.clone().invert(), out = [];
+  let prevE = new THREE.Vector3(0, 1, 0).applyQuaternion(R.thingQ).applyQuaternion(R.base);
+  for (let i = 0; i < K.length; i++){
+    const d = new THREE.Vector3(...K[i][2]).normalize();
+    const a = i === 0 ? d.clone() : new THREE.Vector3(...K[i - 1][2]).normalize();
+    const b = new THREE.Vector3(...K[Math.min(K.length - 1, i + 1)][2]).normalize();
+    if (i === K.length - 1) b.copy(d);
+    const e = b.sub(a); e.addScaledVector(d, -e.dot(d));
+    if (e.lengthSq() < 1e-6) e.copy(prevE).addScaledVector(d, -prevE.dot(d));
+    e.normalize();
+    prevE = e.clone();
+    _kZ.copy(d).negate(); _kF.crossVectors(e, _kZ);
+    _kM.makeBasis(_kF, e, _kZ);
+    out.push(new THREE.Quaternion().setFromRotationMatrix(_kM).multiply(inv));
+  }
+  R.kq.set(K, out); return out;
+}
 /* Called every frame while the blade is out: returns the hand's offset to
    add to the gun's position, and turns the blade's pivot. */
 function bladeSwingFrame(swingT, cut){
   const R = BLADE_RIG; if (!R) return null;
   const p = 1 - swingT;
-  if (swingT > R.lastT + 0.05) R.from = { off: R.off.clone(), dir: R.dir.clone() };   // a new cut began
+  if (swingT > R.lastT + 0.05) R.from = { off: R.off.clone(), q: R.q.clone() };   // a new cut began
   R.lastT = swingT;
-  if (swingT <= 0){ R.off.set(0, 0, 0); R.dir.copy(R.d0); R.from = null; }
+  if (swingT <= 0){ R.off.set(0, 0, 0); R.q.copy(R.base); R.from = null; }
   else {
-    const K = SWORD_CUTS[Math.max(0, Math.min(SWORD_CUTS.length - 1, cut | 0))];
-    const keys = [[0, R.from ? R.from.off.toArray() : [0, 0, 0], R.from ? R.from.dir.toArray() : R.d0.toArray()], ...K, [1, [0, 0, 0], R.d0.toArray()]];
+    const K = SWORD_CUTS[Math.max(0, Math.min(SWORD_CUTS.length - 1, cut | 0))], KQ = bladeKeyQuats(R, K);
+    const keys = [[0, R.from ? R.from.off.toArray() : [0, 0, 0], R.from ? R.from.q : R.base],
+                  ...K.map((k, j) => [k[0], k[1], KQ[j]]), [1, [0, 0, 0], R.base]];
     let i = 0; while (i < keys.length - 2 && p > keys[i + 1][0]) i++;
     const a = keys[i], b = keys[i + 1], t0 = Math.min(1, Math.max(0, (p - a[0]) / (b[0] - a[0])));
     const t = t0 * t0 * (3 - 2 * t0);
     R.off.fromArray(a[1]).lerp(_cutA.fromArray(b[1]), t);
-    R.dir.copy(_cutA.fromArray(a[2]).normalize()).lerp(_cutB.fromArray(b[2]).normalize(), t);
-    if (R.dir.lengthSq() < 1e-4) R.dir.copy(_cutB); R.dir.normalize();
+    R.q.copy(a[2]).slerp(b[2], t);
   }
-  _cutQ.setFromUnitVectors(R.d0, R.dir);
-  R.pivot.quaternion.copy(_cutQ).multiply(R.base);
+  R.pivot.quaternion.copy(R.q);
   /* the forearm follows a third of the turn; the wrist bends the rest, as
      a real one does, so a downward cut does not swing the sleeve up across
      the view */
+  /* ...of the SWING only, not the edge's roll: a sleeve twisted round
+     with the blade reads as a broken arm */
+  _cutQ.setFromUnitVectors(R.d0, _cutA.set(0, 0, -1).applyQuaternion(R.thingQ).applyQuaternion(R.q).normalize());
   if (R.wrist !== R.pivot) R.wrist.quaternion.copy(_cutI.identity().slerp(_cutQ, 0.35)).multiply(R.base);
   return R.off;
 }
