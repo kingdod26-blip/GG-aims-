@@ -837,72 +837,38 @@ function holdInGlove(slot, b, rOff, at, thing, alignAxis, turn){
     pivot.updateMatrix();
     const d0 = new THREE.Vector3(0, 0, -1).applyQuaternion(thing.quaternion).applyQuaternion(pivot.quaternion).normalize();
     BLADE_RIG = { pivot, wrist, base: pivot.quaternion.clone(), thingQ: thing.quaternion.clone(), d0, off: new THREE.Vector3(), q: pivot.quaternion.clone(), from: null, lastT: 0,
-                  left, leftFist, leftGrip, at: at.clone(),
-                  arms: [bendableGlove(glove, [0.26, -0.55, 0.25]), bendableGlove(lg, [-0.30, -0.62, 0.25])] };
+                  left, leftFist, leftGrip, at: at.clone() };
+    /* (A wrist bend toward the shoulders was tried the same day and taken
+       out - Jack: "no, not the wrist, only the elbow if its shown, the main
+       thing is not to make the whole model of the arm be shown". Aiming the
+       sleeves at the shoulders laid whole arms across the screen.)
+       What gave the arm away was the END of the sleeve: a PAC-9 glove is the
+       hand and ~16cm of sleeve, and in the cuts and the stab that cut-off
+       end hung in plain view. The blade's two gloves get their own copy of
+       the geometry with the sleeve STRETCHED back along its own line, so the
+       end always lies past the edge of the screen. Straight: no bend, no
+       elbow in view. */
+    sleeveRunsOff(glove); sleeveRunsOff(lg);
   }
 }
-/* THE WRISTS BEND (2026-11-22). Jack: "it would be good to add some
-   banding to the arm, because right now there just look like two sticks
-   ... adding a bending to the animation would make it look not so stiff".
-   A PAC-9 glove is the hand and about 16cm of sleeve, all one rigid mesh,
-   so the sleeve pointed wherever the hand did and ran off the screen as a
-   straight stick. Each blade glove gets its OWN copy of the geometry, and
-   every frame the sleeve is turned about the wrist toward that arm's
-   shoulder (a point below and behind the camera), blended in over the
-   wrist so it bends rather than kinks, at most ~40 degrees. The hand stays
-   on the grip; the forearm now answers to where the body is, so it swings
-   and bends through a cut instead of riding the sword.
-   Measured on the glove (its own frame): the long axis runs from the
-   fingertips (t -0.2) to the cuff (t +0.36), narrowest at the wrist
-   (t 0.2). */
-const GLOVE_AXIS = { c: new THREE.Vector3(0.036, 0.006, 0.002), v: new THREE.Vector3(0.452, 0.244, 0.858).normalize(), wrist: 0.2, w0: 0.10, w1: 0.28, max: 0.7 };
-/* The bend runs in the glove's VERTEX SHADER: each vertex carries its
-   weight (`bendW`, 0 at the wrist to 1 down the sleeve) and the shader turns
-   it about the wrist by that share of one rotation (`uBendQ`). Doing it on
-   the CPU was cheap (0.7ms) but re-sent both gloves' buffers to the GPU
-   every frame, which nearly doubled the frame. Each blade glove gets its
-   own geometry (for the weights) and its own material (for the uniforms),
-   chained onto the PAC-9 finish shader it already had. */
-function bendableGlove(g, shoulder){
-  const A = GLOVE_AXIS, pw = A.c.clone().addScaledVector(A.v, A.wrist);
-  const U = { q: { value: new THREE.Vector4(0, 0, 0, 1) }, p: { value: pw.clone() } };
+/* A blade glove's sleeve, stretched back along the glove's long axis (from
+   the fingertips at t -0.2 to the cuff at t +0.36, measured on the model):
+   everything past t 0.24 moves back by 3.2x its distance past that point,
+   which takes the cuff from 0.12m to about 0.5m behind the wrist. The hand
+   and the fist are untouched. */
+function sleeveRunsOff(g){
+  const c = new THREE.Vector3(0.036, 0.006, 0.002), v = new THREE.Vector3(0.452, 0.244, 0.858).normalize(), t0 = 0.24, k = 3.2;
   for (const m of g.children){
     if (!m.geometry || !m.geometry.attributes.position) continue;
     m.geometry = m.geometry.clone();
-    const P = m.geometry.attributes.position, n = P.count, w = new Float32Array(n);
-    for (let i = 0; i < n; i++){
-      const t = (P.getX(i) - A.c.x) * A.v.x + (P.getY(i) - A.c.y) * A.v.y + (P.getZ(i) - A.c.z) * A.v.z;
-      const u = Math.min(1, Math.max(0, (t - A.w0) / (A.w1 - A.w0))); w[i] = u * u * (3 - 2 * u);
+    const P = m.geometry.attributes.position;
+    for (let i = 0; i < P.count; i++){
+      const t = (P.getX(i) - c.x) * v.x + (P.getY(i) - c.y) * v.y + (P.getZ(i) - c.z) * v.z;
+      if (t <= t0) continue;
+      const d = (t - t0) * k;
+      P.setXYZ(i, P.getX(i) + v.x * d, P.getY(i) + v.y * d, P.getZ(i) + v.z * d);
     }
-    m.geometry.setAttribute('bendW', new THREE.BufferAttribute(w, 1));
-    const base = m.material, mat = base.clone(), prev = base.onBeforeCompile, key = base.customProgramCacheKey;
-    mat.onBeforeCompile = (sh, r) => {
-      if (prev) prev.call(mat, sh, r);
-      sh.uniforms.uBendQ = U.q; sh.uniforms.uBendP = U.p;
-      sh.vertexShader = 'attribute float bendW;\nuniform vec4 uBendQ;\nuniform vec3 uBendP;\n' + sh.vertexShader
-        .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvec4 bq = normalize(mix(vec4(0.0, 0.0, 0.0, 1.0), uBendQ, bendW));\nobjectNormal += 2.0 * cross(bq.xyz, cross(bq.xyz, objectNormal) + bq.w * objectNormal);')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\n{ vec3 rel = transformed - uBendP; transformed = uBendP + rel + 2.0 * cross(bq.xyz, cross(bq.xyz, rel) + bq.w * rel); }');
-    };
-    mat.customProgramCacheKey = () => (key ? key.call(base) : '') + '|bend';
-    m.material = mat;
-  }
-  return { g, pw, shoulder: new THREE.Vector3().fromArray(shoulder), U };
-}
-const _bS = new THREE.Vector3(), _bF = new THREE.Vector3(), _bQ = new THREE.Quaternion(), _bI = new THREE.Quaternion();
-/* Called every frame with the blade out, after the viewmodel is placed:
-   aims each sleeve at its shoulder, as far as a wrist goes. */
-function bladeArmsFrame(){
-  const R = BLADE_RIG; if (!R || !R.arms) return;
-  /* last frame's world matrices (the renderer refreshes them): forcing an
-     update of the whole camera rig here cost more than the bend; a frame's
-     lag on a wrist is invisible */
-  for (const a of R.arms){
-    _bS.copy(a.shoulder); camera.localToWorld(_bS); a.g.worldToLocal(_bS);        // the shoulder, in the glove's frame
-    _bF.copy(_bS).sub(a.pw).normalize();
-    const ang = GLOVE_AXIS.v.angleTo(_bF);
-    _bQ.setFromUnitVectors(GLOVE_AXIS.v, _bF);
-    if (ang > GLOVE_AXIS.max) _bQ.copy(_bI.identity().slerp(_bQ, GLOVE_AXIS.max / ang));
-    a.U.q.value.set(_bQ.x, _bQ.y, _bQ.z, _bQ.w);
+    P.needsUpdate = true; m.geometry.computeBoundingSphere();
   }
 }
 /* THE FIVE CUTS (2026-11-22). Jack: "its the animation of the 5 swinging of

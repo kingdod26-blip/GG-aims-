@@ -528,8 +528,7 @@ function loop(){ requestAnimationFrame(loop);
                      (rRot*0.3 + sw*0.9)*mk + V.ry*(1-ads),
                      (rRot*0.5 + sr + sw*1.1)*mk + V.rz*(1-ads));
     gun.scale.set(vk, vk, 1);
-    if (bladeOut){ const o = bladeSwingFrame(swingT, swingCut, heavyCharge(performance.now())); if (o) gun.position.add(o);
-                   if (typeof bladeArmsFrame === 'function') bladeArmsFrame(); }   // the wrists bend toward the shoulders (drawn.js)
+    if (bladeOut){ const o = bladeSwingFrame(swingT, swingCut, heavyCharge(performance.now())); if (o) gun.position.add(o); }
   } else {
     // menu: spatial showcase — the 3D camera parallaxes with the mouse to match
     // the CSS glass layers, and the operator can be dragged to inspect.
