@@ -1881,6 +1881,11 @@ dressing the office interiors, ambient sound.
     the way: a wrist bend toward the shoulders ("not the wrist"), stretched
     sleeves running off-screen (a cover, not an arm), and a separate
     forearm tube (the glove already is one; it kinked).
+    Then (Jack: "the elbow should be a smaller, also the 3 attack is
+    still blocking the screen"): the elbow joint is r 0.064 and the upper
+    arm 0.062-0.072, under the cuff's 0.088; cut 3 (rising) finishes with
+    the hands low and right (its last keys were at y +0.20/+0.28, which
+    laid the left arm across the middle of the view).
   - the charge and the stab keys are `'aim'`: the blade laid along the line
     from the hand at that key to 8m down the crosshair (bladeKeyQuats).
     Measured: the blade's line at 8m lands at NDC (0.001, 0.002).

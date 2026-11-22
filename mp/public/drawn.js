@@ -877,8 +877,10 @@ function jointedArm(holder, grp, glove, mirrored, shoulder, pole){
   const tint = (geo) => { const n = geo.attributes.position.count, c = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) c.set(ARM.tint, i * 3); geo.setAttribute('color', new THREE.BufferAttribute(c, 3)); return geo; };
   const tube = (r0, r1) => tint(new THREE.CylinderGeometry(r1, r0, 1, 16, 1, true).translate(0, 0.5, 0));
-  const upper = new THREE.Mesh(tube(0.090, 0.100), mat);
-  const elbow = new THREE.Mesh(tint(new THREE.SphereGeometry(0.09, 16, 12)), mat);
+  /* smaller than the cuff, so the joint reads as an elbow and not a ball
+     (Jack: "the elbow should be a smaller") */
+  const upper = new THREE.Mesh(tube(0.062, 0.072), mat);
+  const elbow = new THREE.Mesh(tint(new THREE.SphereGeometry(0.064, 16, 12)), mat);
   for (const m of [upper, elbow]){ m.frustumCulled = false; holder.add(m); }
   /* fist to elbow: the fist is the hand group's origin; where is it on the glove's axis? */
   glove.updateMatrix();
@@ -989,9 +991,12 @@ const SWORD_CUTS = [
   /* 2 horizontal: from the left, flat across to the right */
   [[0.20, [-0.46, 0.16, 0.02], [-0.90, 0.15, 0.40]], [0.32, [-0.36, 0.16, -0.12], [-0.80, 0.12, -0.58]],
    [0.44, [-0.16, 0.16, -0.14], [0.80, 0.10, -0.58]], [0.62, [-0.02, 0.12, -0.04], [0.92, 0.05, 0.30]]],
-  /* 3 rising: from low left up across to the upper right */
-  [[0.20, [-0.44, -0.04, 0.02], [-0.75, -0.55, 0.35]], [0.32, [-0.34, 0.06, -0.12], [-0.75, -0.35, -0.55]],
-   [0.44, [-0.18, 0.20, -0.14], [0.70, 0.50, -0.50]], [0.62, [-0.08, 0.28, -0.02], [0.55, 0.80, 0.20]]],
+  /* 3 rising: from low left up across to the upper right. The hands finish
+     LOW and to the right (Jack: "the 3 attack is still blocking the screen":
+     they used to rise to the middle with the left arm lying across the
+     view); the blade still sweeps up through it. */
+  [[0.20, [-0.44, -0.04, 0.02], [-0.75, -0.55, 0.35]], [0.32, [-0.34, 0.02, -0.12], [-0.75, -0.35, -0.55]],
+   [0.44, [-0.10, 0.06, -0.14], [0.70, 0.55, -0.45]], [0.62, [0.02, 0.08, -0.04], [0.50, 0.84, 0.20]]],
   /* 4 backhand diagonal: up over the left shoulder, down across to the lower right */
   [[0.20, [-0.44, 0.32, 0.04], [-0.50, 0.80, 0.33]], [0.32, [-0.36, 0.24, -0.10], [-0.55, 0.70, -0.45]],
    [0.44, [-0.22, 0.10, -0.14], [0.80, -0.30, -0.50]], [0.62, [-0.10, -0.02, -0.06], [0.85, -0.50, -0.15]]],
