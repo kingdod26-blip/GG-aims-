@@ -2444,7 +2444,9 @@ const LIT_KIT_MATS = {
   pot: [0x38393b, 0.6, 0, 0.3, 0], water: [0x6f93b8, 0.15, 0, 0.9, 0],
   /* the turbine hall, fitted out (2026-11-23) */
   genblue: [0x1e4f8f, 0.42, 0.35, 0.6, 0], toolred: [0x8c1c18, 0.4, 0.3, 0.6, 0], weldcurtain: [0xa8461a, 0.85, 0, 0.1, 0],
-  benchgreen: [0x3d4a3c, 0.6, 0.2, 0.4, 0], peg: [0x6b5a44, 0.9, 0, 0.1, 0], pipegreen: [0x2f5a37, 0.5, 0.2, 0.5, 1], pipeblue: [0x24507f, 0.45, 0.25, 0.5, 1],
+  benchgreen: [0x3d4a3c, 0.6, 0.2, 0.4, 0], peg: [0x6b5a44, 0.9, 0, 0.1, 0],
+  rackblue: [0x23466e, 0.5, 0.4, 0.5, 0], rackorange: [0xb2531c, 0.5, 0.3, 0.5, 0], boxbrown: [0x8a6a46, 0.95, 0, 0.1, 0],
+  contblue: [0x274b6e, 0.55, 0.4, 0.5, 0], contred: [0x7a231d, 0.55, 0.4, 0.5, 0], pipegreen: [0x2f5a37, 0.5, 0.2, 0.5, 1], pipeblue: [0x24507f, 0.45, 0.25, 0.5, 1],
 };
 function litMaterial(name){
   if (LIT_MATS[name]) return LIT_MATS[name];
@@ -4096,6 +4098,58 @@ Object.assign(LIT_DRAW, {
   },
 });
 Object.assign(LIT_INDOOR, { workbench: 1, toolchest: 1, drillpress: 1, weldscreen: 1, welder: 1, rotor: 1 });
+/* THE STORE (2026-11-23): pallet racking (blue uprights, orange beams,
+   three levels of pallets with boxes and drums on them), a 20ft container
+   (corrugated, doors with their bars), and steel shelving of supplies. */
+Object.assign(LIT_DRAW, {
+  racking(G, b, x0, z0, x1, z1){
+    const alongX = (x1 - x0) >= (z1 - z0), L0 = alongX ? x0 : z0, L1 = alongX ? x1 : z1, h = b.h;
+    const P = (a, w0, w1, y0, y1, m, o) => alongX ? litBox(G(m), a, y0, w0, a + (o || 0.08), y1, w1, { seg: 1 }) : litBox(G(m), w0, y0, a, w1, y1, a + (o || 0.08), { seg: 1 });
+    const W0 = alongX ? z0 : x0, W1 = alongX ? z1 : x1;
+    const bays = Math.max(1, Math.round((L1 - L0) / 2.7)), bw = (L1 - L0) / bays;
+    for (let i = 0; i <= bays; i++){ const a = Math.min(L1 - 0.08, L0 + i * bw); P(a, W0, W0 + 0.08, 0, h, 'rackblue'); P(a, W1 - 0.08, W1, 0, h, 'rackblue'); }
+    let r = Math.round(b.x * 13 + b.z * 7) >>> 0; const rnd = () => (r = (r * 16807 + 11) % 2147483647) / 2147483647;
+    for (const y of [0.0, 1.45, 2.9]){
+      if (y > 0){ const bx = alongX ? [x0, y - 0.1, W0, x1, y, W0 + 0.06] : [W0, y - 0.1, z0, W0 + 0.06, y, z1];
+        litBox(G('rackorange'), bx[0], bx[1], bx[2], bx[3], bx[4], bx[5], { seg: 1 });
+        const bx2 = alongX ? [x0, y - 0.1, W1 - 0.06, x1, y, W1] : [W1 - 0.06, y - 0.1, z0, W1, y, z1];
+        litBox(G('rackorange'), bx2[0], bx2[1], bx2[2], bx2[3], bx2[4], bx2[5], { seg: 1 }); }
+      for (let i = 0; i < bays; i++){
+        if (rnd() < 0.15) continue;                                                          // an empty bay here and there
+        const a0 = L0 + i * bw + 0.2, a1 = L0 + (i + 1) * bw - 0.2, hh = 0.5 + rnd() * 0.75, m = rnd() < 0.3 ? 'drumblue' : 'boxbrown';
+        const q = alongX ? [a0, y + 0.02, W0 + 0.12, a1, y + 0.16, W1 - 0.12] : [W0 + 0.12, y + 0.02, a0, W1 - 0.12, y + 0.16, a1];
+        litBox(G('pallet'), q[0], q[1], q[2], q[3], q[4], q[5], { seg: 1 });
+        const g = alongX ? [a0 + 0.1, y + 0.16, W0 + 0.2, a1 - 0.1, y + 0.16 + hh, W1 - 0.2] : [W0 + 0.2, y + 0.16, a0 + 0.1, W1 - 0.2, y + 0.16 + hh, a1 - 0.1];
+        litBox(G(m), g[0], g[1], g[2], g[3], g[4], g[5], { bevel: 0.02, seg: 1, tile: 1 });
+      }
+    }
+  },
+  container(G, b, x0, z0, x1, z1){
+    const alongX = (x1 - x0) >= (z1 - z0), h = b.h, m = Math.round(b.x + b.z) % 2 ? 'contblue' : 'contred';
+    litBox(G(m), x0, 0, z0, x1, h, z1, { bevel: 0.03, seg: 2, tile: 1 });
+    const L0 = alongX ? x0 : z0, L1 = alongX ? x1 : z1;
+    for (let a = L0 + 0.3; a < L1 - 0.2; a += 0.3){                                         // the corrugation
+      if (alongX){ litBox(G(m), a, 0.1, z0 - 0.03, a + 0.12, h - 0.1, z0, { seg: 1 }); litBox(G(m), a, 0.1, z1, a + 0.12, h - 0.1, z1 + 0.03, { seg: 1 }); }
+      else { litBox(G(m), x0 - 0.03, 0.1, a, x0, h - 0.1, a + 0.12, { seg: 1 }); litBox(G(m), x1, 0.1, a, x1 + 0.03, h - 0.1, a + 0.12, { seg: 1 }); }
+    }
+    for (const o of [0.35, 0.7, 1.4, 1.75]){                                                 // the door bars, at the +x / +z end
+      if (alongX) litCyl(G('steel'), x1 + 0.03, 0.2, z0 + o * (z1 - z0) / 2.1, x1 + 0.03, h - 0.2, z0 + o * (z1 - z0) / 2.1, 0.02, 0.02, 6, 1, false, false);
+      else litCyl(G('steel'), x0 + o * (x1 - x0) / 2.1, 0.2, z1 + 0.03, x0 + o * (x1 - x0) / 2.1, h - 0.2, z1 + 0.03, 0.02, 0.02, 6, 1, false, false);
+    }
+  },
+  shelving(G, b, x0, z0, x1, z1){
+    for (const x of [x0 + 0.02, x1 - 0.06]) for (const z of [z0 + 0.02, z1 - 0.06]) litBox(G('cabgrey'), x, 0, z, x + 0.04, b.h, z + 0.04, { seg: 1 });
+    let r = Math.round(b.z * 31) >>> 0; const rnd = () => (r = (r * 16807 + 3) % 2147483647) / 2147483647;
+    for (const y of [0.1, 0.6, 1.1, 1.6]){
+      litBox(G('cabgrey'), x0, y, z0, x1, y + 0.03, z1, { seg: 1 });
+      for (let z = z0 + 0.08; z < z1 - 0.3; z += 0.3 + rnd() * 0.2){
+        const w = 0.18 + rnd() * 0.15, hh = 0.12 + rnd() * 0.25, m = ['boxbrown', 'white', 'toolred', 'drumgreen'][Math.floor(rnd() * 4)];
+        litBox(G(m), x0 + 0.06, y + 0.03, z, x1 - 0.06, y + 0.03 + hh, z + w, { seg: 1 });
+      }
+    }
+  },
+});
+Object.assign(LIT_INDOOR, { racking: 1, container: 1, shelving: 1 });
 /* the pegboard over the benches: a board on the wall with tools hung on it */
 LIT_PROP.pegboard = function(G, p){
   litBox(G('peg'), p.x0, p.y0, p.z, p.x1, p.y1, p.z + 0.02, { seg: 2, tile: 1 });

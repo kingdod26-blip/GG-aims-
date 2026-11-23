@@ -308,6 +308,32 @@ wallN(HZ1 + HW / 2, 28, HX1, HH, 'cladding');
   P_LATE.push({ kind: 'pegboard', x0: 89.0, x1: 94.6, z: iz0 + 0.01, y0: 1.2, y1: 2.4 });
 }
 
+/* THE STORE (2026-11-23, the indoors brief, room 8: "industrial storage
+   rooms containing metal containers, barrels, crates, spare equipment, and
+   maintenance supplies"). In the hall's north-west corner (top left on the
+   plan), x 3..28, z -43.5..-28, 5m: a roll-up door south toward the control
+   room, a door east onto the hall. Pallet racking along the back wall and
+   down the middle (aisles between, 4.2m - cover nobody climbs), a 20ft
+   container, drums, an IBC, gas bottles, spare motors and cable drums,
+   shelving of maintenance supplies along the east wall. */
+{
+  const ST = { x0: 3, x1: 28, z0: -43.5, z1: -28, t: 0.3, h: 5, rt: 0.3 };
+  building(ST, [
+    { face: 'S', a0: 11.5, a1: 16.5, y0: 0, y1: 4 },                                  // roll-up door
+    { face: 'E', a0: -33, a1: -31, y0: 0, y1: 2.4 },
+  ], 'shedwall', 'shedroof');
+  const ix0 = ST.x0 + ST.t, ix1 = ST.x1 - ST.t, iz0 = ST.z0 + ST.t, iz1 = ST.z1 - ST.t;
+  ob(ix0 + 0.4, ix0 + 6.4, iz0, iz0 + 1.1, 0, 4.2, 'racking'); ob(ix0 + 6.6, ix0 + 12.6, iz0, iz0 + 1.1, 0, 4.2, 'racking');   // back wall
+  ob(ix0 + 2.5, ix0 + 8.5, -37.4, -36.3, 0, 4.2, 'racking'); ob(ix0 + 8.7, ix0 + 14.7, -37.4, -36.3, 0, 4.2, 'racking');     // the middle row
+  ob(18.6, 24.7, -31.6, -29.16, 0, 2.6, 'container');                               // a 20ft container
+  box(21.0, -40.2, 1.22, 1.22, 1.08, 'drums4'); box(22.4, -40.3, 1.22, 1.22, 1.08, 'drums4'); box(21.6, -38.8, 0.6, 0.6, 0.92, 'drum');
+  box(24.6, -40.4, 1.0, 1.2, 1.16, 'ibc'); box(24.6, -42.6, 1.3, 0.8, 1.9, 'gascage');
+  box(7.0, -31.0, 1.6, 1.7, 1.2, 'pumpset'); box(9.6, -30.8, 1.0, 1.6, 1.6, 'reel'); box(11.0, -30.9, 1.0, 1.6, 1.6, 'reel');
+  box(17.0, -33.6, 1.2, 1.0, 1.35, 'palletload'); box(15.4, -33.4, 1.2, 1.0, 0.86, 'pallets'); box(5.2, -33.4, 0.5, 0.9, 1.0, 'toolcart');
+  for (const z of [-42.1, -40.0, -37.9, -35.8]) ob(ix1 - 0.6, ix1, z, z + 2.0, 0, 2.0, 'shelving');   // supplies, east wall
+  P_LATE.push({ kind: 'ceilinglights', x0: ix0, x1: ix1, z0: iz0, z1: iz1, levels: [ST.h - ST.rt - 0.05], holes: [], extra: [] });
+}
+
 /* ===================================================================== */
 /* 2. THE SWITCHYARD                                                     */
 /* ===================================================================== */
@@ -1206,13 +1232,11 @@ oil(21.4, 101.2, 1.1); oil(73, 97.6, 0.8);
 
 /* 7. THE TURBINE HALL, along its walls: tool carts, stock on pallets,
    drums, a cable drum, cones round a job. */
-kit('toolcart', 10.4, -41.8, 0.25); kit('palletload', 14, -44.2, 0.08); kit('drums4', 16.6, -44.4, -0.1);
+/* (the stock that stood in the hall's north-west corner is in the storage room now) */
 kit('palletload', 14.2, 44.2, -0.06); kit('toolcart', 10.6, 41.6, -0.3); kit('reel', 17, 44.6, 0.1);
 /* (the stock and tool cart that stood in the hall's north-east corner are in the maintenance workshop now) */
 kit('drums4', 105, 34, -0.08); kit('ibc', 105.1, 31.4, 0.06);
-for (const [x, z] of [[20.5, -40], [23.5, -40], [20.5, -37], [23.5, -37]]) cone(x, z);
-CL.push({ k: 'hose', x: 22, z: -38.5, c: 'orange' });
-oil(16.6, -44.4, 0.9); oil(105, 34, 0.9);
+oil(105, 34, 0.9);
 sign('ppe', 44.5, -58.98, 0, false, 1.6);      // beside the north door (x 48-54), on the wall - not in the doorway
 
 /* 8. THE BOILER HOUSE FLOOR, east side: drums, a tote, a tool cart. */
@@ -1412,7 +1436,7 @@ ${lines.join('\n')}
       { k: 'hatch', x: -100, z: -40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z: -40, w: 5.6, d: 5.6 },
       { k: 'hatch', x: -100, z:  40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z:  40, w: 5.6, d: 5.6 },
       { k: 'text',  x: 56, z: 72, s: 2.6, t: 'TURBINE HALL' },
-      { k: 'walk',  x0: 25, z0: -55, x1: 25, z1: 55, w: 2.4 }, { k: 'walk', x0: 87, z0: -55, x1: 87, z1: 55, w: 2.4 },
+      { k: 'walk',  x0: 25, z0: -27, x1: 25, z1: 55, w: 2.4 }, { k: 'walk', x0: 86.4, z0: -26.5, x1: 86.4, z1: 55, w: 2.4 },   // stop short of the store and the workshop
 ${PAINT_MORE.map(q => '      ' + JSON.stringify(q).replace(/"(\w+)":/g, '$1: ').replace(/"/g, "'") + ',').join('\n')}
     ],
     /* WHAT THE GROUND IS MADE OF (stage 3, 2026-11-16), from Jack's aerial

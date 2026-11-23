@@ -545,6 +545,35 @@ const MAPS = {
       { x:  105.04, z:   -27.6, w:     0.8, d:     0.6, h:  1.9, mat: 'cabinet'     },
       { x:  105.86, z:   -27.6, w:     0.8, d:     0.6, h:  1.9, mat: 'cabinet'     },
       { x:  106.68, z:   -27.6, w:     0.8, d:     0.6, h:  1.9, mat: 'cabinet'     },
+      { x:    15.5, z:  -43.35, w:      25, d:     0.3, h:  4.7, mat: 'shedwall'    },
+      { x:    7.25, z:  -28.15, w:     8.5, d:     0.3, h:    4, mat: 'shedwall'    },
+      { x:   22.25, z:  -28.15, w:    11.5, d:     0.3, h:    4, mat: 'shedwall'    },
+      { x:    15.5, z:  -28.15, w:      25, d:     0.3, h:  0.7, mat: 'shedwall'   , y: 4 },
+      { x:    3.15, z:  -35.75, w:     0.3, d:    14.9, h:  4.7, mat: 'shedwall'    },
+      { x:   27.85, z:   -38.1, w:     0.3, d:    10.2, h:  2.4, mat: 'shedwall'    },
+      { x:   27.85, z:  -29.65, w:     0.3, d:     2.7, h:  2.4, mat: 'shedwall'    },
+      { x:   27.85, z:  -35.75, w:     0.3, d:    14.9, h:  2.3, mat: 'shedwall'   , y: 2.4 },
+      { x:    15.5, z:  -35.75, w:      25, d:    15.5, h:  0.3, mat: 'shedroof'   , y: 4.7 },
+      { x:     6.7, z:  -42.65, w:       6, d:     1.1, h:  4.2, mat: 'racking'     },
+      { x:    12.9, z:  -42.65, w:       6, d:     1.1, h:  4.2, mat: 'racking'     },
+      { x:     8.8, z:  -36.85, w:       6, d:     1.1, h:  4.2, mat: 'racking'     },
+      { x:      15, z:  -36.85, w:       6, d:     1.1, h:  4.2, mat: 'racking'     },
+      { x:   21.65, z:  -30.38, w:     6.1, d:    2.44, h:  2.6, mat: 'container'   },
+      { x:      21, z:   -40.2, w:    1.22, d:    1.22, h: 1.08, mat: 'drums4'      },
+      { x:    22.4, z:   -40.3, w:    1.22, d:    1.22, h: 1.08, mat: 'drums4'      },
+      { x:    21.6, z:   -38.8, w:     0.6, d:     0.6, h: 0.92, mat: 'drum'        },
+      { x:    24.6, z:   -40.4, w:       1, d:     1.2, h: 1.16, mat: 'ibc'         },
+      { x:    24.6, z:   -42.6, w:     1.3, d:     0.8, h:  1.9, mat: 'gascage'     },
+      { x:       7, z:     -31, w:     1.6, d:     1.7, h:  1.2, mat: 'pumpset'     },
+      { x:     9.6, z:   -30.8, w:       1, d:     1.6, h:  1.6, mat: 'reel'        },
+      { x:      11, z:   -30.9, w:       1, d:     1.6, h:  1.6, mat: 'reel'        },
+      { x:      17, z:   -33.6, w:     1.2, d:       1, h: 1.35, mat: 'palletload'  },
+      { x:    15.4, z:   -33.4, w:     1.2, d:       1, h: 0.86, mat: 'pallets'     },
+      { x:     5.2, z:   -33.4, w:     0.5, d:     0.9, h:    1, mat: 'toolcart'    },
+      { x:    27.4, z:   -41.1, w:     0.6, d:       2, h:    2, mat: 'shelving'    },
+      { x:    27.4, z:     -39, w:     0.6, d:       2, h:    2, mat: 'shelving'    },
+      { x:    27.4, z:   -36.9, w:     0.6, d:       2, h:    2, mat: 'shelving'    },
+      { x:    27.4, z:   -34.8, w:     0.6, d:       2, h:    2, mat: 'shelving'    },
 
       // THE SWITCHYARD: four bays of HV plant, transmission towers at the
       // corners, portal gantries over the top. This was the substation
@@ -3151,9 +3180,6 @@ const MAPS = {
       { x:    86.4, z:      97, w:  0.6888, d:  0.7783, h: 1.08, mat: 'bin'        , ry: 0.1, fw: 0.62, fd: 0.72 },
       { x:    87.2, z:    97.1, w:  0.6888, d:  0.7783, h: 1.08, mat: 'bin'        , ry: -0.1, fw: 0.62, fd: 0.72 },
       { x:      91, z:    96.6, w:   0.811, d:  1.0237, h:    1, mat: 'toolcart'   , ry: 0.4, fw: 0.5, fd: 0.9 },
-      { x:    10.4, z:   -41.8, w:  0.7071, d:  0.9957, h:    1, mat: 'toolcart'   , ry: 0.25, fw: 0.5, fd: 0.9 },
-      { x:      14, z:   -44.2, w:  1.2761, d:  1.0927, h: 1.35, mat: 'palletload' , ry: 0.08, fw: 1.2, fd: 1 },
-      { x:    16.6, z:   -44.4, w:  1.3357, d:  1.3357, h: 1.08, mat: 'drums4'     , ry: -0.1, fw: 1.22, fd: 1.22 },
       { x:    14.2, z:    44.2, w:  1.2578, d:  1.0702, h: 1.35, mat: 'palletload' , ry: -0.06, fw: 1.2, fd: 1 },
       { x:    10.6, z:    41.6, w:  0.7436, d:  1.0076, h:    1, mat: 'toolcart'   , ry: -0.3, fw: 0.5, fd: 0.9 },
       { x:      17, z:    44.6, w:  1.1547, d:  1.6918, h:  1.6, mat: 'reel'       , ry: 0.1, fw: 1, fd: 1.6 },
@@ -3554,6 +3580,18 @@ const MAPS = {
                 z: -43.690000000000005,
                 y0: 1.2,
                 y1: 2.4
+          },
+          {
+                kind: 'ceilinglights',
+                x0: 3.3,
+                x1: 27.7,
+                z0: -43.2,
+                z1: -28.3,
+                levels: [
+                      4.65
+                ],
+                holes: [],
+                extra: []
           },
           {
                 kind: 'highbay',
@@ -4805,38 +4843,6 @@ const MAPS = {
                             r: 0.8
                       },
                       {
-                            k: 'cone',
-                            x: 20.5,
-                            z: -40
-                      },
-                      {
-                            k: 'cone',
-                            x: 23.5,
-                            z: -40
-                      },
-                      {
-                            k: 'cone',
-                            x: 20.5,
-                            z: -37
-                      },
-                      {
-                            k: 'cone',
-                            x: 23.5,
-                            z: -37
-                      },
-                      {
-                            k: 'hose',
-                            x: 22,
-                            z: -38.5,
-                            c: 'orange'
-                      },
-                      {
-                            k: 'oil',
-                            x: 16.6,
-                            z: -44.4,
-                            r: 0.9
-                      },
-                      {
                             k: 'oil',
                             x: 105,
                             z: 34,
@@ -5261,7 +5267,7 @@ const MAPS = {
       { k: 'hatch', x: -100, z: -40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z: -40, w: 5.6, d: 5.6 },
       { k: 'hatch', x: -100, z:  40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z:  40, w: 5.6, d: 5.6 },
       { k: 'text',  x: 56, z: 72, s: 2.6, t: 'TURBINE HALL' },
-      { k: 'walk',  x0: 25, z0: -55, x1: 25, z1: 55, w: 2.4 }, { k: 'walk', x0: 87, z0: -55, x1: 87, z1: 55, w: 2.4 },
+      { k: 'walk',  x0: 25, z0: -27, x1: 25, z1: 55, w: 2.4 }, { k: 'walk', x0: 86.4, z0: -26.5, x1: 86.4, z1: 55, w: 2.4 },   // stop short of the store and the workshop
       {k: 'keep',x: 95,z: -34.7,w: 8.4,d: 2.8},
       {k: 'keep',x: -47.6,z: 54,w: 7,d: 5.4},
       {k: 'keep',x: -37.4,z: 54,w: 7,d: 5.4},

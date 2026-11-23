@@ -2158,7 +2158,13 @@ of its own:
   saddles, collision) narrows each to ~2.2m; the `tunnel` prop draws cable
   trays, roof fans, bulkheads, red emergency lights, maintenance doors;
   a drain (`trench` paint); bulkheads are dim bake lights (`LIT.tunnelL`).
-Still to build: storage areas.
+- **The store** (THE STORE): the hall's north-west corner (x 3..28, z
+  -43.5..-28, 5m), roll-up door south, door east. `racking` (blue uprights,
+  orange beams, seeded pallets of boxes and drums on three levels, 4.2m),
+  a 20ft `container`, drums, an IBC, gas bottles, a spare motor, cable
+  drums, pallets, a tool cart, `shelving` of supplies. The hall's painted
+  walkways now stop short of the store and the workshop.
+Every room in Jack's indoors brief is now built.
 
 ## Agents
 
