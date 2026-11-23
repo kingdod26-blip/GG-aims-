@@ -2425,6 +2425,8 @@ const LIT_KIT_MATS = {
   /* the offices' dressing (2026-11-23) */
   chairblack: [0x1c1d20, 0.7, 0, 0.3, 1], cabgrey: [0x7d8287, 0.45, 0.4, 0.6, 0], leaf: [0x2f4a26, 0.8, 0, 0.2, 0],
   pot: [0x38393b, 0.6, 0, 0.3, 0], water: [0x6f93b8, 0.15, 0, 0.9, 0],
+  /* the turbine hall, fitted out (2026-11-23) */
+  genblue: [0x1e4f8f, 0.42, 0.35, 0.6, 0], pipegreen: [0x2f5a37, 0.5, 0.2, 0.5, 1], pipeblue: [0x24507f, 0.45, 0.25, 0.5, 1],
 };
 function litMaterial(name){
   if (LIT_MATS[name]) return LIT_MATS[name];
@@ -2543,6 +2545,7 @@ function litMaterial(name){
                       plain material takes the moving-things lights and its own glow. */
                    m = lookTag(new THREE.MeshStandardMaterial({ map: tt, emissiveMap: tt, emissive: new THREE.Color(0.95, 0.66, 0.46), roughness: 0.75, metalness: 0.3 }), { metalness: 0.3, roughness: 0.75 }, { metalness: 0, roughness: 0.75 });
                    m.userData.envK = 0.3; break; }
+    case 'screenglow': m = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.55, 1.1, 1.9) }); break;   // control-room screens
     case 'glow':    m = new THREE.MeshBasicMaterial({ color: new THREE.Color(4.2, 1.5, 0.45) }); break;   // a burner seen through its sight glass
     case 'towerin': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litTowerTexture(), true), color: 0x4f5558, roughness: 0.9, metalness: 0 }), 'cover', 0.06);
                    m.defines.CX_ROUND = ''; break;
@@ -2909,6 +2912,17 @@ const LIT_DRAW = {
     for (let z = z0 + 2; z < z1 - 0.5; z += 2)
       litBox(G('steel'), x0 - 0.02, g0, z - 0.07, x1 + 0.02, g1, z + 0.07, { seg: 3, noTop: true });
     litBox(G('concrete'), x0, g1, z0, x1, b.h, z1, { bevel: LIT.bevel, seg: LIT.coverSeg, tile: 120, tileV: 8 });
+    /* behind the glass, the desks' screens: a glowing band facing out on
+       every side, so the room reads as manned (the indoors brief, 2026-11-23) */
+    const sy0 = g0 + 0.25, sy1 = g0 + 0.75, k = 0.35;
+    for (let x = x0 + 1; x < x1 - 1.4; x += 1.6){
+      litBox(G('screenglow'), x, sy0, z0 + k, x + 1.1, sy1, z0 + k + 0.03, { seg: 1 });
+      litBox(G('screenglow'), x, sy0, z1 - k - 0.03, x + 1.1, sy1, z1 - k, { seg: 1 });
+    }
+    for (let z = z0 + 1; z < z1 - 1.4; z += 1.6){
+      litBox(G('screenglow'), x0 + k, sy0, z, x0 + k + 0.03, sy1, z + 1.1, { seg: 1 });
+      litBox(G('screenglow'), x1 - k - 0.03, sy0, z, x1 - k, sy1, z + 1.1, { seg: 1 });
+    }
   },
   /* A column: riveted steel on a concrete foot, the full height of the hall.
      The steel used to be drawn 0.1m inside its box on every side, which left
@@ -3148,10 +3162,10 @@ const LIT_PROP = {
     /* The generator: the map's own steps, stacked rather than nested so no
        face is buried inside another. */
     const gen = { bevel: 0.035, seg: LIT.coverSeg, tile: 3 };
-    BOX('machine', 1.5, ped, -2.2, 10, 5.6, 2.2, gen);
-    BOX('machine', 1.5, 5.6, -2.0, 10, 6.3, 2.0, gen);
-    BOX('machine', 1.5, 6.3, -1.7, 10, 7.0, 1.7, gen);
-    BOX('machine', 1.5, 7.0, -0.95, 10, 7.6, 0.95, gen);
+    BOX('genblue', 1.5, ped, -2.2, 10, 5.6, 2.2, gen);                 // painted blue, as generators are (Jack's reference, 2026-11-23)
+    BOX('genblue', 1.5, 5.6, -2.0, 10, 6.3, 2.0, gen);
+    BOX('genblue', 1.5, 6.3, -1.7, 10, 7.0, 1.7, gen);
+    BOX('genblue', 1.5, 7.0, -0.95, 10, 7.6, 0.95, gen);
     /* Above the top step, and therefore not collision: the steam lines to
        the roof and the generator's output going up into a busduct. */
     for (const o of [-1.1, 1.1]){
@@ -3899,6 +3913,44 @@ LIT_PROP.switchyard = function(G, p){
   }
   litAdd(new THREE.Mesh(litGeoDone(f), litPalisadeMat()), false);
 };
+/* ---- THE TURBINE HALL, FITTED OUT (2026-11-23) ----
+   From Jack's reference: twin-shell condensers - silver drums with blue
+   water boxes - on a steel frame; cooling-water pumps, a blue motor coupled
+   to a pump under a yellow guard; the pipes between them. */
+Object.assign(LIT_DRAW, {
+  condenser(G, b, x0, z0, x1, z1){
+    const h = b.h, r = h / 2 - 0.05, alongZ = (z1 - z0) >= (x1 - x0);
+    litBox(G('steel'), x0, 0, z0, x1, 0.45, z1, { seg: 2, tile: 2 });                                    // the frame it sits in
+    const off = alongZ ? (x1 - x0) / 4 : (z1 - z0) / 4;
+    for (const o of [-1, 1]){
+      const cx = alongZ ? b.x + o * off : b.x, cz = alongZ ? b.z : b.z + o * off;
+      const a0 = alongZ ? z0 + 0.6 : x0 + 0.6, a1 = alongZ ? z1 - 0.6 : x1 - 0.6;
+      const C = (m, p0, p1, rr, caps) => alongZ ? litCyl(G(m), cx, h / 2, p0, cx, h / 2, p1, rr, rr, 24, 2, caps, caps)
+                                               : litCyl(G(m), p0, h / 2, cz, p1, h / 2, cz, rr, rr, 24, 2, caps, caps);
+      C('lagging', a0, a1, r * 0.96, false);                                                            // the shell
+      for (let t = a0 + 2; t < a1 - 1; t += 2.2) C('steel', t - 0.05, t + 0.05, r * 0.99, false);       // its bands
+      C('genblue', alongZ ? z0 : x0, a0, r, true); C('genblue', a1, alongZ ? z1 : x1, r, true);          // the water boxes
+    }
+  },
+  pumpset(G, b, x0, z0, x1, z1){
+    const h = b.h, cz = b.z, mid = (x0 + x1) / 2;
+    litBox(G('concrete'), x0, 0, z0, x1, 0.25, z1, { seg: 1, tile: 120, tileV: 8 });
+    litCyl(G('genblue'), x0 + 0.2, 0.7, cz, mid - 0.2, 0.7, cz, 0.45, 0.45, 16, 1, true, true);            // the motor
+    for (let i = 0; i < 6; i++){ const x = x0 + 0.4 + i * 0.22; litBox(G('genblue'), x, 0.25, cz - 0.5, x + 0.05, 1.15, cz + 0.5, { seg: 1 }); }   // its fins
+    litBox(G('yellow'), mid - 0.2, 0.4, cz - 0.3, mid + 0.2, 1.0, cz + 0.3, { seg: 1 });                    // the coupling guard
+    litCyl(G('pipeblue'), mid + 0.2, 0.65, cz, x1 - 0.15, 0.65, cz, 0.5, 0.42, 16, 1, true, true);        // the pump casing
+    litBox(G('steel'), x0 + 0.1, h - 0.06, z0 + 0.2, x1 - 0.1, h, z1 - 0.2, { seg: 1 });                   // the lifting frame's top bar: the box's top
+  },
+  cwpipe(G, b){ litCyl(G('pipegreen'), b.x, 0, b.z, b.x, b.h, b.z, 0.32, 0.32, 14, 2, false, true);
+               litCyl(G('steel'), b.x, 0.02, b.z, b.x, 0.14, b.z, 0.4, 0.4, 14, 1, true, true); },   // a flange where it meets the plant
+});
+LIT_PROP.cwruns = function(G, p){
+  for (const [px, pz, cx, cz] of p.runs){
+    const y = p.y;
+    litCyl(G('pipegreen'), px, y, pz, cx, y, cz, 0.32, 0.32, 14, 2, true, true);
+    for (const [x, z] of [[px, pz], [cx, cz]]) litCyl(G('pipegreen'), x, y - 0.4, z, x, y + 0.4, z, 0.36, 0.36, 14, 1, true, true);   // the bends
+  }
+};
 /* ---- THE OFFICES, DRESSED (2026-11-23, the Saltline list) ----
    Each piece is its own collision box (works.js `place`); these draw them,
    flush to the box. */
@@ -3950,7 +4002,8 @@ LIT_DRAW.lamppost = function(G, b, x0, z0, x1, z1){
   litCyl(G('lamp'), x, h - 0.3, z, x, h + 0.02, z, 0.17, 0.2, 10, 1, false, false);
   litCyl(G('steel'), x, h + 0.02, z, x, h + 0.18, z, 0.26, 0.05, 10, 1, true, true);
 };
-Object.assign(LIT_UNDER, { chair: null, chairn: null, cabinet: null, printer: null, cooler: null, plant: null });
+Object.assign(LIT_UNDER, { chair: null, chairn: null, cabinet: null, printer: null, cooler: null, plant: null, cwpipe: null });
+LIT_INDOOR.cwpipe = 1;
 LIT_PROP.highbay = function(G, p){
   for (const [x, z] of litHighbays(p)){
     litCyl(G('steel'), x, p.y - 0.15, z, x, p.y + 1.2, z, 0.02, 0.02, 5, 1, false, false);
@@ -4156,7 +4209,7 @@ function litUniformsFor(map){
      the floor's shading. The power station has 107 boxes and offers 60 — the
      treads alone were 24 of them, which would have pushed the real plant off
      the end of the list. Without them it offers 36. */
-  const SKIP_FLOOR = { column: 1, hidden: 1, step: 1, lattice: 1, hvtower: 1, hviso: 1, hvct: 1, mast: 1, palisade: 1, lamppost: 1 };
+  const SKIP_FLOOR = { column: 1, hidden: 1, step: 1, lattice: 1, hvtower: 1, hviso: 1, hvct: 1, mast: 1, palisade: 1, lamppost: 1, cwpipe: 1 };
   /* ^ too thin to shade the floor or hide a panel. A transmission tower
      has a 4m footprint but is four legs and some bracing: treating it as
      a solid 4m block would lay a shadow under it that nothing casts. */

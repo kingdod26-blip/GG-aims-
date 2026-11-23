@@ -2076,6 +2076,29 @@ real running speed or the budget clips them.)
   softened; office chairs on a desk's north side are `chairn` (back to the
   north) so every chair faces its desk. Frame ~1.4ms at a roadside view.
 
+## The turbine hall, fitted out (2026-11-23)
+
+From Jack's indoors brief (catwalks, bridges, railings, generators, pipes,
+control room) and his "Inside a power station" picture
+(`Crinsome x/Pictures/Inner power station pics`). works.js THE TURBINE
+HALL, FITTED OUT; drawers in lighting.js.
+- A **catwalk** along each long wall at 6.4m (z +-57..59, x 9.5..103), a
+  straight steel stair down at each end (in line with the walk), and two
+  **bridges** across the hall at x 20 and x 92 joining them. Rails on every
+  open edge (MOVE_ONLY handrail). Walked: stair up, along, across a bridge,
+  stopped 0.4m off the rail.
+- **Yellow rails** round both turbine decks (x 43..69), open at their steps.
+- The hall's `machine` boxes are now `condenser` (twin silver shells, blue
+  water boxes, on a frame) and `pumpset` (blue motor, yellow coupling guard,
+  pump casing), via `hallKind` in the copy loop.
+- **Cooling water**: a green riser on each pump and a drop into each
+  condenser (`cwpipe`, collision), joined by a run at 9m (`cwruns` prop,
+  out of reach). `P_LATE` carries props written before `P` exists.
+- **Generators are blue** (`genblue`); the control rooms show glowing
+  screens behind their glass (`screenglow`); yellow walkways at x 25/87.
+Next stages of the brief, not built yet: generator room, substation room,
+maintenance workshop, underground service tunnels, storage areas.
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,

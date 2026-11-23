@@ -14,6 +14,7 @@ const A = 120;          // half-extent: a 240m site
 
 const out = [];
 const BUILT = [];                    // every building()'s footprint (THE WET GROUND keeps puddles out of them)
+const P_LATE = [];                   // props written before P exists (the hall's cooling-water runs), added to P with BOILERS
 const note = (t) => out.push({ note: t });
 const box = (x, z, w, d, h, mat, extra) =>
   out.push(Object.assign({ x: +x.toFixed(2), z: +z.toFixed(2), w: +w.toFixed(3), d: +d.toFixed(3), h, mat }, extra || {}));
@@ -115,8 +116,11 @@ note('THE TURBINE HALL — the whole of the `powerstation` map, moved east and\n
      '      given walls and a roof instead of being the world. Its boxes are\n' +
      '      copied, not re-typed: reactor bay, both units, the column rows,\n' +
      '      the control rooms, all at the dimensions they already had.');
+/* (2026-11-23, the indoors brief) the hall's condensers and cooling-water
+   pumps are their own kinds now, drawn as what they are (lighting.js). */
+const hallKind = (b) => b.mat !== 'machine' ? b.mat : (b.w === 6 && b.d === 14) ? 'condenser' : (b.w === 3.4 && b.d === 3) ? 'pumpset' : b.mat;
 for (const b of M.MAPS.powerstation.boxes) {
-  box(b.x + HALL_DX, b.z, b.w, b.d, b.h, b.mat,
+  box(b.x + HALL_DX, b.z, b.w, b.d, b.h, hallKind(b),
       b.r != null ? { r: b.r, n: b.n } : null);
 }
 
@@ -146,6 +150,50 @@ wallN(HZ0 - HW / 2, 54, HX1, HH, 'cladding');
 // south face, a door toward the quay
 wallN(HZ1 + HW / 2, HX0, 20, HH, 'cladding');
 wallN(HZ1 + HW / 2, 28, HX1, HH, 'cladding');
+
+/* THE TURBINE HALL, FITTED OUT (2026-11-23). Jack's brief for the indoors
+   ("multiple levels of elevated metal walkways, staircases, platforms,
+   railings, and maintenance bridges", "Upper Catwalks: elevated walkways
+   overlooking the main turbine hall") and his reference picture (decks
+   edged in yellow rail, cooling-water pipes from the pumps to the
+   condensers, blue generators):
+   - a CATWALK along each long wall at 6.4m, a steel stair down at each end,
+     and two BRIDGES across the hall (x 20 and x 92) joining them: a second
+     level over the whole floor;
+   - yellow RAILS round both turbine operating decks, open at their stairs;
+   - COOLING WATER: from each pump a pipe rises to 9m, runs over to its
+     condenser and drops into it - the risers and drops are collision, the
+     runs are out of reach. */
+{
+  const CY = 6.4, CT = 0.2;                                        // catwalk deck top, thickness
+  for (const s of [1, -1]){
+    const z0 = s > 0 ? HZ1 - 2 : -HZ1, z1 = z0 + 2;                // against the wall's inner face
+    ob(9.5, 103, z0, z1, CY - CT, CY, 'grating');
+    const ze = s > 0 ? z0 : z1;                                    // the open edge
+    for (const [a, b] of [[9.5, 19], [21, 91], [93, 103]]) rail(a, b, ze - 0.03, ze + 0.03, CY);
+    // the stairs: in line with the walk, down to the floor at each end
+    const n = Math.ceil(CY / 0.19), rise = CY / n, G = 0.25;
+    for (let k = 1; k < n; k++){ const top = k * rise;
+      ob(103 + (n - 1 - k) * G, 103 + (n - k) * G, z0, z1, Math.max(0, top - 0.15), top, 'steptread');      // east: down toward +x
+      ob(9.5 - (n - k) * G, 9.5 - (n - 1 - k) * G, z0, z1, Math.max(0, top - 0.15), top, 'steptread'); }    // west: down toward -x
+  }
+  for (const bx of [20, 92]){                                       // the bridges, wall to wall
+    ob(bx - 1, bx + 1, -HZ1 + 2, HZ1 - 2, CY - CT, CY, 'grating');
+    rail(bx - 1.03, bx - 0.97, -HZ1 + 2, HZ1 - 2, CY); rail(bx + 0.97, bx + 1.03, -HZ1 + 2, HZ1 - 2, CY);
+  }
+  // rails round the two turbine decks (x 43..69), open where their stairs come up (z +-30..+-36)
+  for (const s of [1, -1]){
+    const zc = 33 * s, za = zc - 14, zb = zc + 14, y = 3.2;
+    rail(43, 69, za, za + 0.06, y); rail(43, 69, zb - 0.06, zb, y);
+    for (const x of [43, 68.94]){ rail(x, x + 0.06, za + 0.06, zc - 3, y); rail(x, x + 0.06, zc + 3, zb - 0.06, y); }
+  }
+  // cooling water: pump riser, a run at 9m, a drop into the condenser's end
+  for (const [px, pz, cx, cz] of [[35, -14, 35.5, -27.2], [35, 14, 35.5, 27.2], [77, -14, 76.5, -27.2], [77, 14, 76.5, 27.2]]){
+    ob(px - 0.35, px + 0.35, pz - 0.35, pz + 0.35, 1.2, 9.4, 'cwpipe');
+    ob(cx - 0.35, cx + 0.35, cz - 0.35, cz + 0.35, 2.6, 9.4, 'cwpipe');
+  }
+  P_LATE.push({ kind: 'cwruns', runs: [[35, -14, 35.5, -27.2], [35, 14, 35.5, 27.2], [77, -14, 76.5, -27.2], [77, 14, 76.5, 27.2]], y: 9 });
+}
 
 /* ===================================================================== */
 /* 2. THE SWITCHYARD                                                     */
@@ -671,7 +719,7 @@ const P = M.MAPS.powerstation.props.map(p => {
   return q;
 });
 P.push({ kind: 'hallroof', x0: HX0 - HW, x1: HX1 + HW, z0: HZ0 - HW, z1: HZ1 + HW, y: HH });
-P.push(...BOILERS);                 // the two furnaces (THE TWO BOILERS), and the switchyard's overhead (THE SWITCHYARD)
+P.push(...BOILERS, ...P_LATE);                 // the two furnaces (THE TWO BOILERS), and the switchyard's overhead (THE SWITCHYARD)
 /* The hall's own light (2026-11-22): high-bay lamps every 12m under the
    roof, where the crane leaves room. Until now the hall had no fittings at
    all and was lit, unseen, by the sky through a roof the bake could not
@@ -1158,6 +1206,7 @@ ${lines.join('\n')}
       { k: 'hatch', x: -100, z: -40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z: -40, w: 5.6, d: 5.6 },
       { k: 'hatch', x: -100, z:  40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z:  40, w: 5.6, d: 5.6 },
       { k: 'text',  x: 56, z: 72, s: 2.6, t: 'TURBINE HALL' },
+      { k: 'walk',  x0: 25, z0: -55, x1: 25, z1: 55, w: 2.4 }, { k: 'walk', x0: 87, z0: -55, x1: 87, z1: 55, w: 2.4 },
 ${PAINT_MORE.map(q => '      ' + JSON.stringify(q).replace(/"(\w+)":/g, '$1: ').replace(/"/g, "'") + ',').join('\n')}
     ],
     /* WHAT THE GROUND IS MADE OF (stage 3, 2026-11-16), from Jack's aerial
