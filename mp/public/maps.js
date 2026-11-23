@@ -2813,6 +2813,68 @@ const MAPS = {
       { x: -15.6938, z: -91.1942, w:    0.08, d:    0.08, h:  1.1, mat: 'ringrail'   , y: 33.5 },
       { x: -15.6298, z: -90.5986, w:    0.08, d:    0.08, h:  1.1, mat: 'ringrail'   , y: 33.5 },
 
+      // THE GENERATOR ROOM, south of the hall across the road
+      { x:      18, z:   74.15, w:      16, d:     0.3, h:    5, mat: 'shedwall'    },
+      { x:    40.5, z:   74.15, w:      19, d:     0.3, h:    5, mat: 'shedwall'    },
+      { x:      30, z:   74.15, w:      40, d:     0.3, h:    2, mat: 'shedwall'   , y: 5 },
+      { x:      11, z:   74.15, w:       2, d:     0.3, h:    2, mat: 'shedwall'   , y: 7 },
+      { x:    28.5, z:   74.15, w:       9, d:     0.3, h:    2, mat: 'shedwall'   , y: 7 },
+      { x:      49, z:   74.15, w:       2, d:     0.3, h:    2, mat: 'shedwall'   , y: 7 },
+      { x:      30, z:   74.15, w:      40, d:     0.3, h:  2.6, mat: 'shedwall'   , y: 9 },
+      { x:      18, z:   74.15, w:      12, d:    0.06, h:    2, mat: 'glass'      , y: 7 },
+      { x:    40.5, z:   74.15, w:      15, d:    0.06, h:    2, mat: 'glass'      , y: 7 },
+      { x:      30, z:   95.85, w:      40, d:     0.3, h:    7, mat: 'shedwall'    },
+      { x:      11, z:   95.85, w:       2, d:     0.3, h:    2, mat: 'shedwall'   , y: 7 },
+      { x:      49, z:   95.85, w:       2, d:     0.3, h:    2, mat: 'shedwall'   , y: 7 },
+      { x:      30, z:   95.85, w:      40, d:     0.3, h:  2.6, mat: 'shedwall'   , y: 9 },
+      { x:      30, z:   95.85, w:      36, d:    0.06, h:    2, mat: 'glass'      , y: 7 },
+      { x:   10.15, z:   78.65, w:     0.3, d:     8.7, h:  2.6, mat: 'shedwall'    },
+      { x:   10.15, z:   90.85, w:     0.3, d:     9.7, h:  2.6, mat: 'shedwall'    },
+      { x:   10.15, z:      85, w:     0.3, d:    21.4, h:    9, mat: 'shedwall'   , y: 2.6 },
+      { x:   49.85, z:   78.65, w:     0.3, d:     8.7, h:  2.6, mat: 'shedwall'    },
+      { x:   49.85, z:   90.85, w:     0.3, d:     9.7, h:  2.6, mat: 'shedwall'    },
+      { x:   49.85, z:      85, w:     0.3, d:    21.4, h:    9, mat: 'shedwall'   , y: 2.6 },
+      { x:      30, z:      85, w:      40, d:      22, h:  0.4, mat: 'shedroof'   , y: 11.6 },
+      { x:      22, z:      80, w:      14, d:     3.6, h:    4, mat: 'genset'      },
+      { x:      38, z:      80, w:      14, d:     3.6, h:    4, mat: 'genset'      },
+      { x:    12.3, z:      80, w:     2.4, d:       3, h:  2.2, mat: 'switch'      },
+      { x:      30, z:   93.85, w:      36, d:     3.7, h:  0.2, mat: 'grating'    , y: 3.8 },
+      { x:    46.8, z:  86.625, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 0.032 },
+      { x:    46.8, z:  86.875, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 0.214 },
+      { x:    46.8, z:  87.125, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 0.396 },
+      { x:    46.8, z:  87.375, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 0.577 },
+      { x:    46.8, z:  87.625, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 0.759 },
+      { x:    46.8, z:  87.875, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 0.941 },
+      { x:    46.8, z:  88.125, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 1.123 },
+      { x:    46.8, z:  88.375, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 1.304 },
+      { x:    46.8, z:  88.625, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 1.486 },
+      { x:    46.8, z:  88.875, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 1.668 },
+      { x:    46.8, z:  89.125, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 1.85 },
+      { x:    46.8, z:  89.375, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 2.032 },
+      { x:    46.8, z:  89.625, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 2.214 },
+      { x:    46.8, z:  89.875, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 2.396 },
+      { x:    46.8, z:  90.125, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 2.577 },
+      { x:    46.8, z:  90.375, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 2.759 },
+      { x:    46.8, z:  90.625, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 2.941 },
+      { x:    46.8, z:  90.875, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 3.123 },
+      { x:    46.8, z:  91.125, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 3.304 },
+      { x:    46.8, z:  91.375, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 3.486 },
+      { x:    46.8, z:  91.625, w:     1.6, d:    0.25, h: 0.15, mat: 'steptread'  , y: 3.668 },
+      { x:      29, z:      92, w:      34, d:    0.06, h:  1.1, mat: 'handrail'   , y: 4 },
+      { x:    47.8, z:      92, w:     0.4, d:    0.06, h:  1.1, mat: 'handrail'   , y: 4 },
+      { x:      12, z:  93.865, w:    0.06, d:    3.67, h:  1.1, mat: 'handrail'   , y: 4 },
+      { x:    15.7, z:   94.85, w:       3, d:     1.6, h:  2.2, mat: 'switch'      },
+      { x:    18.9, z:   94.85, w:       3, d:     1.6, h:  2.2, mat: 'switch'      },
+      { x:    22.1, z:   94.85, w:       3, d:     1.6, h:  2.2, mat: 'switch'      },
+      { x:    25.3, z:   94.85, w:       3, d:     1.6, h:  2.2, mat: 'switch'      },
+      { x:    28.5, z:   94.85, w:       3, d:     1.6, h:  2.2, mat: 'switch'      },
+      { x:    31.7, z:   94.85, w:       3, d:     1.6, h:  2.2, mat: 'switch'      },
+      { x:    34.9, z:   94.85, w:       3, d:     1.6, h:  2.2, mat: 'switch'      },
+      { x:    38.1, z:   94.85, w:       3, d:     1.6, h:  2.2, mat: 'switch'      },
+      { x:    41.3, z:   94.85, w:       3, d:     1.6, h:  2.2, mat: 'switch'      },
+      { x:    28.4, z:      80, w:     0.7, d:     0.7, h:  5.4, mat: 'cwpipe'     , y: 4 },
+      { x:    44.4, z:      80, w:     0.7, d:     0.7, h:  5.4, mat: 'cwpipe'     , y: 4 },
+
       // CLUTTER AND WEAR: the things people bring to a site and leave (kit)
       { x:     -40, z:  104.46, w:     3.2, d:    0.12, h:    1, mat: 'shedwall'    },
       { x:   -41.2, z:  104.46, w:     0.8, d:    0.12, h:  0.9, mat: 'shedwall'   , y: 1 },
@@ -3834,6 +3896,41 @@ const MAPS = {
                 x1: -22
           },
           {
+                kind: 'cwruns',
+                runs: [
+                      [
+                            28.4,
+                            80,
+                            49.6,
+                            80
+                      ],
+                      [
+                            44.4,
+                            80,
+                            49.6,
+                            80.0001
+                      ]
+                ],
+                y: 9
+          },
+          {
+                kind: 'genroom',
+                x0: 10.3,
+                x1: 49.7,
+                z0: 74.3,
+                z1: 95.7,
+                h: 11.6
+          },
+          {
+                kind: 'highbay',
+                x0: 16,
+                x1: 44,
+                z0: 78,
+                z1: 90,
+                y: 11.2,
+                step: 12
+          },
+          {
                 kind: 'ceilinglights',
                 x0: -41.48,
                 x1: -38.52,
@@ -4047,6 +4144,66 @@ const MAPS = {
                             ry: -1.5708,
                             post: false,
                             y: 1.5
+                      },
+                      {
+                            k: 'sign',
+                            t: 'ear',
+                            x: 32.6,
+                            z: 73.92,
+                            ry: 3.1416,
+                            post: false,
+                            y: 1.6
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: 24.4,
+                            z: 73.92,
+                            ry: 3.1416,
+                            post: false,
+                            y: 1.6
+                      },
+                      {
+                            k: 'cable',
+                            pts: [
+                                  [
+                                        13.5,
+                                        81.6
+                                  ],
+                                  [
+                                        16,
+                                        83.2
+                                  ],
+                                  [
+                                        27,
+                                        83.4
+                                  ],
+                                  [
+                                        30,
+                                        82.2
+                                  ]
+                            ]
+                      },
+                      {
+                            k: 'cable',
+                            pts: [
+                                  [
+                                        13.5,
+                                        78.4
+                                  ],
+                                  [
+                                        15,
+                                        77
+                                  ],
+                                  [
+                                        31,
+                                        76.8
+                                  ],
+                                  [
+                                        33,
+                                        77.9
+                                  ]
+                            ]
                       },
                       {
                             k: 'sign',
@@ -4613,11 +4770,11 @@ const MAPS = {
                       },
                       {
                             k: 'puddle',
-                            x: 48.4255,
-                            z: 96.0378,
-                            r: 1.1335,
-                            e: 0.6093,
-                            a: 0.02
+                            x: -83.4739,
+                            z: -33.1682,
+                            r: 1.9541,
+                            e: 0.9401,
+                            a: 2.4145
                       },
                       {
                             k: 'puddle',
@@ -4764,6 +4921,7 @@ const MAPS = {
          path from the south road's kerb up to the door. */
       { k: 'floor',  x0: 55.3, z0: 80.3, x1: 94.7, z1: 91.7 },
       { k: 'paving', x0: 72.5, z0: 68.35, x1: 77.5, z1: 80 },
+      {k: 'plate',x0: 10.3,z0: 74.3,x1: 49.7,z1: 95.7},
     ],
     signs: [],
   },

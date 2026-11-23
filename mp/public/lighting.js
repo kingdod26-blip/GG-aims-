@@ -2051,6 +2051,19 @@ function litGroundTexture(map){
     } };
     tiles('floor',  '#dcd9d0', 'rgba(70,68,64,0.28)', 1.2, 0.05);   // 1.2m: at 8.5px a metre, 0.6m tiles were a moire grid. Lighter (2026-11-22): the office's ground floor shares the outdoor slab, darkened for the overcast, and read a shade darker than the floors above it
     tiles('paving', '#a9a59b', 'rgba(60,58,54,0.35)', 0.9, 0.08);
+    /* Chequer plate (the generator room, 2026-11-23): 1.5m steel plates,
+       their raised diamonds a fine diagonal tick on each. */
+    for (const q of of('plate')){
+      const r = litGroundRect(q), x0 = X(r[0]), z0 = Z(r[1]), w = (r[2] - r[0]) * k, d = (r[3] - r[1]) * k, t = 1.5 * k;
+      g.save(); g.beginPath(); g.rect(x0, z0, w, d); g.clip();
+      g.fillStyle = '#80868c'; g.fillRect(x0, z0, w, d);
+      g.fillStyle = 'rgba(200,206,212,0.35)';
+      for (let x = x0; x < x0 + w; x += 3) for (let z = z0 + ((x / 3) % 2) * 1.5; z < z0 + d; z += 3) g.fillRect(x, z, 1.4, 1);
+      g.fillStyle = 'rgba(40,42,46,0.45)';
+      for (let x = x0; x <= x0 + w; x += t) g.fillRect(x, z0, 1, d);
+      for (let z = z0; z <= z0 + d; z += t) g.fillRect(x0, z, w, 1);
+      g.restore();
+    }
     /* Roads: every kerb, then every asphalt bed, then every line - and last,
        the asphalt again over each junction, so no kerb or line runs across
        the mouth of a crossing road. */
@@ -3944,6 +3957,35 @@ Object.assign(LIT_DRAW, {
   cwpipe(G, b){ litCyl(G('pipegreen'), b.x, 0, b.z, b.x, b.h, b.z, 0.32, 0.32, 14, 2, false, true);
                litCyl(G('steel'), b.x, 0.02, b.z, b.x, 0.14, b.z, 0.4, 0.4, 14, 1, true, true); },   // a flange where it meets the plant
 });
+/* THE GENERATOR ROOM (2026-11-23): a standby generator set - a blue drum
+   on a concrete plinth, bearing pedestals at its ends, banded, a terminal
+   box on top. The box is the set: its top is the drum's crown. */
+LIT_DRAW.genset = function(G, b, x0, z0, x1, z1){
+  const r = (z1 - z0) / 2 - 0.05, cy = b.h - r, cz = b.z, pl = cy - r;
+  litBox(G('concrete'), x0, 0, z0, x1, pl, z1, { seg: 2, tile: 120, tileV: 8 });
+  litCyl(G('genblue'), x0 + 1.2, cy, cz, x1 - 1.2, cy, cz, r, r, 28, 2, true, true);
+  for (let x = x0 + 2.5; x < x1 - 2; x += 1.8) litCyl(G('steel'), x - 0.06, cy, cz, x + 0.06, cy, cz, r + 0.04, r + 0.04, 28, 1, true, true);
+  for (const x of [x0 + 0.1, x1 - 1.1]) litBox(G('steel'), x, pl, cz - r * 0.7, x + 1.0, cy + 0.3, cz + r * 0.7, { bevel: 0.04, seg: 2 });   // bearing pedestals
+  for (const x of [x0 + 0.6, x1 - 0.6]) litCyl(G('steel'), x - 0.5, cy, cz, x + 0.5, cy, cz, 0.35, 0.35, 14, 1, true, true);             // the shaft ends
+  litBox(G('steel'), b.x - 1.2, b.h - 0.6, cz - 0.6, b.x + 1.2, b.h, cz + 0.6, { bevel: 0.03, seg: 2 });                                  // terminal box
+};
+LIT_INDOOR.genset = 1;
+/* The generator room's roof space: a ventilation duct the length of the
+   room with grilles, two cable trays, and extract fans in the north wall. */
+LIT_PROP.genroom = function(G, p){
+  const { x0, x1, z0, z1, h } = p, zc = (z0 + z1) / 2;
+  litBox(G('lagging'), x0 + 1, h - 1.6, zc - 0.8, x1 - 1, h - 0.6, zc + 0.8, { seg: 6, tile: 2, bottom: true });     // the duct
+  for (let x = x0 + 4; x < x1 - 3; x += 6) litBox(G('steel'), x, h - 1.62, zc - 0.5, x + 1.2, h - 1.6, zc + 0.5, { seg: 1 });   // grilles
+  for (const z of [z0 + 1.6, z1 - 5.4]){                                                                        // cable trays, cables in them
+    litBox(G('steel'), x0 + 0.5, h - 2.4, z - 0.3, x1 - 0.5, h - 2.36, z + 0.3, { seg: 4, bottom: true });
+    for (const o of [-0.2, 0, 0.2]) litCyl(G('cable'), x0 + 0.5, h - 2.3, z + o, x1 - 0.5, h - 2.3, z + o, 0.04, 0.04, 6, 2, false, false);
+  }
+  for (const x of [x0 + 8, x1 - 8]){                                                                            // wall fans, north wall
+    litCyl(G('steel'), x, h - 4, z0 + 0.02, x, h - 4, z0 + 0.4, 1.0, 1.0, 20, 1, false, true);
+    for (let i = 0; i < 5; i++){ const a = i * Math.PI * 2 / 5;
+      litBox(G('cable'), x + Math.cos(a) * 0.45 - 0.1, h - 4 + Math.sin(a) * 0.45 - 0.35, z0 + 0.42, x + Math.cos(a) * 0.45 + 0.1, h - 4 + Math.sin(a) * 0.45 + 0.35, z0 + 0.45, { seg: 1 }); }
+  }
+};
 LIT_PROP.cwruns = function(G, p){
   for (const [px, pz, cx, cz] of p.runs){
     const y = p.y;

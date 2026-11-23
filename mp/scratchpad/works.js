@@ -14,7 +14,8 @@ const A = 120;          // half-extent: a 240m site
 
 const out = [];
 const BUILT = [];                    // every building()'s footprint (THE WET GROUND keeps puddles out of them)
-const P_LATE = [];                   // props written before P exists (the hall's cooling-water runs), added to P with BOILERS
+const P_LATE = [];
+const GROUND_MORE = [];              // ground zones added by later sections (the generator room's chequer plate)                   // props written before P exists (the hall's cooling-water runs), added to P with BOILERS
 const note = (t) => out.push({ note: t });
 const box = (x, z, w, d, h, mat, extra) =>
   out.push(Object.assign({ x: +x.toFixed(2), z: +z.toFixed(2), w: +w.toFixed(3), d: +d.toFixed(3), h, mat }, extra || {}));
@@ -913,6 +914,38 @@ const oil = (x, z, r) => CL.push({ k: 'oil', x: r4(x), z: r4(z), r: r || 1.2 });
 const cable = (...pts) => CL.push({ k: 'cable', pts: pts.map(p => [r4(p[0]), r4(p[1])]) });
 const sign = (t, x, z, ry, post, y) => CL.push(Object.assign({ k: 'sign', t, x: r4(x), z: r4(z), ry: r4(ry), post: !!post }, y != null ? { y } : {}));
 
+note('THE GENERATOR ROOM, south of the hall across the road');
+/* (2026-11-23, the indoors brief, room 3: "a room containing massive
+   cylindrical generators, electrical cables, cooling pipes, ventilation
+   equipment, and metal flooring"). A 40 x 22m clad house, 12m to the roof,
+   across the south road from the hall's south door: a roll-up door facing
+   the hall, side doors east and west, a band of high windows. Inside, two
+   standby generator sets (blue drums on plinths, 4m - cover nobody climbs),
+   their exciter cabinet, a mezzanine along the back wall at 4m on a steel
+   stair with the switchgear under it, cooling water dropping into the
+   generators from a main at 9m, a ventilation duct and cable trays up in
+   the roof, high-bay lights, chequer-plate floor. */
+const GR = { x0: 10, x1: 50, z0: 74, z1: 96, t: 0.3, h: 12, rt: 0.4 };
+building(GR, [
+  { face: 'N', a0: 26, a1: 31, y0: 0, y1: 5 },                                   // the roll-up door, facing the hall
+  { face: 'W', a0: 83, a1: 86, y0: 0, y1: 2.6 }, { face: 'E', a0: 83, a1: 86, y0: 0, y1: 2.6 },
+  { face: 'N', a0: 12, a1: 24, y0: 7, y1: 9, glass: true }, { face: 'N', a0: 33, a1: 48, y0: 7, y1: 9, glass: true },
+  { face: 'S', a0: 12, a1: 48, y0: 7, y1: 9, glass: true },
+], 'shedwall', 'shedroof');
+box(22, 80, 14, 3.6, 4.0, 'genset'); box(38, 80, 14, 3.6, 4.0, 'genset');
+box(12.3, 80, 2.4, 3.0, 2.2, 'switch');                                           // the exciter / control cubicle
+ob(12, 48, GR.z1 - GR.t - 3.7, GR.z1 - GR.t, 3.8, 4.0, 'grating');                // the mezzanine (z 92..95.7)
+const GRM = GR.z1 - GR.t - 3.7;
+steelStair(46.0, 47.6, GRM - 5.5, 1, 0, 4.0);
+rail(12, 46.0, GRM - 0.03, GRM + 0.03, 4.0); rail(47.6, 48, GRM - 0.03, GRM + 0.03, 4.0);
+rail(11.97, 12.03, GRM + 0.03, GR.z1 - GR.t, 4.0);
+for (const x of [14.2, 17.4, 20.6, 23.8, 27.0, 30.2, 33.4, 36.6, 39.8]) box(x + 1.5, GR.z1 - GR.t - 0.85, 3.0, 1.6, 2.2, 'switch');   // switchgear under it
+ob(28.05, 28.75, 79.65, 80.35, 4.0, 9.4, 'cwpipe'); ob(44.05, 44.75, 79.65, 80.35, 4.0, 9.4, 'cwpipe');   // cooling water into each set
+P.push({ kind: 'cwruns', runs: [[28.4, 80, 49.6, 80], [44.4, 80, 49.6, 80.0001]], y: 9 });
+P.push({ kind: 'genroom', x0: GR.x0 + GR.t, x1: GR.x1 - GR.t, z0: GR.z0 + GR.t, z1: GR.z1 - GR.t, h: GR.h - GR.rt });
+P.push({ kind: 'highbay', x0: 16, x1: 44, z0: 78, z1: 90, y: 11.2, step: 12 });
+GROUND_MORE.push({ k: 'plate', x0: GR.x0 + GR.t, z0: GR.z0 + GR.t, x1: GR.x1 - GR.t, z1: GR.z1 - GR.t });
+
 note('CLUTTER AND WEAR: the things people bring to a site and leave (kit)');
 /* 1. THE LAYDOWN YARD, south-west: a contractors' compound on the open
    ground below the tank farm - cabin, skip, cable drums waiting to go in,
@@ -951,6 +984,8 @@ for (const x of [-33, -24, -70, -100]) sign('hv', x, 97.08, 0, false, 1.5);
 sign('hv', -114.58, 86, -Math.PI / 2, false, 1.5);
 /* More signs (2026-11-23, the Saltline list): the muster point, hearing
    protection at the plant doors, fire exits, site speed on the roads. */
+sign('ear', 32.6, 73.92, Math.PI, false, 1.6); sign('hv', 24.4, 73.92, Math.PI, false, 1.6);   // the generator room's door
+cable([13.5, 81.6], [16, 83.2], [27, 83.4], [30, 82.2]); cable([13.5, 78.4], [15, 77], [31, 76.8], [33, 77.9]);
 sign('assembly', 84, 72, Math.PI, true); sign('assembly', -8.6, -40, -Math.PI / 2, true);
 sign('ear', -4.52, -21.6, -Math.PI / 2, false, 1.6); sign('ear', -4.52, 21.6, -Math.PI / 2, false, 1.6);
 sign('ear', 47.4, -67.98, 0, false, 1.6);
@@ -1241,6 +1276,7 @@ ${PAINT_MORE.map(q => '      ' + JSON.stringify(q).replace(/"(\w+)":/g, '$1: ').
          path from the south road's kerb up to the door. */
       { k: 'floor',  x0: 55.3, z0: 80.3, x1: 94.7, z1: 91.7 },
       { k: 'paving', x0: 72.5, z0: 68.35, x1: 77.5, z1: 80 },
+${GROUND_MORE.map(q => '      ' + JSON.stringify(q).replace(/"(\w+)":/g, '$1: ').replace(/"/g, "'") + ',').join('\n')}
     ],
     signs: [],
   },

@@ -2096,8 +2096,18 @@ HALL, FITTED OUT; drawers in lighting.js.
   out of reach). `P_LATE` carries props written before `P` exists.
 - **Generators are blue** (`genblue`); the control rooms show glowing
   screens behind their glass (`screenglow`); yellow walkways at x 25/87.
-Next stages of the brief, not built yet: generator room, substation room,
-maintenance workshop, underground service tunnels, storage areas.
+**The generator room** (works.js THE GENERATOR ROOM, 2026-11-23): a 40 x
+22 x 12m clad house at x 10..50, z 74..96, across the south road from the
+hall's south door (roll-up door north, doors east and west, high windows).
+Two `genset`s (blue drum on a plinth, 14 x 3.6 x 4m), an exciter cubicle, a
+mezzanine at 4m along the back wall on a steel stair with switchgear
+under it, cooling water dropping into each set from a 9m main, a duct,
+cable trays and wall fans (`genroom` prop), high-bays, and a `plate`
+(chequer plate) ground zone. `GROUND_MORE` adds ground zones from later
+sections; props from sections after `P` exists go straight into `P`.
+Walked: in at the doors, up the stair, stopped by the rail and the sets.
+Still to build: substation room, maintenance workshop, service tunnels,
+storage areas.
 
 ## Agents
 
