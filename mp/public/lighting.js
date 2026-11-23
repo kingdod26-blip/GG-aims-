@@ -1890,6 +1890,29 @@ function litMarksTexture(map){
       for (let q = -d; q < w + d; q += s * 2){ g.beginPath(); g.moveTo(x0 + q, z0 + d); g.lineTo(x0 + q + s, z0 + d); g.lineTo(x0 + q + s + d, z0); g.lineTo(x0 + q + d, z0); g.closePath(); g.fill(); }
       g.restore();
     }
+    /* 2026-11-23, the Saltline list: zebra crossings, lane arrows, and
+       yellow keep-clear boxes in front of doors. */
+    for (const p of of('zebra')){                                                      // bars along the road, across its width
+      g.fillStyle = 'rgba(236,236,230,0.82)';
+      for (let i = -3; i <= 3; i++){
+        const c = p.horiz ? p.x + i * 0.9 : p.z + i * 0.9, h = p.w / 2 - 0.5;
+        if (p.horiz) g.fillRect(X(c - 0.25), Z(p.z - h), 0.5 * k, 2 * h * k); else g.fillRect(X(p.x - h), Z(c - 0.25), 2 * h * k, 0.5 * k);
+      }
+    }
+    for (const p of of('arrow')){
+      g.save(); g.translate(X(p.x), Z(p.z)); g.rotate(p.a); g.fillStyle = 'rgba(236,236,230,0.80)';
+      g.fillRect(-1.6 * k, -0.11 * k, 2.2 * k, 0.22 * k);
+      g.beginPath(); g.moveTo(1.6 * k, 0); g.lineTo(0.6 * k, -0.55 * k); g.lineTo(0.6 * k, 0.55 * k); g.closePath(); g.fill();
+      g.restore();
+    }
+    for (const p of of('keep')){
+      const x0 = X(p.x - p.w / 2), z0 = Z(p.z - p.d / 2), w = p.w * k, d = p.d * k, lw = 0.12 * k;
+      g.save(); g.beginPath(); g.rect(x0, z0, w, d); g.clip();
+      g.strokeStyle = 'rgba(210,164,40,0.70)'; g.lineWidth = lw;
+      for (let q = -d; q < w; q += 0.9 * k){ g.beginPath(); g.moveTo(x0 + q, z0 + d); g.lineTo(x0 + q + d, z0); g.stroke(); }
+      g.restore();
+      g.strokeStyle = 'rgba(210,164,40,0.85)'; g.lineWidth = lw * 1.4; g.strokeRect(x0, z0, w, d);
+    }
     g.textAlign = 'center'; g.textBaseline = 'middle';
     for (const p of of('text')){
       g.font = `700 ${(p.s * k) | 0}px "Arial Narrow", Arial, sans-serif`; g.fillStyle = 'rgba(226,231,238,0.62)';
@@ -2050,6 +2073,25 @@ function litGroundTexture(map){
        softer rim, a few drips leading off it. Saltline puts one under
        every vehicle and every drum store, and so does a real site. */
     const srnd = litRand(91);
+    /* Puddles (2026-11-23, the Saltline list): a dark damp margin, then the
+       water, which under an overcast is the sky's pale grey - lighter than
+       the wet concrete round it - with a brighter streak of sheen. */
+    for (const p of (map.props || [])) if (p.kind === 'clutter') for (const it of p.items){
+      if (it.k !== 'puddle') continue;
+      const cx = X(it.x), cz = Z(it.z), r = it.r * k;
+      g.save(); g.translate(cx, cz); g.rotate(it.a || 0); g.scale(1, it.e || 0.7);
+      for (let n = 0; n < 4; n++){                                                    // damp, ragged margin
+        const ox = (srnd() - 0.5) * r * 0.7, oz = (srnd() - 0.5) * r * 0.7, rr = r * (1.05 + srnd() * 0.35);
+        const gr = g.createRadialGradient(ox, oz, rr * 0.5, ox, oz, rr);
+        gr.addColorStop(0, 'rgba(58,60,62,0.42)'); gr.addColorStop(1, 'rgba(58,60,62,0)');
+        g.fillStyle = gr; g.fillRect(ox - rr, oz - rr, rr * 2, rr * 2);
+      }
+      const gw = g.createRadialGradient(0, 0, 0, 0, 0, r * 0.85);                     // the water
+      gw.addColorStop(0, 'rgba(176,184,190,0.62)'); gw.addColorStop(0.75, 'rgba(150,158,164,0.55)'); gw.addColorStop(1, 'rgba(96,100,104,0)');
+      g.fillStyle = gw; g.beginPath(); g.arc(0, 0, r * 0.85, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(214,220,226,0.35)'; g.fillRect(-r * 0.5, -r * 0.08, r * 0.8, r * 0.1);   // sheen
+      g.restore();
+    }
     for (const p of (map.props || [])) if (p.kind === 'clutter') for (const it of p.items){
       if (it.k !== 'oil') continue;
       const cx = X(it.x), cz = Z(it.z), r = it.r * k;
@@ -2373,6 +2415,9 @@ const LIT_KIT_MATS = {
   vanwhite: [0xc2c4c2, 0.32, 0.25, 0.8, 0], vanstripe: [0x9c1828, 0.4, 0.2, 0.6, 0], tyre: [0x141414, 0.9, 0, 0.1, 1],
   forkyellow: [0xa6821e, 0.5, 0.2, 0.5, 0], bingreen: [0x2a4630, 0.7, 0, 0.3, 0], gengreen: [0x394837, 0.6, 0.2, 0.4, 0],
   orange: [0xd0511a, 0.6, 0, 0.3, 1], white: [0xd8d8d4, 0.5, 0, 0.4, 1],
+  /* the offices' dressing (2026-11-23) */
+  chairblack: [0x1c1d20, 0.7, 0, 0.3, 1], cabgrey: [0x7d8287, 0.45, 0.4, 0.6, 0], leaf: [0x2f4a26, 0.8, 0, 0.2, 0],
+  pot: [0x38393b, 0.6, 0, 0.3, 0], water: [0x6f93b8, 0.15, 0, 0.9, 0],
 };
 function litMaterial(name){
   if (LIT_MATS[name]) return LIT_MATS[name];
@@ -3847,6 +3892,46 @@ LIT_PROP.switchyard = function(G, p){
   }
   litAdd(new THREE.Mesh(litGeoDone(f), litPalisadeMat()), false);
 };
+/* ---- THE OFFICES, DRESSED (2026-11-23, the Saltline list) ----
+   Each piece is its own collision box (works.js `place`); these draw them,
+   flush to the box. */
+Object.assign(LIT_DRAW, {
+  chair(G, b, x0, z0, x1, z1){
+    const cx = b.x, cz = b.z, w = b.w / 2, d = b.d / 2;
+    litCyl(G('chairblack'), cx, 0.06, cz, cx, 0.42, cz, 0.03, 0.03, 8, 1, false, false);           // the gas column
+    for (let i = 0; i < 5; i++){ const a = i * Math.PI * 2 / 5;                                        // five-star base
+      litCyl(G('chairblack'), cx, 0.07, cz, cx + Math.cos(a) * w * 0.9, 0.04, cz + Math.sin(a) * d * 0.9, 0.018, 0.018, 4, 1, false, false); }
+    litBox(G('fabric'), x0 + 0.02, 0.42, z0 + 0.02, x1 - 0.02, 0.5, z1 - 0.02, { bevel: 0.02, seg: 1, tile: 0.5 });   // the seat
+    const back = b.d >= b.w ? z1 - 0.07 : z1 - 0.07;
+    litBox(G('fabric'), x0 + 0.04, 0.56, back, x1 - 0.04, b.h, z1, { bevel: 0.02, seg: 1, tile: 0.5 });           // the back
+    litCyl(G('chairblack'), cx, 0.5, z1 - 0.04, cx, 0.58, z1 - 0.04, 0.02, 0.02, 4, 1, false, false);
+  },
+  cabinet(G, b, x0, z0, x1, z1){
+    litBox(G('cabgrey'), x0, 0, z0, x1, b.h, z1, { bevel: 0.01, seg: 1, tile: 0.6 });
+    for (let i = 0; i < 4; i++){ const y = 0.18 + i * (b.h - 0.12) / 4;                                // drawer pulls
+      litBox(G('chairblack'), b.x - 0.08, y, z0 - 0.012, b.x + 0.08, y + 0.025, z0, { seg: 1 }); }
+  },
+  printer(G, b, x0, z0, x1, z1){
+    litBox(G('cabgrey'), x0, 0, z0, x1, 0.62, z1, { bevel: 0.02, seg: 1, tile: 0.6 });                // the stand
+    litBox(G('white'), x0 + 0.02, 0.62, z0 + 0.02, x1 - 0.02, b.h, z1 - 0.02, { bevel: 0.03, seg: 1, tile: 0.6 });
+    litBox(G('chairblack'), x0 + 0.08, b.h - 0.02, z0 + 0.06, x0 + 0.3, b.h, z0 + 0.2, { seg: 1 });   // the panel
+  },
+  cooler(G, b, x0, z0, x1, z1){
+    litBox(G('white'), x0, 0, z0, x1, b.h - 0.38, z1, { bevel: 0.02, seg: 1, tile: 0.5 });
+    litCyl(G('water'), b.x, b.h - 0.38, b.z, b.x, b.h, b.z, 0.15, 0.13, 14, 1, false, true);           // the bottle
+  },
+  plant(G, b, x0, z0, x1, z1){
+    const cx = b.x, cz = b.z, r = b.w / 2;
+    litCyl(G('pot'), cx, 0, cz, cx, 0.42, cz, r * 0.62, r * 0.75, 12, 1, false, true);
+    for (let i = 0; i < 7; i++){                                                                       // foliage: a cluster of leaves
+      const a = i * 2.39, rr = r * (0.25 + (i % 3) * 0.22), y = 0.55 + (i % 4) * 0.17;
+      const lx = cx + Math.cos(a) * rr, lz = cz + Math.sin(a) * rr;
+      litCyl(G('leaf'), cx, 0.42, cz, lx, Math.min(b.h - 0.12, y + 0.25), lz, 0.02, 0.12, 6, 1, false, true);
+    }
+  },
+});
+Object.assign(LIT_INDOOR, { chair: 1, cabinet: 1, printer: 1, cooler: 1, plant: 1 });
+Object.assign(LIT_UNDER, { chair: null, cabinet: null, printer: null, cooler: null, plant: null });
 LIT_PROP.highbay = function(G, p){
   for (const [x, z] of litHighbays(p)){
     litCyl(G('steel'), x, p.y - 0.15, z, x, p.y + 1.2, z, 0.02, 0.02, 5, 1, false, false);
@@ -3873,6 +3958,11 @@ const LIT_SIGNS = {
   nosmk: { bg: '#e8e6df', fg: '#b0161b', title: 'NO SMOKING', lines: ['OR NAKED', 'FLAMES'] },
   fork:  { bg: '#f2c400', fg: '#111', title: 'WARNING', lines: ['FORK LIFT', 'TRUCKS'] },
   site:  { bg: '#1d2b22', fg: '#e8e6df', title: 'COMPOUND B', lines: ['CONTRACTORS', 'ONLY'] },
+  /* 2026-11-23, the Saltline list */
+  assembly: { bg: '#1b7a3a', fg: '#ffffff', title: 'ASSEMBLY', lines: ['POINT', '1'] },
+  ear:   { bg: '#1f5fa8', fg: '#ffffff', title: 'EAR', lines: ['PROTECTION', 'MUST BE WORN'] },
+  exit:  { bg: '#1b7a3a', fg: '#ffffff', title: 'FIRE EXIT', lines: ['KEEP', 'CLEAR'] },
+  slow:  { bg: '#e8e6df', fg: '#b0161b', title: 'SLOW', lines: ['SITE SPEED', '10 MPH'] },
 };
 function litSignTexture(key){
   const s = LIT_SIGNS[key];
@@ -3920,7 +4010,8 @@ LIT_PROP.clutter = function(G, p){
    black, fading out upward, drawn over the surface (a dark wash darkens in
    any light, so it needs no lighting of its own). */
 const LIT_NOGRIME = { hidden: 1, glass: 1, handrail: 1, ringrail: 1, ringdeck: 1, pipewalk: 1, grating: 1, steptread: 1, tread: 1,
-                      step: 1, slab: 1, roofslab: 1, stackwall: 1, deck: 1, towerwall: 1, palisade: 1 };
+                      step: 1, slab: 1, roofslab: 1, stackwall: 1, deck: 1, towerwall: 1, palisade: 1,
+                      chair: 1, cabinet: 1, printer: 1, cooler: 1, plant: 1 };   // the offices' furniture stands on a clean floor
 function litGrimeTexture(){
   return litCanvas(8, 64, (g, w, h) => {
     /* an alphaMap is read from the GREEN channel: white is opaque */
@@ -3928,6 +4019,61 @@ function litGrimeTexture(){
     gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.25, '#8c8c8c'); gr.addColorStop(1, '#000000');
     g.fillStyle = gr; g.fillRect(0, 0, w, h);
   });
+}
+/* RUST RUNS (2026-11-23, the Saltline list): the orange-brown streaks
+   that weather down outdoor walls from every fixing, flashing and sill.
+   Decal strips a fraction off the face, MULTIPLIED over the wall (white
+   leaves it as it is), so they tint in any light without a light of their
+   own. Seeded, so every build is the same. */
+const LIT_RUSTY = { cladding: 1, shedwall: 1, bwall: 1, boilerwall: 1, firewall: 1, intake: 1, kiosk: 1 };
+function litRustTexture(){
+  return litCanvas(256, 256, (g, w, h) => {
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+    const rnd = litRand(404);
+    for (let v = 0; v < 4; v++){                                       // four variants side by side, 64px each
+      const x0 = v * 64;
+      for (let i = 0; i < 6 + v * 2; i++){
+        const x = x0 + 8 + rnd() * 48, wd = 1.5 + rnd() * 5, len = h * (0.35 + rnd() * 0.65);
+        const gr = g.createLinearGradient(0, 0, 0, len);
+        const a = 0.35 + rnd() * 0.45;
+        gr.addColorStop(0, 'rgba(122,66,30,' + a.toFixed(2) + ')'); gr.addColorStop(0.5, 'rgba(150,92,52,' + (a * 0.55).toFixed(2) + ')');
+        gr.addColorStop(1, 'rgba(170,120,80,0)');
+        g.fillStyle = gr; g.fillRect(x, 0, wd, len);
+      }
+      const gr = g.createLinearGradient(0, 0, 0, 22);                  // the stain at the source
+      gr.addColorStop(0, 'rgba(110,60,28,0.6)'); gr.addColorStop(1, 'rgba(110,60,28,0)');
+      g.fillStyle = gr; g.fillRect(x0 + 6, 0, 52, 22);
+    }
+  });
+}
+function litRust(map){
+  const g = litGeo(), rnd = litRand(2311), e = 0.016;
+  for (const b of map.boxes){
+    if (!LIT_RUSTY[b.mat] || boxY(b) > 0.05 || b.h < 2.4 || b.ry) continue;
+    const X0 = b.x - b.w / 2, X1 = b.x + b.w / 2, Z0 = b.z - b.d / 2, Z1 = b.z + b.d / 2;
+    const faces = [[X0, Z1 + e, 1, 0, b.w, 0, 0, 1], [X1, Z0 - e, -1, 0, b.w, 0, 0, -1],
+                   [X0 - e, Z0, 0, 1, b.d, -1, 0, 0], [X1 + e, Z1, 0, -1, b.d, 1, 0, 0]];
+    for (const [ox, oz, ux, uz, L, nx, ny, nz] of faces){
+      if (L < 1.2) continue;
+      const n = Math.floor(L / 4 * (0.5 + rnd()));
+      for (let i = 0; i < n; i++){
+        const wd = 0.35 + rnd() * 0.6, at = rnd() * (L - wd), len = Math.min(b.h - 0.3, 0.8 + rnd() * 2.8);
+        const top = rnd() < 0.55 ? b.h - 0.12 : Math.max(len + 0.2, 1.4 + rnd() * (b.h - 1.6));
+        const v = Math.floor(rnd() * 4) / 4, sx = ox + ux * at, sz = oz + uz * at, base = g.p.length / 3;
+        for (const [du, y, tu, tv] of [[0, top, v, 1], [wd, top, v + 0.25, 1], [0, top - len, v, 0], [wd, top - len, v + 0.25, 0]]){   // flipY: v 1 is the canvas top, where a run starts
+          g.p.push(sx + ux * du, y, sz + uz * du); g.n.push(nx, ny, nz); g.uv.push(tu, tv);
+        }
+        g.i.push(base, base + 2, base + 1, base + 1, base + 2, base + 3);
+      }
+    }
+  }
+  if (!g.p.length) return;
+  const t = litTexOf(litRustTexture(), true); t.wrapS = THREE.ClampToEdgeWrapping; t.wrapT = THREE.ClampToEdgeWrapping;
+  const m = new THREE.MeshBasicMaterial({ map: t, blending: THREE.MultiplyBlending, transparent: true, premultipliedAlpha: true,
+                                          depthWrite: false, fog: false, toneMapped: false, side: THREE.DoubleSide,
+                                          polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const mesh = new THREE.Mesh(litGeoDone(g), m); mesh.renderOrder = 1;
+  litAdd(mesh, false); mesh.receiveShadow = false;
 }
 function litFootGrime(map){
   const g = litGeo();
@@ -4102,6 +4248,7 @@ function litBuildArena(map, flatFloor, flatRoof){
   }
   for (const p of (map.props || [])){ const draw = LIT_PROP[p.kind]; if (draw) draw(G, p, D, H); }
   if (sky) litFootGrime(map);  // the dirt at the foot of everything (THE CLUTTER KIT)
+  if (sky) litRust(map);       // rust runs down the outdoor walls (RUST RUNS)
   for (const name in geos){
     /* A lamp is painted, not lit: the vertex bake must not visit it (it
        would have no use for the light it computed, and an unlit material

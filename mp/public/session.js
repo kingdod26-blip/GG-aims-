@@ -352,6 +352,15 @@ function renderArsenal(){
    from (maps.js), so the card cannot show a layout the match is not
    playing. Square, because the arena is. */
 function drawMapThumb(){
+  /* The map's picture (Jack, 2026-11-23: "replace the picture for when
+     choosing the map to this"): assets/map-<id>.jpg. The plan is drawn
+     underneath regardless and shows whenever there is no picture. */
+  const pic = byId('mapPic');
+  if(pic && typeof currentMap !== 'undefined' && currentMap){
+    const src = 'assets/map-' + currentMap.id + '.jpg';
+    if(pic.dataset.src !== src){ pic.dataset.src = src; pic.hidden = true;
+      pic.onload = () => { pic.hidden = false; }; pic.onerror = () => { pic.hidden = true; }; pic.src = src; }
+  }
   const c = byId('mapThumb'); if(!c || typeof currentMap === 'undefined' || !currentMap) return;
   const g = c.getContext('2d'), W = c.width, H = c.height, A = currentMap.arena;
   const s = Math.min(W, H) / (A * 2) * 0.92;

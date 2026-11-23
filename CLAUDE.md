@@ -2046,6 +2046,28 @@ edges; server floorUnder 16.6 everywhere on it. (Testing note: `vetMove`
 RETURNS the accepted position, it does not move `p`; feed packets at a
 real running speed or the budget clips them.)
 
+## The rest of the Saltline list (2026-11-23)
+
+- **Rust runs** (`litRust`, lighting.js): decal strips on outdoor walls
+  (`LIT_RUSTY` kinds), MULTIPLY-blended (white = untouched; needs
+  `premultipliedAlpha`, `toneMapped: false`, `fog: false`), seeded.
+- **Markings**: paint kinds `zebra`, `arrow`, `keep` in `litMarksTexture`;
+  works.js `PAINT_MORE` places crossings at doors, SLOW text, lane arrows,
+  keep-clear boxes at the hall's west doors and the switchyard gate.
+- **Signs**: `assembly`, `ear`, `exit`, `slow` added to `LIT_SIGNS`.
+- **Puddles**: 46 `puddle` clutter items (works.js THE WET GROUND, out of
+  every `building()` footprint via `BUILT`, 0.8m off any box), painted into
+  the ground texture: damp margin, sky-grey water, sheen.
+- **Offices dressed**: chairs at every desk and the meeting table, filing
+  cabinets, a printer, a water cooler, plants on all three floors
+  (`place` refuses overlaps; 128 placed, 0 refused). Drawers in lighting.js.
+- **Ambience** (hud.js `ambience`, `Sfx.amb`/`ambOne`): gusting wind under
+  the sky, room tone under a roof or raised slab, and every 7-18s a distant
+  gull, birds, a steel clank or a vent hiss.
+- **Map card picture**: `drawMapThumb` shows `assets/map-<id>.jpg` when it
+  exists (works: `assets/map-works.jpg`), the drawn plan otherwise.
+Not browser-tested (Jack's rule: only when asked).
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,

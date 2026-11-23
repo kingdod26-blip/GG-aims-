@@ -13,6 +13,7 @@ const SUB_DX = -62;     // the substation compound, west
 const A = 120;          // half-extent: a 240m site
 
 const out = [];
+const BUILT = [];                    // every building()'s footprint (THE WET GROUND keeps puddles out of them)
 const note = (t) => out.push({ note: t });
 const box = (x, z, w, d, h, mat, extra) =>
   out.push(Object.assign({ x: +x.toFixed(2), z: +z.toFixed(2), w: +w.toFixed(3), d: +d.toFixed(3), h, mat }, extra || {}));
@@ -60,6 +61,7 @@ function rectsMinus(R, holes){
    (along x height) less its openings, cut by rectsMinus; a glazed opening
    gets a pane in the middle of the wall. */
 function building(B, openings, wallMat, roofMat){
+  BUILT.push([B.x0, B.x1, B.z0, B.z1]);
   const t = B.t, top = B.h - B.rt;
   const span = { N: [B.x0, B.x1], S: [B.x0, B.x1], W: [B.z0 + t, B.z1 - t], E: [B.z0 + t, B.z1 - t] };
   const thick = { N: [B.z0, B.z0 + t], S: [B.z1 - t, B.z1], W: [B.x0, B.x0 + t], E: [B.x1 - t, B.x1] };
@@ -627,6 +629,35 @@ LV.forEach((L, s) => {
   }
   if (s === 2){ desks(71, 83.2, L); desks(77, 83.2, L); }                 // over the lobby, the top floor is floor
 });
+/* DRESSING THE OFFICES (2026-11-23, the Saltline list): what an open-plan
+   floor actually holds besides desks - a chair at every place, the meeting
+   table's chairs, filing cabinets, a printer and a water cooler by the
+   core, plants. Placed by `place`, which refuses anything that would stand
+   in another box at a shared height and says so. */
+let PLACED = 0, REFUSED = 0;
+function place(kind, x0, x1, z0, z1, y0, h){
+  for (const o of out){
+    if (o.note) continue;
+    const oy = o.y || 0;
+    if (x1 > o.x - o.w / 2 + 0.01 && x0 < o.x + o.w / 2 - 0.01 && z1 > o.z - o.d / 2 + 0.01 && z0 < o.z + o.d / 2 - 0.01 &&
+        y0 < oy + o.h - 0.01 && oy < y0 + h - 0.01){
+      console.log(`  office refused: ${kind} at ${((x0 + x1) / 2).toFixed(1)},${((z0 + z1) / 2).toFixed(1)} y${y0} hits ${o.mat} at ${o.x},${o.z}`); REFUSED++; return false; }
+  }
+  ob(x0, x1, z0, z1, y0, y0 + h, kind); PLACED++; return true;
+}
+const sq = (kind, x, z, w, d, y0, h) => place(kind, x - w / 2, x + w / 2, z - d / 2, z + d / 2, y0, h);
+LV.forEach((L, s) => {
+  const clusters = [[62.4, 83.2], [66.2, 83.2], [62.4, 87.4], [66.2, 87.4], [84.0, 83.0], [87.8, 83.0]];
+  if (s === 2) clusters.push([71, 83.2], [77, 83.2]);
+  for (const [cx, cz] of clusters) for (const dx of [-0.8, 0.8]) for (const dz of [-1.15, 1.15]) sq('chair', cx + dx, cz + dz, 0.55, 0.55, L, 0.95);
+  for (const x of [85.0, 86.4, 87.8]) for (const z of [88.12, 90.66]) sq('chair', x, z, 0.5, 0.5, L, 0.95);   // the meeting table
+  for (const z of [81.0, 81.55]) sq('cabinet', 59.95, z, 0.5, 0.55, L, 1.32);                                  // filing, west bay
+  for (const z of [81.0, 81.55]) sq('cabinet', 90.7, z, 0.5, 0.55, L, 1.32);                                   // and east
+  sq('printer', 71.0, 89.9, 0.7, 0.55, L, 1.0);                                                               // by the core
+  sq('cooler', 80.55, 88.9, 0.36, 0.36, L, 1.15);
+  for (const [x, z] of [[56.0, 80.95], [94.0, 80.95], [69.0, 91.2], [82.6, 86.5]]) sq('plant', x, z, 0.5, 0.5, L, 1.25);
+});
+console.log(`  office dressing: ${PLACED} placed, ${REFUSED} refused`);
 
 /* ===================================================================== */
 const P = M.MAPS.powerstation.props.map(p => {
@@ -868,6 +899,13 @@ for (const x of [-114.9 + 4.6, -65.4, -56.6, -88, -36]) sign('hv', x, 74.92, Mat
 for (const z of [81.6, 90.4]) sign('hv', -21.42, z, Math.PI / 2, false, 1.5);
 for (const x of [-33, -24, -70, -100]) sign('hv', x, 97.08, 0, false, 1.5);
 sign('hv', -114.58, 86, -Math.PI / 2, false, 1.5);
+/* More signs (2026-11-23, the Saltline list): the muster point, hearing
+   protection at the plant doors, fire exits, site speed on the roads. */
+sign('assembly', 84, 72, Math.PI, true); sign('assembly', -8.6, -40, -Math.PI / 2, true);
+sign('ear', -4.52, -21.6, -Math.PI / 2, false, 1.6); sign('ear', -4.52, 21.6, -Math.PI / 2, false, 1.6);
+sign('ear', 47.4, -67.98, 0, false, 1.6);
+sign('exit', 83.2, 92.02, 0, false, 1.5); sign('exit', 29.6, 60.52, 0, false, 1.6);
+sign('slow', 8, 61.0, -Math.PI / 2, true); sign('slow', -100, 73.8, Math.PI / 2, true); sign('slow', 30, -59.6, -Math.PI / 2, true);
 sign('site', -50.9, 98.5, Math.PI, true); sign('ppe', -38.38, 107.8, Math.PI / 2, false, 1.25);   // between the window (to 107.4) and the door (from 108.1)
 
 /* 2. THE DOSING HOUSE: its chemical store outside the east door - totes,
@@ -926,6 +964,25 @@ kit('drums4', 78.2, -92, 0.06); kit('ibc', 78.4, -89.4, -0.05); kit('toolcart', 
 oil(78.2, -91.4, 0.9);
 
 console.log(`  clutter: ${KIT_PLACED} placed, ${KIT_REFUSED} refused, ${CL.length} loose items`);
+/* THE WET GROUND (2026-11-23, the Saltline list): puddles where rain
+   stands - out in the open, never in a building, never against anything
+   (0.8m clear of every box on the ground), not on the grass. Painted into
+   the ground texture (litGroundTexture): a dark damp margin and a sheen of
+   the overcast in the middle. */
+{
+  let r = 20231123; const rnd = () => (r = (r * 16807) % 2147483647) / 2147483647;
+  const indoor = BUILT.concat([[HX0 - HW, HX1 + HW, HZ0 - HW, HZ1 + HW], [OX0, OX1, OZ0, OZ1], [-5, 5, 74, 113], [-109, 27, -113, -74]]);
+  const ground = out.filter(o => !o.note && (o.y || 0) < 0.3);
+  let n = 0;
+  for (let tries = 0; tries < 6000 && n < 46; tries++){
+    const x = -112 + rnd() * 224, z = -112 + rnd() * 224, rr = 0.6 + rnd() * 1.6;
+    if (indoor.some(q => x > q[0] - rr && x < q[1] + rr && z > q[2] - rr && z < q[3] + rr)) continue;
+    if (ground.some(o => Math.abs(x - o.x) < o.w / 2 + rr + 0.8 && Math.abs(z - o.z) < o.d / 2 + rr + 0.8)) continue;
+    if (Math.hypot(x + 74, z + 90) < 16 || Math.hypot(x + 24, z + 90) < 16) continue;   // the tower basins
+    CL.push({ k: 'puddle', x: r4(x), z: r4(z), r: r4(rr), e: r4(0.45 + rnd() * 0.5), a: r4(rnd() * Math.PI) }); n++;
+  }
+  console.log(`  puddles: ${n}`);
+}
 P.push({ kind: 'clutter', items: CL });
 
 /* ===================================================================== */
@@ -964,6 +1021,21 @@ note('THE HALL ROOF: a deck you can stand on, a rail round it, two ladders up');
   rail(rx1 - e - 0.1, rx1 - e, rz0 + e + 0.1, rz1 - e - 0.1, y1);                               // east
 }
 
+/* ROAD AND YARD MARKINGS (2026-11-23, the Saltline list): zebra crossings
+   where people cross to a door, SLOW and lane arrows on the roads, and
+   yellow keep-clear boxes in front of the doors that open onto the yard. */
+const PAINT_MORE = [
+  { k: 'zebra', x: 75, z: 65, horiz: true, w: 6 }, { k: 'zebra', x: 24, z: 65, horiz: true, w: 6 },
+  { k: 'zebra', x: 51, z: -64, horiz: true, w: 6 }, { k: 'zebra', x: -61, z: 70, horiz: true, w: 6 },
+  { k: 'text', x: 96, z: 65, s: 1.6, t: 'SLOW' }, { k: 'text', x: 4, z: -64, s: 1.6, t: 'SLOW' },
+  { k: 'text', x: -88, z: 70, s: 1.6, t: 'SLOW' }, { k: 'text', x: -112.5, z: -24, s: 1.6, t: 'SLOW' },
+  { k: 'arrow', x: 40, z: 66.5, a: 0 }, { k: 'arrow', x: 60, z: 63.5, a: Math.PI },
+  { k: 'arrow', x: 18, z: -62.5, a: 0 }, { k: 'arrow', x: 34, z: -65.5, a: Math.PI },
+  { k: 'arrow', x: -80, z: 71.5, a: 0 }, { k: 'arrow', x: -40, z: 68.5, a: Math.PI },
+  { k: 'arrow', x: -111, z: -44, a: Math.PI / 2 }, { k: 'arrow', x: -114, z: 30, a: -Math.PI / 2 },
+  { k: 'keep', x: -7, z: -17, w: 5, d: 6 }, { k: 'keep', x: -7, z: 17, w: 5, d: 6 },
+  { k: 'keep', x: -61, z: 74, w: 4, d: 1.9 },
+];
 /* ---------------------------------------------------------------- emit -- */
 const lines = [];
 for (const o of out) {
@@ -1040,6 +1112,7 @@ ${lines.join('\n')}
       { k: 'hatch', x: -100, z: -40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z: -40, w: 5.6, d: 5.6 },
       { k: 'hatch', x: -100, z:  40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z:  40, w: 5.6, d: 5.6 },
       { k: 'text',  x: 56, z: 72, s: 2.6, t: 'TURBINE HALL' },
+${PAINT_MORE.map(q => '      ' + JSON.stringify(q).replace(/"(\w+)":/g, '$1: ').replace(/"/g, "'") + ',').join('\n')}
     ],
     /* WHAT THE GROUND IS MADE OF (stage 3, 2026-11-16), from Jack's aerial
        references: asphalt roads with kerbs and lines, gravel under the HV

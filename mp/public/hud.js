@@ -451,7 +451,7 @@ const Sfx = (()=>{
     noiseBuf = c.createBuffer(1, c.sampleRate * 2, c.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for(let i=0;i<d.length;i++) d[i] = Math.random()*2 - 1;
-    plant = null;                            // it belonged to the context this one replaces
+    plant = null; ambient = null;            // they belonged to the context this one replaces
   }
   /* The plant's own noise: the one sound here that never stops, so it is
      built once and only its LEVEL is moved.
@@ -463,6 +463,27 @@ const Sfx = (()=>{
      The fundamentals are below what a laptop speaker can make, so most of
      what carries on one is the 200 to 400Hz partials and the whine. */
   let plant = null;
+  /* THE AMBIENCE (2026-11-23, the Saltline list): wind over the site
+     outdoors - band-passed noise whose pitch and level drift on two slow
+     LFOs so it gusts - and room tone indoors, a low muffled air with a
+     faint 120Hz of fittings. Built once, only the levels move. */
+  let ambient = null;
+  function ambBuild(){
+    const c = ensure(), wind = c.createGain(), room = c.createGain();
+    wind.gain.value = 0; room.gain.value = 0; wind.connect(master); room.connect(master);
+    const n = c.createBufferSource(); n.buffer = noiseBuf; n.loop = true;
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.7;
+    const gust = c.createGain(); gust.gain.value = 1;
+    const l1 = c.createOscillator(), l1g = c.createGain(); l1.frequency.value = 0.07; l1g.gain.value = 220; l1.connect(l1g).connect(bp.frequency);
+    const l2 = c.createOscillator(), l2g = c.createGain(); l2.frequency.value = 0.11; l2g.gain.value = 0.45; l2.connect(l2g).connect(gust.gain);
+    n.connect(bp).connect(gust).connect(wind);
+    const n2 = c.createBufferSource(); n2.buffer = noiseBuf; n2.loop = true;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 230;
+    n2.connect(lp).connect(room);
+    const hum = c.createOscillator(), hg = c.createGain(); hum.frequency.value = 120; hg.gain.value = 0.12; hum.connect(hg).connect(room);
+    n.start(); n2.start(0, 0.7); l1.start(); l2.start(); hum.start();
+    ambient = { wind, room };
+  }
   function plantBuild(){
     const c = ensure(), tx = c.createGain(), tb = c.createGain();
     tx.gain.value = 0; tb.gain.value = 0; tx.connect(master); tb.connect(master);
@@ -609,6 +630,21 @@ const Sfx = (()=>{
       plant.tx.gain.setTargetAtTime(Math.max(0, tx) * 0.05, t, 0.3);
       plant.tb.gain.setTargetAtTime(Math.max(0, turbine) * 0.055, t, 0.3);
     }),
+    /* How much of the site's air you hear, 0..1 out and in (ambience below). */
+    amb: safe((outside, inside)=>{
+      if(!ambient){ if(!(outside > 0.003 || inside > 0.003)) return; ambBuild(); }
+      const t = ctx.currentTime;
+      ambient.wind.gain.setTargetAtTime(Math.max(0, outside) * 0.032, t, 0.8);
+      ambient.room.gain.setTargetAtTime(Math.max(0, inside) * 0.024, t, 0.8);
+    }),
+    /* A distant one-off: gulls, small birds, a clank of steel, a steam vent. */
+    ambOne: safe((kind, v)=>{
+      if(!master) return;
+      if(kind === 'gull'){ osc(master,'sine',1550,980,0.32,v); osc(master,'sine',1400,900,0.28,v*0.8,0.42); osc(master,'triangle',1500,1000,0.3,v*0.3,0.42); }
+      else if(kind === 'birds'){ for(let i=0;i<4;i++) osc(master,'sine',3000+i*180,4100,0.06,v*0.7,i*0.13); }
+      else if(kind === 'clank'){ nz(master,'bandpass',2300,0.05,v,5); osc(master,'triangle',640,615,0.9,v*0.45); osc(master,'triangle',1380,1340,0.6,v*0.2); }
+      else if(kind === 'hiss'){ nz(master,'highpass',3100,0.7,v*0.6,0,2600); }
+    }),
     /* For tests only: swap in another context (an OfflineAudioContext, say)
        so a sound can be rendered and measured instead of merely not throwing. */
     _use(c){ build(c); },
@@ -646,7 +682,34 @@ function stationHum(dt){
 }
 /* A hidden tab stops running the loop above, and a hum that was playing
    would simply carry on at whatever level it had. */
-document.addEventListener('visibilitychange', ()=>{ if(document.hidden && humOn){ humOn = false; Sfx.plant(0, 0); } });
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden && humOn){ humOn = false; Sfx.plant(0, 0); }
+                                                    if(document.hidden && ambOn){ ambOn = false; Sfx.amb(0, 0); } });
+
+/* ---- The site's air (2026-11-23, the Saltline list) ----
+   Wind when you are under the sky, room tone under a roof, eased between
+   them; now and then something far off - gulls and small birds outside,
+   a clank of steel or a vent letting go anywhere. "Under a roof" is
+   anything raised and wide over you (a slab, a deck, a roof) or a roof
+   rect. A map with no sky is all room. */
+let ambAcc = 0, ambOut = 0, ambOn = false, ambNext = 8;
+function ambience(dt){
+  ambAcc += dt; ambNext -= dt; if(ambAcc < 0.25) return; const step = ambAcc; ambAcc = 0;
+  const live = gameState === 'playing' && !paused && currentMap;
+  if(!live){ if(ambOn){ ambOn = false; Sfx.amb(0, 0); } return; }
+  const px = camera.position.x, py = camera.position.y, pz = camera.position.z;
+  let under = !currentMap.sky;
+  if(!under) for(const r of mapRoofRects(currentMap)) if(px > r.minx && px < r.maxx && pz > r.minz && pz < r.maxz && py < r.y){ under = true; break; }
+  if(!under) for(const b of currentMap.boxes){
+    if(boxY(b) > py && b.w > 2 && b.d > 2 && Math.abs(px - b.x) < b.w / 2 && Math.abs(pz - b.z) < b.d / 2){ under = true; break; } }
+  ambOut += ((under ? 0 : 1) - ambOut) * Math.min(1, step * 1.5);
+  ambOn = true; Sfx.amb(ambOut, 1 - ambOut);
+  if(ambNext <= 0){
+    ambNext = 7 + Math.random() * 11;
+    const r = Math.random();
+    if(ambOut > 0.5) Sfx.ambOne(r < 0.35 ? 'gull' : r < 0.6 ? 'birds' : r < 0.82 ? 'clank' : 'hiss', 0.05);
+    else Sfx.ambOne(r < 0.6 ? 'clank' : 'hiss', 0.035);
+  }
+}
 
 /* Character voice line — speaks "Reloading!" on reload. */
 const Voice = (()=>{

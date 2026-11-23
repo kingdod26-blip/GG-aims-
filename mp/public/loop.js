@@ -640,6 +640,7 @@ function loop(){ requestAnimationFrame(loop);
   if (!byId('bigmap').classList.contains('hidden')) drawBigMap();
   if (gameState === 'playing') armsFrame();                       // the hands, and the reload (drawn.js)
   stationHum(dt);                                                  // the plant, by how near you are to it (hud.js)
+  ambience(dt);                                                    // wind or room tone, and things far off (hud.js)
   if (gradePass) gradePass.uniforms.uTime.value = nowMs * 0.001;   // the grain has to move
   if (composer && (SETTINGS.bloom || SETTINGS.look)) composer.render(); else renderer.render(scene,camera);
 }
