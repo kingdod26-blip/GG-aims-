@@ -2082,11 +2082,23 @@ From Jack's indoors brief (catwalks, bridges, railings, generators, pipes,
 control room) and his "Inside a power station" picture
 (`Crinsome x/Pictures/Inner power station pics`). works.js THE TURBINE
 HALL, FITTED OUT; drawers in lighting.js.
-- A **catwalk** along each long wall at 6.4m (z +-57..59, x 9.5..103), a
-  straight steel stair down at each end (in line with the walk), and two
-  **bridges** across the hall at x 20 and x 92 joining them. Rails on every
-  open edge (MOVE_ONLY handrail). Walked: stair up, along, across a bridge,
-  stopped 0.4m off the rail.
+- A **catwalk** along each long wall at 6.4m (z +-57..59, x 9.5..103), and
+  two **bridges** across the hall at x 20 and x 92 joining them. Rails on
+  every open edge (MOVE_ONLY handrail), closed at both ends.
+  **Stairs (2026-11-23, Jack: they were hidden in the wall / corner towers):**
+  two flights per catwalk come straight off its open edge, square to the
+  walk, down into the hall at x 24..25.6 and x 86.4..88 (foot at z +-48.75),
+  rail open at each stair head; `stringers` prop draws their side channels
+  and handrails. Walked: floor to 6.4 on the x 87 flight.
+- **The centre generator (2026-11-23, Jack's vertical-generator photo):** the
+  `reactor` prop at (56,0) is a vertical generator now: dark ribbed stator
+  drum (same r3.1/7m collision) with access hatches facing the stairs, an
+  upper bracket (hub, arms, square frame on four columns - the columns are
+  `hidden` boxes), the exciter on top, oil pipes, and a `gencooler` box on
+  each flank (z +-2.9..4.3, to 5.4m). The plinth (r11, 2.4) has a yellow
+  ring rail (`ringrail` posts at r10.45, drawn by the prop) open at two real
+  concrete stairs west and east (13 risers, replacing the old block steps).
+  Materials `stator` / `spider` in LIT_KIT_MATS. Walked: floor to deck.
 - **Yellow rails** round both turbine decks (x 43..69), open at their steps.
 - The hall's `machine` boxes are now `condenser` (twin silver shells, blue
   water boxes, on a frame) and `pumpset` (blue motor, yellow coupling guard,

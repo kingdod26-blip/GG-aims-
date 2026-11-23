@@ -123,8 +123,35 @@ note('THE TURBINE HALL — the whole of the `powerstation` map, moved east and\n
 const hallKind = (b) => b.mat !== 'machine' ? b.mat : (b.w === 6 && b.d === 14) ? 'condenser' : (b.w === 3.4 && b.d === 3) ? 'pumpset' : b.mat;
 for (const b of M.MAPS.powerstation.boxes) {
   if (b.mat === 'control' && b.x + HALL_DX < 30) continue;          // the west control room is built hollow below (THE CONTROL ROOM)
+  if (b.mat === 'step' && b.z === 0 && Math.abs(Math.abs(b.x + HALL_DX - 56) - 12) < 1.5) continue;   // the centre deck's block steps: real stairs now (THE CENTRE GENERATOR)
   box(b.x + HALL_DX, b.z, b.w, b.d, b.h, hallKind(b),
       b.r != null ? { r: b.r, n: b.n } : null);
+}
+
+/* THE CENTRE GENERATOR (2026-11-23, Jack's photograph of a vertical
+   generator): the bay's centre machine is a vertical generator now - a
+   ribbed stator drum on the round concrete plinth, an upper bracket on four
+   columns with its arms over the drum, the exciter on top, air coolers on
+   its flanks. The plinth (r11, 2.4m) gets the photograph's yellow ring rail
+   and two proper stairs, west and east, in place of the old block steps. */
+{
+  const GX = 56, GZ = 0, D = 2.4;
+  const n = Math.ceil(D / 0.19), rise = D / n, G = 0.3, edge = 10.69;           // the plinth's face on the axis
+  for (const sx of [-1, 1]) for (let k = 1; k < n; k++){
+    const a = GX + sx * (edge + (n - k) * G), b = GX + sx * (edge + (n - 1 - k) * G);
+    ob(Math.min(a, b), Math.max(a, b), GZ - 1.4, GZ + 1.4, 0, k * rise, 'step');
+  }
+  const RR = 10.45, GAP = 1.65, POST = 0.6;                                      // the ring rail, open at the stairs
+  for (let k = 0, N = Math.ceil(2 * Math.PI * RR / POST); k < N; k++){
+    const a = k / N * Math.PI * 2, d = Math.min(Math.abs(Math.atan2(Math.sin(a), Math.cos(a))), Math.abs(Math.atan2(Math.sin(a - Math.PI), Math.cos(a - Math.PI)))) * RR;
+    if (d < GAP) continue;
+    const px = GX + RR * Math.cos(a), pz = GZ + RR * Math.sin(a);
+    ob(px - 0.04, px + 0.04, pz - 0.04, pz + 0.04, D, D + 1.1, 'ringrail');
+  }
+  for (const sx of [-1, 1]) for (const sz of [-1, 1])                            // the bracket's four columns
+    ob(GX + sx * 3.3 - 0.25, GX + sx * 3.3 + 0.25, GZ + sz * 3.3 - 0.25, GZ + sz * 3.3 + 0.25, D, 8.0, 'hidden');
+  for (const sz of [-1, 1])                                                       // an air cooler on each flank
+    ob(GX - 1.1, GX + 1.1, Math.min(sz * 2.9, sz * 4.3), Math.max(sz * 2.9, sz * 4.3), D, 5.4, 'gencooler');
 }
 
 /* Its shell. The original's perimeter was derived from `arena`; here it is
@@ -173,12 +200,20 @@ wallN(HZ1 + HW / 2, 28, HX1, HH, 'cladding');
     const z0 = s > 0 ? HZ1 - 2 : -HZ1, z1 = z0 + 2;                // against the wall's inner face
     ob(9.5, 103, z0, z1, CY - CT, CY, 'grating');
     const ze = s > 0 ? z0 : z1;                                    // the open edge
-    for (const [a, b] of (s > 0 ? [[9.5, 19], [21, 91], [93, 101]] : [[9.5, 19], [21, 91], [93, 103]])) rail(a, b, ze - 0.03, ze + 0.03, CY);
-    // the stairs: in line with the walk, down to the floor at each end
-    const n = Math.ceil(CY / 0.19), rise = CY / n, G = 0.25;
-    for (let k = 1; k < n; k++){ const top = k * rise;
-      ob(103 + (n - 1 - k) * G, 103 + (n - k) * G, z0, z1, Math.max(0, top - 0.15), top, 'steptread');      // east: down toward +x
-      ob(9.5 - (n - k) * G, 9.5 - (n - 1 - k) * G, z0, z1, Math.max(0, top - 0.15), top, 'steptread'); }    // west: down toward -x
+    /* The stairs (2026-11-23, Jack: they were "hidden behind the wall or
+       directly fit to the wall" - they ran on along the walk into the corner
+       towers). Now two flights per catwalk come straight off its open edge
+       and down into the hall, square to the walk, where you can see them
+       and reach them: x 24 (by the west bridge) and x 86.5 (by the east). */
+    const SX = [[24, 25.6], [86.4, 88]];
+    const cuts = [9.5, 19, 21, ...SX.flat(), 91, 93, s > 0 ? 101 : 103];   // rail: open at the bridges and the stair heads
+    for (let i = 0; i + 1 < cuts.length; i += 2) rail(cuts[i], cuts[i + 1], ze - 0.03, ze + 0.03, CY);
+    rail(9.5, 9.56, z0, z1, CY); rail(s > 0 ? 100.94 : 102.94, s > 0 ? 101 : 103, z0, z1, CY);   // and closed at both ends now
+    for (const [xa, xb] of SX){
+      const nn = Math.ceil(CY / 0.19 - 1e-9);
+      steelStair(xa, xb, ze - s * (nn - 1) * 0.25, s, 0, CY);                     // foot out in the hall, head at the walk's edge
+      P_LATE.push({ kind: 'stringers', x0: xa, x1: xb, za: ze - s * (nn - 1) * 0.25, zb: ze, y: CY });
+    }
   }
   for (const bx of [20, 92]){                                       // the bridges, wall to wall
     ob(bx - 1, bx + 1, -HZ1 + 2, HZ1 - 2, CY - CT, CY, 'grating');
@@ -851,6 +886,7 @@ console.log(`  office dressing: ${PLACED} placed, ${REFUSED} refused`);
 const P = M.MAPS.powerstation.props.map(p => {
   const q = Object.assign({}, p);
   if (q.x != null) q.x += HALL_DX;
+  if (q.kind === 'reactor') Object.assign(q, { rail: 10.45, gap: 1.65 });       // THE CENTRE GENERATOR
   if (q.kind === 'crane' || q.kind === 'truss' || q.kind === 'tray') {
     q.x0 = HX0; q.x1 = HX1; q.z0 = HZ0; q.z1 = HZ1; q.h = HH;
     if (q.kind === 'truss') q.x = (HX0 + HX1) / 2;

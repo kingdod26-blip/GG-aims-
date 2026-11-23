@@ -2444,6 +2444,7 @@ const LIT_KIT_MATS = {
   chairblack: [0x1c1d20, 0.7, 0, 0.3, 1], cabgrey: [0x7d8287, 0.45, 0.4, 0.6, 0], leaf: [0x2f4a26, 0.8, 0, 0.2, 0],
   pot: [0x38393b, 0.6, 0, 0.3, 0], water: [0x6f93b8, 0.15, 0, 0.9, 0],
   /* the turbine hall, fitted out (2026-11-23) */
+  stator: [0x1d2125, 0.55, 0.3, 0.3, 0], spider: [0x2b3137, 0.55, 0.3, 0.3, 0],
   genblue: [0x1e4f8f, 0.42, 0.35, 0.6, 0], toolred: [0x8c1c18, 0.4, 0.3, 0.6, 0], weldcurtain: [0xa8461a, 0.85, 0, 0.1, 0],
   benchgreen: [0x3d4a3c, 0.6, 0.2, 0.4, 0], peg: [0x6b5a44, 0.9, 0, 0.1, 0],
   rackblue: [0x23466e, 0.5, 0.4, 0.5, 0], rackorange: [0xb2531c, 0.5, 0.3, 0.5, 0], boxbrown: [0x8a6a46, 0.95, 0, 0.1, 0],
@@ -3292,40 +3293,91 @@ const LIT_PROP = {
      climbable from any side — so a drawn rail would be exactly the lie the
      galleries used to tell. The yellow nosing on the deck does that job
      instead, and it is paint. */
+  /* THE CENTRE GENERATOR (2026-11-23, Jack's photograph): a vertical
+     generator, top to bottom - the exciter, the upper bracket (a hub, arms,
+     a square frame on four columns), the ribbed stator drum with its access
+     hatches, the air coolers on its flanks (`gencooler` boxes), on the
+     concrete plinth inside a yellow ring rail.
+
+     Collision is unchanged where it matters: the drum is still the staircase
+     its boxes make (r3.1 to 7m), the four columns and the coolers are boxes
+     of their own (works.js THE CENTRE GENERATOR), and the rail's posts are
+     `ringrail` boxes - this draws the posts and the rails between them,
+     open where the two stairs come up. Everything else is over 4.6m above
+     the deck, out of reach. */
   reactor(G, p, D, H){
-    const x = p.x || 0, z = p.z || 0, y0 = p.deck || 2.4, R = 3.1, top = 7.0;
-    /* The drum is the staircase its boxes make, not a cylinder standing in
-       for them: the whole of it is within reach from the deck, so the
-       surface you see has to BE the surface that stops you. */
-    litDrumPrism(G('vessel'), x, z, R, p.n || 9, y0, top, { tile: 2.2 });
-    const steps = litDrumSteps(R, p.n || 9);
-    for (const e of steps) for (const sx of [-1, 1]) for (const sz of [-1, 1]){   // ribs, on the staircase corners
+    const x = p.x || 0, z = p.z || 0, y0 = p.deck || 2.4, R = 3.1, top = 7.0, N = p.n || 9;
+    const S = G('stator'), st = G('steel'), SP = G('spider'), Y = G('yellow');
+    litDrumPrism(S, x, z, R, N, y0, top, { tile: 2.2 });                                    // the stator frame
+    litCyl(st, x, y0, z, x, y0 + 0.28, z, R + 0.16, R + 0.16, 36, 1, false, true);          // its sole plate on the plinth
+    for (let y = y0 + 2.9; y < top - 0.15; y += 0.45)                                       // the frame rings, above the hatches
+      litCyl(S, x, y - 0.06, z, x, y + 0.06, z, R + 0.1, R + 0.1, 36, 1, true, true);
+    litCyl(S, x, y0 + 0.55, z, x, y0 + 0.67, z, R + 0.1, R + 0.1, 36, 1, true, true);
+    for (const e of litDrumSteps(R, N)) for (const sx of [-1, 1]) for (const sz of [-1, 1]){ // the vertical ribs
       const rx = x + sx * e[0], rz = z + sz * e[1];
-      litCyl(G('vessel'), rx, y0 + 0.15, rz, rx, top - 0.15, rz, 0.085, 0.085, 6, 1, false, false);
+      litCyl(S, rx, y0 + 0.28, rz, rx, top, rz, 0.075, 0.075, 6, 1, false, false);
     }
-    for (const y of [y0 + 0.5, (y0 + top) / 2, top - 0.5])          // and its hoops
-      litCyl(G('steel'), x, y - 0.07, z, x, y + 0.07, z, R + 0.06, R + 0.06, 16, 1, false, false);
-    litCyl(G('steel'),  x, top, z, x, top + 0.22, z, R + 0.18, R + 0.18, 16, 1, false, false);   // the lid's flange...
-    litCyl(G('vessel'), x, top + 0.22, z, x, top + 0.80, z, 4.5, 4.3, 16, 2, false, true);       // ...and the lid, overhanging
-    for (const o of [-1.75, 1.75]){                                 // the two ports on top of it
-      litCyl(G('steel'),  x + o, top + 0.80, z, x + o, top + 0.95, z, 0.62, 0.62, 12, 1, false, false);
-      litCyl(G('vessel'), x + o, top + 0.95, z, x + o, top + 2.30, z, 0.52, 0.52, 12, 1.6, false, true);
+    const hx = litDrumSteps(R, N)[0][0];
+    const slab = (g, f, sx, a, ya, yb, za, zb) => litBox(g, Math.min(f, f + sx * a), ya, za, Math.max(f, f + sx * a), yb, zb, { bevel: 0.01, seg: 1 });
+    for (const sx of [-1, 1]){                                                               // the access hatches, facing the stairs
+      const f = x + sx * hx;
+      slab(st, f, sx, 0.06, y0 + 0.85, y0 + 2.65, z - 0.62, z + 0.62);
+      slab(S,  f, sx, 0.09, y0 + 0.95, y0 + 2.55, z - 0.52, z + 0.52);
+      slab(Y,  f, sx, 0.14, y0 + 1.6,  y0 + 1.9,  z + 0.3,  z + 0.38);                    // its handle
+      for (let k = 0; k < 6; k++) for (const zz of [-0.57, 0.57])                           // its bolts
+        slab(st, f, sx, 0.1, y0 + 1.0 + k * 0.3, y0 + 1.06 + k * 0.3, z + zz - 0.03, z + zz + 0.03);
+      slab(G('white'), f, sx, 0.08, y0 + 3.3, y0 + 3.6, z - 0.45, z + 0.45);               // the nameplate
     }
-    /* The looms. Each is a chain of straight segments following a quarter
-       sweep from the deck out at 6m radius up to the top of the lid, which
-       is the shape a heavy cable bundle actually hangs in. A box cannot lie
-       at an angle; a cylinder can, so these are cylinders. */
-    for (let i = 0; i < 8; i++){
-      const a = i / 8 * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
-      const name = i % 2 ? 'loomr' : 'loomg', segs = 7;
-      const pt = (t) => { const r = 6.0 + (1.5 - 6.0) * t, y = y0 + 1.2 + (top + 1.9 - y0 - 1.2) * Math.sin(t * Math.PI / 2);
-                          return [x + ca * r, y, z + sa * r]; };
-      for (let k = 0; k < segs; k++){
-        const A0 = pt(k / segs), A1 = pt((k + 1) / segs);
-        litCyl(G(name), A0[0], A0[1], A0[2], A1[0], A1[1], A1[2], 0.17, 0.17, 8, 1, k === 0, k === segs - 1);
+    for (const a of [Math.PI * 0.62, Math.PI * 1.62]){                                       // oil pipes up the drum and over into the hub
+      const ca = Math.cos(a), sa = Math.sin(a), r = R + 0.3;
+      litCyl(G('pipegreen'), x + ca * r, y0 + 0.3, z + sa * r, x + ca * r, top + 0.6, z + sa * r, 0.08, 0.08, 8, 1, false, false);
+      litCyl(G('pipegreen'), x + ca * r, top + 0.6, z + sa * r, x + ca * 1.5, top + 0.6, z + sa * 1.5, 0.08, 0.08, 8, 1, true, false);
+      for (let y = y0 + 1; y < top; y += 1.4)
+        litCyl(st, x + ca * (R + 0.05), y, z + sa * (R + 0.05), x + ca * r, y, z + sa * r, 0.04, 0.04, 4, 1, false, false);
+    }
+    /* the upper bracket */
+    litCyl(st, x, top, z, x, top + 0.25, z, R + 0.25, R + 0.25, 36, 1, true, true);          // the top flange
+    litCyl(SP, x, top + 0.25, z, x, top + 1.15, z, 1.5, 1.5, 24, 1, false, true);            // the bearing hub
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]){
+      const cx = x + sx * 3.3, cz = z + sz * 3.3;
+      litBox(SP, cx - 0.25, y0, cz - 0.25, cx + 0.25, 8.0, cz + 0.25, { bevel: 0.02, seg: 2 });                   // a column
+      litBox(st, cx - 0.4, y0, cz - 0.4, cx + 0.4, y0 + 0.05, cz + 0.4, { seg: 1 });                               // its base plate
+      for (let k = 0; k < 4; k++){ const bx = cx + (k & 1 ? 0.3 : -0.3), bz = cz + (k & 2 ? 0.3 : -0.3);
+        litCyl(st, bx, y0 + 0.05, bz, bx, y0 + 0.12, bz, 0.035, 0.035, 6, 1, false, true); }
+      const ca = sx * Math.SQRT1_2, sa = sz * Math.SQRT1_2;                                                     // the diagonal arm onto it
+      litCyl(SP, x + ca * 1.4, 7.75, z + sa * 1.4, cx, 7.75, cz, 0.3, 0.3, 4, 1, true, true);
+      litCyl(SP, cx - sx * 0.25, 7.0, cz - sz * 0.25, cx - sx * 1.1, 7.6, cz - sz * 1.1, 0.1, 0.1, 4, 1, true, true);   // a knee brace
+    }
+    for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]){
+      if (ax){                                                                              // the square frame across the column tops...
+        litBox(SP, Math.min(x + ax * 3.05, x + ax * 3.55), 7.5, z - 3.55, Math.max(x + ax * 3.05, x + ax * 3.55), 8.0, z + 3.55, { bevel: 0.02, seg: 3 });
+        litBox(SP, Math.min(x + ax * 1.4, x + ax * 3.05), 7.55, z - 0.22, Math.max(x + ax * 1.4, x + ax * 3.05), 7.95, z + 0.22, { seg: 2 });   // ...and an arm out to it
+      } else {
+        litBox(SP, x - 3.05, 7.5, Math.min(z + az * 3.05, z + az * 3.55), x + 3.05, 8.0, Math.max(z + az * 3.05, z + az * 3.55), { bevel: 0.02, seg: 3 });
+        litBox(SP, x - 0.22, 7.55, Math.min(z + az * 1.4, z + az * 3.05), x + 0.22, 7.95, Math.max(z + az * 1.4, z + az * 3.05), { seg: 2 });
       }
-      /* the bracket that carries it off the deck */
-      litCyl(G('steel'), x + ca * 6.0, y0, z + sa * 6.0, x + ca * 6.0, y0 + 1.25, z + sa * 6.0, 0.13, 0.13, 8, 1, false, true);
+    }
+    litBox(Y, x - 3.56, 7.7, z - 3.56, x + 3.56, 7.8, z - 3.52, { seg: 3 }); litBox(Y, x - 3.56, 7.7, z + 3.52, x + 3.56, 7.8, z + 3.56, { seg: 3 });   // a yellow band round the frame
+    /* the exciter on top, its slip-ring cover and lifting eye */
+    litCyl(S, x, top + 1.15, z, x, top + 2.9, z, 1.1, 1.1, 24, 1, false, false);
+    for (let y = top + 1.35; y < top + 2.8; y += 0.3) litCyl(S, x, y - 0.04, z, x, y + 0.04, z, 1.17, 1.17, 24, 1, true, true);
+    litCyl(st, x, top + 2.9, z, x, top + 3.05, z, 1.25, 1.25, 24, 1, true, true);
+    litCyl(S, x, top + 3.05, z, x, top + 3.55, z, 1.0, 0.55, 24, 1, false, true);
+    litCyl(Y, x, top + 3.55, z, x, top + 3.85, z, 0.12, 0.12, 8, 1, false, true);
+    litBox(st, x + 1.08, top + 1.6, z - 0.3, x + 1.3, top + 2.3, z + 0.3, { bevel: 0.02, seg: 1 });   // its terminal box
+    /* the ring rail: the posts are the map's `ringrail` boxes, same formula */
+    if (p.rail){
+      const RR = p.rail, gap = p.gap || 1.6, n = Math.ceil(2 * Math.PI * RR / 0.6), pts = [];
+      for (let k = 0; k < n; k++){
+        const a = k / n * Math.PI * 2;
+        const d = Math.min(Math.abs(Math.atan2(Math.sin(a), Math.cos(a))), Math.abs(Math.atan2(Math.sin(a - Math.PI), Math.cos(a - Math.PI)))) * RR;
+        pts.push(d < gap ? null : [x + RR * Math.cos(a), z + RR * Math.sin(a)]);
+      }
+      for (let k = 0; k < n; k++){
+        const A = pts[k], B = pts[(k + 1) % n]; if (!A) continue;
+        litCyl(Y, A[0], y0, A[1], A[0], y0 + 1.1, A[1], 0.035, 0.035, 6, 1, false, true);
+        if (B) for (const yy of [1.08, 0.55]) litCyl(Y, A[0], y0 + yy, A[1], B[0], y0 + yy, B[1], 0.03, 0.03, 6, 1, false, false);
+      }
     }
   },
   /* A NATURAL-DRAUGHT COOLING TOWER, and the biggest single thing on the
@@ -4030,6 +4082,28 @@ LIT_DRAW.genset = function(G, b, x0, z0, x1, z1){
   litBox(G('steel'), b.x + 2.2, cy - 0.3, z0 + 0.06, b.x + 3.2, cy + 0.3, z0 + 0.09, { seg: 1 });                         // nameplate
 };
 LIT_INDOOR.genset = 1;
+/* THE CENTRE GENERATOR's air coolers (2026-11-23): a housing on each flank
+   of the stator, louvred on its outer face, a duct up into the frame. */
+LIT_DRAW.gencooler = function(G, b, x0, z0, x1, z1){
+  const h = b.h, out = b.z > 0 ? 1 : -1, zf = out > 0 ? z1 : z0, S = G('stator');
+  const fz = (a, c) => [Math.min(zf + out * a, zf + out * c), Math.max(zf + out * a, zf + out * c)];
+  litBox(S, x0, 0, z0, x1, h, z1, { bevel: 0.04, seg: 2 });
+  for (let y = 0.35; y < h - 0.3; y += 0.22){ const [a, c] = fz(0, 0.06);                         // the louvres
+    litBox(G('steel'), x0 + 0.15, y, a, x1 - 0.15, y + 0.07, c, { seg: 1 }); }
+  litBox(G('steel'), x0 - 0.05, h - 0.12, z0 - 0.05, x1 + 0.05, h, z1 + 0.05, { seg: 1 });       // the top flange
+  { const [a, c] = fz(-0.9, -0.2); litBox(S, x0 + 0.3, h, a, x1 - 0.3, h + 0.9, c, { seg: 1 }); }   // the duct up into the frame
+};
+LIT_INDOOR.gencooler = 1; LIT_UNDER.gencooler = null;
+/* The catwalk stairs' stringers and handrails (2026-11-23): two sloping
+   channels under the treads' ends and a rail over each, so a flight reads as
+   a stair. Drawn only - they sit on the treads' own edges. */
+LIT_PROP.stringers = function(G, p){
+  for (const x of [p.x0 - 0.04, p.x1 + 0.04]){
+    litCyl(G('yellow'), x, 0.05, p.za, x, p.y - 0.1, p.zb, 0.06, 0.06, 4, 2, true, true);
+    litCyl(G('yellow'), x, 1.0, p.za, x, p.y + 1.0, p.zb, 0.03, 0.03, 6, 2, true, true);
+    litCyl(G('yellow'), x, 0, p.za, x, 1.0, p.za, 0.03, 0.03, 6, 1, false, true);
+  }
+};
 /* A control room's mimic wall, as in Jack's photographs: teal panels
    covered in indicator lamps, switches, gauges, a schematic of the plant in
    coloured lines, and screens set into it. One canvas, 4 panels wide. */
