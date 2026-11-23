@@ -838,6 +838,7 @@ const KIT = {           // footprint across (x), along (z), height
   pallets: [1.2, 1.0, 0.86], palletload: [1.2, 1.0, 1.35], gascage: [1.3, 0.8, 1.9], reel: [1.0, 1.6, 1.6],
   skip: [1.8, 3.7, 1.5], van: [2.0, 5.2, 2.45], forklift: [1.2, 2.4, 2.15], toolcart: [0.5, 0.9, 1.0],
   bin: [0.62, 0.72, 1.08], gen: [1.1, 2.4, 1.45], cabin: [2.5, 6.0, 2.65], lighttower: [1.2, 2.0, 1.4],
+  scaffold: [1.3, 5.0, 4.2],
 };
 const CL = [];
 let KIT_PLACED = 0, KIT_REFUSED = 0;
@@ -964,6 +965,30 @@ sign('ppe', 44.5, -58.98, 0, false, 1.6);      // beside the north door (x 48-54
 kit('drums4', 78.2, -92, 0.06); kit('ibc', 78.4, -89.4, -0.05); kit('toolcart', 79.2, -75, 0.3); kit('pallets', 79.8, -71.3, 0.12);
 oil(78.2, -91.4, 0.9);
 
+/* 9. THE MAP'S SHAPE (2026-11-23, the last of the Saltline list): the long
+   open roads and the yard between the switchyard and the hall were sight
+   lines with nothing on them. Cover that belongs on a working site, set
+   along and partly on them: vans parked half on the road, skips, cable
+   drums, pallets, barriers, and scaffold towers against the buildings
+   (4.2m: a wall to break a line, too tall to climb). */
+// the south road (z 65)
+kit('van', 60, 63.4, Math.PI / 2 + 0.03); kit('van', 35, 70.4, Math.PI / 2 - 0.05);
+kit('skip', 100, 70.7, Math.PI / 2 + 0.08); kit('reel', 8, 70.4, 0.1); kit('reel', 9.7, 70.6, -0.15);
+rowOf('barrier', 86, 66.8, 0, 0, 1, 0.1, 3); kit('barrier', 88.2, 66.6, 0.12);
+// the north road (z -64)
+kit('van', 70, -65.4, Math.PI / 2 + 0.04); kit('skip', 8, -62.6, Math.PI / 2 - 0.06);
+kit('palletload', 100, -62.4, 0.2); kit('pallets', 101.6, -62.6, -0.1);
+// the switchyard road (z 70) and the towers road (z -70)
+kit('van', -36, 68.6, Math.PI / 2 - 0.03); kit('skip', -92, 71.6, Math.PI / 2 + 0.05);
+kit('skip', -50, -68.6, Math.PI / 2 + 0.04); kit('reel', -82, -71.8, 0.08); kit('reel', -80.4, -71.9, -0.1); kit('reel', -83.6, -71.8, 0.2);
+// the west road (x -112.5)
+kit('van', -111.0, -14, 0.05); kit('reel', -110.6, 30, 0.1); kit('reel', -110.7, 31.8, -0.12); kit('palletload', -114.2, 46, 0.15);
+// the yard between the switchyard and the hall
+kit('van', -8.5, -36, 0.08); kit('skip', -18.2, -50, 0.1); kit('reel', -10.4, 40, 0.05); kit('reel', -10.2, 42.0, -0.1);
+kit('palletload', -8.5, 46, 0.12); kit('pallets', -8.2, 47.8, -0.06); kit('drums4', -10.4, 26, 0.2);
+rowOf('barrier', -9.6, -24, 0, 2.15, 3, 0.15, 13);
+// scaffold towers against the walls
+kit('scaffold', -5.25, -38, 0); kit('scaffold', -5.25, 38, 0); kit('scaffold', 28.3, -84, 0); kit('scaffold', 95.7, 86, 0);
 console.log(`  clutter: ${KIT_PLACED} placed, ${KIT_REFUSED} refused, ${CL.length} loose items`);
 /* LAMP POSTS (2026-11-23, the Saltline list: "lights in the world"):
    post-top lanterns along every road, 6.5m, one about every 30m, on the

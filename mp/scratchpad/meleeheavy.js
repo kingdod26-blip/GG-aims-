@@ -42,11 +42,15 @@ function pump(c, hz = 30) {
   await sleep(1200);
   for (let i = 0; i < 50; i++) { if (await phaseOf(code) === 'live') break; await sleep(1000); }
   console.log('phase:', await phaseOf(code));
-  a.want = { x: -50, z: 60 }; b.want = { x: -50, z: 58 };
-  await sleep(9000);
+  /* B walks to A, wherever A spawned (a fixed meeting point gets blocked
+     by cover as the map changes - it did, 2026-11-23); A stays put. */
+  a.want = { ...a.pos };
+  for (let i = 0; i < 4; i++){ b.want = { x: a.pos.x + [0, 2, -2, 0][i], z: a.pos.z + [-2, 0, 0, 2][i] }; await sleep(7000);
+    if (Math.hypot(b.pos.x - a.pos.x, b.pos.z - a.pos.z) < 2.6) break; }
   console.log('A at', a.pos, 'B at', b.pos);
-  const at = (x) => Object.assign({ ox: a.pos.x, oy: 1.6, oz: a.pos.z, dx: 0, dy: -0.2, dz: -1 }, x);
-  const away = { dx: 0, dy: 0, dz: 1 };
+  const tb = { x: b.pos.x - a.pos.x, z: b.pos.z - a.pos.z }, tl = Math.hypot(tb.x, tb.z) || 1;
+  const at = (x) => Object.assign({ ox: a.pos.x, oy: 1.6, oz: a.pos.z, dx: tb.x / tl, dy: -0.2, dz: tb.z / tl }, x);
+  const away = { dx: -tb.x / tl, dy: 0, dz: -tb.z / tl };
   const check = async (label, fn, wait = 450) => { const i0 = a.impacts, k0 = a.kills.length; await fn(); await sleep(wait);
     console.log(label.padEnd(44), 'impacts +' + (a.impacts - i0), ' kills +' + (a.kills.length - k0), a.kills.slice(k0).map(k => 'head=' + k.head).join(' ')); };
 

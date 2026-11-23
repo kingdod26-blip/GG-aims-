@@ -3961,6 +3961,24 @@ LIT_PROP.highbay = function(G, p){
 /* Loose clutter gets no keep-clear outline painted round it: that line is
    for plant, and round a drum or a cone it read as a level editor. */
 for (const k in LIT_KIT) LIT_INDOOR[k] = 1;
+/* A scaffold tower against a wall (2026-11-23, the map's shape): four
+   standards, ledgers every 2m, a brace on each long face, boarded lifts at
+   2m and at the top with a toe board and a guard rail. The box is the
+   tower: cover you cannot see through at the boards, nor climb (4.2m). */
+LIT_DRAW.scaffold = function(G, b, x0, z0, x1, z1){
+  const h = b.h, t = 0.025, ST = 'steel';
+  const corners = [[x0 + 0.05, z0 + 0.05], [x1 - 0.05, z0 + 0.05], [x1 - 0.05, z1 - 0.05], [x0 + 0.05, z1 - 0.05]];
+  for (const [x, z] of corners){ litCyl(G(ST), x, 0, z, x, h, z, t, t, 6, 1, false, true); litBox(G(ST), x - 0.08, 0, z - 0.08, x + 0.08, 0.02, z + 0.08, { seg: 1 }); }
+  for (const y of [0.15, 1.0, 2.0, 3.1, h - 0.05]) for (let i = 0; i < 4; i++){ const a = corners[i], c = corners[(i + 1) % 4];
+    litCyl(G(ST), a[0], y, a[1], c[0], y, c[1], t, t, 6, 1, false, false); }
+  for (const x of [x0 + 0.05, x1 - 0.05]) litCyl(G(ST), x, 0.15, z0 + 0.05, x, h - 0.05, z1 - 0.05, t, t, 6, 1, false, false);   // the braces
+  for (const y of [2.0, h - 1.1]){
+    litBox(G('pallet'), x0 + 0.06, y, z0 + 0.06, x1 - 0.06, y + 0.05, z1 - 0.06, { seg: 2, tile: 1 });                // the boards
+    litBox(G('pallet'), x0 + 0.06, y + 0.05, z0 + 0.06, x0 + 0.08, y + 0.2, z1 - 0.06, { seg: 2, tile: 1 });           // toe boards
+    litBox(G('pallet'), x1 - 0.08, y + 0.05, z0 + 0.06, x1 - 0.06, y + 0.2, z1 - 0.06, { seg: 2, tile: 1 });
+  }
+};
+LIT_INDOOR.scaffold = 1;
 LIT_INDOOR.towerwall = LIT_INDOOR.boilerwall = LIT_INDOOR.hallroof = 1;
 LIT_UNDER.drum = LIT_UNDER.drums4 = LIT_UNDER.ibc = LIT_UNDER.barrier = LIT_UNDER.pallets = LIT_UNDER.palletload = null;
 LIT_UNDER.gascage = LIT_UNDER.reel = LIT_UNDER.skip = LIT_UNDER.van = LIT_UNDER.forklift = LIT_UNDER.toolcart = null;
@@ -4030,7 +4048,7 @@ LIT_PROP.clutter = function(G, p){
    any light, so it needs no lighting of its own). */
 const LIT_NOGRIME = { hidden: 1, glass: 1, handrail: 1, ringrail: 1, ringdeck: 1, pipewalk: 1, grating: 1, steptread: 1, tread: 1,
                       step: 1, slab: 1, roofslab: 1, stackwall: 1, deck: 1, towerwall: 1, palisade: 1,
-                      chair: 1, chairn: 1, cabinet: 1, printer: 1, cooler: 1, plant: 1, lamppost: 1 };   // the offices' furniture stands on a clean floor
+                      chair: 1, chairn: 1, cabinet: 1, printer: 1, cooler: 1, plant: 1, lamppost: 1, scaffold: 1 };   // the offices' furniture stands on a clean floor
 function litGrimeTexture(){
   return litCanvas(8, 64, (g, w, h) => {
     /* an alphaMap is read from the GREEN channel: white is opaque */
