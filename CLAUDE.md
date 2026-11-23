@@ -2141,7 +2141,16 @@ of its own:
   edge, ribbed stator, short end shields, bearing pedestals, shaft and
   coupling, an exciter housing, a side terminal box with cables, a finned
   cooler, lugs, a nameplate.
-Still to build: maintenance workshop, service tunnels, storage areas.
+- **The maintenance workshop** (THE MAINTENANCE WORKSHOP): an enclosed
+  shop in the hall's north-east corner (x 88..109, z -44..-27, 4.5m),
+  roll-up door west, a door north, windows. Benches under a pegboard of
+  tools (`pegboard` prop), red tool chests, a pillar drill, a welding bay
+  behind orange screens with its set, a bench and gas bottles, a spare
+  turbine rotor on yellow stands in keep-clear hatching, spares on
+  pallets, a drum pallet, a tool cart, tall storage cabinets. NOTE: kit()
+  is defined far down works.js (its KIT and CL consts with it), so the
+  hall sections place kit kinds with plain box() calls.
+Still to build: service tunnels, storage areas.
 
 ## Agents
 

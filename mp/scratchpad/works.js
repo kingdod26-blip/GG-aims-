@@ -273,6 +273,41 @@ wallN(HZ1 + HW / 2, 28, HX1, HH, 'cladding');
   P_LATE.push({ kind: 'ceilinglights', x0: ix0, x1: ix1, z0: iz0, z1: iz1, levels: [TOP - 0.05], holes: [], extra: [] });
 }
 
+/* THE MAINTENANCE WORKSHOP (2026-11-23, the indoors brief, room 5: "a
+   realistic repair area containing workbenches, toolboxes, spare machinery
+   parts, welding equipment, storage cabinets, and industrial equipment").
+   In the hall, as Jack wants the rooms: an enclosed shop in its north-east
+   corner (top right on the plan), x 88..109, z -44..-27, 4.5m. A roll-up
+   door west onto the hall floor, a door north, windows west. Benches with
+   a pegboard of tools along the north wall, red tool chests, a pillar
+   drill, a welding bay behind screens with its set and gas bottles, a
+   spare turbine rotor on stands in the middle, spares on pallets, tall
+   storage cabinets along the south wall. */
+{
+  const WS = { x0: 88, x1: 109, z0: -44, z1: -27, t: 0.3, h: 4.5, rt: 0.3 };
+  building(WS, [
+    { face: 'W', a0: -37.5, a1: -33.5, y0: 0, y1: 3.6 },                              // roll-up door to the hall
+    { face: 'N', a0: 99, a1: 101, y0: 0, y1: 2.4 },
+    { face: 'W', a0: -43, a1: -39, y0: 1.1, y1: 2.2, glass: true }, { face: 'W', a0: -32, a1: -28, y0: 1.1, y1: 2.2, glass: true },
+  ], 'shedwall', 'shedroof');
+  const iz0 = WS.z0 + WS.t, iz1 = WS.z1 - WS.t, ix1 = WS.x1 - WS.t;
+  ob(89.0, 91.6, iz0, iz0 + 0.8, 0, 0.92, 'workbench'); ob(92.0, 94.6, iz0, iz0 + 0.8, 0, 0.92, 'workbench');
+  ob(95.2, 95.9, iz0, iz0 + 0.6, 0, 1.1, 'toolchest'); ob(96.0, 96.7, iz0, iz0 + 0.6, 0, 1.1, 'toolchest');
+  ob(97.3, 97.9, iz0, iz0 + 0.7, 0, 1.8, 'drillpress');
+  // the welding bay, east end, screened off
+  ob(101.97, 102.03, iz0, -39.4, 0, 1.9, 'weldscreen'); ob(102.03, 105.2, -37.03, -36.97, 0, 1.9, 'weldscreen');
+  ob(106.0, 107.0, iz0, iz0 + 0.6, 0, 0.9, 'welder');
+  ob(104.4, 106.6, -41.2, -40.2, 0, 0.85, 'workbench');
+  box(108.0, -38.6, 0.8, 1.3, 1.9, 'gascage');                                       // (kit() is defined later in the file: plain boxes here)
+  // the spare rotor on its stands, spares on pallets
+  ob(91.5, 98.5, -35.4, -34.0, 0, 1.5, 'rotor');
+  box(99.2, -30.6, 1.2, 1.0, 1.35, 'palletload'); box(101.0, -30.4, 1.2, 1.0, 0.86, 'pallets'); box(91.4, -28.7, 1.22, 1.22, 1.08, 'drums4'); box(96.8, -31.2, 0.5, 0.9, 1.0, 'toolcart');
+  for (let i = 0; i < 5; i++) ob(103.0 + i * 0.82, 103.8 + i * 0.82, iz1 - 0.6, iz1, 0, 1.9, 'cabinet');   // tall storage cabinets
+  PAINT_EXTRA_LATE.push({ k: 'keep', x: 95, z: -34.7, w: 8.4, d: 2.8 });
+  P_LATE.push({ kind: 'ceilinglights', x0: WS.x0 + WS.t, x1: ix1, z0: iz0, z1: iz1, levels: [WS.h - WS.rt - 0.05], holes: [], extra: [] });
+  P_LATE.push({ kind: 'pegboard', x0: 89.0, x1: 94.6, z: iz0 + 0.01, y0: 1.2, y1: 2.4 });
+}
+
 /* ===================================================================== */
 /* 2. THE SWITCHYARD                                                     */
 /* ===================================================================== */
@@ -1142,7 +1177,7 @@ oil(21.4, 101.2, 1.1); oil(73, 97.6, 0.8);
    drums, a cable drum, cones round a job. */
 kit('toolcart', 10.4, -41.8, 0.25); kit('palletload', 14, -44.2, 0.08); kit('drums4', 16.6, -44.4, -0.1);
 kit('palletload', 14.2, 44.2, -0.06); kit('toolcart', 10.6, 41.6, -0.3); kit('reel', 17, 44.6, 0.1);
-kit('palletload', 105, -34, 0.1); kit('pallets', 105.2, -31.4, -0.08); kit('toolcart', 103.4, -28, 0.3);
+/* (the stock and tool cart that stood in the hall's north-east corner are in the maintenance workshop now) */
 kit('drums4', 105, 34, -0.08); kit('ibc', 105.1, 31.4, 0.06);
 for (const [x, z] of [[20.5, -40], [23.5, -40], [20.5, -37], [23.5, -37]]) cone(x, z);
 CL.push({ k: 'hose', x: 22, z: -38.5, c: 'orange' });

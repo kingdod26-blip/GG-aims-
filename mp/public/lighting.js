@@ -2439,7 +2439,8 @@ const LIT_KIT_MATS = {
   chairblack: [0x1c1d20, 0.7, 0, 0.3, 1], cabgrey: [0x7d8287, 0.45, 0.4, 0.6, 0], leaf: [0x2f4a26, 0.8, 0, 0.2, 0],
   pot: [0x38393b, 0.6, 0, 0.3, 0], water: [0x6f93b8, 0.15, 0, 0.9, 0],
   /* the turbine hall, fitted out (2026-11-23) */
-  genblue: [0x1e4f8f, 0.42, 0.35, 0.6, 0], pipegreen: [0x2f5a37, 0.5, 0.2, 0.5, 1], pipeblue: [0x24507f, 0.45, 0.25, 0.5, 1],
+  genblue: [0x1e4f8f, 0.42, 0.35, 0.6, 0], toolred: [0x8c1c18, 0.4, 0.3, 0.6, 0], weldcurtain: [0xa8461a, 0.85, 0, 0.1, 0],
+  benchgreen: [0x3d4a3c, 0.6, 0.2, 0.4, 0], peg: [0x6b5a44, 0.9, 0, 0.1, 0], pipegreen: [0x2f5a37, 0.5, 0.2, 0.5, 1], pipeblue: [0x24507f, 0.45, 0.25, 0.5, 1],
 };
 function litMaterial(name){
   if (LIT_MATS[name]) return LIT_MATS[name];
@@ -4001,6 +4002,58 @@ LIT_DRAW.genset = function(G, b, x0, z0, x1, z1){
   litBox(G('steel'), b.x + 2.2, cy - 0.3, z0 + 0.06, b.x + 3.2, cy + 0.3, z0 + 0.09, { seg: 1 });                         // nameplate
 };
 LIT_INDOOR.genset = 1;
+/* THE MAINTENANCE WORKSHOP (2026-11-23): a steel workbench with a timber
+   top and a vice; a red roll-cab tool chest; a pillar drill; a welding
+   screen (orange curtain on a steel frame); a welding set; a spare turbine
+   rotor on two stands. Each box is the thing. */
+Object.assign(LIT_DRAW, {
+  workbench(G, b, x0, z0, x1, z1){
+    const h = b.h;
+    for (const x of [x0 + 0.05, x1 - 0.1]) for (const z of [z0 + 0.05, z1 - 0.1]) litBox(G('benchgreen'), x, 0, z, x + 0.05, h - 0.06, z + 0.05, { seg: 1 });
+    litBox(G('benchgreen'), x0 + 0.05, 0.2, z0 + 0.05, x1 - 0.05, 0.25, z1 - 0.05, { seg: 1 });             // the shelf
+    litBox(G('pallet'), x0, h - 0.06, z0, x1, h, z1, { seg: 2, tile: 1 });                                  // timber top
+    litBox(G('benchgreen'), x1 - 0.45, h, (z0 + z1) / 2 - 0.08, x1 - 0.15, h + 0.16, (z0 + z1) / 2 + 0.08, { seg: 1 });   // the vice
+  },
+  toolchest(G, b, x0, z0, x1, z1){
+    litBox(G('toolred'), x0, 0.08, z0, x1, b.h, z1, { bevel: 0.02, seg: 1, tile: 0.6 });
+    for (let y = 0.25; y < b.h - 0.1; y += 0.14) litBox(G('steel'), x0 + 0.05, y, z1, x1 - 0.05, y + 0.02, z1 + 0.01, { seg: 1 });   // drawer pulls
+    for (const x of [x0 + 0.08, x1 - 0.08]) litCyl(G('cable'), x, 0.04, z0 + 0.1, x, 0.04, z1 - 0.1, 0.04, 0.04, 8, 1, true, true);   // castors
+  },
+  drillpress(G, b, x0, z0, x1, z1){
+    const cx = b.x, cz = b.z;
+    litBox(G('benchgreen'), x0, 0, z0, x1, 0.08, z1, { seg: 1 });
+    litCyl(G('steel'), cx, 0.08, z0 + 0.15, cx, b.h - 0.3, z0 + 0.15, 0.05, 0.05, 8, 1, false, false);       // the column
+    litBox(G('benchgreen'), cx - 0.2, 0.75, z0 + 0.1, cx + 0.2, 0.8, z1 - 0.1, { seg: 1 });                // the table
+    litBox(G('benchgreen'), cx - 0.18, b.h - 0.55, z0 + 0.05, cx + 0.18, b.h, z1 - 0.1, { bevel: 0.03, seg: 1 });   // head and motor
+    litCyl(G('steel'), cx, b.h - 0.55, z1 - 0.3, cx, b.h - 0.75, z1 - 0.3, 0.02, 0.01, 6, 1, false, true);   // the bit
+  },
+  weldscreen(G, b, x0, z0, x1, z1){
+    litBox(G('weldcurtain'), x0, 0.15, z0, x1, b.h - 0.05, z1, { seg: 2, tile: 1 });
+    litBox(G('steel'), x0 - 0.01, b.h - 0.05, z0 - 0.01, x1 + 0.01, b.h, z1 + 0.01, { seg: 1 });
+  },
+  welder(G, b, x0, z0, x1, z1){
+    litBox(G('toolred'), x0, 0.12, z0, x1, b.h, z1, { bevel: 0.03, seg: 1, tile: 0.6 });
+    litBox(G('chairblack'), x0 + 0.1, b.h - 0.35, z1, x1 - 0.1, b.h - 0.1, z1 + 0.01, { seg: 1 });         // the panel
+    litCyl(G('cable'), x0 + 0.2, b.h - 0.4, z1 + 0.02, x0 + 0.2, 0.03, z1 + 0.6, 0.03, 0.03, 6, 1, false, false);   // its leads
+  },
+  rotor(G, b, x0, z0, x1, z1){
+    const cz = b.z, cy = b.h - 0.62;
+    for (const x of [x0 + 0.6, x1 - 0.6]) litBox(G('yellow'), x - 0.25, 0, z0 + 0.1, x + 0.25, cy - 0.15, z1 - 0.1, { seg: 1 });   // the stands
+    litCyl(G('steel'), x0, cy, cz, x1, cy, cz, 0.18, 0.18, 16, 2, true, true);                               // the shaft
+    for (let i = 0; i < 6; i++){ const x = x0 + 1.4 + i * 0.75, r = 0.6 - i * 0.04;                         // blade rows
+      litCyl(G('lagging'), x - 0.12, cy, cz, x + 0.12, cy, cz, r, r, 24, 1, true, true); }
+  },
+});
+Object.assign(LIT_INDOOR, { workbench: 1, toolchest: 1, drillpress: 1, weldscreen: 1, welder: 1, rotor: 1 });
+/* the pegboard over the benches: a board on the wall with tools hung on it */
+LIT_PROP.pegboard = function(G, p){
+  litBox(G('peg'), p.x0, p.y0, p.z, p.x1, p.y1, p.z + 0.02, { seg: 2, tile: 1 });
+  let r = 7; const rnd = () => (r = (r * 16807) % 2147483647) / 2147483647;
+  for (let x = p.x0 + 0.2; x < p.x1 - 0.15; x += 0.18 + rnd() * 0.12){
+    const y = p.y0 + 0.15 + rnd() * (p.y1 - p.y0 - 0.6), len = 0.2 + rnd() * 0.25;
+    litBox(G(rnd() < 0.3 ? 'toolred' : 'steel'), x, y, p.z + 0.02, x + 0.03 + rnd() * 0.03, y + len, p.z + 0.05, { seg: 1 });
+  }
+};
 /* A control-room console (the control room, 2026-11-23): a steel desk, a
    row of screens along it, and a red emergency stop. Long along whichever
    axis the box is. */
@@ -4214,7 +4267,8 @@ LIT_PROP.clutter = function(G, p){
    any light, so it needs no lighting of its own). */
 const LIT_NOGRIME = { hidden: 1, glass: 1, handrail: 1, ringrail: 1, ringdeck: 1, pipewalk: 1, grating: 1, steptread: 1, tread: 1,
                       step: 1, slab: 1, roofslab: 1, stackwall: 1, deck: 1, towerwall: 1, palisade: 1,
-                      chair: 1, chairn: 1, cabinet: 1, printer: 1, cooler: 1, plant: 1, lamppost: 1, scaffold: 1 };   // the offices' furniture stands on a clean floor
+                      chair: 1, chairn: 1, cabinet: 1, printer: 1, cooler: 1, plant: 1, lamppost: 1, scaffold: 1,
+                      weldscreen: 1, drillpress: 1, toolchest: 1, welder: 1 };   // the offices' furniture stands on a clean floor
 function litGrimeTexture(){
   return litCanvas(8, 64, (g, w, h) => {
     /* an alphaMap is read from the GREEN channel: white is opaque */
