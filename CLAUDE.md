@@ -1831,6 +1831,12 @@ dressing the office interiors, ambient sound.
   (`meleeCharge` -> `melee` with `heavy`, 60ms slack, stale after 15s), so
   a client cannot claim a full charge. Left-click does nothing while
   charging; a weapon switch, death or pause drops the charge.
+  **Speed (2026-11-23, Jack: "the faster you are when stabbing the more
+  damage it deals"):** the stab's damage is multiplied by your horizontal
+  speed at release - x1 up to 2 m/s, rising to x1.5 at 13 m/s (a slide).
+  Full charge: 85 standing, ~104 blade walk, ~118 blade sprint, 128 max.
+  Client uses `me.hv` (`heavySpeedMul`, weapons.js); the server uses its
+  own measured `p.vx/p.vz`, capped at 13, so it can't be spoofed.
 - **The five cuts are yours anytime** (Jack: "i can do it anytime anywhere
   it doesnt have to be only when i hit someone"): every swing moves the
   chain on, hit or miss, client and server; stop swinging for

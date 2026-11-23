@@ -469,7 +469,8 @@ const MELEE = { combo: [22,22,28,28,70], windowMs: 1600, rateMs: 320, reach: 3.4
      carries heavy - keep in step with HEAVY in public/weapons.js. `slack`
      forgives jitter between the two packets; `maxHoldMs` lets a hold go
      stale (a charge is not a cut banked for later). */
-  heavy: { minMs: 250, fullMs: 1100, min: 35, max: 85, reachAdd: 0.6, slack: 60, maxHoldMs: 15000 } };
+  heavy: { minMs: 250, fullMs: 1100, min: 35, max: 85, reachAdd: 0.6, slack: 60, maxHoldMs: 15000,
+           speedFrom: 2, speedTo: 13, speedGain: 0.5 } };   // the stab hits harder the faster you are moving (the server's own measure of it)
 let arrowSeq = 0;
 /* ----------------------------- Match format ------------------------------
    Multiplayer is round-based and has no bots. Kill the opposition to take a
@@ -1200,7 +1201,9 @@ io.on('connection', (socket) => {
       p.chargeAt = 0;
       if (held + H.slack < H.minMs || held > H.maxHoldMs) return;          // no charge it could be
       const k = Math.min(1, Math.max(0, (held - H.minMs) / (H.fullMs - H.minMs)));
-      heavyDmg = Math.round(H.min + (H.max - H.min) * k); reach += H.reachAdd * k;
+      const v = Math.min(H.speedTo, Math.hypot(p.vx || 0, p.vz || 0));
+      const sMul = 1 + H.speedGain * Math.max(0, (v - H.speedFrom) / (H.speedTo - H.speedFrom));
+      heavyDmg = Math.round((H.min + (H.max - H.min) * k) * sMul); reach += H.reachAdd * k;
       p.comboStep = 0;
     }
     const dir = normalize(d.dx, d.dy, d.dz);

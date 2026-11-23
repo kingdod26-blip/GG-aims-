@@ -154,7 +154,13 @@ WEAPONS.push({ name:'BLADE', mode:'MELEE', melee:true, auto:false, fireRate:360,
    little further. It resets the combo. The SERVER times the hold (from
    its own `meleeCharge` packet to the `melee` one) - keep its
    MELEE.heavy in step with this. */
-const HEAVY = { minMs:250, fullMs:1100, min:35, max:85, reachAdd:0.6, cut:5 };
+const HEAVY = { minMs:250, fullMs:1100, min:35, max:85, reachAdd:0.6, cut:5,
+  /* SPEED (2026-11-23, Jack: "the faster you are when stabbing the more
+     damage it deals"): the stab's damage is multiplied by how fast you are
+     moving when you let go - nothing extra at a walk under speedFrom m/s,
+     rising to +speedGain at speedTo (a slide; a blade sprint is 10.5). */
+  speedFrom:2, speedTo:13, speedGain:0.5 };
+function heavySpeedMul(v){ return 1 + HEAVY.speedGain * Math.min(1, Math.max(0, (v - HEAVY.speedFrom) / (HEAVY.speedTo - HEAVY.speedFrom))); }
 let chargeFrom = 0;                       // performance.now() the hold began; 0 = not charging
 function heavyCharge(now){ return chargeFrom ? Math.min(1, (now - chargeFrom) / HEAVY.fullMs) : 0; }
 const XBOW  = WEAPONS.findIndex(w=>w.kind==='xbow');    // crossbow slot

@@ -185,7 +185,7 @@ function releaseCharge(){
   if(!w.melee || !me.alive) return;
   if(held<HEAVY.minMs){ if(gameMode==='mp' && socket) socket.emit('meleeCharge', { off:true }); return; }   // called off
   const k=Math.min(1, (held-HEAVY.minMs)/(HEAVY.fullMs-HEAVY.minMs));
-  const dmg=Math.round(HEAVY.min+(HEAVY.max-HEAVY.min)*k), reach=w.reach+HEAVY.reachAdd*k;
+  const dmg=Math.round((HEAVY.min+(HEAVY.max-HEAVY.min)*k) * heavySpeedMul(Math.hypot(me.hv.x, me.hv.z))), reach=w.reach+HEAVY.reachAdd*k;
   lastShot=now; swingT=1; swingCut=HEAVY.cut; comboStep=0; comboUntil=0; Sfx.swap();
   const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(me.pitch,me.yaw,0,'YXZ'));
   const o=camera.position.clone();
