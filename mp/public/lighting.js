@@ -3986,6 +3986,27 @@ LIT_PROP.genroom = function(G, p){
       litBox(G('cable'), x + Math.cos(a) * 0.45 - 0.1, h - 4 + Math.sin(a) * 0.45 - 0.35, z0 + 0.42, x + Math.cos(a) * 0.45 + 0.1, h - 4 + Math.sin(a) * 0.45 + 0.35, z0 + 0.45, { seg: 1 }); }
   }
 };
+/* THE SUBSTATION ROOM (2026-11-23): cable trays across the ceiling with
+   their cables, bundles of insulated cable dropping from them into each
+   transformer and cabinet, and louvred vents high on the walls. */
+LIT_PROP.subroom = function(G, p){
+  const { x0, x1, z0, z1, h } = p, ty = h - 0.7;
+  for (const z of [z0 + 2.7, z1 - 3.2]){
+    litBox(G('steel'), x0 + 0.3, ty - 0.04, z - 0.35, x1 - 0.3, ty, z + 0.35, { seg: 4, bottom: true });
+    for (const o of [-0.22, -0.07, 0.08, 0.22]) litCyl(G('cable'), x0 + 0.3, ty + 0.05, z + o, x1 - 0.3, ty + 0.05, z + o, 0.045, 0.045, 6, 2, false, false);
+  }
+  for (const [x, z] of p.drops){
+    const tz = Math.abs(z - (z0 + 2.7)) < Math.abs(z - (z1 - 3.2)) ? z0 + 2.7 : z1 - 3.2;
+    for (const o of [-0.12, 0, 0.12]){                                                    // down off the tray, across, straight down
+      litCyl(G('cable'), x + o, ty, tz, x + o, ty - 0.6, tz, 0.04, 0.04, 6, 1, false, false);
+      litCyl(G('cable'), x + o, ty - 0.6, tz, x + o, ty - 0.6, z, 0.04, 0.04, 6, 1, false, false);
+      litCyl(G('cable'), x + o, ty - 0.6, z, x + o, 2.9, z, 0.04, 0.04, 6, 1, false, false);
+    }
+  }
+  for (const x of [x0 + 3, x1 - 3]) for (const zz of [z0 + 0.02, z1 - 0.06]){             // louvres
+    for (let i = 0; i < 6; i++) litBox(G('steel'), x - 0.8, h - 2.2 + i * 0.16, zz, x + 0.8, h - 2.14 + i * 0.16, zz + 0.04, { seg: 1 });
+  }
+};
 LIT_PROP.cwruns = function(G, p){
   for (const [px, pz, cx, cz] of p.runs){
     const y = p.y;

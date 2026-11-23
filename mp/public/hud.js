@@ -910,6 +910,10 @@ const MAPC_THIN = { lattice:1, column:1, step:1, hvtower:1, firebox:1, desk:1, b
    is an OUTLINE, because filled it would paint over everything under it and
    a slab covers a whole building. Returns true when it drew the box. */
 function planRaised(g, b, x0, z0, w, d){
+  /* the turbine hall's rooflights are glass boxes in its roof: on a plan
+     they were blue stripes across the whole hall (Jack: "remove the blue
+     lines on the map for turbine hall") - roof glazing is left off */
+  if (b.mat === 'glass' && boxY(b) > 12) return true;
   if (b.mat === 'glass'){ g.fillStyle = 'rgba(150,205,230,.6)'; g.fillRect(x0, z0, Math.max(1, w), Math.max(1, d)); return true; }
   if (b.mat === 'palisade'){ g.fillStyle = 'rgba(200,205,210,.55)'; g.fillRect(x0, z0, Math.max(1, w), Math.max(1, d)); return true; }   // the switchyard fence
   /* A building's roof is its outline with the inside visible, like the

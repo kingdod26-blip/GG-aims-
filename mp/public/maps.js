@@ -2875,6 +2875,27 @@ const MAPS = {
       { x:    28.4, z:      80, w:     0.7, d:     0.7, h:  5.4, mat: 'cwpipe'     , y: 4 },
       { x:    44.4, z:      80, w:     0.7, d:     0.7, h:  5.4, mat: 'cwpipe'     , y: 4 },
 
+      // THE SUBSTATION ROOM, between the HV compound and the switchyard road
+      { x:     -39, z:   51.15, w:      26, d:     0.3, h:  6.7, mat: 'shedwall'    },
+      { x:  -50.25, z:   63.85, w:     3.5, d:     0.3, h:    4, mat: 'shedwall'    },
+      { x:     -39, z:   63.85, w:      10, d:     0.3, h:  2.5, mat: 'shedwall'    },
+      { x:  -28.75, z:   63.85, w:     5.5, d:     0.3, h:  2.5, mat: 'shedwall'    },
+      { x:     -35, z:   63.85, w:      18, d:     0.3, h:  1.5, mat: 'shedwall'   , y: 2.5 },
+      { x:     -39, z:   63.85, w:      26, d:     0.3, h:  2.7, mat: 'shedwall'   , y: 4 },
+      { x:  -51.85, z:    57.5, w:     0.3, d:    12.4, h:  6.7, mat: 'shedwall'    },
+      { x:  -26.15, z:   53.65, w:     0.3, d:     4.7, h:  2.5, mat: 'shedwall'    },
+      { x:  -26.15, z:    61.1, w:     0.3, d:     5.2, h:  2.5, mat: 'shedwall'    },
+      { x:  -26.15, z:    57.5, w:     0.3, d:    12.4, h:  4.2, mat: 'shedwall'   , y: 2.5 },
+      { x:     -39, z:    57.5, w:      26, d:      13, h:  0.3, mat: 'shedroof'   , y: 6.7 },
+      { x:   -47.6, z:      54, w:     5.5, d:     4.2, h:  2.8, mat: 'transformer' },
+      { x:   -37.4, z:      54, w:     5.5, d:     4.2, h:  2.8, mat: 'transformer' },
+      { x:   -42.5, z:    53.9, w:     0.5, d:     4.6, h:  3.6, mat: 'firewall'    },
+      { x:   -42.2, z:    62.9, w:     2.6, d:     1.6, h:  2.2, mat: 'switch'      },
+      { x:   -39.5, z:    62.9, w:     2.6, d:     1.6, h:  2.2, mat: 'switch'      },
+      { x:   -36.8, z:    62.9, w:     2.6, d:     1.6, h:  2.2, mat: 'switch'      },
+      { x:   -28.6, z:    62.9, w:     2.6, d:     1.6, h:  2.2, mat: 'switch'      },
+      { x:   -30.5, z:    57.5, w:     1.2, d:       6, h:    2, mat: 'switch'      },
+
       // CLUTTER AND WEAR: the things people bring to a site and leave (kit)
       { x:     -40, z:  104.46, w:     3.2, d:    0.12, h:    1, mat: 'shedwall'    },
       { x:   -41.2, z:  104.46, w:     0.8, d:    0.12, h:  0.9, mat: 'shedwall'   , y: 1 },
@@ -3931,6 +3952,56 @@ const MAPS = {
                 step: 12
           },
           {
+                kind: 'subroom',
+                x0: -51.7,
+                x1: -26.3,
+                z0: 51.3,
+                z1: 63.7,
+                h: 6.7,
+                drops: [
+                      [
+                            -47.6,
+                            54
+                      ],
+                      [
+                            -37.4,
+                            54
+                      ],
+                      [
+                            -42.2,
+                            62.9
+                      ],
+                      [
+                            -39.5,
+                            62.9
+                      ],
+                      [
+                            -36.8,
+                            62.9
+                      ],
+                      [
+                            -28.6,
+                            62.9
+                      ],
+                      [
+                            -30.5,
+                            57.5
+                      ]
+                ]
+          },
+          {
+                kind: 'ceilinglights',
+                x0: -51.7,
+                x1: -26.3,
+                z0: 51.3,
+                z1: 63.7,
+                levels: [
+                      6.65
+                ],
+                holes: [],
+                extra: []
+          },
+          {
                 kind: 'ceilinglights',
                 x0: -41.48,
                 x1: -38.52,
@@ -4202,6 +4273,84 @@ const MAPS = {
                                   [
                                         33,
                                         77.9
+                                  ]
+                            ]
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -46.25,
+                            z: 64.08,
+                            ry: 0,
+                            post: false,
+                            y: 1.6
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -29.6,
+                            z: 64.08,
+                            ry: 0,
+                            post: false,
+                            y: 1.6
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -25.92,
+                            z: 59.6,
+                            ry: 1.5708,
+                            post: false,
+                            y: 1.6
+                      },
+                      {
+                            k: 'sign',
+                            t: 'hv',
+                            x: -42.5,
+                            z: 51.32,
+                            ry: 0,
+                            post: false,
+                            y: 2.2
+                      },
+                      {
+                            k: 'cable',
+                            pts: [
+                                  [
+                                        -44.6,
+                                        56.6
+                                  ],
+                                  [
+                                        -44.2,
+                                        59.5
+                                  ],
+                                  [
+                                        -40.5,
+                                        60.4
+                                  ],
+                                  [
+                                        -33,
+                                        60.2
+                                  ],
+                                  [
+                                        -31.3,
+                                        58.8
+                                  ]
+                            ]
+                      },
+                      {
+                            k: 'cable',
+                            pts: [
+                                  [
+                                        -36.5,
+                                        56.4
+                                  ],
+                                  [
+                                        -36.2,
+                                        60.8
+                                  ],
+                                  [
+                                        -34.6,
+                                        61.6
                                   ]
                             ]
                       },
@@ -4869,6 +5018,8 @@ const MAPS = {
       { k: 'hatch', x: -100, z:  40, w: 5.6, d: 5.6 }, { k: 'hatch', x: -24, z:  40, w: 5.6, d: 5.6 },
       { k: 'text',  x: 56, z: 72, s: 2.6, t: 'TURBINE HALL' },
       { k: 'walk',  x0: 25, z0: -55, x1: 25, z1: 55, w: 2.4 }, { k: 'walk', x0: 87, z0: -55, x1: 87, z1: 55, w: 2.4 },
+      {k: 'keep',x: -47.6,z: 54,w: 7,d: 5.4},
+      {k: 'keep',x: -37.4,z: 54,w: 7,d: 5.4},
       {k: 'zebra',x: 75,z: 65,horiz: true,w: 6},
       {k: 'zebra',x: 24,z: 65,horiz: true,w: 6},
       {k: 'zebra',x: 51,z: -64,horiz: true,w: 6},

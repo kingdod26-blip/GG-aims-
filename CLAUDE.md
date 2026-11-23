@@ -2106,8 +2106,18 @@ cable trays and wall fans (`genroom` prop), high-bays, and a `plate`
 (chequer plate) ground zone. `GROUND_MORE` adds ground zones from later
 sections; props from sections after `P` exists go straight into `P`.
 Walked: in at the doors, up the stair, stopped by the rail and the sets.
-Still to build: substation room, maintenance workshop, service tunnels,
-storage areas.
+**The substation room** (works.js THE SUBSTATION ROOM): a closed 26 x 13 x
+7m house at x -52..-26, z 51..64 between the HV compound and the switchyard
+road. Two transformers in bays split by a blast wall, switchgear along the
+back (kept clear of both doors - the first cut stood in the transformer
+door), a control panel island, cable trays with cables dropping (across,
+then straight down) to every piece (`subroom` prop), louvres, keep-clear
+hatching, DANGER signs. The site plan no longer draws ROOF glazing
+(glass above 12m): the hall's rooflights were blue stripes across it.
+Jack asked where the rooms are in the turbine hall: he expects the
+indoor rooms INSIDE the hall building, not as separate houses - settle
+that with him before building more.
+Still to build: maintenance workshop, service tunnels, storage areas.
 
 ## Agents
 

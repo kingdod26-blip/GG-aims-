@@ -14,8 +14,9 @@ const A = 120;          // half-extent: a 240m site
 
 const out = [];
 const BUILT = [];                    // every building()'s footprint (THE WET GROUND keeps puddles out of them)
-const P_LATE = [];
-const GROUND_MORE = [];              // ground zones added by later sections (the generator room's chequer plate)                   // props written before P exists (the hall's cooling-water runs), added to P with BOILERS
+const P_LATE = [];                   // props written before P exists (the hall's cooling-water runs), added to P with BOILERS
+const GROUND_MORE = [];              // ground zones added by later sections (the generator room's chequer plate)
+const PAINT_EXTRA_LATE = [];         // paint added by later sections (the substation room's keep-clear boxes)
 const note = (t) => out.push({ note: t });
 const box = (x, z, w, d, h, mat, extra) =>
   out.push(Object.assign({ x: +x.toFixed(2), z: +z.toFixed(2), w: +w.toFixed(3), d: +d.toFixed(3), h, mat }, extra || {}));
@@ -946,6 +947,31 @@ P.push({ kind: 'genroom', x0: GR.x0 + GR.t, x1: GR.x1 - GR.t, z0: GR.z0 + GR.t, 
 P.push({ kind: 'highbay', x0: 16, x1: 44, z0: 78, z1: 90, y: 11.2, step: 12 });
 GROUND_MORE.push({ k: 'plate', x0: GR.x0 + GR.t, z0: GR.z0 + GR.t, x1: GR.x1 - GR.t, z1: GR.z1 - GR.t });
 
+note('THE SUBSTATION ROOM, between the HV compound and the switchyard road');
+/* (2026-11-23, the indoors brief, room 4: "a technical area filled with
+   transformers, switchgear cabinets, electrical control panels, insulated
+   cables, and warning signs"). A closed 26 x 13 x 7m house on the strip
+   between the HV compound's north wall and the switchyard road, where an
+   indoor substation would stand: a transformer door and a personnel door
+   onto the road, a door east. Inside: two transformers in bays split by a
+   blast wall, a line of switchgear along the back, a free-standing control
+   panel island, cable trays overhead with cables dropping to the gear,
+   cables on the floor, keep-clear hatching, DANGER signs. */
+const SR = { x0: -52, x1: -26, z0: 51, z1: 64, t: 0.3, h: 7, rt: 0.3 };
+building(SR, [
+  { face: 'S', a0: -48.5, a1: -44, y0: 0, y1: 4 },                               // the transformer door
+  { face: 'S', a0: -34, a1: -31.5, y0: 0, y1: 2.5 },                             // personnel door
+  { face: 'E', a0: 56, a1: 58.5, y0: 0, y1: 2.5 },
+], 'shedwall', 'shedroof');
+box(-47.6, 54.0, 5.5, 4.2, 2.8, 'transformer'); box(-37.4, 54.0, 5.5, 4.2, 2.8, 'transformer');
+box(-42.5, 53.9, 0.5, 4.6, 3.6, 'firewall');                                      // the blast wall between the bays
+for (const x of [-42.2, -39.5, -36.8, -28.6]) box(x, SR.z1 - SR.t - 0.8, 2.6, 1.6, 2.2, 'switch');   // switchgear along the back, clear of both doors
+box(-30.5, 57.5, 1.2, 6, 2.0, 'switch');                                         // the control panel island
+P.push({ kind: 'subroom', x0: SR.x0 + SR.t, x1: SR.x1 - SR.t, z0: SR.z0 + SR.t, z1: SR.z1 - SR.t, h: SR.h - SR.rt,
+         drops: [[-47.6, 54.0], [-37.4, 54.0], [-42.2, 62.9], [-39.5, 62.9], [-36.8, 62.9], [-28.6, 62.9], [-30.5, 57.5]] });
+P.push({ kind: 'ceilinglights', x0: SR.x0 + SR.t, x1: SR.x1 - SR.t, z0: SR.z0 + SR.t, z1: SR.z1 - SR.t, levels: [SR.h - SR.rt - 0.05], holes: [], extra: [] });
+PAINT_EXTRA_LATE.push({ k: 'keep', x: -47.6, z: 54.0, w: 7.0, d: 5.4 }, { k: 'keep', x: -37.4, z: 54.0, w: 7.0, d: 5.4 });
+
 note('CLUTTER AND WEAR: the things people bring to a site and leave (kit)');
 /* 1. THE LAYDOWN YARD, south-west: a contractors' compound on the open
    ground below the tank farm - cabin, skip, cable drums waiting to go in,
@@ -986,6 +1012,9 @@ sign('hv', -114.58, 86, -Math.PI / 2, false, 1.5);
    protection at the plant doors, fire exits, site speed on the roads. */
 sign('ear', 32.6, 73.92, Math.PI, false, 1.6); sign('hv', 24.4, 73.92, Math.PI, false, 1.6);   // the generator room's door
 cable([13.5, 81.6], [16, 83.2], [27, 83.4], [30, 82.2]); cable([13.5, 78.4], [15, 77], [31, 76.8], [33, 77.9]);
+sign('hv', -46.25, 64.08, 0, false, 1.6); sign('hv', -29.6, 64.08, 0, false, 1.6); sign('hv', -25.92, 59.6, Math.PI / 2, false, 1.6);   // the substation room's doors
+sign('hv', -42.5, 51.32, 0, false, 2.2);                                          // inside, over the bays
+cable([-44.6, 56.6], [-44.2, 59.5], [-40.5, 60.4], [-33, 60.2], [-31.3, 58.8]); cable([-36.5, 56.4], [-36.2, 60.8], [-34.6, 61.6]);
 sign('assembly', 84, 72, Math.PI, true); sign('assembly', -8.6, -40, -Math.PI / 2, true);
 sign('ear', -4.52, -21.6, -Math.PI / 2, false, 1.6); sign('ear', -4.52, 21.6, -Math.PI / 2, false, 1.6);
 sign('ear', 47.4, -67.98, 0, false, 1.6);
@@ -1153,7 +1182,7 @@ note('THE HALL ROOF: a deck you can stand on, a rail round it, two ladders up');
 /* ROAD AND YARD MARKINGS (2026-11-23, the Saltline list): zebra crossings
    where people cross to a door, SLOW and lane arrows on the roads, and
    yellow keep-clear boxes in front of the doors that open onto the yard. */
-const PAINT_MORE = [
+const PAINT_MORE = [...PAINT_EXTRA_LATE,
   { k: 'zebra', x: 75, z: 65, horiz: true, w: 6 }, { k: 'zebra', x: 24, z: 65, horiz: true, w: 6 },
   { k: 'zebra', x: 51, z: -64, horiz: true, w: 6 }, { k: 'zebra', x: -61, z: 70, horiz: true, w: 6 },
   { k: 'text', x: 96, z: 65, s: 1.6, t: 'SLOW' }, { k: 'text', x: 4, z: -64, s: 1.6, t: 'SLOW' },
