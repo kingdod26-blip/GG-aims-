@@ -121,6 +121,7 @@ const LIT = {
   /* the fittings (litPanelLights): an office ceiling's panels, a hall's
      high-bays, warm white */
   panelL: 3.6, highbayL: 90, worklampL: 60, panelRGB: [1.0, 0.9, 0.76],
+  postL: 45, mastL: 70,             // the outdoor lamp posts and floodlight masts (2026-11-23)
   /* eye adaptation: how far exposure may rise indoors, and how fast */
   adaptMax: 1.9, adaptRate: 0.025,
   rim: [0.40, 0.46, 0.56],         // the outline light on players
@@ -275,6 +276,12 @@ function litPanelLights(map){
     } else if (p.kind === 'highbay'){
       for (const [x, z] of litHighbays(p)) out.push(x, p.y - 0.4, z, 0.3, 0.3, LIT.highbayL);
     }
+  }
+  /* Lights in the world (2026-11-23, the Saltline list): every lamp post's
+     lantern and every floodlight mast's head lights the ground round it. */
+  for (const b of map.boxes){
+    if (b.mat === 'lamppost') out.push(b.x, b.h + 0.05, b.z, 0.22, 0.22, LIT.postL);
+    else if (b.mat === 'mast') out.push(b.x, b.h - 0.3, b.z, 0.95, 0.18, LIT.mastL);
   }
   return out;
 }
@@ -1892,11 +1899,11 @@ function litMarksTexture(map){
     }
     /* 2026-11-23, the Saltline list: zebra crossings, lane arrows, and
        yellow keep-clear boxes in front of doors. */
-    for (const p of of('zebra')){                                                      // bars along the road, across its width
+    for (const p of of('zebra')){                // stripes run WITH the traffic (3m long), stacked across the road's width
       g.fillStyle = 'rgba(236,236,230,0.82)';
-      for (let i = -3; i <= 3; i++){
-        const c = p.horiz ? p.x + i * 0.9 : p.z + i * 0.9, h = p.w / 2 - 0.5;
-        if (p.horiz) g.fillRect(X(c - 0.25), Z(p.z - h), 0.5 * k, 2 * h * k); else g.fillRect(X(p.x - h), Z(c - 0.25), 2 * h * k, 0.5 * k);
+      const h = p.w / 2 - 0.45;
+      for (let o = -h + 0.25; o <= h - 0.25 + 1e-6; o += 0.9){
+        if (p.horiz) g.fillRect(X(p.x - 1.5), Z(p.z + o - 0.25), 3 * k, 0.5 * k); else g.fillRect(X(p.x + o - 0.25), Z(p.z - 1.5), 0.5 * k, 3 * k);
       }
     }
     for (const p of of('arrow')){
@@ -2083,13 +2090,13 @@ function litGroundTexture(map){
       for (let n = 0; n < 4; n++){                                                    // damp, ragged margin
         const ox = (srnd() - 0.5) * r * 0.7, oz = (srnd() - 0.5) * r * 0.7, rr = r * (1.05 + srnd() * 0.35);
         const gr = g.createRadialGradient(ox, oz, rr * 0.5, ox, oz, rr);
-        gr.addColorStop(0, 'rgba(58,60,62,0.42)'); gr.addColorStop(1, 'rgba(58,60,62,0)');
+        gr.addColorStop(0, 'rgba(70,72,74,0.28)'); gr.addColorStop(1, 'rgba(70,72,74,0)');
         g.fillStyle = gr; g.fillRect(ox - rr, oz - rr, rr * 2, rr * 2);
       }
       const gw = g.createRadialGradient(0, 0, 0, 0, 0, r * 0.85);                     // the water
-      gw.addColorStop(0, 'rgba(176,184,190,0.62)'); gw.addColorStop(0.75, 'rgba(150,158,164,0.55)'); gw.addColorStop(1, 'rgba(96,100,104,0)');
+      gw.addColorStop(0, 'rgba(226,232,238,0.72)'); gw.addColorStop(0.7, 'rgba(206,214,222,0.62)'); gw.addColorStop(1, 'rgba(150,156,162,0)');   // overcast sky, lighter than wet concrete
       g.fillStyle = gw; g.beginPath(); g.arc(0, 0, r * 0.85, 0, Math.PI * 2); g.fill();
-      g.fillStyle = 'rgba(214,220,226,0.35)'; g.fillRect(-r * 0.5, -r * 0.08, r * 0.8, r * 0.1);   // sheen
+      g.fillStyle = 'rgba(246,248,250,0.45)'; g.fillRect(-r * 0.5, -r * 0.08, r * 0.8, r * 0.1);   // sheen
       g.restore();
     }
     for (const p of (map.props || [])) if (p.kind === 'clutter') for (const it of p.items){
@@ -3902,9 +3909,9 @@ Object.assign(LIT_DRAW, {
     for (let i = 0; i < 5; i++){ const a = i * Math.PI * 2 / 5;                                        // five-star base
       litCyl(G('chairblack'), cx, 0.07, cz, cx + Math.cos(a) * w * 0.9, 0.04, cz + Math.sin(a) * d * 0.9, 0.018, 0.018, 4, 1, false, false); }
     litBox(G('fabric'), x0 + 0.02, 0.42, z0 + 0.02, x1 - 0.02, 0.5, z1 - 0.02, { bevel: 0.02, seg: 1, tile: 0.5 });   // the seat
-    const back = b.d >= b.w ? z1 - 0.07 : z1 - 0.07;
-    litBox(G('fabric'), x0 + 0.04, 0.56, back, x1 - 0.04, b.h, z1, { bevel: 0.02, seg: 1, tile: 0.5 });           // the back
-    litCyl(G('chairblack'), cx, 0.5, z1 - 0.04, cx, 0.58, z1 - 0.04, 0.02, 0.02, 4, 1, false, false);
+    const n = b.mat === 'chairn', bz0 = n ? z0 : z1 - 0.07, bz1 = n ? z0 + 0.07 : z1, bc = n ? z0 + 0.04 : z1 - 0.04;   // the back: south, or north for 'chairn'
+    litBox(G('fabric'), x0 + 0.04, 0.56, bz0, x1 - 0.04, b.h, bz1, { bevel: 0.02, seg: 1, tile: 0.5 });
+    litCyl(G('chairblack'), cx, 0.5, bc, cx, 0.58, bc, 0.02, 0.02, 4, 1, false, false);
   },
   cabinet(G, b, x0, z0, x1, z1){
     litBox(G('cabgrey'), x0, 0, z0, x1, b.h, z1, { bevel: 0.01, seg: 1, tile: 0.6 });
@@ -3930,8 +3937,20 @@ Object.assign(LIT_DRAW, {
     }
   },
 });
-Object.assign(LIT_INDOOR, { chair: 1, cabinet: 1, printer: 1, cooler: 1, plant: 1 });
-Object.assign(LIT_UNDER, { chair: null, cabinet: null, printer: null, cooler: null, plant: null });
+LIT_DRAW.chairn = LIT_DRAW.chair;
+Object.assign(LIT_INDOOR, { chair: 1, chairn: 1, cabinet: 1, printer: 1, cooler: 1, plant: 1, lamppost: 1 });
+/* A lamp post: a tapered steel pole on a footing, a post-top lantern -
+   a dark housing with its glowing glass under a little cap. Lit by the
+   bake (litPanelLights). */
+LIT_DRAW.lamppost = function(G, b, x0, z0, x1, z1){
+  const x = b.x, z = b.z, h = b.h;
+  litBox(G('concrete'), x0 - 0.1, 0, z0 - 0.1, x1 + 0.1, 0.3, z1 + 0.1, { seg: 1, tile: 120, tileV: 8 });
+  litCyl(G('steel'), x, 0.3, z, x, h - 0.45, z, 0.1, 0.06, 10, 2, false, false);
+  litCyl(G('steel'), x, h - 0.45, z, x, h - 0.3, z, 0.07, 0.16, 10, 1, false, false);
+  litCyl(G('lamp'), x, h - 0.3, z, x, h + 0.02, z, 0.17, 0.2, 10, 1, false, false);
+  litCyl(G('steel'), x, h + 0.02, z, x, h + 0.18, z, 0.26, 0.05, 10, 1, true, true);
+};
+Object.assign(LIT_UNDER, { chair: null, chairn: null, cabinet: null, printer: null, cooler: null, plant: null });
 LIT_PROP.highbay = function(G, p){
   for (const [x, z] of litHighbays(p)){
     litCyl(G('steel'), x, p.y - 0.15, z, x, p.y + 1.2, z, 0.02, 0.02, 5, 1, false, false);
@@ -4011,7 +4030,7 @@ LIT_PROP.clutter = function(G, p){
    any light, so it needs no lighting of its own). */
 const LIT_NOGRIME = { hidden: 1, glass: 1, handrail: 1, ringrail: 1, ringdeck: 1, pipewalk: 1, grating: 1, steptread: 1, tread: 1,
                       step: 1, slab: 1, roofslab: 1, stackwall: 1, deck: 1, towerwall: 1, palisade: 1,
-                      chair: 1, cabinet: 1, printer: 1, cooler: 1, plant: 1 };   // the offices' furniture stands on a clean floor
+                      chair: 1, chairn: 1, cabinet: 1, printer: 1, cooler: 1, plant: 1, lamppost: 1 };   // the offices' furniture stands on a clean floor
 function litGrimeTexture(){
   return litCanvas(8, 64, (g, w, h) => {
     /* an alphaMap is read from the GREEN channel: white is opaque */
@@ -4035,14 +4054,16 @@ function litRustTexture(){
       for (let i = 0; i < 6 + v * 2; i++){
         const x = x0 + 8 + rnd() * 48, wd = 1.5 + rnd() * 5, len = h * (0.35 + rnd() * 0.65);
         const gr = g.createLinearGradient(0, 0, 0, len);
-        const a = 0.35 + rnd() * 0.45;
+        const a = 0.18 + rnd() * 0.3;
         gr.addColorStop(0, 'rgba(122,66,30,' + a.toFixed(2) + ')'); gr.addColorStop(0.5, 'rgba(150,92,52,' + (a * 0.55).toFixed(2) + ')');
         gr.addColorStop(1, 'rgba(170,120,80,0)');
         g.fillStyle = gr; g.fillRect(x, 0, wd, len);
       }
-      const gr = g.createLinearGradient(0, 0, 0, 22);                  // the stain at the source
-      gr.addColorStop(0, 'rgba(110,60,28,0.6)'); gr.addColorStop(1, 'rgba(110,60,28,0)');
-      g.fillStyle = gr; g.fillRect(x0 + 6, 0, 52, 22);
+      for (let i = 0; i < 3; i++){                                     // the stain at the source: soft blots, not a bar
+        const cx = x0 + 14 + rnd() * 36, rr = 6 + rnd() * 8, gr = g.createRadialGradient(cx, 4, 0, cx, 4, rr);
+        gr.addColorStop(0, 'rgba(110,60,28,0.35)'); gr.addColorStop(1, 'rgba(110,60,28,0)');
+        g.fillStyle = gr; g.fillRect(cx - rr, 0, rr * 2, rr + 4);
+      }
     }
   });
 }
@@ -4117,7 +4138,7 @@ function litUniformsFor(map){
      the floor's shading. The power station has 107 boxes and offers 60 — the
      treads alone were 24 of them, which would have pushed the real plant off
      the end of the list. Without them it offers 36. */
-  const SKIP_FLOOR = { column: 1, hidden: 1, step: 1, lattice: 1, hvtower: 1, hviso: 1, hvct: 1, mast: 1, palisade: 1 };
+  const SKIP_FLOOR = { column: 1, hidden: 1, step: 1, lattice: 1, hvtower: 1, hviso: 1, hvct: 1, mast: 1, palisade: 1, lamppost: 1 };
   /* ^ too thin to shade the floor or hide a panel. A transmission tower
      has a 4m footprint but is four legs and some bracing: treating it as
      a solid 4m block would lay a shadow under it that nothing casts. */

@@ -2066,7 +2066,15 @@ real running speed or the budget clips them.)
   gull, birds, a steel clank or a vent hiss.
 - **Map card picture**: `drawMapThumb` shows `assets/map-<id>.jpg` when it
   exists (works: `assets/map-works.jpg`), the drawn plan otherwise.
-Not browser-tested (Jack's rule: only when asked).
+- **Lights in the world**: 20 post-top `lamppost`s along the roads (works.js
+  LAMP POSTS, refused where they would stand in something) and the
+  switchyard's floodlight `mast`s are area lights in the bake
+  (`litPanelLights`, `LIT.postL` 45, `LIT.mastL` 70).
+- Checked in the browser after Jack asked: no errors (the one 404 is the
+  map picture until it is saved); zebra stripes run WITH the traffic (first
+  cut had them across); puddles lightened to read as water, not holes; rust
+  softened; office chairs on a desk's north side are `chairn` (back to the
+  north) so every chair faces its desk. Frame ~1.4ms at a roadside view.
 
 ## Agents
 

@@ -649,8 +649,9 @@ const sq = (kind, x, z, w, d, y0, h) => place(kind, x - w / 2, x + w / 2, z - d 
 LV.forEach((L, s) => {
   const clusters = [[62.4, 83.2], [66.2, 83.2], [62.4, 87.4], [66.2, 87.4], [84.0, 83.0], [87.8, 83.0]];
   if (s === 2) clusters.push([71, 83.2], [77, 83.2]);
-  for (const [cx, cz] of clusters) for (const dx of [-0.8, 0.8]) for (const dz of [-1.15, 1.15]) sq('chair', cx + dx, cz + dz, 0.55, 0.55, L, 0.95);
-  for (const x of [85.0, 86.4, 87.8]) for (const z of [88.12, 90.66]) sq('chair', x, z, 0.5, 0.5, L, 0.95);   // the meeting table
+  /* 'chairn' has its back to the north (-z): the chairs on a desk's north side face south, into it */
+  for (const [cx, cz] of clusters) for (const dx of [-0.8, 0.8]) for (const dz of [-1.15, 1.15]) sq(dz < 0 ? 'chairn' : 'chair', cx + dx, cz + dz, 0.55, 0.55, L, 0.95);
+  for (const x of [85.0, 86.4, 87.8]) for (const z of [88.12, 90.66]) sq(z < 89 ? 'chairn' : 'chair', x, z, 0.5, 0.5, L, 0.95);   // the meeting table
   for (const z of [81.0, 81.55]) sq('cabinet', 59.95, z, 0.5, 0.55, L, 1.32);                                  // filing, west bay
   for (const z of [81.0, 81.55]) sq('cabinet', 90.7, z, 0.5, 0.55, L, 1.32);                                   // and east
   sq('printer', 71.0, 89.9, 0.7, 0.55, L, 1.0);                                                               // by the core
@@ -964,6 +965,26 @@ kit('drums4', 78.2, -92, 0.06); kit('ibc', 78.4, -89.4, -0.05); kit('toolcart', 
 oil(78.2, -91.4, 0.9);
 
 console.log(`  clutter: ${KIT_PLACED} placed, ${KIT_REFUSED} refused, ${CL.length} loose items`);
+/* LAMP POSTS (2026-11-23, the Saltline list: "lights in the world"):
+   post-top lanterns along every road, 6.5m, one about every 30m, on the
+   side with room. Each is a thin collision box (`lamppost`) and a light in
+   the bake (litPanelLights), as are the switchyard's floodlight masts. A
+   post that would stand in anything is refused and named. */
+{
+  let placed = 0, refused = 0;
+  const post = (x, z) => {
+    for (const o of out){ if (o.note) continue;
+      if (Math.abs(o.x - x) < o.w / 2 + 0.35 && Math.abs(o.z - z) < o.d / 2 + 0.35 && (o.y || 0) < 6.5){
+        console.log(`  lamp post refused at ${x},${z}: ${o.mat} at ${o.x},${o.z}`); refused++; return; } }
+    box(x, z, 0.3, 0.3, 6.5, 'lamppost'); placed++;
+  };
+  for (const x of [-8, 22, 52, 82, 110]) post(x, 69.3);          // the south road (z 65), quay side
+  for (const x of [-8, 18, 92, 110]) post(x, -67.7);             // the north road (z -64), boiler house side
+  for (const x of [-105, -80, -50, -26]) post(x, 73.9);          // the switchyard road (z 70)
+  for (const x of [-100, -66, -36]) post(x, -73.8);              // the towers road (z -70)
+  for (const z of [-58, -28, 2, 32, 60]) post(-116.2, z);        // the west road (x -112.5)
+  console.log(`  lamp posts: ${placed} placed, ${refused} refused`);
+}
 /* THE WET GROUND (2026-11-23, the Saltline list): puddles where rain
    stands - out in the open, never in a building, never against anything
    (0.8m clear of every box on the ground), not on the grass. Painted into
