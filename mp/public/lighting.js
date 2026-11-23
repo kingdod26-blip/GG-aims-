@@ -3174,11 +3174,25 @@ const LIT_PROP = {
       BOX('steel', -10, yAx - 0.08, o * R, 1.5, yAx + 0.08, o * (R + 0.08), { seg: 3, bottom: true });
     /* The generator: the map's own steps, stacked rather than nested so no
        face is buried inside another. */
-    const gen = { bevel: 0.035, seg: LIT.coverSeg, tile: 3 };
-    BOX('genblue', 1.5, ped, -2.2, 10, 5.6, 2.2, gen);                 // painted blue, as generators are (Jack's reference, 2026-11-23)
-    BOX('genblue', 1.5, 5.6, -2.0, 10, 6.3, 2.0, gen);
-    BOX('genblue', 1.5, 6.3, -1.7, 10, 7.0, 1.7, gen);
-    BOX('genblue', 1.5, 7.0, -0.95, 10, 7.6, 0.95, gen);
+    /* (2026-11-23, Jack: "improve on the details and the generator mainly,
+       it looks very bad") A generator as one is built: a blue ribbed stator
+       drum on a steel sole plate, domed end shields, the bearing housings,
+       a cooler on its back, lifting lugs and a nameplate. Its collision is
+       still the map's steps, which the drum fits to within ~0.1m - all of
+       it above the deck players stand on. */
+    BOX('steel', 1.5, ped, -2.15, 10, ped + 0.3, 2.15, { bevel: 0.03, seg: 4, tile: 2 });          // the sole plate
+    for (const a of [2.0, 9.5]) BOX('steel', a - 0.35, ped + 0.3, -1.6, a + 0.35, yAx - 0.6, 1.6, { bevel: 0.03, seg: 2 });   // feet
+    CYL('genblue', 2.3, yAx, 9.2, yAx, 2.05, 2.05, 32, 3, false, false);                           // the stator
+    for (let a = 2.6; a < 9.1; a += 0.55) CYL('genblue', a - 0.06, yAx, a + 0.06, yAx, 2.11, 2.11, 32, 1, true, true);   // its ribs
+    for (const [a0, a1] of [[1.6, 2.3], [9.2, 9.9]]){                                              // domed end shields
+      const outer = a0 < 5 ? a0 : a1, inner = a0 < 5 ? a1 : a0;
+      CYL('genblue', inner, yAx, outer, yAx, 2.05, 1.25, 32, 1, false, true);
+      CYL('steel', outer + (a0 < 5 ? -0.25 : 0.25), yAx, outer, yAx, 0.55, 0.55, 16, 1, true, true);   // bearing housing
+    }
+    BOX('genblue', 3.2, yAx + 1.55, -0.9, 8.2, yAx + 1.95, 0.9, { bevel: 0.05, seg: 3, tile: 2 }); // the cooler on its back
+    for (let a = 3.5; a < 8.0; a += 0.45) BOX('steel', a, yAx + 1.95, -0.85, a + 0.08, yAx + 2.0, 0.85, { seg: 1 });   // its fins
+    for (const a of [3.0, 8.5]) for (const o of [-1, 1]) BOX('yellow', a - 0.12, yAx + 1.35, o * 1.45 - 0.05, a + 0.12, yAx + 1.75, o * 1.45 + 0.05, { seg: 1 });   // lifting lugs
+    BOX('steel', 5.2, yAx - 0.5, -2.13, 6.4, yAx + 0.2, -2.1, { seg: 1 });                         // the nameplate
     /* Above the top step, and therefore not collision: the steam lines to
        the roof and the generator's output going up into a busduct. */
     for (const o of [-1.1, 1.1]){
@@ -3961,15 +3975,51 @@ Object.assign(LIT_DRAW, {
    on a concrete plinth, bearing pedestals at its ends, banded, a terminal
    box on top. The box is the set: its top is the drum's crown. */
 LIT_DRAW.genset = function(G, b, x0, z0, x1, z1){
-  const r = (z1 - z0) / 2 - 0.05, cy = b.h - r, cz = b.z, pl = cy - r;
-  litBox(G('concrete'), x0, 0, z0, x1, pl, z1, { seg: 2, tile: 120, tileV: 8 });
-  litCyl(G('genblue'), x0 + 1.2, cy, cz, x1 - 1.2, cy, cz, r, r, 28, 2, true, true);
-  for (let x = x0 + 2.5; x < x1 - 2; x += 1.8) litCyl(G('steel'), x - 0.06, cy, cz, x + 0.06, cy, cz, r + 0.04, r + 0.04, 28, 1, true, true);
-  for (const x of [x0 + 0.1, x1 - 1.1]) litBox(G('steel'), x, pl, cz - r * 0.7, x + 1.0, cy + 0.3, cz + r * 0.7, { bevel: 0.04, seg: 2 });   // bearing pedestals
-  for (const x of [x0 + 0.6, x1 - 0.6]) litCyl(G('steel'), x - 0.5, cy, cz, x + 0.5, cy, cz, 0.35, 0.35, 14, 1, true, true);             // the shaft ends
-  litBox(G('steel'), b.x - 1.2, b.h - 0.6, cz - 0.6, b.x + 1.2, b.h, cz + 0.6, { bevel: 0.03, seg: 2 });                                  // terminal box
+  /* (2026-11-23, reworked: "the generator ... looks very bad") a concrete
+     plinth with a steel skid on it; the ribbed blue stator drum; domed end
+     shields; the shaft and coupling at one end, an exciter at the other;
+     the terminal box on its side with cables down into the floor; a cooler
+     on top; yellow lifting lugs; a nameplate. */
+  const r = (z1 - z0) / 2 - 0.08, cy = b.h - r - 0.02, cz = b.z, pl = cy - r - 0.1;
+  litBox(G('concrete'), x0, 0, z0, x1, 0.35, z1, { seg: 2, tile: 120, tileV: 8 });
+  litBox(G('steel'), x0 + 0.1, 0.35, z0 + 0.15, x1 - 0.1, pl, z1 - 0.15, { bevel: 0.03, seg: 3, tile: 2 });              // the skid
+  for (const z of [z0 + 0.15, z1 - 0.25]) litBox(G('yellow'), x0 + 0.1, 0.35, z, x1 - 0.1, 0.45, z + 0.1, { seg: 3 });  // hazard edge
+  const s0 = x0 + 2.2, s1 = x1 - 2.6;
+  litCyl(G('genblue'), s0, cy, cz, s1, cy, cz, r * 0.97, r * 0.97, 32, 2, false, false);                                     // the stator
+  for (let x = s0 + 0.3; x < s1 - 0.2; x += 0.5) litCyl(G('genblue'), x - 0.05, cy, cz, x + 0.05, cy, cz, r, r, 32, 1, true, true);   // ribs
+  litCyl(G('genblue'), s0 - 0.35, cy, cz, s0, cy, cz, r * 0.86, r * 0.97, 32, 1, true, false);                           // end shields: short, nearly flat
+  litCyl(G('genblue'), s1, cy, cz, s1 + 0.35, cy, cz, r * 0.97, r * 0.86, 32, 1, false, true);
+  for (const x of [s0 - 1.25, s1 + 0.45]) litBox(G('steel'), x, pl, cz - r * 0.55, x + 0.8, cy + 0.25, cz + r * 0.55, { bevel: 0.04, seg: 2 });   // bearing pedestals
+  litCyl(G('steel'), x0 + 0.2, cy, cz, s0 - 0.35, cy, cz, 0.3, 0.3, 16, 1, true, true);                                    // shaft and coupling
+  litCyl(G('steel'), x0 + 0.5, cy, cz, x0 + 0.8, cy, cz, 0.55, 0.55, 16, 1, true, true);
+  litBox(G('genblue'), s1 + 1.35, pl, cz - r * 0.6, x1 - 0.15, cy + r * 0.55, cz + r * 0.6, { bevel: 0.05, seg: 2 });       // the exciter housing
+  litBox(G('steel'), b.x - 1.4, cy - 0.5, z1 - 0.32, b.x + 1.4, cy + 0.7, z1 - 0.02, { bevel: 0.03, seg: 2 });             // terminal box, on its side
+  for (const o of [-0.8, -0.3, 0.2, 0.7]) litCyl(G('cable'), b.x + o, cy - 0.5, z1 - 0.17, b.x + o, 0.35, z1 - 0.17, 0.05, 0.05, 6, 1, false, false);
+  litBox(G('genblue'), b.x - 2.6, b.h - 0.35, cz - 0.8, b.x + 2.6, b.h, cz + 0.8, { bevel: 0.04, seg: 3 });                // cooler on top
+  for (let x = b.x - 2.4; x < b.x + 2.4; x += 0.4) litBox(G('steel'), x, b.h - 0.02, cz - 0.75, x + 0.06, b.h, cz + 0.75, { seg: 1 });
+  for (const x of [s0 + 0.6, s1 - 0.6]) for (const o of [-1, 1]) litBox(G('yellow'), x - 0.1, cy + r * 0.62, cz + o * r * 0.7 - 0.04, x + 0.1, cy + r * 0.85, cz + o * r * 0.7 + 0.04, { seg: 1 });   // lugs
+  litBox(G('steel'), b.x + 2.2, cy - 0.3, z0 + 0.06, b.x + 3.2, cy + 0.3, z0 + 0.09, { seg: 1 });                         // nameplate
 };
 LIT_INDOOR.genset = 1;
+/* A control-room console (the control room, 2026-11-23): a steel desk, a
+   row of screens along it, and a red emergency stop. Long along whichever
+   axis the box is. */
+LIT_DRAW.console = function(G, b, x0, z0, x1, z1){
+  const alongX = (x1 - x0) >= (z1 - z0), h = b.h;
+  litBox(G('cabgrey'), x0, 0, z0, x1, h - 0.1, z1, { bevel: 0.02, seg: 2, tile: 0.6 });
+  litBox(G('chairblack'), x0, h - 0.1, z0, x1, h, z1, { seg: 2 });
+  const L = alongX ? x1 - x0 : z1 - z0, n = Math.max(1, Math.floor(L / 0.9));
+  for (let i = 0; i < n; i++){
+    const t = (alongX ? x0 : z0) + (i + 0.5) * L / n;
+    const sx0 = alongX ? t - 0.32 : b.x - 0.02, sx1 = alongX ? t + 0.32 : b.x + 0.02;
+    const sz0 = alongX ? b.z - 0.02 : t - 0.32, sz1 = alongX ? b.z + 0.02 : t + 0.32;
+    litBox(G('chairblack'), sx0 - 0.02, h, sz0 - 0.02, sx1 + 0.02, h + 0.48, sz1 + 0.02, { seg: 1 });
+    litBox(G('screenglow'), alongX ? sx0 : sx0 - 0.025, h + 0.04, alongX ? sz0 - 0.025 : sz0, alongX ? sx1 : sx1 + 0.025, h + 0.44, alongX ? sz1 + 0.025 : sz1, { seg: 1 });
+  }
+  const ex = alongX ? x0 + 0.25 : b.x, ez = alongX ? b.z : z0 + 0.25;
+  litCyl(G('firered'), ex, h, ez, ex, h + 0.06, ez, 0.06, 0.06, 10, 1, false, true);              // the emergency stop
+};
+LIT_INDOOR.console = 1; LIT_UNDER.console = null;
 /* The generator room's roof space: a ventilation duct the length of the
    room with grilles, two cable trays, and extract fans in the north wall. */
 LIT_PROP.genroom = function(G, p){

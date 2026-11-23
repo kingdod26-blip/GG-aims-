@@ -122,6 +122,7 @@ note('THE TURBINE HALL — the whole of the `powerstation` map, moved east and\n
    pumps are their own kinds now, drawn as what they are (lighting.js). */
 const hallKind = (b) => b.mat !== 'machine' ? b.mat : (b.w === 6 && b.d === 14) ? 'condenser' : (b.w === 3.4 && b.d === 3) ? 'pumpset' : b.mat;
 for (const b of M.MAPS.powerstation.boxes) {
+  if (b.mat === 'control' && b.x + HALL_DX < 30) continue;          // the west control room is built hollow below (THE CONTROL ROOM)
   box(b.x + HALL_DX, b.z, b.w, b.d, b.h, hallKind(b),
       b.r != null ? { r: b.r, n: b.n } : null);
 }
@@ -172,7 +173,7 @@ wallN(HZ1 + HW / 2, 28, HX1, HH, 'cladding');
     const z0 = s > 0 ? HZ1 - 2 : -HZ1, z1 = z0 + 2;                // against the wall's inner face
     ob(9.5, 103, z0, z1, CY - CT, CY, 'grating');
     const ze = s > 0 ? z0 : z1;                                    // the open edge
-    for (const [a, b] of [[9.5, 19], [21, 91], [93, 103]]) rail(a, b, ze - 0.03, ze + 0.03, CY);
+    for (const [a, b] of (s > 0 ? [[9.5, 19], [21, 91], [93, 101]] : [[9.5, 19], [21, 91], [93, 103]])) rail(a, b, ze - 0.03, ze + 0.03, CY);
     // the stairs: in line with the walk, down to the floor at each end
     const n = Math.ceil(CY / 0.19), rise = CY / n, G = 0.25;
     for (let k = 1; k < n; k++){ const top = k * rise;
@@ -195,6 +196,81 @@ wallN(HZ1 + HW / 2, 28, HX1, HH, 'cladding');
     ob(cx - 0.35, cx + 0.35, cz - 0.35, cz + 0.35, 2.6, 9.4, 'cwpipe');
   }
   P_LATE.push({ kind: 'cwruns', runs: [[35, -14, 35.5, -27.2], [35, 14, 35.5, 27.2], [77, -14, 76.5, -27.2], [77, 14, 76.5, 27.2]], y: 9 });
+}
+
+/* THE CONTROL ROOM (2026-11-23, the indoors brief, room 2: "a modern
+   industrial control room with multiple computer monitors, control panels,
+   switches, emergency buttons, desks, and large glass windows overlooking
+   the turbine hall"). Jack wanted the rooms IN the hall: the west control
+   block (x 6..22, z -6..6) is now a two-storey building you walk into -
+   the shift office on the ground floor, and up a stair the control room,
+   glazed all round from 3.9m so it overlooks the whole hall. It stays
+   under the x 20 bridge (roof top 6.1, the bridge's underside 6.2). */
+{
+  const CR = { x0: 6, x1: 22, z0: -6, z1: 6, t: 0.3, h: 6.1, rt: 0.2 }, UP = 3.0;
+  building(CR, [
+    { face: 'E', a0: -1.2, a1: 1.2, y0: 0, y1: 2.4 }, { face: 'W', a0: -1.2, a1: 1.2, y0: 0, y1: 2.4 },     // ground floor doors
+    { face: 'N', a0: 12, a1: 20, y0: 1.0, y1: 2.2, glass: true }, { face: 'S', a0: 12, a1: 20, y0: 1.0, y1: 2.2, glass: true },
+    { face: 'N', a0: 6.3, a1: 21.7, y0: 3.9, y1: 5.6, glass: true }, { face: 'S', a0: 6.3, a1: 21.7, y0: 3.9, y1: 5.6, glass: true },
+    { face: 'E', a0: -5.7, a1: 5.7, y0: 3.9, y1: 5.6, glass: true }, { face: 'W', a0: -5.7, a1: 5.7, y0: 3.9, y1: 5.6, glass: true },
+  ], 'shedwall', 'shedroof');
+  const ix0 = CR.x0 + CR.t, ix1 = CR.x1 - CR.t, iz0 = CR.z0 + CR.t, iz1 = CR.z1 - CR.t;
+  // the upper floor, less the stairwell along the north wall
+  for (const r of rectsMinus({ x0: ix0, x1: ix1, z0: iz0, z1: iz1 }, [{ x0: ix0, x1: 11.0, z0: iz0, z1: -4.0 }])) ob(r.x0, r.x1, r.z0, r.z1, UP - 0.2, UP, 'slab');
+  { const n = Math.ceil(UP / 0.19), rise = UP / n, G = 0.28;                       // the stair: up toward +x
+    for (let k = 1; k < n; k++){ const top = k * rise, x = ix0 + 0.2 + (k - 1) * G; ob(x, x + G, iz0, -4.1, Math.max(0, top - 0.15), top, 'steptread'); } }
+  rail(ix0, 11.0, -4.03, -3.97, UP);                                                // round the stairwell, upstairs
+  // ground floor: the shift office
+  for (const [x, z] of [[14.5, 2.6], [18.5, 2.6]]) ob(x - 1.4, x + 1.4, z - 0.7, z + 0.7, 0, 0.75, 'desk');
+  for (const [x, z, n] of [[14.5, 1.45, 1], [18.5, 1.45, 1], [14.5, 3.75, 0], [18.5, 3.75, 0]]) ob(x - 0.27, x + 0.27, z - 0.27, z + 0.27, 0, 0.95, n ? 'chairn' : 'chair');
+  for (const z of [-5.15, -4.6]) ob(20.6, 21.6, z - 0.27, z + 0.27, 0, 1.32, 'cabinet');
+  ob(12.2, 12.9, -5.65, -5.1, 0, 1.0, 'printer'); ob(21.15, 21.6, 5.1, 5.6, 0, 1.15, 'cooler');
+  // upstairs: the control room - a U of consoles facing the glass, the plant's mimic panels, the shift supervisor's desk
+  ob(12.0, 21.0, 4.3, 5.2, UP, UP + 0.8, 'console');                                // along the south glass
+  ob(20.1, 21.0, -3.0, 4.3, UP, UP + 0.8, 'console');                               // along the east glass, facing the turbines
+  ob(12.0, 20.1, -5.6, -4.7, UP, UP + 0.8, 'console');                              // along the north glass
+  for (const [x, z, n] of [[14, 3.6, 1], [17, 3.6, 1], [19.4, 0, 0], [19.4, -2.4, 0], [15, -4.0, 0], [18, -4.0, 0]]) ob(x - 0.27, x + 0.27, z - 0.27, z + 0.27, UP, UP + 0.95, n ? 'chairn' : 'chair');
+  ob(ix0, ix0 + 0.6, -3.0, 5.0, UP, UP + 2.4, 'switch');                            // mimic / relay panels on the west wall
+  ob(13.0, 15.6, -1.2, 0.2, UP, UP + 0.75, 'desk');                                 // the supervisor's desk
+  P_LATE.push({ kind: 'ceilinglights', x0: ix0, x1: ix1, z0: iz0, z1: iz1, levels: [UP - 0.25, CR.h - CR.rt - 0.05], holes: [[ix0, 11.0, iz0, -4.0]], extra: [] });
+  GROUND_MORE.push({ k: 'floor', x0: ix0, z0: iz0, x1: ix1, z1: iz1 });             // the office's tiled floor
+}
+
+/* THE HALL OFFICE, LEVEL TWO (2026-11-23). Jack: "the office should be at
+   the bottom right of the room looking from the map ... at level two". On
+   the plan (north up) that is the hall's south-east corner: the office
+   stands on the corner block there (x 103..113, z 47..57), its floor at the
+   catwalk's 6.4m, raised on a concrete base over the block. A landing off
+   the end of the south catwalk leads to its door in the west wall; it is
+   glazed north and west, over the turbines and down the hall. */
+{
+  const X0 = 103, X1 = 113, Z0 = 47, Z1 = 57, F = 6.4, T = 0.3, TOP = 9.4, SILL = 7.3, HEAD = 8.9;
+  ob(X0, X1, Z0, Z1, 4.4, F, 'core');                                              // the base, on the corner block (4.4 high)
+  ob(X0, X1, Z0, Z1, TOP, TOP + 0.2, 'shedroof');
+  const band = (axis, t0, t1, a0, a1) => {                                         // a window band: sill, glass, head
+    const B = (p0, p1, y0, y1, mat, u0, u1) => axis === 'x' ? ob(p0, p1, u0, u1, y0, y1, mat) : ob(u0, u1, p0, p1, y0, y1, mat);
+    B(a0, a1, F, SILL, 'shedwall', t0, t1); B(a0, a1, HEAD, TOP, 'shedwall', t0, t1);
+    B(a0, a1, SILL, HEAD, 'glass', (t0 + t1) / 2 - 0.03, (t0 + t1) / 2 + 0.03);
+  };
+  band('x', Z0, Z0 + T, X0, X1);                                                   // north: over the turbines
+  band('z', X0, X0 + T, Z0 + T, 55.0);                                             // west: down the hall
+  ob(X0, X0 + T, 55.0, 55.3, F, TOP, 'shedwall'); ob(X0, X0 + T, 56.7, Z1 - T, F, TOP, 'shedwall');
+  ob(X0, X0 + T, 55.3, 56.7, F + 2.2, TOP, 'shedwall');                            // over the door
+  ob(X1 - T, X1, Z0 + T, Z1 - T, F, TOP, 'shedwall');                              // east
+  ob(X0, X1, Z1 - T, Z1, F, TOP, 'shedwall');                                      // south, over the stair
+  // the landing off the catwalk's end, and its rails
+  ob(101, X0, 55.0, Z1, F - 0.2, F, 'grating');
+  rail(100.97, 101.03, 55.0, Z1, F); rail(101.03, X0, 54.97, 55.03, F);
+  // inside: two desks with their chairs, the manager's desk, a small meeting table, filing, a plant
+  const ix0 = X0 + T, ix1 = X1 - T, iz0 = Z0 + T, iz1 = Z1 - T;
+  for (const z of [49.4, 52.4]){ ob(105.0, 107.8, z - 0.7, z + 0.7, F, F + 0.75, 'desk'); ob(105.0, 107.8, z - 0.025, z + 0.025, F + 0.75, F + 1.2, 'screen');
+    for (const [x, n] of [[105.8, 1], [107.0, 1]]) { ob(x - 0.27, x + 0.27, z - 1.25, z - 0.71, F, F + 0.95, 'chairn'); ob(x - 0.27, x + 0.27, z + 0.71, z + 1.25, F, F + 0.95, 'chair'); } }
+  ob(109.8, 112.4, 47.7, 49.0, F, F + 0.75, 'desk'); ob(110.8, 111.35, 49.05, 49.6, F, F + 0.95, 'chair');   // the manager's desk, by the north glass
+  ob(109.6, 111.6, 52.6, 54.0, F, F + 0.75, 'desk');                                // meeting table
+  for (const x of [110.0, 111.2]){ ob(x - 0.25, x + 0.25, 52.05, 52.55, F, F + 0.95, 'chairn'); ob(x - 0.25, x + 0.25, 54.05, 54.55, F, F + 0.95, 'chair'); }
+  for (const x of [110.6, 111.2, 111.8]) ob(x - 0.28, x + 0.28, iz1 - 0.6, iz1, F, F + 1.32, 'cabinet');
+  ob(ix0 + 0.1, ix0 + 0.6, iz0 + 0.1, iz0 + 0.6, F, F + 1.25, 'plant');
+  P_LATE.push({ kind: 'ceilinglights', x0: ix0, x1: ix1, z0: iz0, z1: iz1, levels: [TOP - 0.05], holes: [], extra: [] });
 }
 
 /* ===================================================================== */

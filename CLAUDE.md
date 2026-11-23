@@ -2117,6 +2117,30 @@ hatching, DANGER signs. The site plan no longer draws ROOF glazing
 Jack asked where the rooms are in the turbine hall: he expects the
 indoor rooms INSIDE the hall building, not as separate houses - settle
 that with him before building more.
+Jack chose to keep both: the houses outside stay, and the hall got rooms
+of its own:
+- **The control room** (THE CONTROL ROOM): the hall's west control block
+  (x 6..22, z -6..6) is skipped in the copy loop and built hollow, two
+  storeys under the x 20 bridge (roof 6.1): shift office below (desks,
+  chairs, filing, printer, cooler, tiled floor), a stair along the north
+  wall up to a control room at 3.0m glazed all round from 3.9m - a U of
+  `console`s with screens and an emergency stop, chairs, relay panels,
+  the supervisor's desk.
+- **The hall office, level two** (THE HALL OFFICE): Jack: "bottom right of
+  the room looking from the map ... at level two" = the hall's south-east
+  corner. A 10 x 10m office on the corner block, its floor at the
+  catwalk's 6.4m on a `core` base, glazed north and west, a door in the
+  west wall off a landing at the end of the south catwalk (that catwalk's
+  rail stops at x 101). Desks, chairs, manager's desk, meeting table,
+  filing, a plant. Walked: catwalk to landing to the far wall.
+- **The generators redone** ("the generator ... looks very bad"): the
+  hall's turbine generators are a ribbed blue stator drum on a sole plate
+  with domed end shields, bearing housings, a finned cooler, lugs and a
+  nameplate (collision still the map's steps, within ~0.1m, above deck
+  reach); the generator-room `genset`s have a steel skid with a hazard
+  edge, ribbed stator, short end shields, bearing pedestals, shaft and
+  coupling, an exciter housing, a side terminal box with cables, a finned
+  cooler, lugs, a nameplate.
 Still to build: maintenance workshop, service tunnels, storage areas.
 
 ## Agents
