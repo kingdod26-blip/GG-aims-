@@ -122,6 +122,7 @@ const LIT = {
      high-bays, warm white */
   panelL: 3.6, highbayL: 90, worklampL: 60, panelRGB: [1.0, 0.9, 0.76],
   postL: 45, mastL: 70,             // the outdoor lamp posts and floodlight masts (2026-11-23)
+  tunnelL: 14,                      // the service tunnels' bulkheads: a dim corridor (2026-11-23)
   /* eye adaptation: how far exposure may rise indoors, and how fast */
   adaptMax: 1.9, adaptRate: 0.025,
   rim: [0.40, 0.46, 0.56],         // the outline light on players
@@ -279,6 +280,9 @@ function litPanelLights(map){
   }
   /* Lights in the world (2026-11-23, the Saltline list): every lamp post's
      lantern and every floodlight mast's head lights the ground round it. */
+  /* the service tunnels: a bulkhead light every 6m down each corridor */
+  for (const p of (map.props || [])) if (p.kind === 'tunnel')
+    for (const [x0, x1, z0, z1, h] of p.segs) for (let x = x0 + 3; x < x1 - 1; x += 6) out.push(x, h - 0.05, (z0 + z1) / 2 + 0.3, 0.3, 0.12, LIT.tunnelL);
   for (const b of map.boxes){
     if (b.mat === 'lamppost') out.push(b.x, b.h + 0.05, b.z, 0.22, 0.22, LIT.postL);
     else if (b.mat === 'mast') out.push(b.x, b.h - 0.3, b.z, 0.95, 0.18, LIT.mastL);
@@ -4002,6 +4006,53 @@ LIT_DRAW.genset = function(G, b, x0, z0, x1, z1){
   litBox(G('steel'), b.x + 2.2, cy - 0.3, z0 + 0.06, b.x + 3.2, cy + 0.3, z0 + 0.09, { seg: 1 });                         // nameplate
 };
 LIT_INDOOR.genset = 1;
+/* THE SERVICE TUNNELS (2026-11-23): stained concrete walls and roof, and
+   along the north wall two lagged pipes on saddles (the `tpipe` box is
+   them, and it is what narrows the corridor). */
+Object.assign(LIT_DRAW, {
+  tunnelwall(G, b, x0, z0, x1, z1){ litBox(G('concrete'), x0, 0, z0, x1, b.h, z1, { seg: 2, tile: 120, tileV: 8 }); },
+  tunnelroof(G, b, x0, z0, x1, z1){ litBox(G('concrete'), x0, 0, z0, x1, b.h, z1, { seg: 3, tile: 120, tileV: 8, bottom: true }); },
+  tpipe(G, b, x0, z0, x1, z1){
+    const alongX = (x1 - x0) >= (z1 - z0), h = b.h, wd = alongX ? z1 - z0 : x1 - x0, r = Math.min(wd / 4, h / 3) - 0.02;
+    const L0 = alongX ? x0 : z0, L1 = alongX ? x1 : z1, c0 = alongX ? z0 : x0;
+    for (let t = L0 + 0.6; t < L1 - 0.3; t += 3){                                          // saddles
+      if (alongX) litBox(G('steel'), t, 0, z0, t + 0.15, h - r * 2 - 0.05, z1, { seg: 1 });
+      else litBox(G('steel'), x0, 0, t, x1, h - r * 2 - 0.05, t + 0.15, { seg: 1 });
+    }
+    for (const [o, y] of [[wd * 0.28, h - r], [wd * 0.72, h - r * 1.6]]){
+      const c = c0 + o, rr = o < wd / 2 ? r : r * 0.6;
+      if (alongX) litCyl(G('lagging'), L0, y, c, L1, y, c, rr, rr, 14, 2, true, true);
+      else litCyl(G('lagging'), c, y, L0, c, y, L1, rr, rr, 14, 2, true, true);
+    }
+  },
+});
+Object.assign(LIT_INDOOR, { tunnelwall: 1, tpipe: 1 });
+/* Inside the tunnels: cable trays on the south wall, extract fans in the
+   roof, a red emergency light every 6m between the bulkheads (the bake
+   lights the bulkheads), maintenance doors in the walls. */
+LIT_PROP.tunnel = function(G, p){
+  for (const [x0, x1, z0, z1, h] of p.segs){
+    const zc = (z0 + z1) / 2;
+    for (const y of [h - 0.55, h - 1.0]){                                                  // two cable trays, south wall
+      litBox(G('steel'), x0 + 0.3, y - 0.03, z1 - 0.45, x1 - 0.3, y, z1 - 0.02, { seg: 4, bottom: true });
+      for (const o of [0.12, 0.24, 0.36]) litCyl(G('cable'), x0 + 0.3, y + 0.04, z1 - o, x1 - 0.3, y + 0.04, z1 - o, 0.03, 0.03, 5, 2, false, false);
+    }
+    for (let x = x0 + 3; x < x1 - 1; x += 6){
+      litBox(G('lamp'), x - 0.3, h - 0.06, zc + 0.18, x + 0.3, h - 0.02, zc + 0.42, { seg: 1 });     // the bulkhead
+      litBox(G('redlamp'), x + 3 - 0.08, 2.3, z1 - 0.05, x + 3 + 0.08, 2.42, z1 - 0.01, { seg: 1 }); // emergency light
+    }
+    for (let x = x0 + 8; x < x1 - 4; x += 14){                                             // a fan in the roof
+      litCyl(G('steel'), x, h - 0.02, zc, x, h - 0.2, zc, 0.55, 0.55, 18, 1, false, true);
+      for (let i = 0; i < 4; i++){ const a = i * Math.PI / 2 + 0.4;
+        litBox(G('cable'), x + Math.cos(a) * 0.25 - 0.08, h - 0.22, zc + Math.sin(a) * 0.25 - 0.18, x + Math.cos(a) * 0.25 + 0.08, h - 0.2, zc + Math.sin(a) * 0.25 + 0.18, { seg: 1 }); }
+    }
+    for (let x = x0 + 12; x < x1 - 6; x += 18){                                            // a maintenance door in the south wall
+      litBox(G('steel'), x - 0.5, 0, z1 - 0.04, x + 0.5, 2.1, z1 - 0.01, { seg: 1 });
+      litBox(G('yellow'), x - 0.58, 2.1, z1 - 0.05, x + 0.58, 2.18, z1 - 0.01, { seg: 1 });
+      litBox(G('steel'), x + 0.3, 1.0, z1 - 0.08, x + 0.42, 1.05, z1 - 0.04, { seg: 1 });
+    }
+  }
+};
 /* THE MAINTENANCE WORKSHOP (2026-11-23): a steel workbench with a timber
    top and a vice; a red roll-cab tool chest; a pillar drill; a welding
    screen (orange curtain on a steel frame); a welding set; a spare turbine

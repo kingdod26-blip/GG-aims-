@@ -2150,7 +2150,15 @@ of its own:
   pallets, a drum pallet, a tool cart, tall storage cabinets. NOTE: kit()
   is defined far down works.js (its KIT and CL consts with it), so the
   hall sections place kit kinds with plain box() calls.
-Still to build: service tunnels, storage areas.
+- **The service tunnels** (THE SERVICE TUNNELS): the floor cannot go below
+  0, so they are cut-and-cover culverts at ground level behind the boiler
+  house: corridor A (x 24..66, inner z -111..-107.4), a junction room (x
+  66..74, door south toward the boiler house), corridor B offset 4m (x
+  74..112) so no line runs the length. `tpipe` (two lagged pipes on
+  saddles, collision) narrows each to ~2.2m; the `tunnel` prop draws cable
+  trays, roof fans, bulkheads, red emergency lights, maintenance doors;
+  a drain (`trench` paint); bulkheads are dim bake lights (`LIT.tunnelL`).
+Still to build: storage areas.
 
 ## Agents
 

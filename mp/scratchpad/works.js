@@ -1083,6 +1083,37 @@ P.push({ kind: 'subroom', x0: SR.x0 + SR.t, x1: SR.x1 - SR.t, z0: SR.z0 + SR.t, 
 P.push({ kind: 'ceilinglights', x0: SR.x0 + SR.t, x1: SR.x1 - SR.t, z0: SR.z0 + SR.t, z1: SR.z1 - SR.t, levels: [SR.h - SR.rt - 0.05], holes: [], extra: [] });
 PAINT_EXTRA_LATE.push({ k: 'keep', x: -47.6, z: 54.0, w: 7.0, d: 5.4 }, { k: 'keep', x: -37.4, z: 54.0, w: 7.0, d: 5.4 });
 
+note('THE SERVICE TUNNELS, behind the boiler house');
+/* (2026-11-23, the indoors brief, room 6: "narrow concrete corridors
+   containing large pipes, electrical cable trays, ventilation fans,
+   drainage channels, emergency lighting, and maintenance doors"). The
+   floor of this game cannot go below 0, so the tunnels are cut-and-cover
+   culverts at ground level on the empty strip behind the boiler house: two
+   long 3.2m-wide corridors offset by a junction room, so no single line
+   runs the length of them. Open portals at both ends and a door from the
+   junction room south toward the boiler house. Big lagged pipes along one
+   wall narrow each corridor to about 2.2m; cable trays, fans, emergency
+   lights, maintenance doors and the drain are drawn (`tunnel` prop). */
+{
+  const TA = { x0: 24, x1: 66, z0: -111.4, z1: -107.0, t: 0.4, h: 3.4, rt: 0.3 };
+  const TJ = { x0: 66, x1: 74, z0: -113.5, z1: -103.5, t: 0.4, h: 3.8, rt: 0.3 };
+  const TB = { x0: 74, x1: 112, z0: -107.6, z1: -103.6, t: 0.4, h: 3.4, rt: 0.3 };
+  const inner = (B) => [B.z0 + B.t, B.z1 - B.t];
+  const [a0, a1] = inner(TA), [b0, b1] = inner(TB);
+  building(TA, [{ face: 'W', a0, a1, y0: 0, y1: 2.9 }, { face: 'E', a0, a1, y0: 0, y1: 2.9 }], 'tunnelwall', 'tunnelroof');
+  building(TJ, [{ face: 'W', a0, a1, y0: 0, y1: 2.9 }, { face: 'E', a0: b0, a1: b1, y0: 0, y1: 2.9 }, { face: 'S', a0: 68.5, a1: 71.5, y0: 0, y1: 2.6 }], 'tunnelwall', 'tunnelroof');
+  building(TB, [{ face: 'W', a0: b0, a1: b1, y0: 0, y1: 2.9 }, { face: 'E', a0: b0, a1: b1, y0: 0, y1: 2.9 }], 'tunnelwall', 'tunnelroof');
+  // the pipes along the north wall of each corridor (collision: they are what narrows it)
+  ob(TA.x0 + 0.2, TA.x1 - 0.2, a0, a0 + 1.0, 0, 1.35, 'tpipe');
+  ob(TB.x0 + 0.2, TB.x1 - 0.2, b0, b0 + 1.0, 0, 1.35, 'tpipe');
+  // the junction: a valve manifold on the north wall, a pump skid
+  ob(67.2, 72.8, TJ.z0 + TJ.t, TJ.z0 + TJ.t + 1.4, 0, 1.8, 'tpipe');
+  ob(71.6, 73.2, -106.2, -104.5, 0, 1.2, 'pumpset');
+  P.push({ kind: 'tunnel', segs: [[TA.x0, TA.x1, a0, a1, TA.h - TA.rt], [TB.x0, TB.x1, b0, b1, TB.h - TB.rt], [TJ.x0 + TJ.t, TJ.x1 - TJ.t, TJ.z0 + TJ.t, TJ.z1 - TJ.t, TJ.h - TJ.rt]] });
+  PAINT_EXTRA_LATE.push({ k: 'trench', x0: TA.x0 + 0.5, z0: a1 - 0.45, x1: TA.x1 - 0.5, z1: a1 - 0.45, w: 0.35 },
+                        { k: 'trench', x0: TB.x0 + 0.5, z0: b1 - 0.45, x1: TB.x1 - 0.5, z1: b1 - 0.45, w: 0.35 });
+}
+
 note('CLUTTER AND WEAR: the things people bring to a site and leave (kit)');
 /* 1. THE LAYDOWN YARD, south-west: a contractors' compound on the open
    ground below the tank farm - cabin, skip, cable drums waiting to go in,
