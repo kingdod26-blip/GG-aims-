@@ -230,7 +230,7 @@ wallN(HZ1 + HW / 2, 28, HX1, HH, 'cladding');
   ob(20.1, 21.0, -3.0, 4.3, UP, UP + 0.8, 'console');                               // along the east glass, facing the turbines
   ob(12.0, 20.1, -5.6, -4.7, UP, UP + 0.8, 'console');                              // along the north glass
   for (const [x, z, n] of [[14, 3.6, 1], [17, 3.6, 1], [19.4, 0, 0], [19.4, -2.4, 0], [15, -4.0, 0], [18, -4.0, 0]]) ob(x - 0.27, x + 0.27, z - 0.27, z + 0.27, UP, UP + 0.95, n ? 'chairn' : 'chair');
-  ob(ix0, ix0 + 0.6, -3.0, 5.0, UP, UP + 2.4, 'switch');                            // mimic / relay panels on the west wall
+  ob(ix0, ix0 + 0.5, -3.9, iz1, UP, UP + 2.6, 'mimic');                             // the mimic wall: the plant in lamps, switches and screens
   ob(13.0, 15.6, -1.2, 0.2, UP, UP + 0.75, 'desk');                                 // the supervisor's desk
   P_LATE.push({ kind: 'ceilinglights', x0: ix0, x1: ix1, z0: iz0, z1: iz1, levels: [UP - 0.25, CR.h - CR.rt - 0.05], holes: [[ix0, 11.0, iz0, -4.0]], extra: [] });
   GROUND_MORE.push({ k: 'floor', x0: ix0, z0: iz0, x1: ix1, z1: iz1 });             // the office's tiled floor
@@ -1100,9 +1100,10 @@ building(SR, [
   { face: 'S', a0: -34, a1: -31.5, y0: 0, y1: 2.5 },                             // personnel door
   { face: 'E', a0: 56, a1: 58.5, y0: 0, y1: 2.5 },
 ], 'shedwall', 'shedroof');
-box(-47.6, 54.0, 5.5, 4.2, 2.8, 'transformer'); box(-37.4, 54.0, 5.5, 4.2, 2.8, 'transformer');
+box(-47.6, 54.0, 5.5, 4.2, 2.8, 'drytx'); box(-37.4, 54.0, 5.5, 4.2, 2.8, 'drytx');   // green tanks in bund trays (Jack's photograph)
 box(-42.5, 53.9, 0.5, 4.6, 3.6, 'firewall');                                      // the blast wall between the bays
-for (const x of [-42.2, -39.5, -36.8, -28.6]) box(x, SR.z1 - SR.t - 0.8, 2.6, 1.6, 2.2, 'switch');   // switchgear along the back, clear of both doors
+for (const x of [-42.2, -39.5, -36.8, -28.6]) box(x, SR.z1 - SR.t - 0.8, 2.6, 1.6, 2.2, 'mvpanel');  // switchgear along the back, clear of both doors
+GROUND_MORE.push({ k: 'epoxy', x0: -43.6, z0: 60.2, x1: -26.3, z1: 61.9 });         // the blue walkway in front of it
 box(-30.5, 57.5, 1.2, 6, 2.0, 'switch');                                         // the control panel island
 P.push({ kind: 'subroom', x0: SR.x0 + SR.t, x1: SR.x1 - SR.t, z0: SR.z0 + SR.t, z1: SR.z1 - SR.t, h: SR.h - SR.rt,
          drops: [[-47.6, 54.0], [-37.4, 54.0], [-42.2, 62.9], [-39.5, 62.9], [-36.8, 62.9], [-28.6, 62.9], [-30.5, 57.5]] });

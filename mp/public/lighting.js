@@ -2055,6 +2055,7 @@ function litGroundTexture(map){
     } };
     tiles('floor',  '#dcd9d0', 'rgba(70,68,64,0.28)', 1.2, 0.05);   // 1.2m: at 8.5px a metre, 0.6m tiles were a moire grid. Lighter (2026-11-22): the office's ground floor shares the outdoor slab, darkened for the overcast, and read a shade darker than the floors above it
     tiles('paving', '#a9a59b', 'rgba(60,58,54,0.35)', 0.9, 0.08);
+    tiles('epoxy',  '#3f63a3', 'rgba(20,30,60,0.15)', 3.0, 0.03);   // a painted epoxy walkway (the substation room, from Jack's photograph)
     /* Chequer plate (the generator room, 2026-11-23): 1.5m steel plates,
        their raised diamonds a fine diagonal tick on each. */
     for (const q of of('plate')){
@@ -2566,6 +2567,11 @@ function litMaterial(name){
                    m = lookTag(new THREE.MeshStandardMaterial({ map: tt, emissiveMap: tt, emissive: new THREE.Color(0.95, 0.66, 0.46), roughness: 0.75, metalness: 0.3 }), { metalness: 0.3, roughness: 0.75 }, { metalness: 0, roughness: 0.75 });
                    m.userData.envK = 0.3; break; }
     case 'screenglow': m = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.55, 1.1, 1.9) }); break;   // control-room screens
+    /* (2026-11-23, Jack's control-room and switchroom photographs) */
+    case 'mimicpanel': t = litTexOf(litMimicTexture(), true);
+      m = new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: new THREE.Color(0.35, 0.35, 0.35), roughness: 0.6, metalness: 0.1 }); break;
+    case 'mvface': t = litTexOf(litSwitchFaceTexture(), true);
+      m = new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: new THREE.Color(0.12, 0.12, 0.12), roughness: 0.55, metalness: 0.15 }); break;
     case 'glow':    m = new THREE.MeshBasicMaterial({ color: new THREE.Color(4.2, 1.5, 0.45) }); break;   // a burner seen through its sight glass
     case 'towerin': m = litPatch(new THREE.MeshStandardMaterial({ map: litTexOf(litTowerTexture(), true), color: 0x4f5558, roughness: 0.9, metalness: 0 }), 'cover', 0.06);
                    m.defines.CX_ROUND = ''; break;
@@ -3171,14 +3177,30 @@ const LIT_PROP = {
     const CYL = (name, a0, y0, a1, y1, r0, r1, sides, tile, capA, capB) =>
       az ? litCyl(G(name), C(0), y0, A(a0), C(0), y1, A(a1), r0, r1, sides, tile, capA, capB)
          : litCyl(G(name), A(a0), y0, C(0), A(a1), y1, C(0), r0, r1, sides, tile, capA, capB);
-    /* The casing: square-sided below the joint, a half-drum above it. The
-       split is the bolted flange a real casing has there anyway. */
-    BOX('machine', -10, ped, -R, 1.5, yAx, R, { bevel: 0.03, seg: LIT.coverSeg, tile: 3, noTop: true });
-    CYL('machineR', -10, yAx, 1.5, yAx, R, R, 24, 3, true, false);
-    for (const f of [-9.9, -6.6, -3.4, -0.2, 1.4])                       // the flanges between the cylinders
-      CYL('steel', f - 0.09, yAx, f + 0.09, yAx, R + 0.08, R + 0.08, 24, 1, true, true);
-    for (const o of [-1, 1])                                             // and the joint down each side
-      BOX('steel', -10, yAx - 0.08, o * R, 1.5, yAx + 0.08, o * (R + 0.08), { seg: 3, bottom: true });
+    /* TWO TURBINES IN LINE (2026-11-23, Jack: "make this two be two
+       turbine", with photographs of a real turbine hall): a high-pressure
+       casing and a bigger low-pressure casing, silver, each square-sided
+       below its bolted joint and a ribbed drum above, a coupling between
+       them, and the big crossover pipes arching from the one into the
+       other. Collision is still the map's steps (the HP casing sits 0.15m
+       inside them, above deck height). */
+    const CAS = [[-10, -5.7, R - 0.15], [-5.0, 1.5, R]];
+    for (const [c0, c1, r] of CAS){
+      BOX('lagging', c0, ped, -r, c1, yAx, r, { bevel: 0.03, seg: LIT.coverSeg, tile: 3, noTop: true });
+      CYL('lagging', c0, yAx, c1, yAx, r, r, 28, 3, true, true);
+      for (let f = c0 + 0.5; f < c1 - 0.3; f += 0.55) CYL('lagging', f - 0.05, yAx, f + 0.05, yAx, r + 0.05, r + 0.05, 28, 1, true, true);   // ribs
+      for (const f of [c0 + 0.08, c1 - 0.08]) CYL('steel', f - 0.08, yAx, f + 0.08, yAx, r + 0.1, r + 0.1, 28, 1, true, true);           // end flanges
+      for (const o of [-1, 1]) BOX('steel', c0, yAx - 0.08, o * r, c1, yAx + 0.08, o * (r + 0.1), { seg: 3, bottom: true });           // the joint
+    }
+    BOX('steel', -5.7, ped, -1.2, -5.0, yAx - 0.3, 1.2, { bevel: 0.03, seg: 2 });                    // the bearing pedestal between them
+    CYL('steel', -5.75, yAx, -4.95, yAx, 0.45, 0.45, 16, 1, true, true);                               // the coupling
+    for (const o of [-0.95, 0.95]){                                                                     // the crossover pipes: up, over, down
+      const r = 0.42, y1 = yAx + R + 1.6;
+      CYL('lagging', -8.0, yAx + R - 0.3, -8.0, y1 - r, r, r, 16, 1, false, false);
+      CYL('lagging', -8.0, y1, -2.0, y1, r, r, 16, 2, true, true);
+      CYL('lagging', -2.0, y1 - r, -2.0, yAx + R - 0.2, r, r, 16, 1, false, false);
+      for (const a of [-8.0, -2.0]) CYL('lagging', a, y1 - r, a, y1 + r * 0.6, r * 1.06, r * 1.06, 16, 1, true, true);   // the bends
+    }
     /* The generator: the map's own steps, stacked rather than nested so no
        face is buried inside another. */
     /* (2026-11-23, Jack: "improve on the details and the generator mainly,
@@ -4008,6 +4030,87 @@ LIT_DRAW.genset = function(G, b, x0, z0, x1, z1){
   litBox(G('steel'), b.x + 2.2, cy - 0.3, z0 + 0.06, b.x + 3.2, cy + 0.3, z0 + 0.09, { seg: 1 });                         // nameplate
 };
 LIT_INDOOR.genset = 1;
+/* A control room's mimic wall, as in Jack's photographs: teal panels
+   covered in indicator lamps, switches, gauges, a schematic of the plant in
+   coloured lines, and screens set into it. One canvas, 4 panels wide. */
+function litMimicTexture(){
+  return litCanvas(1024, 512, (g, w, h) => {
+    g.fillStyle = '#2f7f7c'; g.fillRect(0, 0, w, h);
+    const rnd = litRand(808);
+    for (let p = 0; p < 4; p++){
+      const x0 = p * 256;
+      g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x0 + 254, 0, 2, h);                       // panel joints
+      g.fillStyle = '#d9e2dd'; g.fillRect(x0 + 18, 14, 220, 26);                               // label strip
+      g.fillStyle = '#163a39'; g.font = '700 16px Arial'; g.fillText('UNIT ' + (p + 1) + ' - ' + ['TURBINE', 'GENERATOR', 'FEEDWATER', 'ELECTRICAL'][p], x0 + 26, 33);
+      g.strokeStyle = ['#e8c23a', '#e05a3a', '#3fb0e0', '#e8e8e8'][p]; g.lineWidth = 4;          // the plant schematic
+      g.beginPath(); g.moveTo(x0 + 20, 90); g.lineTo(x0 + 120, 90); g.lineTo(x0 + 120, 150); g.lineTo(x0 + 230, 150); g.stroke();
+      g.beginPath(); g.moveTo(x0 + 60, 90); g.lineTo(x0 + 60, 200); g.lineTo(x0 + 200, 200); g.stroke();
+      g.fillStyle = '#1b2b38'; g.fillRect(x0 + 140, 230, 96, 64);                               // a screen
+      g.fillStyle = '#5fb7e8'; for (let i = 0; i < 6; i++) g.fillRect(x0 + 146, 236 + i * 9, 30 + rnd() * 50, 5);
+      for (let r = 0; r < 6; r++) for (let c = 0; c < 9; c++){                                  // lamps and switches
+        const x = x0 + 20 + c * 24, y = 320 + r * 28, k = rnd();
+        if (k < 0.45){ g.fillStyle = ['#f04a3a', '#f0d04a', '#5ae07a', '#ffffff'][Math.floor(rnd() * 4)]; g.fillRect(x, y, 12, 10); }
+        else if (k < 0.75){ g.fillStyle = '#1a2a2a'; g.beginPath(); g.arc(x + 6, y + 6, 6, 0, Math.PI * 2); g.fill(); g.fillStyle = '#c8d0cc'; g.fillRect(x + 5, y, 2, 7); }
+        else { g.fillStyle = '#e8ece8'; g.beginPath(); g.arc(x + 6, y + 6, 7, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#222'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x + 6, y + 6); g.lineTo(x + 6 + rnd() * 6 - 3, y + 1); g.stroke(); }
+      }
+    }
+  });
+}
+/* Medium-voltage switchgear faces, as in Jack's switchroom photograph:
+   grey panels, a relay display and coloured buttons up top, a viewing
+   window, red DANGER labels, the operating handle. One canvas = 4 panels. */
+function litSwitchFaceTexture(){
+  return litCanvas(512, 512, (g, w, h) => {
+    const rnd = litRand(313);
+    for (let p = 0; p < 4; p++){
+      const x0 = p * 128;
+      g.fillStyle = '#b9b7b4'; g.fillRect(x0, 0, 128, h);
+      g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(x0, 0, 2, h); g.fillRect(x0, 150, 128, 2); g.fillRect(x0, 330, 128, 2);
+      g.fillStyle = '#d8dcd8'; g.fillRect(x0 + 18, 22, 50, 40); g.fillStyle = '#3a8fbf'; g.fillRect(x0 + 22, 26, 42, 22);   // the relay
+      for (let i = 0; i < 5; i++){ g.fillStyle = ['#e0402a', '#e0c02a', '#3ac060', '#2a2a2a', '#e0402a'][i]; g.beginPath(); g.arc(x0 + 26 + i * 16, 90, 5, 0, Math.PI * 2); g.fill(); }
+      g.fillStyle = '#3a3c3e'; g.fillRect(x0 + 40, 190, 48, 64); g.fillStyle = '#5b6a72'; g.fillRect(x0 + 44, 194, 40, 56);   // viewing window
+      g.fillStyle = '#c42a22'; g.fillRect(x0 + 84, 360, 30, 40); g.fillRect(x0 + 18, 120, 26, 18);                           // DANGER labels
+      g.fillStyle = '#ffffff'; g.fillRect(x0 + 88, 366, 22, 4);
+      g.fillStyle = '#2a2a2a'; g.fillRect(x0 + 96, 270, 10, 40);                                                            // handle
+      g.fillStyle = '#e8e8e8'; g.fillRect(x0 + 20, 440, 80, 26);                                                            // label plate
+    }
+  });
+}
+/* A face of switchgear: a grey cabinet, its front (the side facing `face`,
+   'n' = -z, 's' = +z, 'e' = +x, 'w' = -x) wearing the panel texture. */
+function litMvFace(G, b, x0, z0, x1, z1, face){
+  litBox(G('cabgrey'), x0, 0, z0, x1, b.h, z1, { bevel: 0.01, seg: 1, tile: 0.6 });
+  const L = (face === 'n' || face === 's') ? x1 - x0 : z1 - z0, H = b.h - 0.05, e = 0.006;
+  if (face === 's') litGrid(G('mvface'), x0, 0.05, z1 + e, 1, 0, 0, 0, 1, 0, L, H, 0, 0, 1, 1, 1, L / Math.max(1, Math.round(L / 0.8)) * 4, H);
+  else if (face === 'n') litGrid(G('mvface'), x1, 0.05, z0 - e, -1, 0, 0, 0, 1, 0, L, H, 0, 0, -1, 1, 1, L / Math.max(1, Math.round(L / 0.8)) * 4, H);
+  else if (face === 'e') litGrid(G('mvface'), x1 + e, 0.05, z1, 0, 0, -1, 0, 1, 0, L, H, 1, 0, 0, 1, 1, L / Math.max(1, Math.round(L / 0.8)) * 4, H);
+  else litGrid(G('mvface'), x0 - e, 0.05, z0, 0, 0, 1, 0, 1, 0, L, H, -1, 0, 0, 1, 1, L / Math.max(1, Math.round(L / 0.8)) * 4, H);
+}
+Object.assign(LIT_DRAW, {
+  mimic(G, b, x0, z0, x1, z1){                         // the mimic wall: its face is the +x side (into the room)
+    litBox(G('cabgrey'), x0, 0, z0, x1, b.h, z1, { seg: 1, tile: 0.6 });
+    litGrid(G('mimicpanel'), x1 + 0.006, 0.02, z1, 0, 0, -1, 0, 1, 0, z1 - z0, b.h - 0.04, 1, 0, 0, 1, 1, z1 - z0, b.h - 0.04);
+  },
+  mvpanel(G, b, x0, z0, x1, z1){ litMvFace(G, b, x0, z0, x1, z1, 'n'); },     // faces north (-z): the substation room's back row
+  /* An indoor transformer as in Jack's photograph: a green finned tank
+     standing in a steel bund tray, bushings with their cable boots on
+     top, cables going away. */
+  drytx(G, b, x0, z0, x1, z1){
+    const h = b.h;
+    litBox(G('steel'), x0, 0, z0, x1, 0.45, z1, { seg: 2, tile: 1 });                              // the bund tray
+    litBox(G('drumgreen'), x0 + 0.35, 0.45, z0 + 0.35, x1 - 0.35, h - 0.35, z1 - 0.35, { bevel: 0.03, seg: 2, tile: 1 });
+    for (let x = x0 + 0.5; x < x1 - 0.4; x += 0.12){                                              // the fins, both long sides
+      litBox(G('drumgreen'), x, 0.6, z0 + 0.1, x + 0.04, h - 0.55, z0 + 0.35, { seg: 1 });
+      litBox(G('drumgreen'), x, 0.6, z1 - 0.35, x + 0.04, h - 0.55, z1 - 0.1, { seg: 1 });
+    }
+    litBox(G('drumgreen'), x0 + 0.3, h - 0.35, z0 + 0.3, x1 - 0.3, h - 0.25, z1 - 0.3, { seg: 1 });   // the lid
+    for (let i = 0; i < 6; i++){ const x = x0 + 0.8 + i * (x1 - x0 - 1.6) / 5;
+      litCyl(G('chairblack'), x, h - 0.25, (z0 + z1) / 2, x, h, (z0 + z1) / 2, 0.1, 0.08, 10, 1, false, true);       // bushing boots
+      litCyl(G('cable'), x, h - 0.05, (z0 + z1) / 2, x0 - 0.1, h - 0.3, z0 + 0.4, 0.035, 0.035, 6, 1, false, false); }
+    litBox(G('yellow'), x0 + 0.6, h - 1.0, z1 - 0.1, x0 + 1.0, h - 0.7, z1 - 0.09, { seg: 1 });     // warning label
+  },
+});
+Object.assign(LIT_INDOOR, { mimic: 1, mvpanel: 1, drytx: 1 }); LIT_UNDER.mimic = null;
 /* THE SERVICE TUNNELS (2026-11-23): stained concrete walls and roof, and
    along the north wall two lagged pipes on saddles (the `tpipe` box is
    them, and it is what narrows the corridor). */

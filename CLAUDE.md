@@ -2166,6 +2166,16 @@ of its own:
   walkways now stop short of the store and the workshop.
 Every room in Jack's indoors brief is now built.
 
+From Jack's photographs (`Crinsome x/Pictures/Inner power station pics`,
+2026-11-23): each turbine is now TWO casings in line (HP and LP, silver,
+ribbed, bolted joints, a coupling between) with crossover pipes arching
+from one to the other ("make this two be two turbine"); the control room's
+west wall is a `mimic` wall (canvas `litMimicTexture`: teal panels, plant
+schematic, lamps, switches, gauges, screens); the substation room's gear
+is `mvpanel` switchgear (canvas `litSwitchFaceTexture`, faces north) and
+`drytx` transformers (green finned tanks in steel bund trays, cable boots),
+with a blue `epoxy` walkway (a ground kind).
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,
