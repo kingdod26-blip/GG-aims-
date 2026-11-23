@@ -208,7 +208,6 @@ wallN(HZ1 + HW / 2, 28, HX1, HH, 'cladding');
     const SX = [[24, 25.6], [86.4, 88]];
     const cuts = [9.5, 19, 21, ...SX.flat(), 91, 93, s > 0 ? 101 : 103];   // rail: open at the bridges and the stair heads
     for (let i = 0; i + 1 < cuts.length; i += 2) rail(cuts[i], cuts[i + 1], ze - 0.03, ze + 0.03, CY);
-    rail(9.5, 9.56, z0, z1, CY); rail(s > 0 ? 100.94 : 102.94, s > 0 ? 101 : 103, z0, z1, CY);   // and closed at both ends now
     for (const [xa, xb] of SX){
       const nn = Math.ceil(CY / 0.19 - 1e-9);
       steelStair(xa, xb, ze - s * (nn - 1) * 0.25, s, 0, CY);                     // foot out in the hall, head at the walk's edge
@@ -251,10 +250,12 @@ wallN(HZ1 + HW / 2, 28, HX1, HH, 'cladding');
   ], 'shedwall', 'shedroof');
   const ix0 = CR.x0 + CR.t, ix1 = CR.x1 - CR.t, iz0 = CR.z0 + CR.t, iz1 = CR.z1 - CR.t;
   // the upper floor, less the stairwell along the north wall
-  for (const r of rectsMinus({ x0: ix0, x1: ix1, z0: iz0, z1: iz1 }, [{ x0: ix0, x1: 11.0, z0: iz0, z1: -4.0 }])) ob(r.x0, r.x1, r.z0, r.z1, UP - 0.2, UP, 'slab');
-  { const n = Math.ceil(UP / 0.19), rise = UP / n, G = 0.28;                       // the stair: up toward +x
-    for (let k = 1; k < n; k++){ const top = k * rise, x = ix0 + 0.2 + (k - 1) * G; ob(x, x + G, iz0, -4.1, Math.max(0, top - 0.15), top, 'steptread'); } }
-  rail(ix0, 11.0, -4.03, -3.97, UP);                                                // round the stairwell, upstairs
+  for (const r of rectsMinus({ x0: ix0, x1: ix1, z0: iz0, z1: iz1 }, [{ x0: 7.5, x1: 12.0, z0: iz0, z1: -4.0 }])) ob(r.x0, r.x1, r.z0, r.z1, UP - 0.2, UP, 'slab');
+  /* the stair: up toward +x, its foot 1.4m off the west wall so there is
+     room to step onto it (2026-11-23, Jack: it started hard against the wall) */
+  { const n = Math.ceil(UP / 0.19), rise = UP / n, G = 0.28;
+    for (let k = 1; k < n; k++){ const top = k * rise, x = ix0 + 1.4 + (k - 1) * G; ob(x, x + G, iz0, -4.1, Math.max(0, top - 0.15), top, 'steptread'); } }
+  rail(7.5, 12.0, -4.03, -3.97, UP); rail(7.44, 7.5, iz0, -4.03, UP);                // round the stairwell, upstairs
   // ground floor: the shift office
   for (const [x, z] of [[14.5, 2.6], [18.5, 2.6]]) ob(x - 1.4, x + 1.4, z - 0.7, z + 0.7, 0, 0.75, 'desk');
   for (const [x, z, n] of [[14.5, 1.45, 1], [18.5, 1.45, 1], [14.5, 3.75, 0], [18.5, 3.75, 0]]) ob(x - 0.27, x + 0.27, z - 0.27, z + 0.27, 0, 0.95, n ? 'chairn' : 'chair');
@@ -263,7 +264,7 @@ wallN(HZ1 + HW / 2, 28, HX1, HH, 'cladding');
   // upstairs: the control room - a U of consoles facing the glass, the plant's mimic panels, the shift supervisor's desk
   ob(12.0, 21.0, 4.3, 5.2, UP, UP + 0.8, 'console');                                // along the south glass
   ob(20.1, 21.0, -3.0, 4.3, UP, UP + 0.8, 'console');                               // along the east glass, facing the turbines
-  ob(12.0, 20.1, -5.6, -4.7, UP, UP + 0.8, 'console');                              // along the north glass
+  ob(13.6, 20.1, -5.6, -4.7, UP, UP + 0.8, 'console');                              // along the north glass
   for (const [x, z, n] of [[14, 3.6, 1], [17, 3.6, 1], [19.4, 0, 0], [19.4, -2.4, 0], [15, -4.0, 0], [18, -4.0, 0]]) ob(x - 0.27, x + 0.27, z - 0.27, z + 0.27, UP, UP + 0.95, n ? 'chairn' : 'chair');
   ob(ix0, ix0 + 0.5, -3.9, iz1, UP, UP + 2.6, 'mimic');                             // the mimic wall: the plant in lamps, switches and screens
   ob(13.0, 15.6, -1.2, 0.2, UP, UP + 0.75, 'desk');                                 // the supervisor's desk

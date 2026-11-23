@@ -2084,7 +2084,10 @@ control room) and his "Inside a power station" picture
 HALL, FITTED OUT; drawers in lighting.js.
 - A **catwalk** along each long wall at 6.4m (z +-57..59, x 9.5..103), and
   two **bridges** across the hall at x 20 and x 92 joining them. Rails on
-  every open edge (MOVE_ONLY handrail), closed at both ends.
+  every open edge (MOVE_ONLY handrail); the catwalk ends are left open
+  (Jack: the end rail blocked the way). The control room's stair now starts
+  1.4m off the west wall (x 7.7..11.9, stairwell x 7.5..12, north console
+  shortened to x 13.6) so there is room to step onto it.
   **Stairs (2026-11-23, Jack: they were hidden in the wall / corner towers):**
   two flights per catwalk come straight off its open edge, square to the
   walk, down into the hall at x 24..25.6 and x 86.4..88 (foot at z +-48.75),
