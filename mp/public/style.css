@@ -504,6 +504,7 @@
   .lb-mapcard { padding:0; overflow:hidden; }
   .lb-mapcard canvas { display:block; width:100%; height:auto; opacity:.9; }
   .lb-mapcard img { display:block; width:100%; aspect-ratio:16/9; object-fit:cover; }
+  .lb-mapcard img[hidden] { display:none; }   /* display:block above beat the hidden attribute: a broken-image box showed */
   .lb-mapcard img:not([hidden]) + canvas { display:none; }
   .lb-maprow { display:flex; align-items:baseline; gap:8px; padding:8px 13px 10px; }
   .lb-maprow b { font-size:14px; font-weight:900; letter-spacing:2px; }
