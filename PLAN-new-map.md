@@ -1,8 +1,8 @@
-# Plan: the new power-station map (saved 2026-11-24)
+# Plan: the next round of map work (saved 2026-11-24)
 
-Jack wants everything below built as a **new map**, not as more changes to
-`works`. It starts from what `works` already has, fixed and finished. This
-file collects everything we agreed on 2026-11-23 and 2026-11-24.
+Jack wants everything below done **in a new Claude session**, on the
+existing `works` map. This file collects everything we agreed on
+2026-11-23 and 2026-11-24, so that session can start from it.
 
 Coordinates are `works` coordinates (x east, z south; the site plan's top
 is -z). Site plan grid: columns A-H are 29 m each from x -116; rows 1-8 are
@@ -25,7 +25,7 @@ is -z). Site plan grid: columns A-H are 29 m each from x -116; rows 1-8 are
   no boxes overlap.
 - Don't touch the bots or the gun fire.
 
-## Already done in `works` (carry over into the new map)
+## Already done in `works` (2026-11-23)
 
 - **Centre generator.** A vertical generator, built from Jack's photo:
   - a dark ribbed stator drum with access hatches
