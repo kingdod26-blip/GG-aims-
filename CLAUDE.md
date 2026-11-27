@@ -2290,8 +2290,9 @@ targets, one copy. It talks to the world through an adapter `W`
   server.js spares the owner's drone and dog from his fire but not his
   sensors (bullets, blade, bolts, grenades); on the range `shotSensor` does the
   same for bullets. Measured: own shot removes it, own dog stays at 200.
-- **Robots hang AROUND Silvars, not behind him** (Jack): the drone slowly
-  orbits him in world space starting from the side it is on; the dog stays
+- **Idle robots** (Jack): the DRONE hangs behind him over his right shoulder
+  and looks where he looks (an orbit was tried and dropped: "just make it
+  stay behind me"); neither robot turns to face him. The dog stays
   put while he turns and only moves when he gets ~4.4m away, back to the near
   point on its own side, facing outward. Turning on the spot moves neither.
 - **V sensor**: placed by hand within 2.6m, on a surface or the floor; the

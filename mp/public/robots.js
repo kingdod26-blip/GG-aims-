@@ -369,17 +369,14 @@ function stepDrone(W, r, owner, enemies, dt){
 
   const e = robotPick(W, r, enemies, r.y);
   if (!e) {
-    /* Nothing to hunt: it circles slowly AROUND Silvars, not pinned behind
-       him (Jack, 2026-11-27: "around me, not always behind me no matter which
-       direction I turn"). The orbit is in the world, so turning on the spot
-       does not swing it round; it starts from whichever side it is on. */
-    if (r.state !== 'follow') r.orbit = Math.atan2(r.x - owner.x, r.z - owner.z);
+    /* Nothing to hunt: it hangs BEHIND Silvars, over his right shoulder
+       (Jack, 2026-11-27, after trying an orbit: "just make it stay behind
+       me"), and looks the way HE is looking rather than back at him. */
     r.state = 'follow'; r.lock = 0; r.target = null;
-    r.orbit = (r.orbit || 0) + dt * 0.35;
-    const ox = owner.x + Math.sin(r.orbit) * D.follow, oz = owner.z + Math.cos(r.orbit) * D.follow;
+    const ox = owner.x + Math.cos(owner.yaw) * 1.2 + Math.sin(owner.yaw) * D.follow;
+    const oz = owner.z - Math.sin(owner.yaw) * 1.2 + Math.cos(owner.yaw) * D.follow;
     droneFly(W, r, ox, (owner.y || 0) + D.alt - 0.6 + Math.sin(r.t / 600) * 0.15, oz, D.speed, dt);
-    // it looks outward, scanning, as it goes round
-    const tyaw = Math.atan2(-(ox - owner.x), -(oz - owner.z)) + Math.PI;
+    const tyaw = owner.yaw;
     r.yaw += Math.atan2(Math.sin(tyaw - r.yaw), Math.cos(tyaw - r.yaw)) * Math.min(1, dt * 3);
     return;
   }
