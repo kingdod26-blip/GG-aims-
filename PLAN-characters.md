@@ -143,7 +143,7 @@ parts and behaviour above, but made Crimson X's own - not a copy of
 Saltline's models. Credit Saltline as the reference.
 
 **Paint (Jack, 2026-11-27): more SILVER.** The drone and dog are mostly
-silver metal rather than Saltline's white-and-orange panels.
+silver metal rather than Saltline's white-and-orange panels. **Trim is crimson** (stripes, rims, hazard tabs, lights) to tie them to Crimson X.
 
 **Build note:** the drone and dog are real AI units that must find their way
 round the map and be run by the server. This is separate from the practice
