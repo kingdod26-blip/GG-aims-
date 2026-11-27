@@ -215,7 +215,7 @@ function renderAbilityCards(){
     silvars: [
       ['P', t('ab.linked'),  fill('ab.linked.d', { s: sec(SILV.linkMs), cd: sec(SILV.linkCdMs) })],
       ['V', t('ab.sensor'),  fill('ab.sensor.d', { n: SILV.sensor.charges, r: SILV.sensor.radius, s: sec(SILV.linkMs), cd: sec(SILV.sensor.cdMs) })],
-      ['G', t('ab.drone'),   fill('ab.drone.d',  { or: SILV.order.range, lock: sec(SILV.drone.lockMs), dmg: SILV.drone.dmg, hp: SILV.drone.hp, cd: sec(SILV.drone.cdMs) })],
+      ['G', t('ab.drone'),   fill('ab.drone.d',  { life: sec(SILV.drone.lifeMs), or: SILV.order.range, lock: sec(SILV.drone.lockMs), dmg: SILV.drone.dmg, hp: SILV.drone.hp, cd: sec(SILV.drone.cdMs) })],
       ['X', t('ab.dog'),     fill('ab.dog.d',    { or: SILV.order.range, life: sec(SILV.dog.lifeMs), leash: SILV.dog.leash, gun: SILV.dog.gunDmg, bite: SILV.dog.bite, hp: SILV.dog.hp, cd: sec(SILV.dog.cdMs) })],
     ],
   };

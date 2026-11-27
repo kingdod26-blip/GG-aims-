@@ -270,6 +270,7 @@ function onRobots(list){
     r.tx = w.x; r.ty = w.y; r.tz = w.z; r.tyaw = w.w; r.hp = w.h; r.state = w.s; r.lock = w.l || 0;
     r.owner = w.o; r.v = w.v || 0; r.lunge = !!w.u; r.ping = w.p;
     if(w.k === 'g' && (w.o === myId || w.o === 'me')){ silv.dogHp = w.h; silv.dogLeft = w.e; }
+    if(w.k === 'd' && (w.o === myId || w.o === 'me')) silv.droneLeft = w.e;
   }
   for(const [id, r] of robotGfx) if(!seen.has(id)){ scene.remove(r.mesh); clearTrapMark(r); robotGfx.delete(id); }
   // what is out tells the tiles too (the range has no server to say so)

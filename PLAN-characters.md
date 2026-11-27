@@ -186,3 +186,5 @@ there and fights anyone who comes near; aim at your feet to call it back, and
 it comes back by itself if you go more than 20m from the spot. Both abilities
 stay "on" while the robot is out; the cooldown (dog 70s, drone 40s) starts
 when it is gone.
+
+**Drone (Jack, 2026-11-27):** lasts **70 seconds**, then disappears; the 40s cooldown starts after.

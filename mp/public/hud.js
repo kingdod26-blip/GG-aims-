@@ -173,7 +173,7 @@ function cdState(kind, now){
      is out its tile is lit and shows its health, then the 70s runs. */
   if(kind === 'sensor') return { remain: Math.max(0, sensorNext(now)), total: SILV.sensor.cdMs, have: sensorHave(now), max: SILV.sensor.charges };
   if(kind === 'drone'){
-    if(silv.droneOut) return { live:true, txt: '', remain:0, total:1, have:1, max:1 };   // lit while it is out
+    if(silv.droneOut) return { live:true, txt: String(Math.max(0, silv.droneLeft | 0)), remain:0, total:1, have:1, max:1 };   // lit, counting its 70s down
     const remain = Math.max(0, isFinite(silv.droneAt) ? silv.droneAt - now : 0);
     return { remain, total: SILV.drone.cdMs, have: remain > 0 ? 0 : 1, max: 1 };
   }
