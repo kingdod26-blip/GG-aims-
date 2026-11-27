@@ -978,7 +978,7 @@ io.on('connection', (socket) => {
     hp: 100, alive: match.phase !== 'live', kills: 0, deaths: 0, wins: back ? back.wins : 0, tp: 0,
     agent: agentOf(auth.agent),        // locked for this connection
     gshots: [], zoneUntil: 0, zoneReadyAt: 0,
-    sensorReadyAt: 0, droneReadyAt: 0, dogReadyAt: 0, linked: new Map(),   // Silvars
+    sensorShots: [], droneReadyAt: 0, dogReadyAt: 0, linked: new Map(),   // Silvars
     money: back ? back.money : ECON.start,
     guns: back ? back.guns : [],       // owned WEAPONS slots, in purchase order
     detectReadyAt: 0, detectUntil: 0, detectTarget: null,
@@ -1322,14 +1322,16 @@ io.on('connection', (socket) => {
      zone, so the client's tiles come from here rather than from guessing. */
   const silvTimers = (p, now) => {
     const has = k => room.robots.some(r => r.owner === p.id && r.kind === k);
-    socket.emit('silv', { sensor: Math.max(0, p.sensorReadyAt - now), drone: Math.max(0, p.droneReadyAt - now),
+    socket.emit('silv', { sensorQ: sensorQueue(p, now), drone: Math.max(0, p.droneReadyAt - now),
                           dog: has('dog') ? -1 : Math.max(0, p.dogReadyAt - now), droneOut: has('drone') ? 1 : 0 });
   };
   const silvOK = p => p && p.alive && p.agent === 'silvars' && match.phase === 'live';
   socket.on('sensor', (d) => {
     const p = players.get(socket.id); if (!p) return;
     const now = Date.now();
-    if (!silvOK(p) || now < p.sensorReadyAt || !d) return silvTimers(p, now);
+    if (!silvOK(p) || !d) return silvTimers(p, now);
+    p.sensorShots = (p.sensorShots || []).filter(t => now - t < SILV.sensor.cdMs);
+    if (p.sensorShots.length >= SILV.sensor.charges) return silvTimers(p, now);     // both are recharging
     /* By hand: the point is re-found here from their eye along the direction
        they sent, within reach, on a surface - so a client cannot stick one
        inside a wall or across the map. */
@@ -1339,13 +1341,14 @@ io.on('connection', (socket) => {
     const t = h ? h.t : (dir.y < -0.2 ? -ey / dir.y : Infinity);        // the floor counts as a surface
     if (!(t <= SILV.sensor.reach)) return silvTimers(p, now);
     const n = h ? h : { nx: 0, ny: 1, nz: 0 };
-    for (let i = room.robots.length - 1; i >= 0; i--)          // one at a time: the old one goes
-      if (room.robots[i].owner === p.id && room.robots[i].kind === 'sensor') room.robots.splice(i, 1);
+    /* up to two out at once: a third takes the oldest away */
+    const mine = room.robots.filter(r => r.owner === p.id && r.kind === 'sensor');
+    while (mine.length >= SILV.sensor.maxOut) room.robots.splice(room.robots.indexOf(mine.shift()), 1);
     const k = SILV.sensor.r * 0.5;
     room.robots.push(ROBOTS.makeRobot('sensor', p.id,
       p.x + dir.x * t + n.nx * k, ey + dir.y * t + n.ny * k, p.z + dir.z * t + n.nz * k,
       { nx: n.nx, ny: n.ny, nz: n.nz, readyAt: 0 }));
-    p.sensorReadyAt = now + SILV.sensor.cdMs;
+    p.sensorShots.push(now);
     silvTimers(p, now);
   });
   socket.on('drone', () => {
@@ -1584,10 +1587,14 @@ function shootRobot(room, r, dmg, by, x, y, z) {
   io.to(room.id).emit('impact', { x, y, z, head: false, zone: 'torso', by: by ? by.id : null, robot: 1 });
   ROBOTS.damageRobot(r, dmg);
 }
+/* The sensor's spent charges, as ms until each comes back. */
+function sensorQueue(p, now) {
+  return (p.sensorShots || []).map(t => t + SILV.sensor.cdMs - now).filter(ms => ms > 0);
+}
 function sendSilvTimers(room, owner, now, except) {
   const sock = io.sockets.sockets.get(owner.id); if (!sock) return;
   const has = k => room.robots.some(q => q !== except && q.alive && q.owner === owner.id && q.kind === k);
-  sock.emit('silv', { sensor: Math.max(0, owner.sensorReadyAt - now), drone: Math.max(0, owner.droneReadyAt - now),
+  sock.emit('silv', { sensorQ: sensorQueue(owner, now), drone: Math.max(0, owner.droneReadyAt - now),
                       dog: has('dog') ? -1 : Math.max(0, owner.dogReadyAt - now), droneOut: has('drone') ? 1 : 0 });
 }
 /* What robots.js needs from a room. Everything a robot does is credited to

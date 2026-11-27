@@ -41,7 +41,9 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyX' && !e.repeat){ const x = agent().x; if(x === 'zone') startZone(); else if(typeof x === 'string') useAgentKey(x); else switchWeapon(x); }
   if(e.code==='KeyF') switchWeapon(BLADE);              // equip the blade
   if(e.code==='KeyM' && !e.repeat){ e.preventDefault(); cycleMap(); }   // small -> large -> site
-  if(e.code==='KeyV' && !e.repeat){ const v = agent().v; if(v === 'dash') startDash(); else if(v === 'roll') startRoll(); else useAgentKey(v); }
+  if(e.code==='KeyV' && !e.repeat){ const v = agent().v; if(v === 'dash') startDash(); else if(v === 'roll') startRoll();
+    else if(typeof v === 'number') switchWeapon(v);   // Silvars: the sensor, into your hand
+    else useAgentKey(v); }
   if(e.code==='KeyC'){
     // sprinting -> slide; otherwise it's the normal crouch toggle
     // slide if you're sprinting OR still carrying speed (e.g. out of a roll)
@@ -123,7 +125,7 @@ addEventListener('mousedown',e=>{
   if(e.button===0){ wantFire=true; semiQueued=true; }
   // crossbow: right-click switches fire mode instead of aiming
   if(e.button===2){ if(curW().melee) startCharge();                 // the blade: hold to charge a cut
-                    else if(curW().ability){ ricochet=!ricochet; Sfx.swap(); updateHUD(); }
+                    else if(curW().ability && curW().kind !== 'sensor'){ ricochet=!ricochet; Sfx.swap(); updateHUD(); }
                     else aiming=true; } });   // abilities don't ADS
 addEventListener('mouseup',e=>{
   if(e.button===0){ wantFire=false; dryClicked=false; }   // the next pull may click again
@@ -250,6 +252,13 @@ function shoot(){
   }
 
   // --- CROSSBOW ability: spends a charge, launches a real flaming arrow ---
+  // --- SENSOR (Silvars): held like the grenade, the click puts it on the wall ---
+  if(w.kind === 'sensor'){
+    lastShot=now;
+    if(useSensor()){ abilityTick(); if(abilitySpent(SENSOR)) switchWeapon(fallbackWeapon()); }
+    updateHUD();                                     // placed: keep holding the second, or back to your gun when both are out
+    return;
+  }
   if(w.ability){
     abilityTick();
     if(abilityCharges[currentWeapon]<=0){ Sfx.empty(); dropSpentAbility(); return; }

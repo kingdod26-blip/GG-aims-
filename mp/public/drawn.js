@@ -674,6 +674,18 @@ function gloveEveryGun(b){
     holdInGlove(GRENADE, b, rOff, at, gr, false, [0, 0, 0]);
     WEAPONS[GRENADE].vm = { x: 0.13, y: 0.0, z: -0.32, adsZ: 0, rx: 0, ry: 0, rz: 0, viewFov: 0 };   // in the hand, in view
   }
+  /* Silvars' sensor, held like the grenade: the puck in the fist, face out */
+  if (typeof SENSOR !== 'undefined' && SENSOR >= 0){
+    const sn = new THREE.Group();
+    const silver = opMat('rb_held_silver', 0x9aa1a9, 0.85, 0.32), crim = opMat('rb_held_crim', 0xc8102e, 0.3, 0.45);
+    const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.058, 0.025, 18), silver); sn.add(puck);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.004, 6, 20), crim); ring.rotation.x = Math.PI / 2; ring.position.y = 0.014; sn.add(ring);
+    const led = new THREE.Mesh(new THREE.SphereGeometry(0.009, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3348 })); led.position.y = 0.016; sn.add(led);
+    sn.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), PAC9_GRIP_AXIS);
+    sn.position.copy(PAC9_GRIP_AXIS).multiplyScalar(0.01);
+    holdInGlove(SENSOR, b, rOff, at, sn, false, [0, 0, 0]);
+    WEAPONS[SENSOR].vm = { x: 0.13, y: 0.0, z: -0.32, adsZ: 0, rx: 0, ry: 0, rz: 0, viewFov: 0 };
+  }
 }
 /* ---- THE SWORD AND THE GRENADE, REDRAWN (2026-11-22) ----
    Jack: "the sword is not held correctly, u need to go look up how a real

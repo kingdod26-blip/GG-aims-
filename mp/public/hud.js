@@ -31,6 +31,7 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
     document.getElementById('reserveNum').textContent = '/ '+w.charges;
     const next = q.length ? Math.max(0,Math.ceil((q[0]-performance.now())/1000)) : 0;
     const label = (w.kind==='xbow') ? 'CROSSBOW · '+(ricochet?'RICOCHET':'DIRECT')
+                : (w.kind==='sensor') ? 'SENSOR · CLICK A SURFACE TO PLACE'
                 : 'SMOKE · ' + (ricochet?'RICOCHET':'DIRECT');
     document.getElementById('modeLbl').textContent = label + (next?(' · '+next+'s'):'');
   } else {
@@ -137,13 +138,13 @@ const CD_ART = { roll:'cd-roll', xbow:'cd-fire', smoke:'cd-smoke', dash:'cd-dash
                  sensor:'cd-sensor', drone:'cd-drone', dog:'cd-dog' };
 function configureTiles(){
   const a = agent();
-  const kinds = [a.v, typeof a.g === 'string' ? a.g : a.g === XBOW ? 'xbow' : 'grenade',
+  const kinds = [typeof a.v === 'number' ? WEAPONS[a.v].kind : a.v, typeof a.g === 'string' ? a.g : a.g === XBOW ? 'xbow' : 'grenade',
                  typeof a.x === 'string' ? a.x : a.x === SMOKE ? 'smoke' : 'grenade'];
   CD_TILES.forEach((t, k) => {
     t.kind = kinds[k];
     const box = document.getElementById(t.id), img = box.querySelector('.cdico');
     img.src = 'assets/' + CD_ART[t.kind] + '.png'; img.alt = t.kind;
-    const n = box.querySelector('.cdn'); if(n) n.style.display = (t.kind === 'xbow' || t.kind === 'smoke' || t.kind === 'grenade') ? '' : 'none';
+    const n = box.querySelector('.cdn'); if(n) n.style.display = (t.kind === 'xbow' || t.kind === 'smoke' || t.kind === 'grenade' || t.kind === 'sensor') ? '' : 'none';
   });
   cdEls = null;
 }
@@ -170,9 +171,10 @@ function cdState(kind, now){
   }
   /* Silvars' three: the sensor and drone are plain cooldowns; while the dog
      is out its tile is lit and shows its health, then the 70s runs. */
-  if(kind === 'sensor' || kind === 'drone'){
-    const remain = Math.max(0, (kind === 'sensor' ? silv.sensorAt : silv.droneAt) - now);
-    return { remain, total: kind === 'sensor' ? SILV.sensor.cdMs : SILV.drone.cdMs, have: remain > 0 ? 0 : 1, max: 1 };
+  if(kind === 'sensor') return { remain: Math.max(0, sensorNext(now)), total: SILV.sensor.cdMs, have: sensorHave(now), max: SILV.sensor.charges };
+  if(kind === 'drone'){
+    const remain = Math.max(0, silv.droneAt - now);
+    return { remain, total: SILV.drone.cdMs, have: remain > 0 ? 0 : 1, max: 1 };
   }
   if(kind === 'dog'){
     if(silv.dogOut) return { live:true, txt: String(Math.max(0, silv.dogHp | 0)), remain:0, total:1, have:1, max:1 };

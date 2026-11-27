@@ -36,9 +36,11 @@ const SILV = {
   /* V. Placed by hand on a surface (within `reach`), it sits proud of it
      and is visible to everyone. It scans only when someone walks into its
      radius, then needs `rescanMs` before it can trigger again; placing a
-     new one is on `cdMs`. One at a time: a new one takes the old one away.
+     new one is on `cdMs`, per charge (Jack, 2026-11-27: two of them).
      Any damage destroys it. */
-  sensor: { cdMs: 30000, rescanMs: 30000, radius: 8, reach: 2.6, hp: 1, r: 0.16 },
+  /* Two charges, each back 30s after it is used, like the grenade's; two
+     can be out at once, and placing a third takes the oldest away. */
+  sensor: { charges: 2, maxOut: 2, cdMs: 30000, rescanMs: 30000, radius: 8, reach: 2.6, hp: 1, r: 0.16 },
   /* G. One drone at a time, 60 HP. It hunts what the team can see; once it
      has had its own eyes on someone for `lockMs` it dives, hits for `dmg`
      and is destroyed by the crash. The cooldown starts when it is SENT. */
@@ -362,12 +364,18 @@ function stepDrone(W, r, owner, enemies, dt){
 
   const e = robotPick(W, r, enemies, r.y);
   if (!e) {
-    // nothing to hunt: hang over Silvars' shoulder
+    /* Nothing to hunt: it circles slowly AROUND Silvars, not pinned behind
+       him (Jack, 2026-11-27: "around me, not always behind me no matter which
+       direction I turn"). The orbit is in the world, so turning on the spot
+       does not swing it round; it starts from whichever side it is on. */
+    if (r.state !== 'follow') r.orbit = Math.atan2(r.x - owner.x, r.z - owner.z);
     r.state = 'follow'; r.lock = 0; r.target = null;
-    const ox = owner.x + Math.cos(owner.yaw) * 1.4 + Math.sin(owner.yaw) * D.follow;
-    const oz = owner.z - Math.sin(owner.yaw) * 1.4 + Math.cos(owner.yaw) * D.follow;
+    r.orbit = (r.orbit || 0) + dt * 0.35;
+    const ox = owner.x + Math.sin(r.orbit) * D.follow, oz = owner.z + Math.cos(r.orbit) * D.follow;
     droneFly(W, r, ox, (owner.y || 0) + D.alt - 0.6 + Math.sin(r.t / 600) * 0.15, oz, D.speed, dt);
-    const tyaw = owner.yaw; r.yaw += Math.atan2(Math.sin(tyaw - r.yaw), Math.cos(tyaw - r.yaw)) * Math.min(1, dt * 4);
+    // it looks outward, scanning, as it goes round
+    const tyaw = Math.atan2(-(ox - owner.x), -(oz - owner.z)) + Math.PI;
+    r.yaw += Math.atan2(Math.sin(tyaw - r.yaw), Math.cos(tyaw - r.yaw)) * Math.min(1, dt * 3);
     return;
   }
   r.target = e.id;
@@ -446,11 +454,20 @@ function stepDog(W, r, owner, enemies, dt){
   const leashOK = (x, z) => Math.hypot(x - owner.x, z - owner.z) <= S.leash;
   const e = robotPick(W, r, enemies, eye, S.leash + S.gunRange, owner);
   if (!e) {
-    // heel: a step behind Silvars, on the ground under him
+    /* Heel: it stays NEAR Silvars, on whichever side it already is, and only
+       moves when he gets more than a few metres away - turning on the spot
+       does not send it running round behind him (Jack, 2026-11-27). */
     r.state = 'follow'; r.aimFrom = 0;
-    const bx = owner.x + Math.sin(owner.yaw) * S.follow, bz = owner.z + Math.cos(owner.yaw) * S.follow;
-    if (Math.hypot(bx - r.x, bz - r.z) > 1.2) dogMoveTo(W, r, bx, bz, Math.hypot(owner.x - r.x, owner.z - r.z) > 6 ? S.speed : S.speed * 0.6, dt);
-    else { r.speed = 0; dogFace(r, r.x - Math.sin(owner.yaw), r.z - Math.cos(owner.yaw), dt); }
+    const od = Math.hypot(r.x - owner.x, r.z - owner.z);
+    if (od > S.follow + 2 || r.heeling) {
+      r.heeling = true;
+      const k = od > 0.01 ? S.follow / od : 0;
+      const bx = owner.x + (r.x - owner.x) * k, bz = owner.z + (r.z - owner.z) * k;   // the near point on its own side
+      if (dogMoveTo(W, r, bx, bz, od > 7 ? S.speed : S.speed * 0.6, dt) || od <= S.follow + 0.3) r.heeling = false;
+    } else {
+      r.speed = 0;
+      dogFace(r, r.x + (r.x - owner.x), r.z + (r.z - owner.z), dt);   // facing outward, on watch
+    }
     return;
   }
   r.state = 'engage'; r.target = e.id;

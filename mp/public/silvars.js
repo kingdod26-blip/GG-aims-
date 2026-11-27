@@ -16,16 +16,19 @@
    ============================================================= */
 
 /* ---- cooldowns: when each is next ready (performance.now) ---- */
-const silv = { sensorAt: 0, droneAt: 0, dogAt: 0, dogOut: false, droneOut: false, dogHp: 0 };
+const silv = { sensorQ: [], droneAt: 0, dogAt: 0, dogOut: false, droneOut: false, dogHp: 0 };
+/* The sensor holds two charges; `sensorQ` is when each spent one comes back. */
+function sensorHave(now){ silv.sensorQ = silv.sensorQ.filter(t => t > now); return SILV.sensor.charges - silv.sensorQ.length; }
+function sensorNext(now){ return silv.sensorQ.length ? Math.min(...silv.sensorQ) - now : 0; }
 function silvReset(){
-  silv.sensorAt = 0; silv.droneAt = 0; silv.dogAt = 0; silv.dogOut = false; silv.droneOut = false; silv.dogHp = 0;
+  silv.sensorQ = []; silv.droneAt = 0; silv.dogAt = 0; silv.dogOut = false; silv.droneOut = false; silv.dogHp = 0;
   clearRobots(); linkedNow.clear(); localLinked.clear();
 }
 /* The server's answer to every request: ms from now, -1 for "the dog is out". */
 function onSilvTimers(d){
   if(!d) return;
   const now = performance.now();
-  silv.sensorAt = now + (d.sensor || 0);
+  silv.sensorQ  = (d.sensorQ || []).map(ms => now + ms);
   silv.droneAt  = now + (d.drone || 0);
   silv.dogOut   = d.dog < 0;
   silv.dogAt    = d.dog < 0 ? Infinity : now + (d.dog || 0);
@@ -36,20 +39,49 @@ function silvLook(){ return new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler
 /* V: put the sensor on the surface in front of you, within reach. */
 function useSensor(){
   const now = performance.now();
-  if(gameState!=='playing' || !me.alive) return;
-  if(now < silv.sensorAt){ Sfx.empty(); return; }
+  if(gameState!=='playing' || !me.alive) return false;
+  if(sensorHave(now) <= 0){ Sfx.empty(); return false; }
   const d = silvLook(), e = camera.position;
-  if(gameMode === 'mp'){ if(socket) socket.emit('sensor', { dx: d.x, dy: d.y, dz: d.z }); return; }
-  const G = robotGeo(currentMap);
-  const h = robotRay(G, e.x, e.y, e.z, d.x, d.y, d.z, SILV.sensor.reach, 'ray');
-  const t = h ? h.t : (d.y < -0.2 ? -e.y / d.y : Infinity);
-  if(!(t <= SILV.sensor.reach)){ Sfx.empty(); return; }          // nothing within reach to stick it on
-  const n = h || { nx: 0, ny: 1, nz: 0 }, k = SILV.sensor.r * 0.5;
-  for(let i = localRobots.length - 1; i >= 0; i--) if(localRobots[i].kind === 'sensor') localRobots.splice(i, 1);
+  const spot = sensorSpot();
+  if(!spot){ Sfx.empty(); return false; }                          // nothing within reach to stick it on
+  if(gameMode === 'mp'){ if(socket) socket.emit('sensor', { dx: d.x, dy: d.y, dz: d.z });
+    silv.sensorQ.push(now + SILV.sensor.cdMs); Sfx.swap(); return true; }      // the server's answer corrects this
+  const n = spot.n, t = spot.t, k = SILV.sensor.r * 0.5;
+  const mine = localRobots.filter(r => r.kind === 'sensor');            // two out at most: a third takes the oldest
+  while(mine.length >= SILV.sensor.maxOut) localRobots.splice(localRobots.indexOf(mine.shift()), 1);
   localRobots.push(makeRobot('sensor', 'me', e.x + d.x*t + n.nx*k, e.y + d.y*t + n.ny*k, e.z + d.z*t + n.nz*k,
                              { nx: n.nx, ny: n.ny, nz: n.nz, readyAt: 0 }));
-  silv.sensorAt = training('noCooldown') ? 0 : now + SILV.sensor.cdMs;
+  if(!training('noCooldown')) silv.sensorQ.push(now + SILV.sensor.cdMs);
   Sfx.swap();
+  return true;
+}
+/* Where the sensor would go: the surface (or floor) along your look, within
+   reach. The server re-casts the same ray, so this is what it will accept. */
+function sensorSpot(){
+  const d = silvLook(), e = camera.position;
+  const h = robotRay(robotGeo(currentMap), e.x, e.y, e.z, d.x, d.y, d.z, SILV.sensor.reach, 'ray');
+  const t = h ? h.t : (d.y < -0.2 ? -e.y / d.y : Infinity);
+  if(!(t <= SILV.sensor.reach)) return null;
+  const n = h || { nx: 0, ny: 1, nz: 0 };
+  return { t, n, x: e.x + d.x * t, y: e.y + d.y * t, z: e.z + d.z * t };
+}
+/* While the sensor is in your hand, a ghost of it shows where it will stick,
+   and nothing shows where it cannot go. */
+let sensorGhost = null;
+function updateSensorGhost(){
+  const holding = gameState === 'playing' && me.alive && curW().kind === 'sensor';
+  const spot = holding ? sensorSpot() : null;
+  if(!spot){ if(sensorGhost) sensorGhost.visible = false; return; }
+  if(!sensorGhost){
+    sensorGhost = makeSensorMesh();
+    const ghostMat = new THREE.MeshBasicMaterial({ color: 0xffd0d6, transparent: true, opacity: 0.45, depthWrite: false });
+    sensorGhost.traverse(o => { if(o.isMesh){ o.material = ghostMat; o.castShadow = false; } });
+    scene.add(sensorGhost);
+  }
+  const k = SILV.sensor.r * 0.5;
+  sensorGhost.position.set(spot.x + spot.n.nx * k, spot.y + spot.n.ny * k, spot.z + spot.n.nz * k);
+  sensorGhost.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), new THREE.Vector3(spot.n.nx, spot.n.ny, spot.n.nz));
+  sensorGhost.visible = true;
 }
 /* G: send the drone. */
 function useDrone(){
@@ -391,4 +423,5 @@ function updateSilvars(dt){
   stepLocalRobots(dt);
   updateRobotGfx(dt);
   updateLinked();
+  updateSensorGhost();
 }

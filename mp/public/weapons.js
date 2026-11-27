@@ -100,6 +100,7 @@ let ricochet = false;                     // alt-fire mode for the crossbow
 function abilityTick(){
   const now = performance.now();
   for(const slot of ABILITY_SLOTS){
+    if(slot === SENSOR){ abilityCharges[slot] = typeof silv !== 'undefined' ? sensorHave(now) : WEAPONS[slot].charges; continue; }
     const q = abilityRecharge[slot] || (abilityRecharge[slot] = []);
     while(q.length && q[0] <= now){ q.shift(); abilityCharges[slot]++; }
     if(abilityCharges[slot] > WEAPONS[slot].charges) abilityCharges[slot] = WEAPONS[slot].charges;
@@ -147,6 +148,13 @@ const WEAPONS = [
   { name:'GRENADE', mode:'ABILITY', ability:true, kind:'grenade', auto:false, fireRate:600, dmg:90,
     charges:2, cooldownMs:30000, speed:17,
     recoil:0.01, spread:0, adsSpread:0, range:60, adsFov:75, scope:false },
+  // ABILITY (Silvars): the sensor. V puts it in your hand like the grenade;
+  // left-click sticks it on the surface in front of you (Jack, 2026-11-27).
+  // Two charges, 30s each (abilityTick reads silv.sensorQ, which the
+  // server's 'silv' answer keeps). Two can be out at once.
+  { name:'SENSOR', mode:'ABILITY', ability:true, kind:'sensor', auto:false, fireRate:400, dmg:0,
+    charges:2, cooldownMs:30000, speed:0,
+    recoil:0, spread:0, adsSpread:0, range:3, adsFov:75, scope:false },
 ];
 // MELEE: five-hit combo. Every swing moves the chain on, hit or miss, and the
 // fifth is a heavy finisher. Stop swinging for comboWindowMs and it restarts.
@@ -173,13 +181,14 @@ function heavyCharge(now){ return chargeFrom ? Math.min(1, (now - chargeFrom) / 
 const XBOW  = WEAPONS.findIndex(w=>w.kind==='xbow');    // crossbow slot
 const GRENADE = WEAPONS.findIndex(w=>w.kind==='grenade');   // Blast's frag slot
 const SMOKE = WEAPONS.findIndex(w=>w.kind==='smoke');   // smoke slot
+const SENSOR = WEAPONS.findIndex(w=>w.kind==='sensor');  // Silvars' sensor slot
 const BLADE = WEAPONS.findIndex(w=>w.melee);            // blade slot
 const ABILITY_SLOTS = WEAPONS.map((w,i)=>w.ability?i:-1).filter(i=>i>=0);
 /* What the armory should print on each card. Guns are 1-5; the abilities
    and the blade have their own keys, and printing i+1 told you to press 7
    for smoke — a key that isn't bound to anything. */
 const WEAPON_KEY = WEAPONS.map((w,i)=> String(i+1));
-WEAPON_KEY[XBOW]='G'; WEAPON_KEY[SMOKE]='X'; WEAPON_KEY[GRENADE]='G'; WEAPON_KEY[BLADE]='F';
+WEAPON_KEY[XBOW]='G'; WEAPON_KEY[SMOKE]='X'; WEAPON_KEY[GRENADE]='G'; WEAPON_KEY[BLADE]='F'; WEAPON_KEY[SENSOR]='V';
 
 /* ---- Agents ----
    You play an AGENT, picked on the menu and locked for the match. Each has a
@@ -202,12 +211,12 @@ const AGENTS = {
   /* SILVARS (2026-11-27, PLAN-characters.md). Passive: Linked Sight. All
      three are instant, so they are strings: V the sensor, G the drone, X the
      dog. The robots and their rules are robots.js; the client side silvars.js. */
-  silvars: { id:'silvars', name:'SILVARS', jumps:1, v:'sensor', g:'drone', x:'dog', hearing:false },
+  silvars: { id:'silvars', name:'SILVARS', jumps:1, v:SENSOR, g:'drone', x:'dog', hearing:false },
 };
 let myAgent = (()=>{ try{ const a = localStorage.getItem('cx.agent'); return AGENTS[a] ? a : 'aseed'; }
                      catch(e){ return 'aseed'; } })();
 function agent(){ return AGENTS[myAgent]; }
-function agentHas(slot){ const a = agent(); return a.g === slot || a.x === slot; }
+function agentHas(slot){ const a = agent(); return a.g === slot || a.x === slot || a.v === slot; }
 
 /* Blast's V. A straight burst at roll speed, no tumble, and it works in the
    air: an air dash holds you level rather than dropping you through it.
@@ -324,6 +333,19 @@ const redDot = new THREE.Group();
   g.position.set(0.02,-0.04,-0.04);
   g.userData.drawn = true;                 // replaced by Jack's crossbow model when it loads
   weaponHolders[SMOKE].add(g);
+})();
+
+/* Procedural sensor (Silvars' V slot): a silver puck with a crimson ring,
+   held face-out. Replaced by the gloved one in drawn.js. */
+(function buildSensorHeld(){
+  const g=new THREE.Group(),
+        silver=new THREE.MeshLambertMaterial({color:0x9aa1a9}), crim=new THREE.MeshLambertMaterial({color:0xc8102e}),
+        led=new THREE.MeshBasicMaterial({color:0xff3348});
+  const puck=at(new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.07,0.03,16),silver),0,0,-0.28); puck.rotation.x=Math.PI/2; g.add(puck);
+  const ring=at(new THREE.Mesh(new THREE.TorusGeometry(0.055,0.005,6,20),crim),0,0,-0.297); g.add(ring);
+  g.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.012,8,6),led),0,0,-0.3));
+  g.position.set(0.02,-0.04,0.02);
+  weaponHolders[SENSOR].add(g);
 })();
 
 /* Procedural frag grenade (Blast's G slot) */
@@ -594,6 +616,7 @@ function ensureValidWeapon(){
 function abilitySpent(i){
   const w = WEAPONS[i];
   if(!w || !w.ability || training('noCooldown')) return false;
+  if(i === SENSOR) return typeof silv !== 'undefined' && sensorHave(performance.now()) <= 0;   // both recharging
   return (abilityCharges[i] | 0) <= 0;
 }
 function fallbackWeapon(){

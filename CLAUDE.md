@@ -2263,6 +2263,20 @@ targets, one copy. It talks to the world through an adapter `W`
   sight) or any of his robots (200-degree cone, as Saltline's) is shown to him
   for 2s with a health bar over the head (`MARK_LINK`, silver-blue). The
   server sends him `linked` each tick ([{id, hp, ms}]).
+- **V sensor is HELD, like the grenade** (Jack, 2026-11-27): V puts it in
+  the hand (WEAPONS slot `SENSOR`, kind 'sensor'; `agentHas` counts `a.v`),
+  a ghost shows where it would stick (`updateSensorGhost`), and LEFT-CLICK
+  places it (`shoot()` -> `useSensor()`). **Two charges, 30s each, and two
+  can be out at once**; a third takes the oldest away. Charges are
+  `silv.sensorQ` (when each spent one comes back), fed by the server's
+  `silv.sensorQ` answer and `p.sensorShots`; `abilityTick` and
+  `abilitySpent` read it, so you keep holding the second after the first and
+  drop back to your gun when both are out. Measured on the range and the
+  server (`scratchpad/sensor2.js`): third placement refused, two out.
+- **Robots hang AROUND Silvars, not behind him** (Jack): the drone slowly
+  orbits him in world space starting from the side it is on; the dog stays
+  put while he turns and only moves when he gets ~4.4m away, back to the near
+  point on its own side, facing outward. Turning on the spot moves neither.
 - **V sensor**: placed by hand within 2.6m, on a surface or the floor; the
   server re-casts the ray from his eye (`sensor` handler), so it cannot go
   inside a wall. It sits proud of the surface. Triggers when an enemy is

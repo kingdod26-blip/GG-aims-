@@ -168,3 +168,8 @@ bots, which stay untouched (Jack's rule).
 Built numbers used where Jack had not set one: dog leash 15m, bite and
 pounce 25, dog gun every 0.5s to 20m, sensor radius 8m, one sensor at a
 time, Tariq's trap sense 40m.
+
+**Changes 2026-11-27 (Jack):** V now puts the sensor in your hand like the
+grenade and left-click places it; it holds **two charges** (30s each) and two
+can be out at once. The drone and dog stay **around** Silvars instead of
+always behind him.
