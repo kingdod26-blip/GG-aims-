@@ -142,9 +142,8 @@ the rest of the game's models, following the Gull's and Hound's shape,
 parts and behaviour above, but made Crimson X's own - not a copy of
 Saltline's models. Credit Saltline as the reference.
 
-**Open (Saltline reference):**
-1. Keep Saltline's white-and-orange paint, or repaint them in Crimson X's
-   crimson on near-black?
+**Paint (Jack, 2026-11-27): more SILVER.** The drone and dog are mostly
+silver metal rather than Saltline's white-and-orange panels.
 
 **Build note:** the drone and dog are real AI units that must find their way
 round the map and be run by the server. This is separate from the practice
