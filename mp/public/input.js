@@ -387,6 +387,8 @@ function shoot(){
     // local hit detection (target practice)
     _ray.set(o,dir); _ray.far=w.range; const wh=_ray.intersectObjects(wallMeshes,false); let bd=Math.min(wh.length?wh[0].distance:Infinity, w.range);
     let best=null, mult=1, zone=null;
+    // your own sensor takes a round if it is the first thing hit (Silvars)
+    const own = shotSensor(o, dir, bd); if(own){ own.r.alive=false; own.r.why='destroyed'; hitmark('torso'); continue; }
     for(const b of localBots){ if(!b.alive) continue;
       const z = hitZone(o, dir, b.x, b.z, 0, 0);     // bots always stand
       if(z && z.t<bd){ bd=z.t; best=b; mult=z.mult; zone=z.zone; } }

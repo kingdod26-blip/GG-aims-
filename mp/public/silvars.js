@@ -418,6 +418,17 @@ function stepLocalRobots(dt){
   onRobots(localRobots.map(r => robotWire(r, now)));
 }
 
+/* On the range: your own sensor along a shot, nearer than `maxT`, if any.
+   (In a match the server decides, robotOnRay.) */
+function shotSensor(o, dir, maxT){
+  let best = null;
+  for(const r of localRobots){
+    if(r.kind !== 'sensor' || !r.alive) continue;
+    const t = robotHitT(r, o.x, o.y, o.z, dir.x, dir.y, dir.z);
+    if(t < maxT && (!best || t < best.t)) best = { r, t };
+  }
+  return best;
+}
 /* One call a frame from loop.js. */
 function updateSilvars(dt){
   stepLocalRobots(dt);

@@ -1252,7 +1252,7 @@ io.on('connection', (socket) => {
       const h = stateAt(pl, mWhen);
       tryT(h.x, h.y + 1.1, h.z, { kind:'player', ref:pl });
     }
-    for (const r of room.robots) if (r.owner !== p.id && r.alive)
+    for (const r of room.robots) if (!spares(r, p.id) && r.alive)
       tryT(r.x, ROBOTS.robotCenterY(r), r.z, { kind:'robot', ref:r });
     if (best && best.kind === 'robot') {
       shootRobot(room, best.ref, heavyDmg || MELEE.combo[Math.min(p.comboStep || 0, MELEE.combo.length-1)], p, best.ref.x, ROBOTS.robotCenterY(best.ref), best.ref.z);
@@ -1518,7 +1518,7 @@ function explodeGrenade(room, g, now) {
   const thrower = players.get(g.by);
   const o = { x: g.x, y: g.y + 0.25, z: g.z };
   for (const r of room.robots.slice()) {
-    if (r.owner === g.by || !r.alive) continue;
+    if (spares(r, g.by) || !r.alive) continue;
     const ry = ROBOTS.robotCenterY(r), d = Math.hypot(r.x - o.x, ry - o.y, r.z - o.z);
     if (d >= GRENADE.radius || !ROBOTS.robotLos(room.robotG, o.x, o.y, o.z, r.x, ry, r.z)) continue;
     const dmg = d <= GRENADE.full ? GRENADE.dmg : Math.round(GRENADE.dmg * (1 - (d - GRENADE.full) / (GRENADE.radius - GRENADE.full)));
@@ -1571,11 +1571,14 @@ function igniteTarget(room, hit, byId, now) {
 
 /* ======================= Silvars' robots, in a room ======================
    The rules are in public/robots.js; this is the room they live in. */
-/* The nearest of someone else's robots along a ray, before `maxT`. */
+/* Your own drone and dog ignore your fire; your own SENSORS do not, so you
+   can take one down yourself (Jack, 2026-11-27). */
+const spares = (r, id) => r.owner === id && r.kind !== 'sensor';
+/* The nearest robot a shot can hit along a ray, before `maxT`. */
 function robotOnRay(room, shooterId, o, dir, maxT) {
   let best = null;
   for (const r of room.robots) {
-    if (!r.alive || r.owner === shooterId) continue;
+    if (!r.alive || spares(r, shooterId)) continue;
     const t = ROBOTS.robotHitT(r, o.x, o.y, o.z, dir.x, dir.y, dir.z);
     if (t < maxT && (!best || t < best.t)) best = { r, t };
   }
@@ -1818,7 +1821,7 @@ function tickRoom(room, now, dt) {
     /* someone else's robot in the bolt's path takes it, if nothing is nearer */
     let robotT = Infinity, robotV = null;
     for (const r of room.robots) {
-      if (r.owner === a.by || !r.alive) continue;
+      if (spares(r, a.by) || !r.alive) continue;
       const t = ROBOTS.robotHitT(r, o.x, o.y, o.z, dir.x, dir.y, dir.z);
       if (t <= stepLen && t < robotT) { robotT = t; robotV = r; }
     }

@@ -2273,6 +2273,10 @@ targets, one copy. It talks to the world through an adapter `W`
   `abilitySpent` read it, so you keep holding the second after the first and
   drop back to your gun when both are out. Measured on the range and the
   server (`scratchpad/sensor2.js`): third placement refused, two out.
+- **You can destroy your OWN sensor** (Jack, 2026-11-27): `spares(r, id)` in
+  server.js spares the owner's drone and dog from his fire but not his
+  sensors (bullets, blade, bolts, grenades); on the range `shotSensor` does the
+  same for bullets. Measured: own shot removes it, own dog stays at 200.
 - **Robots hang AROUND Silvars, not behind him** (Jack): the drone slowly
   orbits him in world space starting from the side it is on; the dog stays
   put while he turns and only moves when he gets ~4.4m away, back to the near
