@@ -29,6 +29,7 @@ server check on every ability (`p.agent`).
 
 | | |
 |---|---|
+| Real name | **Tariq Ziaten** (ASEED is the callsign) |
 | Role | *to decide* |
 | Passive | **Hearing**: an enemy who fires a gun, bolt or smoke bolt within 40m is shown through walls for 4s; then 30s before it can trigger again. Blade swings are silent. |
 | V | **Roll**: ~7.4m in 0.62s, 1.2s cooldown. **Jump roll** (added 2026-11-27): press V in the air after a jump and the roll fires on landing, ~10.2m in 0.87s. |
