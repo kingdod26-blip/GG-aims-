@@ -67,16 +67,19 @@ server check on every ability (`p.agent`).
 | Look | *to decide* |
 | Voice | *to decide* |
 
-**Suggested numbers (not agreed yet):**
-- Sensor: placed up to 6m away, scans an 8m radius, one out at a time.
-- Drone: 30 HP (can be shot down); dodge it by breaking line of sight before the 1s lock.
-- Dog: bite 25; gun fires every 0.5s out to 20m; about sprint speed; one at a time; 90s cooldown after it dies.
+Agreed with Jack 2026-11-27: health bar above the head; sensor by hand,
+visible on the surface; 30s for placing and re-scanning, triggered by
+detection; drone 60 HP, 40 crash damage, destroyed on crash, cooldown from
+use; dog until destroyed, 70s cooldown, stays near Silvars, 10m dash on
+release.
 
-**Open questions for Jack:**
-1. Sensor: is the 30s cooldown for placing a new one, or does a placed sensor stay and scan every 30s until destroyed?
-2. Drone crash damage: 50 (softens) or 100 (a kill)?
-3. Dog: stays until killed, or expires after a set time (e.g. 40s)?
-4. Multiplayer balance: rounds are often 1v1; should bots be weaker in multiplayer than in story missions?
+**Suggested numbers (not agreed yet):**
+- Sensor: scans an 8m radius; one out at a time.
+- Drone: dodge it by breaking line of sight before the 1s lock.
+- Dog: stays within ~15m of Silvars; bite 25; gun fires every 0.5s out to 20m; about sprint speed.
+
+**Still open:**
+1. Multiplayer balance: rounds are often 1v1; should the bots be weaker in multiplayer than in story missions?
 
 **Build note:** the drone and dog are real AI units that must find their way
 round the map and be run by the server. This is separate from the practice
