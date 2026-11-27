@@ -104,8 +104,8 @@
       <div class="lb-uid">UID <b id="uidVal">----</b></div>
       <nav class="lb-tabs" id="lbTabs">
         <button class="lb-tab on" data-tab="start"     data-i18n="tab.start">START</button>
-        <button class="lb-tab"    data-tab="operators" data-i18n="tab.operators">OPERATORS</button>
-        <button class="lb-tab"    data-tab="arsenal"   data-i18n="tab.arsenal">ARSENAL</button>
+        <button class="lb-tab"    data-page="agents"   data-i18n="tab.agents">AGENTS</button>
+        <button class="lb-tab"    data-page="weapons"  data-i18n="tab.weapons">WEAPONS</button>
         <button class="lb-tab"    data-tab="controls"  data-i18n="tab.controls">CONTROLS</button>
       </nav>
       <div class="lb-tr">
@@ -122,33 +122,8 @@
       <div class="lb-pane on" data-pane="start">
         <p class="lb-lead" data-i18n="start.tagline">Step onto the live-fire range.</p>
         <div class="lb-hint" data-i18n="start.hint">drag to inspect your operator</div>
-      </div>
-
-      <div class="lb-pane" data-pane="operators">
-        <p class="lb-lead" data-i18n="op.lead">Pick who you drop in as.</p>
+        <!-- the callsign lives here now; picking an agent is the AGENTS page (pages.js) -->
         <input id="nameInput" maxlength="16" placeholder="CALLSIGN" data-i18n-ph="op.callsign" />
-        <div class="agentrow" id="agentRow">
-          <div class="agent glass" data-agent="aseed">
-            <h4>ASEED</h4>
-            <p><b data-i18n="op.passive">Passive</b> <span data-i18n="aseed.passive">hears gunfire through walls</span></p>
-            <p><span data-i18n="aseed.kit">roll · fire bolt · smoke tag</span></p>
-          </div>
-          <div class="agent glass" data-agent="blast">
-            <h4>BLAST</h4>
-            <p><b data-i18n="op.passive">Passive</b> <span data-i18n="blast.passive">double jump</span></p>
-            <p><span data-i18n="blast.kit">dash · grenade ×2 · the zone</span></p>
-          </div>
-          <div class="agent glass" data-agent="silvars">
-            <h4>SILVARS</h4>
-            <p><b data-i18n="op.passive">Passive</b> <span data-i18n="silvars.passive">linked sight: sees what his robots see</span></p>
-            <p><span data-i18n="silvars.kit">sensor · drone · dog</span></p>
-          </div>
-        </div>
-      </div>
-
-      <div class="lb-pane" data-pane="arsenal">
-        <p class="lb-lead" data-i18n="arsenal.lead">Everything you can carry.</p>
-        <div class="lb-rows" id="arsenalRows"></div>
       </div>
 
       <div class="lb-pane" data-pane="controls">
@@ -340,6 +315,7 @@
 <script src="effects.js"></script>
 <script src="silvars.js"></script>
 <script src="hud.js"></script>
+<script src="pages.js"></script>
 <script src="loop.js"></script>
 </body>
 </html>

@@ -413,7 +413,7 @@ addEventListener('keydown', e=>{
   if(gameState !== 'home' || e.code !== 'Tab') return;
   if(typeof typingInField === 'function' && typingInField(e.target)) return;
   e.preventDefault();
-  const tabs = [...document.querySelectorAll('#lbTabs .lb-tab')];
+  const tabs = [...document.querySelectorAll('#lbTabs .lb-tab[data-tab]')];   // AGENTS / WEAPONS are pages (pages.js), not panes
   const i = tabs.findIndex(b => b.classList.contains('on'));
   showTab(tabs[(i + 1) % tabs.length].dataset.tab);
   Sfx.swap();

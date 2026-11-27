@@ -43,6 +43,7 @@ GG aims/
 │       ├── effects.js # 8. fire pools, smoke, marks, arrows, grenades, burn FX
 │       ├── silvars.js #    Silvars on the client: abilities, robot models, Linked Sight (unnumbered)
 │       ├── hud.js     # 9. HUD, kill feed, audio, armory, compass
+│       ├── pages.js   #    the WEAPONS and AGENTS pages off the lobby's top bar (unnumbered; after hud.js)
 │       ├── loop.js    # 10. movement, collision, main loop
 │       └── assets/    # models + textures
 └── extras/            # parked features (see slide-ability.md)
