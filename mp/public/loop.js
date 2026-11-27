@@ -390,6 +390,7 @@ function loop(){ requestAnimationFrame(loop);
           rl: rollT>0 ? +(1-rollT/rollDur).toFixed(3) : 0});   // roll progress, so others see the tumble
       } }
     }
+    if(!paused) updateSilvars(dt);           // Silvars' robots and Linked Sight, alive or spectating
     /* The snapshot writes me.hp straight from the server and never tells the
        HUD, so the number and the bar sat at whatever they last showed until
        something else happened to call updateHUD() — a weapon switch, a buy, a

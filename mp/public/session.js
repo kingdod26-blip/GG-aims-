@@ -211,6 +211,12 @@ function renderAbilityCards(){
       ['G', t('ab.gren'),    fill('ab.gren.d',  ch(GRENADE))],
       ['X', t('ab.zone'),    fill('ab.zone.d',  { dur: sec(ZONE.ms), cd: sec(ZONE.cdMs), hp: ZONE.regen })],
     ],
+    silvars: [
+      ['P', t('ab.linked'),  fill('ab.linked.d', { s: sec(SILV.linkMs) })],
+      ['V', t('ab.sensor'),  fill('ab.sensor.d', { r: SILV.sensor.radius, s: sec(SILV.linkMs), cd: sec(SILV.sensor.cdMs) })],
+      ['G', t('ab.drone'),   fill('ab.drone.d',  { lock: sec(SILV.drone.lockMs), dmg: SILV.drone.dmg, hp: SILV.drone.hp, cd: sec(SILV.drone.cdMs) })],
+      ['X', t('ab.dog'),     fill('ab.dog.d',    { leash: SILV.dog.leash, gun: SILV.dog.gunDmg, bite: SILV.dog.bite, hp: SILV.dog.hp, cd: sec(SILV.dog.cdMs) })],
+    ],
   };
   const order = [myAgent].concat(Object.keys(kit).filter(a => a !== myAgent));
   host.innerHTML = order.map(a => `
@@ -257,7 +263,7 @@ function quitToMenu(){
   // clear arrows in flight + reset ability state
   while(arrows.length) removeArrow(arrows[0]);
   for(const [id,m] of arrowGfx) scene.remove(m); arrowGfx.clear();
-  rollT=0; rollQueued=false; me.jumped=false; slideT=0; leanAmt=0; resetAbilities(); clearSmoke(); clearGrenades();
+  rollT=0; rollQueued=false; me.jumped=false; slideT=0; leanAmt=0; resetAbilities(); clearSmoke(); clearGrenades(); silvReset();
   dashT=0; dashCdUntil=0; climbT=0; zoneUntil=0; zoneReadyAt=0; document.body.classList.remove('inzone');
   me.hv.set(0,0,0); camRoll=0; camDip=0; comboStep=0; swingT=0;
   // stop timers / audio / input state
@@ -418,6 +424,7 @@ addEventListener('keydown', e=>{
 document.querySelectorAll('#agentRow .agent').forEach(el => el.onclick = ()=>{
   myAgent = el.dataset.agent;
   try{ localStorage.setItem('cx.agent', myAgent); }catch(e){}
+  setHeroLook(myAgent);                     // the podium wears the agent you picked
   renderLobbyCards(); Sfx.swap();
 });
 byId('cardAgent').onclick = ()=> showTab('operators');
@@ -773,8 +780,13 @@ function connectMP(name){
     switchWeapon(d.slot); updateHUD(); if(armoryOpen) renderArmory(); });
   // the server wipes fire, smoke and arrows between rounds — follow it, or
   // last round's pools keep burning on screen over the new one
+  /* Silvars: the robots, what they do, his cooldowns, and Linked Sight */
+  socket.on('robots', list=>onRobots(list));
+  socket.on('robotfx', d=>onRobotFx(d));
+  socket.on('silv', d=>onSilvTimers(d));
+  socket.on('linked', list=>onLinked(list));
   socket.on('fieldclear', ()=>{
-    clearGroundFires(); clearSmoke();
+    clearGroundFires(); clearSmoke(); clearRobots(); linkedNow.clear();
     for(const [id,m] of arrowGfx){ scene.remove(m); disposeTree(m); }
     arrowGfx.clear();
     for(const o of others.values()){ clearBurnFx(o); clearMark(o); }
@@ -989,7 +1001,7 @@ function onSnapshot(s){
        undefined and the heard-them-shoot silhouette never drew once. The smoke
        tag was unaffected because it tests o.markedBy, which comes off the
        snapshot. */
-    let o=others.get(p.id); if(!o){ const mesh=newPlayerMesh(p.color); scene.add(mesh); o={mesh,id:p.id,tx:p.x,tz:p.z,ty:p.y||0,tyaw:p.yaw}; others.set(p.id,o); }
+    let o=others.get(p.id); if(!o){ const mesh=newPlayerMesh(p.color, p.agent); scene.add(mesh); o={mesh,id:p.id,tx:p.x,tz:p.z,ty:p.y||0,tyaw:p.yaw}; others.set(p.id,o); }
     o.id = p.id;
     /* Velocity between snapshots, measured BEFORE the new position lands.
        animate() extrapolates with it so a moving player is drawn where they

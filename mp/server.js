@@ -91,6 +91,10 @@ const { MAPS, MAP_IDS, DEFAULT_MAP, mapById,
 /* What a room gets when nobody asks for a map. The env var is a way to make
    a whole server default to something other than foundry. */
 const DEFAULT_MAP_ID = mapById(process.env.MAP || DEFAULT_MAP).id;
+/* Silvars' sensor, drone and dog: the same file the browser runs on the
+   practice range (public/robots.js), so there is one copy of the rules. */
+const ROBOTS = require('./public/robots.js');
+const { SILV } = ROBOTS;
 /* A room's collision, built once when the room is made. `rects` is cover
    plus the four perimeter walls, and drives movement and line of sight;
    `rayBoxes` adds the roof, for anything that flies.
@@ -102,7 +106,7 @@ function arenaOf(map) {
   const rects = mapRects(map).concat(mapWallRects(map));
   /* GLASS (mat 'glass', maps.js) stops a player and not a shot, so it is in
      `rects` and left out of `rayBoxes`. */
-  return { map, arena: map.arena, wallH: map.wallH, roofY: mapRoofY(map),
+  return { map, arena: map.arena, wallH: map.wallH, roofY: mapRoofY(map), robotG: ROBOTS.robotGeo(map),
            resupply: { x: map.resupply.x, z: map.resupply.z },
            /* A roof stops a bullet but not a player, so it is in the ray
               list and NOT in `rects`, exactly like the ceiling. */
@@ -331,6 +335,7 @@ function makeRoom(id, holdMs, mapId) {
     players: new Map(),           // socket.id -> player
     parked: new Map(),            // token -> { wins, money, guns, name, at }
     smokes: [], fires: [], arrows: [], grenades: [],
+    robots: [],                   // Silvars' sensors, drones and dogs (robots.js)
     /* A room made by the Create button has nobody in it yet. Without a hold
        the very next tick would retire it before its creator's socket even
        connected, and their code would be dead on arrival. */
@@ -423,7 +428,7 @@ const XBOW = { headDmg: 90, bodyDmg: 50, burnDps: 12, burnMs: 5000, charges: 2, 
    Every ability handler checks it, so a patched client cannot throw an
    Aseed bolt as Blast or a grenade as Aseed. Must match AGENTS in
    public/weapons.js. */
-const AGENT_IDS = ['aseed', 'blast'];
+const AGENT_IDS = ['aseed', 'blast', 'silvars'];
 const agentOf = a => AGENT_IDS.includes(a) ? a : 'aseed';
 /* Blast's frag grenade: lobbed, bounces, goes off fuseMs after the throw.
    Full damage inside `full`, linear to nothing at `radius`, and blocked by
@@ -721,7 +726,14 @@ function respawnAll(room) {
 }
 function clearField(room) {        // no fire, smoke or arrows carried between rounds
   room.arrows.length = 0; room.smokes.length = 0; room.fires.length = 0; room.grenades.length = 0;
+  /* Robots do not carry between rounds either. A dog cleared away by the
+     round ending was not DESTROYED, so its 70s does not start: it is ready
+     for the next round. */
+  for (const r of room.robots) if (r.kind === 'dog') { const o = room.players.get(r.owner); if (o) o.dogReadyAt = 0; }
+  room.robots.length = 0;
+  for (const p of room.players.values()) if (p.linked) p.linked.clear();
   io.to(room.id).emit('fieldclear');
+  io.to(room.id).emit('robots', []);
 }
 /* Put every player out. The round ending used to leave the field alight: the
    award branch set the phase to 'intermission' without clearing anything, and
@@ -867,7 +879,7 @@ function freeSlot(room) {
    from last time — in practice on a join, a buy, a kill or a round ending. */
 function metaOf(room) {
   return { players: [...room.players.values()].map(p => ({
-    slot: p.slot, id: p.id, name: p.name, color: p.color,
+    slot: p.slot, id: p.id, name: p.name, color: p.color, agent: p.agent,
     money: p.money, wins: p.wins || 0, kills: p.kills, guns: p.guns })) };
 }
 function sendMeta(room, force) {
@@ -966,6 +978,7 @@ io.on('connection', (socket) => {
     hp: 100, alive: match.phase !== 'live', kills: 0, deaths: 0, wins: back ? back.wins : 0, tp: 0,
     agent: agentOf(auth.agent),        // locked for this connection
     gshots: [], zoneUntil: 0, zoneReadyAt: 0,
+    sensorReadyAt: 0, droneReadyAt: 0, dogReadyAt: 0, linked: new Map(),   // Silvars
     money: back ? back.money : ECON.start,
     guns: back ? back.guns : [],       // owned WEAPONS slots, in purchase order
     detectReadyAt: 0, detectUntil: 0, detectTarget: null,
@@ -1117,6 +1130,10 @@ io.on('connection', (socket) => {
       consider(h.x, h.z, h.y, h.st, { kind:'player', ref:other });
     }
 
+    /* Silvars' robots stop a round too: someone else's sensor, drone or dog
+       in the line of fire takes it if it is nearer than any player. */
+    const rHit = robotOnRay(room, p.id, o, dir, best.t);
+    if (rHit) { shootRobot(room, rHit.r, dmg, p, o.x + dir.x*rHit.t, o.y + dir.y*rHit.t, o.z + dir.z*rHit.t); return; }
     if (best.target) {
       const dealt = dmg * best.mult;
       const tgt = best.target.ref;
@@ -1235,6 +1252,14 @@ io.on('connection', (socket) => {
       const h = stateAt(pl, mWhen);
       tryT(h.x, h.y + 1.1, h.z, { kind:'player', ref:pl });
     }
+    for (const r of room.robots) if (r.owner !== p.id && r.alive)
+      tryT(r.x, ROBOTS.robotCenterY(r), r.z, { kind:'robot', ref:r });
+    if (best && best.kind === 'robot') {
+      shootRobot(room, best.ref, heavyDmg || MELEE.combo[Math.min(p.comboStep || 0, MELEE.combo.length-1)], p, best.ref.x, ROBOTS.robotCenterY(best.ref), best.ref.z);
+      p.comboStep = heavyDmg ? 0 : ((p.comboStep || 0) + 1) % MELEE.combo.length;
+      p.comboUntil = heavyDmg ? 0 : now + MELEE.windowMs;
+      return;
+    }
 
     /* every swing moves the chain on, hit or miss: the five cuts are yours
        to throw anywhere (a charged cut starts it again) */
@@ -1292,6 +1317,58 @@ io.on('connection', (socket) => {
     socket.emit('zone', { ms: ZONE.ms, readyIn: ZONE.ms + ZONE.cdMs });
   });
 
+  /* ---- Silvars: V sensor, G drone, X dog ----
+     Every request is answered with the three timers (ms from now), like the
+     zone, so the client's tiles come from here rather than from guessing. */
+  const silvTimers = (p, now) => {
+    const has = k => room.robots.some(r => r.owner === p.id && r.kind === k);
+    socket.emit('silv', { sensor: Math.max(0, p.sensorReadyAt - now), drone: Math.max(0, p.droneReadyAt - now),
+                          dog: has('dog') ? -1 : Math.max(0, p.dogReadyAt - now), droneOut: has('drone') ? 1 : 0 });
+  };
+  const silvOK = p => p && p.alive && p.agent === 'silvars' && match.phase === 'live';
+  socket.on('sensor', (d) => {
+    const p = players.get(socket.id); if (!p) return;
+    const now = Date.now();
+    if (!silvOK(p) || now < p.sensorReadyAt || !d) return silvTimers(p, now);
+    /* By hand: the point is re-found here from their eye along the direction
+       they sent, within reach, on a surface - so a client cannot stick one
+       inside a wall or across the map. */
+    const ey = (p.y || 0) + 1.6;
+    const dir = normalize(+d.dx || 0, +d.dy || 0, +d.dz || 0);
+    const h = ROBOTS.robotRay(room.robotG, p.x, ey, p.z, dir.x, dir.y, dir.z, SILV.sensor.reach, 'ray');
+    const t = h ? h.t : (dir.y < -0.2 ? -ey / dir.y : Infinity);        // the floor counts as a surface
+    if (!(t <= SILV.sensor.reach)) return silvTimers(p, now);
+    const n = h ? h : { nx: 0, ny: 1, nz: 0 };
+    for (let i = room.robots.length - 1; i >= 0; i--)          // one at a time: the old one goes
+      if (room.robots[i].owner === p.id && room.robots[i].kind === 'sensor') room.robots.splice(i, 1);
+    const k = SILV.sensor.r * 0.5;
+    room.robots.push(ROBOTS.makeRobot('sensor', p.id,
+      p.x + dir.x * t + n.nx * k, ey + dir.y * t + n.ny * k, p.z + dir.z * t + n.nz * k,
+      { nx: n.nx, ny: n.ny, nz: n.nz, readyAt: 0 }));
+    p.sensorReadyAt = now + SILV.sensor.cdMs;
+    silvTimers(p, now);
+  });
+  socket.on('drone', () => {
+    const p = players.get(socket.id); if (!p) return;
+    const now = Date.now();
+    if (!silvOK(p) || now < p.droneReadyAt || room.robots.some(r => r.owner === p.id && r.kind === 'drone')) return silvTimers(p, now);
+    const ey = (p.y || 0) + 1.6;
+    room.robots.push(ROBOTS.makeRobot('drone', p.id, p.x, ey + 0.6, p.z, { yaw: p.yaw || 0, state: 'follow' }));
+    p.droneReadyAt = now + SILV.drone.cdMs;                    // from when it is sent
+    silvTimers(p, now);
+  });
+  socket.on('dog', () => {
+    const p = players.get(socket.id); if (!p) return;
+    const now = Date.now();
+    if (!silvOK(p) || now < p.dogReadyAt || room.robots.some(r => r.owner === p.id && r.kind === 'dog')) return silvTimers(p, now);
+    const fx = -Math.sin(p.yaw || 0), fz = -Math.cos(p.yaw || 0);
+    room.robots.push(ROBOTS.makeRobot('dog', p.id, p.x + fx * 0.8, 0, p.z + fz * 0.8,
+      { yaw: p.yaw || 0, state: 'run', rdx: fx, rdz: fz, ran: 0 }));
+    p.dogReadyAt = Infinity;                                   // until it is destroyed
+    silvTimers(p, now);
+  });
+  socket.on('silvq', () => { const p = players.get(socket.id); if (p) silvTimers(p, Date.now()); });
+
   socket.on('arrow', (d) => {
     if (match.phase !== 'live') return;      // only during a live round
     const p = players.get(socket.id); if (!p || !p.alive || p.agent !== 'aseed') return;
@@ -1335,6 +1412,7 @@ io.on('connection', (socket) => {
       parked.set(p.tok, { wins: p.wins || 0, money: p.money, guns: p.guns,
                           name: p.name, at: Date.now() });
     players.delete(socket.id);
+    for (let i = room.robots.length - 1; i >= 0; i--) if (room.robots[i].owner === socket.id) room.robots.splice(i, 1);
     console.log(`[-] ${player.name} left ${room.id} (${players.size} online)`);
   });
 });
@@ -1436,6 +1514,13 @@ function explodeGrenade(room, g, now) {
   if (match.phase !== 'live') return;
   const thrower = players.get(g.by);
   const o = { x: g.x, y: g.y + 0.25, z: g.z };
+  for (const r of room.robots.slice()) {
+    if (r.owner === g.by || !r.alive) continue;
+    const ry = ROBOTS.robotCenterY(r), d = Math.hypot(r.x - o.x, ry - o.y, r.z - o.z);
+    if (d >= GRENADE.radius || !ROBOTS.robotLos(room.robotG, o.x, o.y, o.z, r.x, ry, r.z)) continue;
+    const dmg = d <= GRENADE.full ? GRENADE.dmg : Math.round(GRENADE.dmg * (1 - (d - GRENADE.full) / (GRENADE.radius - GRENADE.full)));
+    if (dmg > 0) shootRobot(room, r, dmg, thrower, r.x, ry, r.z);
+  }
   for (const t of players.values()) {
     if (!t.alive || t.id === g.by) continue;
     const cx = aimX(t), cy = (t.y || 0) + 1.0, cz = aimZ(t);
@@ -1479,6 +1564,95 @@ function igniteTarget(room, hit, byId, now) {
     if (isPlayer) t.deaths++;
     io.to(room.id).emit('kill', { by: shooter ? shooter.name : 'fire', byId: byId, victim: isPlayer ? t.name : 'a bot', head });
   }
+}
+
+/* ======================= Silvars' robots, in a room ======================
+   The rules are in public/robots.js; this is the room they live in. */
+/* The nearest of someone else's robots along a ray, before `maxT`. */
+function robotOnRay(room, shooterId, o, dir, maxT) {
+  let best = null;
+  for (const r of room.robots) {
+    if (!r.alive || r.owner === shooterId) continue;
+    const t = ROBOTS.robotHitT(r, o.x, o.y, o.z, dir.x, dir.y, dir.z);
+    if (t < maxT && (!best || t < best.t)) best = { r, t };
+  }
+  return best;
+}
+/* Damage to a robot from a player. A destroyed one is taken off on the next
+   robot tick, which is where its cooldown and its wreck are handled. */
+function shootRobot(room, r, dmg, by, x, y, z) {
+  io.to(room.id).emit('impact', { x, y, z, head: false, zone: 'torso', by: by ? by.id : null, robot: 1 });
+  ROBOTS.damageRobot(r, dmg);
+}
+function sendSilvTimers(room, owner, now, except) {
+  const sock = io.sockets.sockets.get(owner.id); if (!sock) return;
+  const has = k => room.robots.some(q => q !== except && q.alive && q.owner === owner.id && q.kind === k);
+  sock.emit('silv', { sensor: Math.max(0, owner.sensorReadyAt - now), drone: Math.max(0, owner.droneReadyAt - now),
+                      dog: has('dog') ? -1 : Math.max(0, owner.dogReadyAt - now), droneOut: has('drone') ? 1 : 0 });
+}
+/* What robots.js needs from a room. Everything a robot does is credited to
+   its owner: the damage, the hit marker, the kill. Kills by a robot clear
+   no cooldowns (Jack: "there is no kill cooldown"). */
+function robotWorld(room, now) {
+  const players = room.players;
+  return {
+    G: room.robotG, now,
+    owner: id => players.get(id) || null,
+    enemies: id => [...players.values()].filter(q => q.id !== id),
+    known: id => { const p = players.get(id); return p ? p.linked : new Map(); },
+    reveal: (id, tid) => { const p = players.get(id); if (p) p.linked.set(tid, now + SILV.linkMs); },
+    hurt: (r, t, dmg, how) => {
+      if (!t.alive || room.match.phase !== 'live') return;
+      const owner = players.get(r.owner);
+      t.hp -= dmg;
+      io.to(t.id).emit('hurt', { x: r.x, z: r.z });
+      io.to(room.id).emit('impact', { x: t.x, y: ROBOTS.robotChestY(t), z: t.z, head: false, zone: 'torso', by: r.owner });
+      if (t.hp <= 0 && t.alive) {
+        eliminate(room, t, true);
+        if (owner) owner.kills++;
+        t.deaths++;
+        io.to(room.id).emit('kill', { by: owner ? owner.name : 'a robot', byId: r.owner, victim: t.name,
+                                      head: false, via: how });
+      }
+    },
+    fx: (k, d) => io.to(room.id).emit('robotfx', Object.assign({ k }, d)),
+    gone: (r, why) => {
+      const owner = players.get(r.owner);
+      if (r.kind === 'dog' && owner) owner.dogReadyAt = now + SILV.dog.cdMs;   // 70s from when it is gone
+      if (why !== 'crash') io.to(room.id).emit('robotfx', { k: 'die', id: r.id, kind: r.kind, x: r.x, y: r.y, z: r.z });
+      if (owner) sendSilvTimers(room, owner, now, r);
+    },
+  };
+}
+/* One tick of every robot, then Linked Sight from Silvars' own eyes, then
+   what goes on the wire: the robots to the room, and to each Silvars his
+   own list of who the team can see, with their health. */
+function tickRobots(room, now, dt) {
+  const players = room.players;
+  if (room.match.phase !== 'live' && room.robots.length) room.robots.length = 0;
+  if (room.robots.length) ROBOTS.stepRobots(robotWorld(room, now), room.robots, dt);
+  for (const p of players.values()) {
+    if (p.agent !== 'silvars') continue;
+    if (p.alive && room.match.phase === 'live') {
+      const fx = -Math.sin(p.yaw || 0), fz = -Math.cos(p.yaw || 0), ey = (p.y || 0) + 1.6;
+      for (const e of players.values()) {
+        if (e === p || !e.alive) continue;
+        const dx = e.x - p.x, dz = e.z - p.z, h = Math.hypot(dx, dz);
+        if (h > SILV.sight || (h > 1.5 && (dx * fx + dz * fz) / h < SILV.ownCos)) continue;
+        if (ROBOTS.robotLos(room.robotG, p.x, ey, p.z, e.x, ROBOTS.robotChestY(e), e.z)) p.linked.set(e.id, now + SILV.linkMs);
+      }
+    }
+    const list = [];
+    for (const [id, until] of p.linked) {
+      const e = players.get(id);
+      if (until <= now || !e || !e.alive || !p.alive) { p.linked.delete(id); continue; }
+      list.push({ id, hp: Math.max(0, Math.round(e.hp)), ms: until - now });
+    }
+    if (list.length || p.linkedSent) io.to(p.id).emit('linked', list);
+    p.linkedSent = list.length > 0;
+  }
+  if (room.robots.length || room.robotsSent) io.to(room.id).emit('robots', room.robots.map(r => ROBOTS.robotWire(r, now)));
+  room.robotsSent = room.robots.length > 0;
 }
 
 /* ------------------------------- Game loop -------------------------------- */
@@ -1634,6 +1808,22 @@ function tickRoom(room, now, dt) {
     };
     for (const pl of players.values())
       if (pl.alive && pl.id !== a.by) tryHit(aimX(pl), aimZ(pl), pl.y||0, pl.st||0, { kind:'player', ref:pl });
+    /* someone else's robot in the bolt's path takes it, if nothing is nearer */
+    let robotT = Infinity, robotV = null;
+    for (const r of room.robots) {
+      if (r.owner === a.by || !r.alive) continue;
+      const t = ROBOTS.robotHitT(r, o.x, o.y, o.z, dir.x, dir.y, dir.z);
+      if (t <= stepLen && t < robotT) { robotT = t; robotV = r; }
+    }
+    if (robotV && robotT < hitT) {
+      let wallBefore = false;
+      for (const r of room.rayBoxes) { const h = rayBoxHit(o, dir, r); if (h && h.t < robotT) { wallBefore = true; break; } }
+      if (!wallBefore) {
+        if (!a.smoke) shootRobot(room, robotV, XBOW.bodyDmg, players.get(a.by), robotV.x, ROBOTS.robotCenterY(robotV), robotV.z);
+        (a.smoke ? dropSmoke : dropFire)(room, robotV.x, robotV.kind === 'dog' ? 0 : floorUnder(room, robotV.x, robotV.z, robotV.y), robotV.z, a.by, now);
+        arrows.splice(i, 1); continue;
+      }
+    }
 
     // nearest wall along this step, height-aware
     let wallT = Infinity, wn = null;
@@ -1846,6 +2036,8 @@ function tickRoom(room, now, dt) {
   };
   for (const pl of players.values()) burnTick(pl, true);
 
+
+  tickRobots(room, now, dt);              // Silvars' sensor, drone and dog
 
   // broadcast a snapshot of the whole world
   recordHistory(room, now);               // for rewinding shots onto past positions

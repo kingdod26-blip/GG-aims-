@@ -258,16 +258,19 @@ function updateMarks(){
       if(!b.burnNext || b.burnNext > now + 1000) b.burnNext = now + 1000;
     }
     if(b.alive && smokeAt(b.x, 0, b.z)) b.markedUntil = now + SMOKEFX.markMs;
-    const on = b.alive && (b.markedUntil||0) > now;
-    if(on && !b.mark) b.mark = makeMarkFx(b.mesh);
-    else if(!on && b.mark) clearMark(b);
+    /* Silvars' Linked Sight marks a target too, in its own colour */
+    const smokedB = b.alive && (b.markedUntil||0) > now, linkedB = b.alive && isLinked(b);
+    const wantB = smokedB ? MARK_SMOKE : linkedB ? MARK_LINK : null;
+    if(wantB && (!b.mark || b.markColor !== wantB)){ clearMark(b); b.mark = makeMarkFx(b.mesh, wantB); b.markColor = wantB; }
+    else if(!wantB && b.mark){ clearMark(b); b.markColor = null; }
   }
   for(const o of others.values()){
     // two ways to see someone through a wall: you smoked them, or your passive
     // heard them shoot. Smoke wins the colour if both are true.
     const smoked = o.mesh.visible && o.markedBy && o.markedBy === myId;
     const heard  = o.mesh.visible && detectTarget === o.id;
-    const want   = smoked ? MARK_SMOKE : heard ? MARK_HEARD : null;
+    const linked = o.mesh.visible && isLinked(o);           // Silvars: his team sees them
+    const want   = smoked ? MARK_SMOKE : heard ? MARK_HEARD : linked ? MARK_LINK : null;
     if(want && (!o.mark || o.markColor !== want)){
       clearMark(o); o.mark = makeMarkFx(o.mesh, want); o.markColor = want;
     } else if(!want && o.mark){ clearMark(o); o.markColor = null; }

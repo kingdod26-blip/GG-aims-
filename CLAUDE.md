@@ -25,7 +25,9 @@ GG aims/
 │       ├── weapons.js # 5. player state, movement speeds, abilities, roster, viewmodels
 │       ├── session.js # 6. game state, menus, pause, networking, local bots
 │       ├── input.js   # 7. keyboard/mouse, shooting
+│       ├── robots.js  #    SILVARS' ROBOTS: rules for sensor/drone/dog (unnumbered; the server requires it too)
 │       ├── effects.js # 8. fire pools, smoke, marks, arrows, grenades, burn FX
+│       ├── silvars.js #    Silvars on the client: abilities, robot models, Linked Sight (unnumbered)
 │       ├── hud.js     # 9. HUD, kill feed, audio, armory, compass
 │       ├── loop.js    # 10. movement, collision, main loop
 │       └── assets/    # models + textures
@@ -2224,6 +2226,23 @@ sprint.
   jump, no sprint.
 - **Blast**. Passive: **double jump** (`jumps:2`). V **dash** · G **frag
   grenade** · X **the zone**.
+- **Silvars** (2026-11-27, Jack's design, `PLAN-characters.md`). Passive:
+  **Linked Sight**. V **sensor** · G **drone** · X **dog**. See Silvars below.
+
+**Each agent wears their own outfit** (2026-11-27, from Jack's sheets in
+`Crinsome x/Pictures/character design`): `makeOperator(accent, look)` in
+drawn.js, `OP_LOOKS` for the cloth colours. Tariq (Aseed): grey hood, crimson
+mask, plaid poncho, tattered crimson cape, bandolier, spined crimson
+vambraces. Blast: black helmet with a four-lens red night-vision unit, olive
+scarf and ear cups, dark camo, two red grenades, a big black pack. Silvars:
+grey hair and a face (no helmet), charcoal jacket with the hood down, brown
+vest with radios and green screens, wrist screens, a brown pack with
+antennas. The range's targets keep the plain plated operator. The agent rides
+in `meta` (`agent`) so other players are built in theirs, and the menu
+podium is rebuilt in the picked agent (`setHeroLook`). Cloth colours are set
+DARK on purpose: the outdoor light lifts everything, and the first pass read
+khaki. Jack's sheets also hold **"Ashara boss"** (a skull mask, scarf,
+tattered cloak) - a boss for the story, not built.
 
 `AGENTS[...].g` / `.x` name a WEAPONS slot when the ability is aimed and fired
 like a weapon (crossbow, smoke, grenade) or a string when it is instant
@@ -2232,6 +2251,57 @@ armory hides the other agent's, and the three cooldown tiles are re-pointed
 per agent by `configureTiles()` (`CD_ART` maps kind to icon). **Every ability
 handler on the server checks `p.agent`**, so a patched client cannot throw a
 grenade as Aseed or a bolt as Blast — measured both refused.
+
+### Silvars
+
+`public/robots.js` holds the RULES (`SILV` numbers, the AI, the geometry)
+and is plain JS required by the server and loaded by the browser, like
+maps.js: the server runs it per room, the range runs it locally against the
+targets, one copy. It talks to the world through an adapter `W`
+(`robotWorld` in server.js, `localRobotWorld` in silvars.js).
+- **Linked Sight**: an enemy seen by Silvars (a 100-degree view, 45m, line of
+  sight) or any of his robots (200-degree cone, as Saltline's) is shown to him
+  for 2s with a health bar over the head (`MARK_LINK`, silver-blue). The
+  server sends him `linked` each tick ([{id, hp, ms}]).
+- **V sensor**: placed by hand within 2.6m, on a surface or the floor; the
+  server re-casts the ray from his eye (`sensor` handler), so it cannot go
+  inside a wall. It sits proud of the surface. Triggers when an enemy is
+  within 8m with line of sight, reveals them, beeps (everyone hears it), then
+  30s before it can trigger again. Placing is on a 30s cooldown; one at a time.
+  1 HP. **Tariq's trap sense**: an Aseed sees enemy sensors through walls
+  within 40m (`updateTrapMark`).
+- **G drone**: 60 HP, one at a time, 40s from SENT. Follows over his shoulder,
+  hunts whoever the team can see, holds and locks for 1s with its own eyes
+  (lens and searchlight brighten, warning sound), then dives at 22 m/s: 40 on
+  contact and it is destroyed; a wall first is a crash for nothing.
+- **X dog**: 200 HP until destroyed, then 70s. Released it runs 10m the way he
+  faces and pounces (a 25 bite) on anyone within 3.5m it sees; then heels,
+  shoots (0.4s warning, 10 a shot every 0.5s to 20m, some spread) and bites
+  (25, every 1.2s) within a 15m leash of him. Runs at 8.4 (Saltline's Hound
+  runs 4.5, slower than our walk). Ground only: an A* grid of the floor
+  (0.75m cells, `robotGeo`), string-pulled. It cannot climb stairs.
+- Everything a robot does is credited to Silvars (damage, hit marker, kill,
+  `via` on the kill event). No kill clears his cooldowns (Jack).
+- Robots die with him, on disconnect, and at round end (`clearField`); a dog
+  cleared by the round ending does not start its 70s.
+- **Robots stop shots**: the fire handler, melee, bolts and grenades test
+  them (`robotOnRay`, `shootRobot`). This is a change to what a shot can HIT,
+  needed for "destroyed upon taking damage" (Jack's design); the guns
+  themselves are untouched.
+- On the wire: `robots` (every robot, every tick while any is out),
+  `robotfx` (beep, lock, dive, crash, dogshot, bite, die), `silv` (his three
+  timers in ms; -1 = the dog is out), `linked`. Nothing added to the binary
+  snapshot.
+- Models (silvars.js) are our own versions of Saltline's Gull and Hound,
+  silver with crimson trim: a quad with ducted fans and a chin searchlight;
+  a quadruped with a sensor head, a back gun and diagonal-pair gait. The
+  cooldown icons (`cd-sensor/drone/dog.png`) are placeholders, not Jack's art.
+- Probes: `scratchpad/robotsim.js` (the AI headless on the real map) and
+  `scratchpad/silvarsmp.js` (a real room; `DOGSHOT=1` shoots the dog).
+  Measured: drone lock 1.0s then 40; dog kills a 60 HP target in six shots;
+  kill credited "SILVARS -> VICTIM via dog"; three rifle rounds take the dog
+  200 -> 122. On the range, frames are throttled when the pane is hidden and
+  the robots crawl; step `updateSilvars(0.05)` by hand to test.
 
 **Dash** (`DASH`): 0.45s at 20 m/s, about 9m, 5s cooldown, works in the air
 and holds you level while it runs. Kept at 20 m/s because that is the

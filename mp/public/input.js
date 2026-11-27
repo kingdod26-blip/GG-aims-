@@ -37,11 +37,11 @@ addEventListener('keydown',e=>{
              if(at < inv.length) switchWeapon(inv[at]); }
   if(e.code==='Space' && !e.repeat) jumpPressed=true;   // edge, so holding won't spam
   // G and X are the agent's: a weapon slot to equip, or an instant ability
-  if(e.code==='KeyG') switchWeapon(agent().g);
-  if(e.code==='KeyX'){ const x = agent().x; if(x === 'zone') startZone(); else switchWeapon(x); }
+  if(e.code==='KeyG' && !e.repeat){ const g = agent().g; if(typeof g === 'string') useAgentKey(g); else switchWeapon(g); }
+  if(e.code==='KeyX' && !e.repeat){ const x = agent().x; if(x === 'zone') startZone(); else if(typeof x === 'string') useAgentKey(x); else switchWeapon(x); }
   if(e.code==='KeyF') switchWeapon(BLADE);              // equip the blade
   if(e.code==='KeyM' && !e.repeat){ e.preventDefault(); cycleMap(); }   // small -> large -> site
-  if(e.code==='KeyV' && !e.repeat){ if(agent().v === 'dash') startDash(); else startRoll(); }
+  if(e.code==='KeyV' && !e.repeat){ const v = agent().v; if(v === 'dash') startDash(); else if(v === 'roll') startRoll(); else useAgentKey(v); }
   if(e.code==='KeyC'){
     // sprinting -> slide; otherwise it's the normal crouch toggle
     // slide if you're sprinting OR still carrying speed (e.g. out of a roll)

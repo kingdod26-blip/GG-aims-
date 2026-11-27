@@ -1175,9 +1175,30 @@ function opMat(key, color, metalness, roughness, extra){
 }
 const OP_GEO = {};
 const opGeo = (key, make) => OP_GEO[key] || (OP_GEO[key] = make());
-function makeOperator(accent){
+/* THE AGENTS' LOOKS (2026-11-27, from Jack's character sheets in
+   `Crinsome x/Pictures/character design`). One body, three outfits:
+   TARIQ (Aseed): a grey hood with a crimson mask, a plaid poncho over
+     maroon sleeves, a tattered crimson-and-grey cape, a bandolier, crimson
+     armour on the forearms (with spines) and the shins, olive camo trousers.
+   BLAST: a black ballistic helmet with a four-lens night-vision unit
+     (red lenses), olive ear cups, an olive scarf over the face, dark camo,
+     a black plate carrier with two red grenades, a big black pack.
+   SILVARS: no helmet - grey hair and a face - a charcoal hooded jacket
+     with the hood down, a brown vest hung with radios and green screens,
+     wrist screens, knee pads, a brown pack with antennas and cable.
+   No `look` (the range's targets) keeps the original plated operator. */
+const OP_LOOKS = {
+  base:    { suit: 0x16181c, legs: 0x16181c, plate: 0x3d444d, dark: 0x22262b, arm: 0x3d444d },
+  aseed:   { suit: 0x1c1d20, legs: 0x1a1f17, plate: 0x3a141a, dark: 0x121314, arm: 0x2a1014, sleeve: 0x2e0d12 },
+  blast:   { suit: 0x191a15, legs: 0x181913, plate: 0x0d0e0f, dark: 0x0b0c0d, arm: 0x191a15 },
+  silvars: { suit: 0x15161a, legs: 0x1c1a17, plate: 0x2a2119, dark: 0x111110, arm: 0x15161a },
+};
+function makeOperator(accent, look){
+  const L = OP_LOOKS[look] ? look : 'base', K = OP_LOOKS[L];
   const g = new THREE.Group();
-  const suit = opMat('suit', 0x16181c, 0.0, 0.86), plate = opMat('plate', 0x3d444d, 0.50, 0.42), dark = opMat('pdark', 0x22262b, 0.45, 0.48);
+  const suit = opMat('suit' + L, K.suit, 0.0, 0.86), plate = opMat('plate' + L, K.plate, L === 'base' ? 0.50 : 0.25, L === 'base' ? 0.42 : 0.6),
+        dark = opMat('pdark' + L, K.dark, L === 'base' ? 0.45 : 0.2, L === 'base' ? 0.48 : 0.7);
+  const legs = opMat('legs' + L, K.legs, 0.0, 0.9), arm = opMat('arm' + L, K.arm, L === 'base' ? 0.5 : 0.1, 0.7);
   const acc = opMat('acc' + accent, accent, 0.25, 0.42), vis = opMat('vis' + accent, 0x06080a, 0.8, 0.10, { emissive: new THREE.Color(accent), emissiveIntensity: 1.1, side: THREE.DoubleSide });
   const P = (parent, m, geo, x, y, z, rx, rz) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); if (rx) o.rotation.x = rx; if (rz) o.rotation.z = rz; parent.add(o); return o; };
   const B = (w, h, d) => opGeo('b' + w + '_' + h + '_' + d, () => new THREE.BoxGeometry(w, h, d));
@@ -1188,7 +1209,7 @@ function makeOperator(accent){
     P(s, m, C(rt, rb, len), 0, -len / 2, 0); P(s, m, S(rt), 0, 0, 0); P(s, m, S(rb), 0, -len, 0); return s; };
 
   // ---- trunk
-  P(g, suit, C(0.150, 0.135, 0.20), 0, 0.93, 0).scale.set(1.12, 1, 0.82);                 // pelvis
+  P(g, legs, C(0.150, 0.135, 0.20), 0, 0.93, 0).scale.set(1.12, 1, 0.82);                 // pelvis
   P(g, dark, C(0.168, 0.168, 0.07), 0, 1.01, 0).scale.set(1.10, 1, 0.84);                 // belt
   for (const sx of [-1, 1]){ P(g, dark, B(0.07, 0.11, 0.05), sx * 0.155, 0.95, 0.07); P(g, dark, B(0.06, 0.09, 0.05), sx * 0.09, 0.955, 0.125); }   // pouches
   P(g, suit, C(0.175, 0.150, 0.26), 0, 1.16, 0).scale.set(1.08, 1, 0.80);                 // abdomen
@@ -1199,42 +1220,124 @@ function makeOperator(accent){
   for (const sx of [-1, 1]) P(g, dark, B(0.07, 0.05, 0.30), sx * 0.12, 1.545, 0);
   for (let i = -1; i <= 1; i++) P(g, dark, B(0.075, 0.11, 0.04), i * 0.088, 1.27, 0.178);
   P(g, acc, B(0.11, 0.024, 0.008), -0.085, 1.485, 0.176);                                 // the player's colour, on the chest
-  P(g, dark, B(0.26, 0.30, 0.10), 0, 1.36, -0.215); P(g, plate, C(0.045, 0.045, 0.24), 0.085, 1.40, -0.275);   // pack and canister
   P(g, suit, C(0.058, 0.066, 0.10), 0, 1.60, 0.005);                                      // neck
-  // ---- head: fitted to the head hitbox, a sphere of 0.19 at 1.70
-  const shell = opGeo('helm', () => new THREE.LatheGeometry([[0.001, 0.165], [0.070, 0.158], [0.118, 0.128], [0.146, 0.080], [0.154, 0.020], [0.150, -0.040], [0.138, -0.085], [0.120, -0.100]]
-    .map(p => new THREE.Vector2(p[0], p[1])), 22));
-  P(g, plate, shell, 0, 1.715, 0).scale.set(1, 1, 1.10);
-  P(g, suit, S(0.118), 0, 1.69, 0.012);                                                   // the face, in shadow
-  /* The visor and jaw are open arcs wrapped round the FRONT of the shell.
-     A cylinder's arc starts on its +Z side, so an arc from -0.95 to +0.95
-     radians is centred on the face. */
-  P(g, vis, opGeo('visor', () => new THREE.CylinderGeometry(0.158, 0.156, 0.074, 22, 1, true, -0.95, 1.9)), 0, 1.722, 0).scale.set(1, 1, 1.10);
-  P(g, dark, opGeo('jaw', () => new THREE.CylinderGeometry(0.157, 0.132, 0.080, 22, 1, true, -1.05, 2.1)), 0, 1.645, 0).scale.set(1, 1, 1.10);
-  dark.side = THREE.DoubleSide;
-  for (const sx of [-1, 1]){ P(g, dark, C(0.046, 0.046, 0.034), sx * 0.158, 1.705, 0, 0, Math.PI / 2); P(g, acc, C(0.018, 0.018, 0.038), sx * 0.160, 1.705, 0, 0, Math.PI / 2); }   // comms
-  P(g, dark, B(0.030, 0.020, 0.26), 0, 1.878, -0.010);                                    // crest rail
-  P(g, dark, B(0.010, 0.11, 0.010), 0.13, 1.90, -0.07);                                   // antenna
+
+  // ---- head and kit, per agent. The head stays inside the head hitbox, a sphere of 0.19 at 1.70.
+  if (L === 'aseed') {
+    const crim = opMat('tq_mask', 0x8a1520, 0.35, 0.45), hood = opMat('tq_hood', 0x232428, 0.0, 0.95),
+          cape = opMat('tq_cape', 0x2a0a10, 0.0, 0.95, { side: THREE.DoubleSide }), capeG = opMat('tq_capeg', 0x26272b, 0.0, 0.95, { side: THREE.DoubleSide }),
+          brass = opMat('tq_brass', 0xa8843e, 0.8, 0.35), shell = opMat('tq_shell', 0x8a1520, 0.3, 0.5);
+    P(g, dark, S(0.135), 0, 1.70, 0);                                                        // the balaclava under the hood
+    // the mask: a crimson shell over the face, eye slits, a ribbed snout
+    P(g, crim, opGeo('tqmask', () => new THREE.CylinderGeometry(0.142, 0.118, 0.17, 20, 1, true, -1.0, 2.0)), 0, 1.68, 0.012).scale.set(1, 1, 1.12);
+    for (const sx of [-1, 1]) P(g, dark, B(0.05, 0.014, 0.02), sx * 0.045, 1.725, 0.152);
+    P(g, crim, B(0.07, 0.06, 0.05), 0, 1.635, 0.14);
+    for (let i = 0; i < 3; i++) P(g, dark, B(0.05, 0.006, 0.01), 0, 1.618 + i * 0.016, 0.166);
+    // the hood: a dome turned on a lathe, open across the face
+    P(g, hood, opGeo('tqhood', () => new THREE.LatheGeometry([[0.001, 0.2], [0.09, 0.19], [0.15, 0.15], [0.18, 0.08], [0.185, 0.0], [0.175, -0.08], [0.16, -0.13]]
+      .map(p => new THREE.Vector2(p[0], p[1])), 20, 0.85, Math.PI * 2 - 1.7)), 0, 1.70, -0.01).material.side = THREE.DoubleSide;
+    // the poncho over the shoulders, and the sleeves under it
+    P(g, hood, opGeo('tqponcho', () => new THREE.CylinderGeometry(0.17, 0.33, 0.24, 18, 1, true)), 0, 1.47, 0).scale.set(1.05, 1, 0.8);
+    // the bandolier across the chest, with its row of shells
+    const band = new THREE.Group(); band.position.set(0, 1.36, 0.185); band.rotation.z = 0.75; g.add(band);
+    P(band, dark, B(0.045, 0.52, 0.012), 0, 0, 0);
+    for (let i = 0; i < 7; i++){ P(band, shell, B(0.016, 0.03, 0.016), 0, -0.18 + i * 0.05, 0.012); P(band, brass, B(0.017, 0.008, 0.017), 0, -0.196 + i * 0.05, 0.012); }
+    // the cape: torn strips hanging from the shoulders, crimson and grey
+    const capeLen = [0.95, 0.80, 1.02, 0.88, 0.98, 0.78, 0.92, 0.85];
+    capeLen.forEach((len, i) => {
+      const a = -1.25 + i * (2.5 / (capeLen.length - 1));
+      const strip = P(g, i % 3 === 1 ? capeG : cape, opGeo('tqstrip' + len, () => { const p = new THREE.PlaneGeometry(0.13, len); p.translate(0, -len / 2, 0); return p; }),
+        Math.sin(a) * 0.26, 1.50, -Math.cos(a) * 0.2 - 0.02);
+      strip.rotation.y = -a; strip.rotation.x = 0.08;
+    });
+  } else if (L === 'blast') {
+    const olive = opMat('bl_olive', 0x2a2c1d, 0.0, 0.92), red = opMat('bl_red', 0x9a141c, 0.3, 0.45),
+          lens = opMat('bl_lens', 0x1a0306, 0.6, 0.2, { emissive: new THREE.Color(0xff1e2e), emissiveIntensity: 1.3 });
+    const helm = opGeo('helm', () => new THREE.LatheGeometry([[0.001, 0.165], [0.070, 0.158], [0.118, 0.128], [0.146, 0.080], [0.154, 0.020], [0.150, -0.040], [0.138, -0.085], [0.120, -0.100]]
+      .map(p => new THREE.Vector2(p[0], p[1])), 22));
+    P(g, dark, helm, 0, 1.745, 0).scale.set(1, 0.82, 1.10);                                 // the helmet, high cut
+    P(g, olive, S(0.122), 0, 1.68, 0.005);                                                   // the scarf up over the face
+    P(g, olive, opGeo('blscarf', () => new THREE.CylinderGeometry(0.13, 0.15, 0.12, 16)), 0, 1.60, 0.01);
+    for (const sx of [-1, 1]) P(g, olive, C(0.05, 0.05, 0.05), sx * 0.15, 1.69, 0, 0, Math.PI / 2);   // ear cups
+    // the night-vision unit: a mount on the brow, four tubes with red lenses
+    P(g, dark, B(0.08, 0.05, 0.05), 0, 1.80, 0.15);
+    P(g, dark, B(0.26, 0.04, 0.05), 0, 1.745, 0.175);
+    for (const x of [-0.09, -0.032, 0.032, 0.09]){
+      P(g, dark, C(0.026, 0.026, 0.07), x, 1.735, 0.21, Math.PI / 2);
+      P(g, lens, C(0.021, 0.021, 0.006), x, 1.735, 0.247, Math.PI / 2);
+    }
+    P(g, red, B(0.16, 0.006, 0.01), 0, 1.80, 0.13);                                         // the red stripe on the shell
+    for (const x of [-0.05, 0.03]) { P(g, red, C(0.022, 0.022, 0.09), x, 1.31, 0.2); P(g, dark, C(0.024, 0.024, 0.015), x, 1.36, 0.2); }   // two red grenades
+    P(g, dark, B(0.32, 0.38, 0.16), 0, 1.33, -0.25);                                        // the big pack
+    P(g, dark, C(0.012, 0.012, 0.3), 0.14, 1.62, -0.26);                                    // its antenna
+  } else if (L === 'silvars') {
+    const skin = opMat('sv_skin', 0x9c745d, 0.0, 0.75), hair = opMat('sv_hair', 0x6a6660, 0.0, 0.85),
+          screen = opMat('sv_screen', 0x0a1410, 0.4, 0.3, { emissive: new THREE.Color(0x48e0a0), emissiveIntensity: 0.9 }),
+          brown = opMat('sv_brown', 0x2b231b, 0.0, 0.9), gaiter = opMat('sv_gaiter', 0x2f2a22, 0.0, 0.95);
+    P(g, skin, S(0.118), 0, 1.69, 0.01).scale.set(0.95, 1.08, 1.0);                          // the head
+    P(g, hair, opGeo('svhair', () => new THREE.SphereGeometry(0.128, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.55)), 0, 1.71, -0.005).scale.set(1, 1.05, 1.08);
+    P(g, hair, B(0.17, 0.045, 0.06), 0.01, 1.80, 0.07).rotation.x = -0.4;                   // the swept fringe
+    for (const sx of [-1, 1]) P(g, dark, B(0.035, 0.012, 0.01), sx * 0.04, 1.71, 0.118);   // brows and eyes, in shadow
+    P(g, gaiter, opGeo('svgaiter', () => new THREE.CylinderGeometry(0.085, 0.10, 0.11, 14)), 0, 1.59, 0.01);
+    P(g, suit, opGeo('svhood', () => new THREE.TorusGeometry(0.11, 0.05, 8, 16)), 0, 1.585, -0.04, Math.PI / 2 - 0.3);   // the hood, down
+    // radios and screens across the vest, and one on each wrist (below)
+    P(g, dark, B(0.11, 0.07, 0.04), -0.02, 1.47, 0.19); P(g, screen, B(0.08, 0.045, 0.004), -0.02, 1.47, 0.212);
+    P(g, dark, B(0.05, 0.07, 0.04), 0.09, 1.47, 0.19); P(g, screen, B(0.035, 0.04, 0.004), 0.09, 1.47, 0.212);
+    P(g, dark, B(0.035, 0.1, 0.03), -0.12, 1.49, 0.19); P(g, dark, C(0.004, 0.004, 0.12), -0.13, 1.58, 0.19);
+    // the pack: brown, with a radio, two antennas and a loop of cable
+    P(g, brown, B(0.3, 0.36, 0.14), 0, 1.36, -0.24);
+    P(g, dark, B(0.06, 0.09, 0.04), 0.07, 1.42, -0.32);
+    P(g, dark, C(0.005, 0.006, 0.42), 0.12, 1.66, -0.24); P(g, dark, C(0.005, 0.006, 0.3), -0.12, 1.6, -0.26);
+    P(g, dark, opGeo('svcable', () => new THREE.TorusGeometry(0.1, 0.006, 4, 16)), 0, 1.32, -0.315);
+  } else {
+    const shell = opGeo('helm', () => new THREE.LatheGeometry([[0.001, 0.165], [0.070, 0.158], [0.118, 0.128], [0.146, 0.080], [0.154, 0.020], [0.150, -0.040], [0.138, -0.085], [0.120, -0.100]]
+      .map(p => new THREE.Vector2(p[0], p[1])), 22));
+    P(g, plate, shell, 0, 1.715, 0).scale.set(1, 1, 1.10);
+    P(g, suit, S(0.118), 0, 1.69, 0.012);                                                   // the face, in shadow
+    /* The visor and jaw are open arcs wrapped round the FRONT of the shell.
+       A cylinder's arc starts on its +Z side, so an arc from -0.95 to +0.95
+       radians is centred on the face. */
+    P(g, vis, opGeo('visor', () => new THREE.CylinderGeometry(0.158, 0.156, 0.074, 22, 1, true, -0.95, 1.9)), 0, 1.722, 0).scale.set(1, 1, 1.10);
+    P(g, dark, opGeo('jaw', () => new THREE.CylinderGeometry(0.157, 0.132, 0.080, 22, 1, true, -1.05, 2.1)), 0, 1.645, 0).scale.set(1, 1, 1.10);
+    dark.side = THREE.DoubleSide;
+    for (const sx of [-1, 1]){ P(g, dark, C(0.046, 0.046, 0.034), sx * 0.158, 1.705, 0, 0, Math.PI / 2); P(g, acc, C(0.018, 0.018, 0.038), sx * 0.160, 1.705, 0, 0, Math.PI / 2); }   // comms
+    P(g, dark, B(0.030, 0.020, 0.26), 0, 1.878, -0.010);                                    // crest rail
+    P(g, dark, B(0.010, 0.11, 0.010), 0.13, 1.90, -0.07);                                   // antenna
+    P(g, dark, B(0.26, 0.30, 0.10), 0, 1.36, -0.215); P(g, plate, C(0.045, 0.045, 0.24), 0.085, 1.40, -0.275);   // pack and canister
+  }
 
   // ---- legs: pivoted at the hip
+  const legArmour = L === 'aseed' ? plate : L === 'base' ? plate : null;
+  const pad = L === 'base' ? plate : opMat('kneepad' + L, 0x1a1b1d, 0.2, 0.6);
   const leg = (sx) => { const p = new THREE.Group(); p.position.set(sx * 0.098, 0.88, 0); g.add(p);
-    cap(p, suit, 0.088, 0.066, 0.40, 0, 0, 0);                                            // thigh
-    P(p, plate, B(0.12, 0.22, 0.045), sx * 0.012, -0.19, 0.070).rotation.x = -0.05;       // thigh plate
+    cap(p, legs, 0.088, 0.066, 0.40, 0, 0, 0);                                            // thigh
+    if (L === 'base') P(p, plate, B(0.12, 0.22, 0.045), sx * 0.012, -0.19, 0.070).rotation.x = -0.05;       // thigh plate
+    else P(p, legs, B(0.07, 0.12, 0.05), sx * 0.08, -0.22, 0.02);                          // cargo pocket
     P(p, dark, B(0.07, 0.13, 0.05), sx * 0.085, -0.16, 0);                                // holster / pouch
-    P(p, plate, S(0.062), 0, -0.415, 0.030).scale.set(1.05, 1.1, 0.9);                    // knee cap
-    cap(p, suit, 0.066, 0.050, 0.34, 0, -0.42, 0);                                        // shin
-    P(p, plate, B(0.10, 0.25, 0.045), 0, -0.59, 0.045);                                   // greave
+    P(p, pad, S(0.062), 0, -0.415, 0.030).scale.set(1.05, 1.1, 0.9);                      // knee
+    cap(p, legs, 0.066, 0.050, 0.34, 0, -0.42, 0);                                        // shin
+    if (legArmour) P(p, legArmour, B(0.10, 0.25, 0.045), 0, -0.59, 0.045);                // greave (Tariq's crimson ones)
     P(p, dark, B(0.105, 0.085, 0.24), 0, -0.835, 0.040); P(p, dark, B(0.100, 0.050, 0.10), 0, -0.790, -0.040);   // boot and heel
     P(p, dark, B(0.108, 0.030, 0.26), 0, -0.865, 0.045);                                  // sole
     return p; };
   const ll = leg(-1), rl = leg(1);
 
   // ---- arms: posed on a rifle held across the chest, muzzle low and to the body's left
-  for (const sx of [-1, 1]){ P(g, plate, S(0.090), sx * 0.262, 1.515, 0).scale.set(1.08, 0.86, 1.12); P(g, acc, B(0.010, 0.05, 0.11), sx * 0.356, 1.50, 0); }   // pauldrons
-  cap(g, suit, 0.058, 0.048, 0.27, 0.262, 1.49, 0, 0.25, 0.10);                           // right upper arm, down and a little back
-  const rf = cap(g, plate, 0.050, 0.040, 0.25, 0.235, 1.235, -0.065, -1.20, -0.42); P(rf, dark, B(0.07, 0.08, 0.08), 0, -0.285, 0);   // forearm forward to the grip
-  cap(g, suit, 0.058, 0.048, 0.27, -0.262, 1.49, 0, -0.55, -0.12);                        // left upper arm, reaching forward
-  const lf = cap(g, plate, 0.050, 0.040, 0.25, -0.232, 1.262, 0.142, -1.30, 0.62); P(lf, dark, B(0.07, 0.08, 0.08), 0, -0.285, 0);    // and across to the fore-end
+  const upper = L === 'aseed' ? opMat('tq_sleeve', OP_LOOKS.aseed.sleeve, 0, 0.85) : suit;
+  if (L === 'base') for (const sx of [-1, 1]){ P(g, plate, S(0.090), sx * 0.262, 1.515, 0).scale.set(1.08, 0.86, 1.12); P(g, acc, B(0.010, 0.05, 0.11), sx * 0.356, 1.50, 0); }   // pauldrons
+  else for (const sx of [-1, 1]) P(g, upper, S(0.082), sx * 0.255, 1.51, 0);              // a shoulder in cloth
+  cap(g, upper, 0.058, 0.048, 0.27, 0.262, 1.49, 0, 0.25, 0.10);                          // right upper arm, down and a little back
+  const rf = cap(g, arm, 0.050, 0.040, 0.25, 0.235, 1.235, -0.065, -1.20, -0.42); P(rf, dark, B(0.07, 0.08, 0.08), 0, -0.285, 0);   // forearm forward to the grip
+  cap(g, upper, 0.058, 0.048, 0.27, -0.262, 1.49, 0, -0.55, -0.12);                       // left upper arm, reaching forward
+  const lf = cap(g, arm, 0.050, 0.040, 0.25, -0.232, 1.262, 0.142, -1.30, 0.62); P(lf, dark, B(0.07, 0.08, 0.08), 0, -0.285, 0);    // and across to the fore-end
+  if (L === 'aseed') for (const f of [rf, lf]) {                                          // crimson vambraces with spines
+    P(f, plate, C(0.056, 0.05, 0.16), 0, -0.15, 0);
+    for (let i = 0; i < 3; i++) P(f, plate, opGeo('tqspine', () => new THREE.ConeGeometry(0.015, 0.06, 5)), 0.05, -0.09 - i * 0.045, 0, 0, -1.2);
+  }
+  if (L === 'silvars') {                                                                  // a screen on each wrist
+    const scr = opMat('sv_screen', 0x0a1410, 0.4, 0.3, { emissive: new THREE.Color(0x48e0a0), emissiveIntensity: 0.9 });
+    for (const f of [rf, lf]) { P(f, dark, B(0.07, 0.07, 0.02), 0, -0.18, 0.045); P(f, scr, B(0.05, 0.05, 0.004), 0, -0.18, 0.056); }
+  }
   const rifle = new THREE.Group(); rifle.position.set(0.045, 1.185, 0.215); rifle.rotation.set(0.10, 1.12, 0.10); g.add(rifle);
   P(rifle, M_DARK(), B(0.045, 0.070, 0.30), 0, 0, 0); P(rifle, M_POLY2(), B(0.042, 0.050, 0.22), 0, 0.004, 0.25);
   P(rifle, M_STEEL(), C(0.010, 0.010, 0.17), 0, 0.010, 0.44, Math.PI / 2); P(rifle, M_DARK(), C(0.016, 0.016, 0.05), 0, 0.010, 0.54, Math.PI / 2);
@@ -1246,14 +1349,20 @@ function makeOperator(accent){
      the trunk and the limbs make the same shadow on the floor. */
   g.traverse(o => { if (o.isMesh){ const p = o.geometry.parameters || {}; o.castShadow = (p.height || 0) >= 0.24 || (p.radius || 0) >= 0.085; } });
   const still = new THREE.Group();                 // what the loop swings in place of the arms
-  g.userData = { la: still, ra: still, ll, rl, walk: 0 };
+  g.userData = { la: still, ra: still, ll, rl, walk: 0, look: L };
   return g;
 }
 /* What the rest of the game calls for a body. Players take the brand
-   crimson unless they are given a colour; practice targets are amber, so a
+   crimson unless they are given a colour, and wear their agent's outfit;
+   practice targets are amber and keep the plain plated operator, so a
    target is never mistaken for a person. */
-newPlayerMesh = function(color){ return makeOperator(typeof color === 'number' ? color : BRAND); };
+newPlayerMesh = function(color, look){ return makeOperator(typeof color === 'number' ? color : BRAND, look); };
 newBotMesh = function(){ return makeOperator(0xd08a1e); };
-/* And the one on the podium at the menu. */
-(function(){ scene.remove(hero); hero = makeOperator(BRAND); hero.position.set(0, 0.12, 32); scene.add(hero);
-  heroGroup[0] = hero; spot.target = hero; scene.add(spot.target); })();
+/* And the one on the podium at the menu, in whoever you have picked. */
+function setHeroLook(look){
+  const at = hero ? hero.rotation.y : 0;
+  scene.remove(hero); hero = makeOperator(BRAND, look); hero.position.set(0, 0.12, 32); hero.rotation.y = at;
+  hero.visible = heroGroup[1] ? heroGroup[1].visible : true;
+  scene.add(hero); heroGroup[0] = hero; spot.target = hero; scene.add(spot.target);
+}
+setHeroLook(myAgent);

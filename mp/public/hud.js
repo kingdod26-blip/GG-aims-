@@ -133,10 +133,12 @@ const CD_TILES = [
   { id:'cdSmoke', kind:'smoke' },
 ];
 /* The three tiles are V, G and X, so what they show depends on the agent. */
-const CD_ART = { roll:'cd-roll', xbow:'cd-fire', smoke:'cd-smoke', dash:'cd-dash', grenade:'cd-grenade', zone:'cd-zone' };
+const CD_ART = { roll:'cd-roll', xbow:'cd-fire', smoke:'cd-smoke', dash:'cd-dash', grenade:'cd-grenade', zone:'cd-zone',
+                 sensor:'cd-sensor', drone:'cd-drone', dog:'cd-dog' };
 function configureTiles(){
   const a = agent();
-  const kinds = [a.v, a.g === XBOW ? 'xbow' : 'grenade', a.x === 'zone' ? 'zone' : 'smoke'];
+  const kinds = [a.v, typeof a.g === 'string' ? a.g : a.g === XBOW ? 'xbow' : 'grenade',
+                 typeof a.x === 'string' ? a.x : a.x === SMOKE ? 'smoke' : 'grenade'];
   CD_TILES.forEach((t, k) => {
     t.kind = kinds[k];
     const box = document.getElementById(t.id), img = box.querySelector('.cdico');
@@ -166,6 +168,17 @@ function cdState(kind, now){
     const remain = Math.max(0, dashCdUntil - now);
     return { remain, total:DASH.cdMs, have:remain > 0 ? 0 : 1, max:1 };
   }
+  /* Silvars' three: the sensor and drone are plain cooldowns; while the dog
+     is out its tile is lit and shows its health, then the 70s runs. */
+  if(kind === 'sensor' || kind === 'drone'){
+    const remain = Math.max(0, (kind === 'sensor' ? silv.sensorAt : silv.droneAt) - now);
+    return { remain, total: kind === 'sensor' ? SILV.sensor.cdMs : SILV.drone.cdMs, have: remain > 0 ? 0 : 1, max: 1 };
+  }
+  if(kind === 'dog'){
+    if(silv.dogOut) return { live:true, txt: String(Math.max(0, silv.dogHp | 0)), remain:0, total:1, have:1, max:1 };
+    const remain = Math.max(0, silv.dogAt - now);
+    return { remain: isFinite(remain) ? remain : 0, total: SILV.dog.cdMs, have: remain > 0 ? 0 : 1, max: 1 };
+  }
   if(kind === 'zone'){
     // while it runs the tile counts the 25s DOWN, lit; then the cooldown
     if(now < zoneUntil) return { live:true, remain: zoneUntil - now, total:ZONE.ms, have:1, max:1 };
@@ -188,7 +201,7 @@ function updateCooldowns(){
     if(L.cool !== cool){ t.box.classList.toggle('cool', cool); L.cool = cool; }
     if(L.regen !== regen){ t.box.classList.toggle('regen', regen); L.regen = regen; }
     if(live){
-      const secs = String(Math.ceil(st.remain / 1000));
+      const secs = st.txt !== undefined ? st.txt : String(Math.ceil(st.remain / 1000));
       if(L.secs !== secs){ t.time.textContent = secs; L.secs = secs; }
     } else if(cool){
       /* A 1.2s roll counted in whole seconds reads "2" for most of its life
@@ -618,6 +631,15 @@ const Sfx = (()=>{
     /* A pool catching, and a cloud bursting — heard from where they land. */
     ignite: safe((at)=>{ const dest = bus(at, 16); if(!dest) return;
       nz(dest,'lowpass',500,0.55,0.34,0,1400); osc(dest,'sine',90,60,0.25,0.22); }),
+    /* Silvars: the sensor's ping, which everyone near it hears; a robot's
+       warning before it acts (the drone's lock, the dog drawing a bead);
+       the dog's bite. */
+    beep: safe((at)=>{ const dest = bus(at, 14); if(!dest) return;
+      osc(dest,'square',1760,1760,0.07,0.16); osc(dest,'square',2350,2350,0.07,0.14,0.1); }),
+    lock: safe((at)=>{ const dest = bus(at, 16); if(!dest) return;
+      osc(dest,'sawtooth',520,1480,0.55,0.12); osc(dest,'sine',880,1760,0.5,0.10,0.05); }),
+    bite: safe((at)=>{ const dest = bus(at, 12); if(!dest) return;
+      nz(dest,'bandpass',1600,0.05,0.5,1.4); osc(dest,'square',190,90,0.09,0.28); nz(dest,'lowpass',500,0.12,0.4); }),
     hiss: safe((at)=>{ const dest = bus(at, 16); if(!dest) return;
       nz(dest,'highpass',1700,0.75,0.20); osc(dest,'sine',120,70,0.12,0.25); }),
     /* How loud the plant is from where you stand, 0..1 for each of its two

@@ -199,6 +199,10 @@ WEAPON_KEY[XBOW]='G'; WEAPON_KEY[SMOKE]='X'; WEAPON_KEY[GRENADE]='G'; WEAPON_KEY
 const AGENTS = {
   aseed: { id:'aseed', name:'ASEED', jumps:1, v:'roll', g:XBOW,    x:SMOKE,  hearing:true },
   blast: { id:'blast', name:'BLAST', jumps:2, v:'dash', g:GRENADE, x:'zone', hearing:false },
+  /* SILVARS (2026-11-27, PLAN-characters.md). Passive: Linked Sight. All
+     three are instant, so they are strings: V the sensor, G the drone, X the
+     dog. The robots and their rules are robots.js; the client side silvars.js. */
+  silvars: { id:'silvars', name:'SILVARS', jumps:1, v:'sensor', g:'drone', x:'dog', hearing:false },
 };
 let myAgent = (()=>{ try{ const a = localStorage.getItem('cx.agent'); return AGENTS[a] ? a : 'aseed'; }
                      catch(e){ return 'aseed'; } })();

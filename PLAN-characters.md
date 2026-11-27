@@ -55,7 +55,7 @@ server check on every ability (`p.agent`).
 | Look | *to decide* |
 | Voice | *to decide* |
 
-## 3. SILVARS (new, Jack's design, draft)
+## 3. SILVARS (new, Jack's design; BUILT 2026-11-27)
 
 | | |
 |---|---|
@@ -148,3 +148,23 @@ silver metal rather than Saltline's white-and-orange panels. **Trim is crimson**
 **Build note:** the drone and dog are real AI units that must find their way
 round the map and be run by the server. This is separate from the practice
 bots, which stay untouched (Jack's rule).
+
+---
+
+## Looks (Jack's sheets, `Crinsome x/Pictures/character design`) - built 2026-11-27
+
+- **Tariq (Aseed)**: grey hood, crimson mask, plaid poncho over maroon
+  sleeves, tattered crimson-and-grey cape, bandolier, crimson spined
+  vambraces and greaves, olive camo trousers.
+- **Blast**: black helmet with a four-lens night-vision unit (red lenses),
+  olive scarf and ear cups, dark camo, black plate carrier with two red
+  grenades, big black pack.
+- **Silvars**: grey hair, no helmet, charcoal hooded jacket (hood down),
+  brown vest with radios and green screens, wrist screens, knee pads, brown
+  pack with antennas and cable. (The sheet has a hawk on his pack; not built.)
+- **Ashara** (boss sheet): skull-faced metal mask, scarf, dark camo, tattered
+  cloak, bandolier. Saved for the story; not built yet.
+
+Built numbers used where Jack had not set one: dog leash 15m, bite and
+pounce 25, dog gun every 0.5s to 20m, sensor radius 8m, one sensor at a
+time, Tariq's trap sense 40m.
