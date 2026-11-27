@@ -179,3 +179,10 @@ own eyes): see-through outline and health bar for 2s, then a **20s cooldown**.
 
 **Dog (Jack, 2026-11-27):** **120 HP**; lasts **120 seconds**, then disappears; the 70s
 cooldown starts after that (or after it is destroyed, if sooner).
+
+**Orders (Jack, 2026-11-27):** press X (dog) or G (drone) again while it is out
+to send it to **guard** the spot you aim at, up to **20m** away. It stays
+there and fights anyone who comes near; aim at your feet to call it back, and
+it comes back by itself if you go more than 20m from the spot. Both abilities
+stay "on" while the robot is out; the cooldown (dog 70s, drone 40s) starts
+when it is gone.

@@ -2273,6 +2273,18 @@ targets, one copy. It talks to the world through an adapter `W`
   `abilitySpent` read it, so you keep holding the second after the first and
   drop back to your gun when both are out. Measured on the range and the
   server (`scratchpad/sensor2.js`): third placement refused, two out.
+- **Orders** (Jack, 2026-11-27): while the dog (X) or drone (G) is out,
+  pressing its key again sends it to GUARD the spot you aim at, up to
+  `SILV.order.range` (20m): `robotOrderPoint` (what the look meets, stopped
+  0.6m short of a wall, or the end of the range), socket `order {k, dx,dy,dz}`,
+  `r.guard`. The dog holds the spot and fights within `guardLeash` (8m) of
+  it; the drone hovers over it. Aiming at your own feet (within 3m) calls it
+  back, and walking more than 20m from the spot sends it back too
+  (`guardCheck`). A crimson ring marks the spot (`orderMark`). Robots now
+  notice anyone within 6m whatever way they face (`robotSees`), or a
+  guarding dog missed someone behind it.
+- **The drone's 40s starts when it is GONE** (crash, shot down, round end),
+  not when sent; its G tile is lit while it is out (server `drone: -1`).
 - **The dog lasts 120s** (`SILV.dog.lifeMs`, Jack 2026-11-27), then powers
   down and is gone (`why: 'expired'`, robotfx `expire`: no explosion); the
   70s starts then, as when it is destroyed. Its X tile counts the 120s down

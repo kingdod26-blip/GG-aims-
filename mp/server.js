@@ -729,7 +729,8 @@ function clearField(room) {        // no fire, smoke or arrows carried between r
   /* Robots do not carry between rounds either. A dog cleared away by the
      round ending was not DESTROYED, so its 70s does not start: it is ready
      for the next round. */
-  for (const r of room.robots) if (r.kind === 'dog') { const o = room.players.get(r.owner); if (o) o.dogReadyAt = 0; }
+  for (const r of room.robots) if (r.kind === 'dog' || r.kind === 'drone') { const o = room.players.get(r.owner);
+    if (o) { if (r.kind === 'dog') o.dogReadyAt = 0; else o.droneReadyAt = 0; } }
   room.robots.length = 0;
   for (const p of room.players.values()) if (p.linked) p.linked.clear();
   io.to(room.id).emit('fieldclear');
@@ -1324,7 +1325,7 @@ io.on('connection', (socket) => {
      zone, so the client's tiles come from here rather than from guessing. */
   const silvTimers = (p, now) => {
     const has = k => room.robots.some(r => r.owner === p.id && r.kind === k);
-    socket.emit('silv', { sensorQ: sensorQueue(p, now), drone: Math.max(0, p.droneReadyAt - now),
+    socket.emit('silv', { sensorQ: sensorQueue(p, now), drone: has('drone') ? -1 : Math.max(0, p.droneReadyAt - now),
                           dog: has('dog') ? -1 : Math.max(0, p.dogReadyAt - now), droneOut: has('drone') ? 1 : 0 });
   };
   const silvOK = p => p && p.alive && p.agent === 'silvars' && match.phase === 'live';
@@ -1359,8 +1360,19 @@ io.on('connection', (socket) => {
     if (!silvOK(p) || now < p.droneReadyAt || room.robots.some(r => r.owner === p.id && r.kind === 'drone')) return silvTimers(p, now);
     const ey = (p.y || 0) + 1.6;
     room.robots.push(ROBOTS.makeRobot('drone', p.id, p.x, ey + 0.6, p.z, { yaw: p.yaw || 0, state: 'follow' }));
-    p.droneReadyAt = now + SILV.drone.cdMs;                    // from when it is sent
+    p.droneReadyAt = Infinity;                                 // the 40s starts when it is GONE (Jack, 2026-11-27)
     silvTimers(p, now);
+  });
+  /* G or X again, while that robot is out: send it to guard the spot aimed
+     at, within SILV.order.range; at your own feet, call it back. */
+  socket.on('order', (d) => {
+    const p = players.get(socket.id); if (!p || !silvOK(p) || !d) return;
+    const kind = d.k === 'dog' ? 'dog' : 'drone';
+    const r = room.robots.find(q => q.owner === p.id && q.kind === kind && q.alive); if (!r) return;
+    const dir = normalize(+d.dx || 0, +d.dy || 0, +d.dz || 0);
+    const pt = ROBOTS.robotOrderPoint(room.robotG, p.x, (p.y || 0) + 1.6, p.z, dir.x, dir.y, dir.z, p.y || 0);
+    r.guard = pt; r.path = null; if (r.state === 'run') r.state = 'idle';
+    socket.emit('robotfx', { k: 'order', kind, x: pt ? pt.x : p.x, y: pt ? pt.y : (p.y || 0), z: pt ? pt.z : p.z, back: pt ? 0 : 1 });
   });
   socket.on('dog', () => {
     const p = players.get(socket.id); if (!p) return;
@@ -1599,7 +1611,7 @@ function sensorQueue(p, now) {
 function sendSilvTimers(room, owner, now, except) {
   const sock = io.sockets.sockets.get(owner.id); if (!sock) return;
   const has = k => room.robots.some(q => q !== except && q.alive && q.owner === owner.id && q.kind === k);
-  sock.emit('silv', { sensorQ: sensorQueue(owner, now), drone: Math.max(0, owner.droneReadyAt - now),
+  sock.emit('silv', { sensorQ: sensorQueue(owner, now), drone: has('drone') ? -1 : Math.max(0, owner.droneReadyAt - now),
                       dog: has('dog') ? -1 : Math.max(0, owner.dogReadyAt - now), droneOut: has('drone') ? 1 : 0 });
 }
 /* What robots.js needs from a room. Everything a robot does is credited to
@@ -1641,6 +1653,7 @@ function robotWorld(room, now) {
     gone: (r, why) => {
       const owner = players.get(r.owner);
       if (r.kind === 'dog' && owner) owner.dogReadyAt = now + SILV.dog.cdMs;   // 70s from when it is gone
+      if (r.kind === 'drone' && owner) owner.droneReadyAt = now + SILV.drone.cdMs;   // and the drone's 40s
       if (why === 'expired') io.to(room.id).emit('robotfx', { k: 'expire', id: r.id, kind: r.kind, x: r.x, y: r.y, z: r.z });
       else if (why !== 'crash') io.to(room.id).emit('robotfx', { k: 'die', id: r.id, kind: r.kind, x: r.x, y: r.y, z: r.z });
       if (owner) sendSilvTimers(room, owner, now, r);

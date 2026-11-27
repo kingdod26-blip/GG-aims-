@@ -57,7 +57,14 @@ const SILV = {
      every `gunMs` out to `gunRange`, with a `teleMs` warning first) and
      bites anyone who comes close. Speed is sprint speed: Saltline's Hound
      runs 4.5, slower than our walk, which could never keep up. */
-  dog: { lifeMs: 120000, cdMs: 70000, hp: 120, leash: 15, speed: 8.4, gunDmg: 10, gunMs: 500, gunRange: 20,
+  /* ORDERS (Jack, 2026-11-27): pressing X (dog) or G (drone) again while it
+     is out sends it to the spot you aim at, up to `orderRange` from you, to
+     GUARD it: it stays there and fights anyone who comes near (the dog
+     within `guardLeash` of the spot). An order at your own feet (within
+     `recallR`) calls it back; so does walking more than `orderRange` from
+     the spot. */
+  order: { range: 20, recallR: 3 },
+  dog: { lifeMs: 120000, cdMs: 70000, hp: 120, leash: 15, guardLeash: 8, speed: 8.4, gunDmg: 10, gunMs: 500, gunRange: 20,
          spread: 0.045, teleMs: 400, bite: 25, biteRange: 2.1, biteMs: 1200, lunge: 0.28,
          runDist: 10, runSpeed: 9.5, pounceR: 3.5, r: 0.5, eye: 0.75, follow: 2.4 },
 };
@@ -263,7 +270,8 @@ function damageRobot(r, dmg){
 function robotSees(W, r, e, eyeY, fwdX, fwdZ, cos){
   const ey = robotChestY(e), dx = e.x - r.x, dz = e.z - r.z, dy = ey - eyeY, d = Math.hypot(dx, dy, dz);
   if (d > SILV.sight) return false;
-  if (fwdX !== undefined && d > 1.5) { const h = Math.hypot(dx, dz) || 1; if ((dx * fwdX + dz * fwdZ) / h < cos) return false; }
+  // within 6m it notices you whichever way it faces
+  if (fwdX !== undefined && d > 6) { const h = Math.hypot(dx, dz) || 1; if ((dx * fwdX + dz * fwdZ) / h < cos) return false; }
   return robotLos(W.G, r.x, eyeY, r.z, e.x, ey, e.z) || robotLos(W.G, r.x, eyeY, r.z, e.x, robotBodyTop(e) - 0.15, e.z);
 }
 /* The live enemy this robot should be after: one IT can see first, then the
@@ -367,7 +375,15 @@ function stepDrone(W, r, owner, enemies, dt){
     return;
   }
 
+  guardCheck(r, owner);
   const e = robotPick(W, r, enemies, r.y);
+  if (!e && r.guard) {
+    /* guarding: hover over the spot, turning slowly to watch round it */
+    r.state = 'guard'; r.lock = 0; r.target = null;
+    droneFly(W, r, r.guard.x, (r.guard.y || 0) + D.alt + Math.sin(r.t / 600) * 0.15, r.guard.z, D.speed, dt);
+    r.yaw += dt * 0.6;
+    return;
+  }
   if (!e) {
     /* Nothing to hunt: it hangs BEHIND Silvars, over his right shoulder
        (Jack, 2026-11-27, after trying an orbit: "just make it stay behind
@@ -456,8 +472,17 @@ function stepDog(W, r, owner, enemies, dt){
     return;
   }
 
-  const leashOK = (x, z) => Math.hypot(x - owner.x, z - owner.z) <= S.leash;
-  const e = robotPick(W, r, enemies, eye, S.leash + S.gunRange, owner);
+  guardCheck(r, owner);
+  const anchor = r.guard || owner, leash = r.guard ? S.guardLeash : S.leash;
+  const leashOK = (x, z) => Math.hypot(x - anchor.x, z - anchor.z) <= leash;
+  const e = robotPick(W, r, enemies, eye, leash + S.gunRange, anchor);
+  if (!e && r.guard) {
+    /* guarding: go to the spot and hold it, watching away from where he is */
+    r.state = 'guard'; r.aimFrom = 0;
+    if (Math.hypot(r.x - r.guard.x, r.z - r.guard.z) > 0.8) dogMoveTo(W, r, r.guard.x, r.guard.z, S.speed, dt);
+    else { r.speed = 0; dogFace(r, r.x + (r.x - owner.x), r.z + (r.z - owner.z), dt); }
+    return;
+  }
   if (!e) {
     /* Heel: it stays NEAR Silvars, on whichever side it already is, and only
        moves when he gets more than a few metres away - turning on the spot
@@ -513,14 +538,33 @@ function stepDog(W, r, owner, enemies, dt){
   // otherwise hunt toward them, but never past the leash
   r.aimFrom = 0;
   let gx = e.x, gz = e.z;
-  const od = Math.hypot(gx - owner.x, gz - owner.z);
-  if (od > S.leash) { gx = owner.x + (gx - owner.x) / od * S.leash; gz = owner.z + (gz - owner.z) / od * S.leash; }
+  const od = Math.hypot(gx - anchor.x, gz - anchor.z);
+  if (od > leash) { gx = anchor.x + (gx - anchor.x) / od * leash; gz = anchor.z + (gz - anchor.z) / od * leash; }
   dogMoveTo(W, r, gx, gz, S.speed, dt);
+}
+
+/* A guard order lapses when Silvars is more than the order range from the
+   spot: the robot comes back to him. */
+function guardCheck(r, owner){
+  if (r.guard && Math.hypot(r.guard.x - owner.x, r.guard.z - owner.z) > SILV.order.range) { r.guard = null; r.path = null; }
+}
+/* Where an order sends a robot: what the look meets within range (a wall, a
+   crate, the floor), or the end of the range along it. Returns { x, y, z }
+   (y the floor under it), or null for "come back" (aimed at your own feet). */
+function robotOrderPoint(G, ex, ey, ez, dx, dy, dz, feetY){
+  const R = SILV.order.range;
+  const h = robotRay(G, ex, ey, ez, dx, dy, dz, R, 'ray');
+  let t = h ? h.t : (dy < -0.05 ? Math.min(R, (ey - (feetY || 0)) / -dy) : R);
+  // stop just short of a wall so the spot is in front of it, not inside it
+  if (h && h.axis !== 1) t = Math.max(0, t - 0.6);
+  const x = ex + dx * t, z = ez + dz * t;
+  if (Math.hypot(x - ex, z - ez) <= SILV.order.recallR) return null;
+  return { x, y: h && h.axis === 1 && dy < 0 ? ey + dy * t : (feetY || 0), z };
 }
 
 /* What goes on the wire for each robot, and back. Short keys: this is
    sent to the room every tick while any robot is out. */
-const ROBOT_STATES = ['idle', 'follow', 'hunt', 'lock', 'dive', 'run', 'engage'];
+const ROBOT_STATES = ['idle', 'follow', 'hunt', 'lock', 'dive', 'run', 'engage', 'guard'];
 function robotWire(r, now){
   return { i: r.id, k: r.kind === 'dog' ? 'g' : r.kind === 'drone' ? 'd' : 's', o: r.owner,
            x: +r.x.toFixed(2), y: +(r.y || 0).toFixed(2), z: +r.z.toFixed(2), w: +(r.yaw || 0).toFixed(2),
@@ -534,6 +578,6 @@ function robotWire(r, now){
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { SILV, robotGeo, robotRay, robotLos, makeRobot, stepRobots, damageRobot, robotHitT,
+  module.exports = { SILV, robotGeo, robotRay, robotLos, makeRobot, stepRobots, damageRobot, robotHitT, robotOrderPoint,
                      robotCenterY, robotWire, ROBOT_STATES, robotChestY };
 }

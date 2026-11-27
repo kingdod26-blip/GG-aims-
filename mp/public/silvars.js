@@ -29,7 +29,8 @@ function onSilvTimers(d){
   if(!d) return;
   const now = performance.now();
   silv.sensorQ  = (d.sensorQ || []).map(ms => now + ms);
-  silv.droneAt  = now + (d.drone || 0);
+  silv.droneOut = d.drone < 0;
+  silv.droneAt  = d.drone < 0 ? Infinity : now + (d.drone || 0);
   silv.dogOut   = d.dog < 0;
   silv.dogAt    = d.dog < 0 ? Infinity : now + (d.dog || 0);
   silv.droneOut = !!d.droneOut;
@@ -87,22 +88,49 @@ function updateSensorGhost(){
 function useDrone(){
   const now = performance.now();
   if(gameState!=='playing' || !me.alive) return;
-  if(now < silv.droneAt || silv.droneOut){ Sfx.empty(); return; }
+  if(silv.droneOut){ orderRobot('drone'); return; }               // G again: send it
+  if(now < silv.droneAt){ Sfx.empty(); return; }
   if(gameMode === 'mp'){ if(socket) socket.emit('drone'); return; }
   localRobots.push(makeRobot('drone', 'me', me.x, me.feetY + me.eyeH + 0.6, me.z, { yaw: me.yaw, state: 'follow' }));
-  silv.droneAt = training('noCooldown') ? 0 : now + SILV.drone.cdMs;
+  silv.droneOut = true; silv.droneAt = Infinity;                      // the 40s starts when it is gone
   Sfx.lock();
 }
 /* X: release the dog. It runs 10m the way you face. */
 function useDog(){
   const now = performance.now();
   if(gameState!=='playing' || !me.alive) return;
-  if(now < silv.dogAt || silv.dogOut){ Sfx.empty(); return; }
+  if(silv.dogOut){ orderRobot('dog'); return; }                     // X again: send it
+  if(now < silv.dogAt){ Sfx.empty(); return; }
   if(gameMode === 'mp'){ if(socket) socket.emit('dog'); return; }
   const fx = -Math.sin(me.yaw), fz = -Math.cos(me.yaw);
   localRobots.push(makeRobot('dog', 'me', me.x + fx*0.8, 0, me.z + fz*0.8, { yaw: me.yaw, state: 'run', rdx: fx, rdz: fz, ran: 0 }));
   silv.dogOut = true; silv.dogAt = Infinity;
   Sfx.dash();
+}
+/* G / X again while it is out: guard the spot you aim at (20m), or come back
+   if you aim at your own feet. */
+function orderRobot(kind){
+  const d = silvLook(), e = camera.position;
+  if(gameMode === 'mp'){ if(socket) socket.emit('order', { k: kind, dx: d.x, dy: d.y, dz: d.z }); return; }
+  const r = localRobots.find(q => q.kind === kind && q.alive); if(!r) return;
+  const pt = robotOrderPoint(robotGeo(currentMap), e.x, e.y, e.z, d.x, d.y, d.z, me.feetY);
+  r.guard = pt; r.path = null; if(r.state === 'run') r.state = 'idle';
+  onRobotFx({ k: 'order', kind, x: pt ? pt.x : me.x, y: pt ? pt.y : me.feetY, z: pt ? pt.z : me.z, back: pt ? 0 : 1 });
+}
+/* A crimson ring where you sent it, for a moment. */
+const orderMarks = [];
+function orderMark(x, y, z){
+  const m = new THREE.Mesh(rgeo('ordring', () => new THREE.RingGeometry(0.5, 0.62, 28)),
+    new THREE.MeshBasicMaterial({ color: CRIMSON, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+  m.rotation.x = -Math.PI / 2; m.position.set(x, (y || 0) + 0.04, z); scene.add(m);
+  orderMarks.push({ m, t: 0 });
+}
+function updateOrderMarks(dt){
+  for(let i = orderMarks.length - 1; i >= 0; i--){
+    const o = orderMarks[i]; o.t += dt;
+    o.m.scale.setScalar(1 + o.t * 0.6); o.m.material.opacity = 0.9 * Math.max(0, 1 - o.t / 1.4);
+    if(o.t > 1.4){ scene.remove(o.m); o.m.material.dispose(); orderMarks.splice(i, 1); }
+  }
 }
 function useAgentKey(k){
   if(k === 'sensor') useSensor(); else if(k === 'drone') useDrone(); else if(k === 'dog') useDog();
@@ -311,6 +339,7 @@ function onRobotFx(d){
     addTracer(o, e.clone().sub(o).divideScalar(len), len);
     Sfx.shoot(WEAPONS[3], at);
   }
+  else if(d.k === 'order'){ if(!d.back) orderMark(d.x, d.y, d.z); Sfx.beep(); }
   else if(d.k === 'expire') Sfx.swap();          // powered down: no explosion, just gone
   else if(d.k === 'die'){
     if(d.kind !== 'sensor') boom(d.x, Math.max(0, (d.y || 0)), d.z);
@@ -408,6 +437,7 @@ function localRobotWorld(now){
     },
     fx: (k, d) => onRobotFx(Object.assign({ k }, d)),
     gone: (r) => { if(r.kind === 'dog'){ silv.dogOut = false; silv.dogAt = training('noCooldown') ? 0 : performance.now() + SILV.dog.cdMs; }
+                   if(r.kind === 'drone'){ silv.droneOut = false; silv.droneAt = training('noCooldown') ? 0 : performance.now() + SILV.drone.cdMs; }
                    if(r.why !== 'crash') onRobotFx({ k: r.why === 'expired' ? 'expire' : 'die', kind: r.kind, x: r.x, y: r.y, z: r.z }); },
   };
 }
@@ -445,4 +475,5 @@ function updateSilvars(dt){
   updateRobotGfx(dt);
   updateLinked();
   updateSensorGhost();
+  updateOrderMarks(dt);
 }
