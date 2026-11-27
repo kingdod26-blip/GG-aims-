@@ -9,8 +9,9 @@ crumb (`brand.full`), link preview. The emblem is NOT drawn inside the game
 (Jack, 2026-11-28): the menu logo is text only (`brand.a/b` in i18n.js). The
 live link is eliteforce.onrender.com, served by NEW Render services
 `eliteforce` + `eliteforce-server` (Render cannot rename an address, and
-elite-force.onrender.com belongs to someone else); config.js keeps the old
-crimson-x-play page talking to the old crimson-x box until that pair is deleted; internal ids like `cx.agent` keep their old prefix on purpose,
+elite-force.onrender.com belongs to someone else); config.js sends any visit
+to the old crimson-x / crimson-x-play addresses to the new link until Jack
+deletes that pair in the dashboard; internal ids like `cx.agent` keep their old prefix on purpose,
 so nobody's saved settings are lost. The folder is now `Elite force/GG aims`.
 
 Browser FPS built with Three.js. No game engine: the browser is the runtime,
@@ -80,7 +81,7 @@ repointed). Kill a stuck server with `taskkill //F //IM node.exe`. The server ca
 ## Deployment
 
 - GitHub: https://github.com/kingdod26-blip/GG-aims- (private)
-- Live: https://eliteforce.onrender.com (server: eliteforce-server.onrender.com; the old crimson-x / crimson-x-play pair runs until deleted)
+- Live: https://eliteforce.onrender.com (server: eliteforce-server.onrender.com; old crimson-x addresses redirect there)
 - `render.yaml` is a Render blueprint; **`git push` auto-deploys**.
 - Free tier sleeps after ~15 min idle (first load ~30-60s).
 - **The client can be hosted apart from the server, and should be.** It used
