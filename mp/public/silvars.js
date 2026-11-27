@@ -241,7 +241,7 @@ function onRobots(list){
     }
     r.tx = w.x; r.ty = w.y; r.tz = w.z; r.tyaw = w.w; r.hp = w.h; r.state = w.s; r.lock = w.l || 0;
     r.owner = w.o; r.v = w.v || 0; r.lunge = !!w.u; r.ping = w.p;
-    if(w.k === 'g' && (w.o === myId || w.o === 'me')) silv.dogHp = w.h;
+    if(w.k === 'g' && (w.o === myId || w.o === 'me')){ silv.dogHp = w.h; silv.dogLeft = w.e; }
   }
   for(const [id, r] of robotGfx) if(!seen.has(id)){ scene.remove(r.mesh); clearTrapMark(r); robotGfx.delete(id); }
   // what is out tells the tiles too (the range has no server to say so)
@@ -311,6 +311,7 @@ function onRobotFx(d){
     addTracer(o, e.clone().sub(o).divideScalar(len), len);
     Sfx.shoot(WEAPONS[3], at);
   }
+  else if(d.k === 'expire') Sfx.swap();          // powered down: no explosion, just gone
   else if(d.k === 'die'){
     if(d.kind !== 'sensor') boom(d.x, Math.max(0, (d.y || 0)), d.z);
     else Sfx.hit();
@@ -407,7 +408,7 @@ function localRobotWorld(now){
     },
     fx: (k, d) => onRobotFx(Object.assign({ k }, d)),
     gone: (r) => { if(r.kind === 'dog'){ silv.dogOut = false; silv.dogAt = training('noCooldown') ? 0 : performance.now() + SILV.dog.cdMs; }
-                   if(r.why !== 'crash') onRobotFx({ k: 'die', kind: r.kind, x: r.x, y: r.y, z: r.z }); },
+                   if(r.why !== 'crash') onRobotFx({ k: r.why === 'expired' ? 'expire' : 'die', kind: r.kind, x: r.x, y: r.y, z: r.z }); },
   };
 }
 function stepLocalRobots(dt){

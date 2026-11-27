@@ -177,7 +177,8 @@ function cdState(kind, now){
     return { remain, total: SILV.drone.cdMs, have: remain > 0 ? 0 : 1, max: 1 };
   }
   if(kind === 'dog'){
-    if(silv.dogOut) return { live:true, txt: String(Math.max(0, silv.dogHp | 0)), remain:0, total:1, have:1, max:1 };
+    // while it is out the tile counts its 120s down
+    if(silv.dogOut) return { live:true, txt: String(Math.max(0, silv.dogLeft | 0)), remain:0, total:1, have:1, max:1 };
     const remain = Math.max(0, silv.dogAt - now);
     return { remain: isFinite(remain) ? remain : 0, total: SILV.dog.cdMs, have: remain > 0 ? 0 : 1, max: 1 };
   }

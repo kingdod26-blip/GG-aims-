@@ -1641,7 +1641,8 @@ function robotWorld(room, now) {
     gone: (r, why) => {
       const owner = players.get(r.owner);
       if (r.kind === 'dog' && owner) owner.dogReadyAt = now + SILV.dog.cdMs;   // 70s from when it is gone
-      if (why !== 'crash') io.to(room.id).emit('robotfx', { k: 'die', id: r.id, kind: r.kind, x: r.x, y: r.y, z: r.z });
+      if (why === 'expired') io.to(room.id).emit('robotfx', { k: 'expire', id: r.id, kind: r.kind, x: r.x, y: r.y, z: r.z });
+      else if (why !== 'crash') io.to(room.id).emit('robotfx', { k: 'die', id: r.id, kind: r.kind, x: r.x, y: r.y, z: r.z });
       if (owner) sendSilvTimers(room, owner, now, r);
     },
   };

@@ -176,3 +176,6 @@ always behind him.
 
 **Linked Sight (Jack, 2026-11-27):** only his robots light someone up (not his
 own eyes): see-through outline and health bar for 2s, then a **20s cooldown**.
+
+**Dog (Jack, 2026-11-27):** lasts **120 seconds**, then disappears; the 70s
+cooldown starts after that (or after it is destroyed, if sooner).

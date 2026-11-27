@@ -57,7 +57,7 @@ const SILV = {
      every `gunMs` out to `gunRange`, with a `teleMs` warning first) and
      bites anyone who comes close. Speed is sprint speed: Saltline's Hound
      runs 4.5, slower than our walk, which could never keep up. */
-  dog: { cdMs: 70000, hp: 200, leash: 15, speed: 8.4, gunDmg: 10, gunMs: 500, gunRange: 20,
+  dog: { lifeMs: 120000, cdMs: 70000, hp: 200, leash: 15, speed: 8.4, gunDmg: 10, gunMs: 500, gunRange: 20,
          spread: 0.045, teleMs: 400, bite: 25, biteRange: 2.1, biteMs: 1200, lunge: 0.28,
          runDist: 10, runSpeed: 9.5, pounceR: 3.5, r: 0.5, eye: 0.75, follow: 2.4 },
 };
@@ -436,6 +436,9 @@ function stepDog(W, r, owner, enemies, dt){
   const S = SILV.dog;
   r.t += dt * 1000;
   r.y = 0;
+  /* It lasts 120s, then powers down and is gone; the 70s starts then, the
+     same as if it had been destroyed (Jack, 2026-11-27). */
+  if (r.t >= S.lifeMs) { r.alive = false; r.why = 'expired'; return; }
   if (r.lungeT > 0) r.lungeT = Math.max(0, r.lungeT - dt);
   const fx = -Math.sin(r.yaw), fz = -Math.cos(r.yaw), eye = S.eye;
   r.seen = new Set();
@@ -529,7 +532,8 @@ function robotWire(r, now){
            n: r.kind === 'sensor' ? [+r.nx.toFixed(2), +r.ny.toFixed(2), +r.nz.toFixed(2)] : undefined,
            p: r.kind === 'sensor' ? Math.max(0, Math.round(((r.readyAt || 0) - now) / 1000)) : undefined,
            v: r.kind === 'dog' ? +(r.speed || 0).toFixed(1) : undefined,
-           u: r.kind === 'dog' && r.lungeT > 0 ? 1 : undefined };
+           u: r.kind === 'dog' && r.lungeT > 0 ? 1 : undefined,
+           e: r.kind === 'dog' ? Math.max(0, Math.round((SILV.dog.lifeMs - r.t) / 1000)) : undefined };
 }
 
 if (typeof module !== 'undefined' && module.exports) {

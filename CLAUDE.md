@@ -2273,6 +2273,10 @@ targets, one copy. It talks to the world through an adapter `W`
   `abilitySpent` read it, so you keep holding the second after the first and
   drop back to your gun when both are out. Measured on the range and the
   server (`scratchpad/sensor2.js`): third placement refused, two out.
+- **The dog lasts 120s** (`SILV.dog.lifeMs`, Jack 2026-11-27), then powers
+  down and is gone (`why: 'expired'`, robotfx `expire`: no explosion); the
+  70s starts then, as when it is destroyed. Its X tile counts the 120s down
+  while it is out (wire field `e`, seconds left). Measured: gone at 120.0s.
 - **Linked Sight is robots only, with a 20s cooldown** (Jack, 2026-11-27):
   only the drone, dog and sensors light someone up for him (2s, outline +
   health bar), never his own eyes; then `SILV.linkCdMs` (20s) before it can
