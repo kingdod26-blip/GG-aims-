@@ -57,7 +57,7 @@ const SILV = {
      every `gunMs` out to `gunRange`, with a `teleMs` warning first) and
      bites anyone who comes close. Speed is sprint speed: Saltline's Hound
      runs 4.5, slower than our walk, which could never keep up. */
-  dog: { lifeMs: 120000, cdMs: 70000, hp: 200, leash: 15, speed: 8.4, gunDmg: 10, gunMs: 500, gunRange: 20,
+  dog: { lifeMs: 120000, cdMs: 70000, hp: 120, leash: 15, speed: 8.4, gunDmg: 10, gunMs: 500, gunRange: 20,
          spread: 0.045, teleMs: 400, bite: 25, biteRange: 2.1, biteMs: 1200, lunge: 0.28,
          runDist: 10, runSpeed: 9.5, pounceR: 3.5, r: 0.5, eye: 0.75, follow: 2.4 },
 };

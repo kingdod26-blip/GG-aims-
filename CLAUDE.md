@@ -2305,7 +2305,7 @@ targets, one copy. It talks to the world through an adapter `W`
   hunts whoever the team can see, holds and locks for 1s with its own eyes
   (lens and searchlight brighten, warning sound), then dives at 22 m/s: 40 on
   contact and it is destroyed; a wall first is a crash for nothing.
-- **X dog**: 200 HP until destroyed, then 70s. Released it runs 10m the way he
+- **X dog**: 120 HP (was 200; Jack 2026-11-27), 120s or until destroyed, then 70s. Released it runs 10m the way he
   faces and pounces (a 25 bite) on anyone within 3.5m it sees; then heels,
   shoots (0.4s warning, 10 a shot every 0.5s to 20m, some spread) and bites
   (25, every 1.2s) within a 15m leash of him. Runs at 8.4 (Saltline's Hound
