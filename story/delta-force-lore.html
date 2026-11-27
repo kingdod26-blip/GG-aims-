@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delta Force Lore Map</title>
+<style>
+:root{
+  --bg:#0b0d0f; --panel:#14171b; --panel2:#1b1f24; --line:#2a2f36;
+  --t1:#f1f2f4; --t2:#c3c8cf; --t3:#8b929b;
+  --gti:#5fb0ff; --haavk:#ff5a5a; --guard:#e6a838; --gone:#7d838c; --ac:#5fb0ff;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f4f4f2; --panel:#fff; --panel2:#f0efec; --line:#dcd9d3;
+    --t1:#15171a; --t2:#3b4047; --t3:#6a7078;
+    --gti:#1e6fc0; --haavk:#c42a2a; --guard:#a2690a; --ac:#1e6fc0;
+  }
+}
+:root[data-theme="dark"]{ --bg:#0b0d0f; --panel:#14171b; --panel2:#1b1f24; --line:#2a2f36; --t1:#f1f2f4; --t2:#c3c8cf; --t3:#8b929b; --gti:#5fb0ff; --haavk:#ff5a5a; --guard:#e6a838; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--t2);font:15px/1.6 "Segoe UI",system-ui,sans-serif}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px 80px}
+header{padding:52px 0 26px;border-bottom:1px solid var(--line)}
+.kicker{color:var(--ac);letter-spacing:.2em;font-size:12px;font-weight:700;text-transform:uppercase}
+h1{color:var(--t1);font-size:clamp(32px,6vw,54px);line-height:1.04;margin:10px 0 12px}
+h2{color:var(--t1);font-size:25px;margin:52px 0 6px}
+h3{color:var(--t1);font-size:16.5px;margin:0 0 4px}
+.lead{max-width:780px;font-size:17px}
+.sub{color:var(--t3);max-width:800px;margin:0 0 18px}
+.note{margin-top:16px;padding:12px 14px;border-left:3px solid var(--ac);background:var(--panel);font-size:13.5px;color:var(--t3);max-width:860px}
+nav{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;gap:18px;overflow-x:auto;padding:10px 16px}
+nav a{color:var(--t3);text-decoration:none;font-size:13px;font-weight:600;white-space:nowrap}
+nav a:hover{color:var(--t1)}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+.fac{border-top:3px solid var(--c)} .fac .tag{color:var(--c);font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+.fac ul{margin:10px 0 0;padding-left:18px}
+.diagram{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:14px}
+.diagram svg{width:100%;height:auto;display:block}
+.tl{position:relative;padding-left:26px}
+.tl:before{content:"";position:absolute;left:7px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.ev{position:relative;margin:0 0 16px}
+.ev:before{content:"";position:absolute;left:-24px;top:7px;width:12px;height:12px;border-radius:50%;background:var(--c,var(--t3));box-shadow:0 0 0 3px var(--bg)}
+.ev .yr{color:var(--t1);font-weight:700;margin-right:8px;font-variant-numeric:tabular-nums}
+.ev .who{color:var(--t3);font-size:13px}
+.ev.now:before{box-shadow:0 0 0 3px var(--bg),0 0 14px var(--c)}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 18px}
+.filters button{background:var(--panel);color:var(--t2);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font:600 13px inherit;cursor:pointer}
+.filters button.on{background:var(--t1);color:var(--bg);border-color:var(--t1)}
+.roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.pc{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--c);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.pc.dead{opacity:.8}
+.pc .name{color:var(--t1);font-weight:700;line-height:1.25}
+.pc .call{color:var(--c);font-size:12px;font-weight:700;letter-spacing:.06em}
+.meta{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--panel2);color:var(--t2);border:1px solid var(--line)}
+.chip.k{color:var(--c);border-color:color-mix(in srgb,var(--c) 45%,var(--line))}
+.chip.v{color:#3fbf7f;border-color:color-mix(in srgb,#3fbf7f 45%,var(--line))}
+.chip.u{color:var(--t3);border-style:dashed}
+.pc p{margin:0;font-size:13.5px}
+.bar{height:6px;border-radius:3px;background:var(--panel2);overflow:hidden;margin-top:2px}
+.bar i{display:block;height:100%;background:var(--c)}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:14px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--t1);font-size:12px;letter-spacing:.08em;text-transform:uppercase;background:var(--panel2)}
+.tw{overflow-x:auto}
+.src li{margin-bottom:4px} .src a{color:var(--ac)}
+footer{margin-top:60px;color:var(--t3);font-size:12.5px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<header class="wrap">
+  <div class="kicker">Reference · Delta Force (三角洲行动) background · present day 2035</div>
+  <h1>How the Ahsarah story works</h1>
+  <p class="lead">A small country, Ahsarah, handed its water and power to a tech megacorp. The corp's grip turned into occupation, the government fell, and a civil war started. An international task force is sent into the middle of it. This page lays out the three sides, the timeline, every character in the notes Jack sent and their ages in 2035, and who is tied to whom.</p>
+  <div class="note">Reference only: this is TiMi Studios' world, summarised from Jack's notes and checked against public sources. Each character is marked <b style="color:#3fbf7f">confirmed</b> where public sources back them up, or <b>from notes</b> where only Jack's notes describe them. Some backstories differ between sources (see the bottom of the page).</div>
+</header>
+
+<nav><div class="wrap">
+  <a href="#premise">Premise</a><a href="#factions">Factions</a><a href="#timeline">Timeline</a><a href="#roster">Characters</a>
+  <a href="#ages">Ages</a><a href="#web">Connections</a><a href="#bosses">Bosses by map</a><a href="#sources">Sources</a>
+</div></nav>
+
+<main class="wrap">
+<section id="premise">
+  <h2>The premise in four steps</h2>
+  <div class="grid3">
+    <div class="card"><h3>1 · The deal</h3><p>Haavk, a global tech conglomerate, picks Ahsarah for its first big experiment: an AI system (ERAIS) that controls and shares out the whole country's water and electricity.</p></div>
+    <div class="card"><h3>2 · The grip</h3><p>Haavk builds up the country, then takes it over: a private security army, research into Relink brain-computer interfaces and cybernetics, and warlords paid to crush local resistance.</p></div>
+    <div class="card"><h3>3 · The war</h3><p>The conservative Ahsarah Guard fights back. The government collapses into open civil war. Cities split down the middle: in Brakkesh, Haavk holds the modern district and the Guard holds the old city.</p></div>
+    <div class="card"><h3>4 · The third side</h3><p>G.T.I., an international peacekeeping force, is deployed to stop the war, investigate Haavk and secure the infrastructure. The player is G.T.I., caught between both.</p></div>
+  </div>
+</section>
+
+<section id="factions">
+  <h2>The three factions</h2>
+  <div class="grid3">
+    <div class="card fac" style="--c:var(--gti)"><div class="tag">G.T.I. · Global Threat Initiative</div><h3>The peacekeepers (player)</h3>
+      <p>An international coalition task force. Two generations: veterans who built it before 2030 (most now dead), and the 2035 deployment.</p>
+      <ul><li><b>Wants:</b> end the war, expose Haavk, secure the infrastructure.</li><li><b>Inside story:</b> a spy (Beacon) was planted inside Haavk and killed there.</li></ul></div>
+    <div class="card fac" style="--c:var(--haavk)"><div class="tag">Haavk Corporation</div><h3>The megacorp</h3>
+      <p>Founded by Jacob Haavk. Runs Ahsarah's resources and experimental research, guarded by a mercenary security department.</p>
+      <ul><li><b>Wants:</b> total control of Ahsarah and its research (Relink, BCI, cybernetics).</li><li><b>Method:</b> security forces, cybernetic constructs, funded warlords.</li></ul></div>
+    <div class="card fac" style="--c:var(--guard)"><div class="tag">Ahsarah Guard</div><h3>The nationalist insurgents</h3>
+      <p>The rebel militia holding key sites such as Zero Dam and Longbow Valley, fighting to take their country back from Haavk and foreign forces.</p>
+      <ul><li><b>Wants:</b> Haavk and foreigners out; for some, the old monarchy back.</li><li><b>Fuel:</b> the 2029 raids, which left many of its leaders orphaned.</li></ul></div>
+  </div>
+  <div class="diagram"><svg viewBox="0 0 900 340" role="img" aria-label="Factions around Ahsarah">
+    <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--t3)"/></marker></defs>
+    <g font-family="Segoe UI,system-ui,sans-serif" font-size="14">
+      <circle cx="450" cy="180" r="64" fill="var(--panel2)" stroke="var(--t3)" stroke-width="2"/>
+      <text x="450" y="176" text-anchor="middle" fill="var(--t1)" font-weight="700">AHSARAH</text>
+      <text x="450" y="196" text-anchor="middle" fill="var(--t3)" font-size="12">water · power · cities</text>
+      <rect x="350" y="12" width="200" height="52" rx="8" fill="var(--panel2)" stroke="var(--gti)" stroke-width="2"/><text x="450" y="43" text-anchor="middle" fill="var(--gti)" font-weight="700">G.T.I.</text>
+      <rect x="40" y="268" width="220" height="52" rx="8" fill="var(--panel2)" stroke="var(--haavk)" stroke-width="2"/><text x="150" y="299" text-anchor="middle" fill="var(--haavk)" font-weight="700">HAAVK</text>
+      <rect x="640" y="268" width="220" height="52" rx="8" fill="var(--panel2)" stroke="var(--guard)" stroke-width="2"/><text x="750" y="299" text-anchor="middle" fill="var(--guard)" font-weight="700">AHSARAH GUARD</text>
+      <g stroke="var(--t3)" stroke-width="1.5" fill="none">
+        <line x1="450" y1="66" x2="450" y2="114" marker-end="url(#a)"/>
+        <line x1="250" y1="270" x2="396" y2="214" marker-end="url(#a)"/>
+        <line x1="650" y1="270" x2="504" y2="214" marker-end="url(#a)"/>
+        <line x1="262" y1="294" x2="636" y2="294" stroke-dasharray="5 5" marker-start="url(#a)" marker-end="url(#a)"/>
+        <path d="M352 46 C 190 60, 120 160, 140 264" marker-end="url(#a)"/>
+        <path d="M548 46 C 710 60, 780 160, 760 264" stroke-dasharray="3 4" marker-end="url(#a)"/>
+      </g>
+      <g font-size="12" fill="var(--t3)">
+        <text x="462" y="96">keep the peace</text><text x="270" y="226">control</text><text x="585" y="226">reclaim</text>
+        <text x="450" y="285" text-anchor="middle">civil war</text>
+        <text x="118" y="126">investigates, spies on</text>
+        <text x="650" y="126">uneasy contact; some</text><text x="650" y="142">defectors and blood ties</text>
+      </g>
+    </g></svg></div>
+</section>
+
+<section id="timeline">
+  <h2>Timeline</h2>
+  <p class="sub">The game is set in 2035 (plus a separate 1993 Black Hawk Down campaign). Almost every personal story starts with one year: 2029.</p>
+  <div class="tl">
+    <div class="ev" style="--c:var(--gti)"><span class="yr">1993</span>The separate classic campaign era (Mogadishu). Not part of the Ahsarah story. <span class="who">· campaign</span></div>
+    <div class="ev" style="--c:var(--gti)"><span class="yr">~2010</span>Kai Silva (D-Wolf) is born. Orphaned later and taken in by Carl Houston. <span class="who">· D-Wolf, Houston</span></div>
+    <div class="ev" style="--c:var(--haavk)"><span class="yr">pre-2029</span>Haavk's ERAIS system takes over Ahsarah's water and power; the corporation's grip tightens. <span class="who">· Jacob Haavk</span></div>
+    <div class="ev" style="--c:var(--haavk)"><span class="yr">2029</span>The Space City opening is bombed. Anais Desmoulins saves CTO Bashir Warabe, and is blinded and loses her voice; she runs on cybernetics from then on. <span class="who">· Desmoulins, Warabe</span></div>
+    <div class="ev" style="--c:var(--guard)"><span class="yr">2029</span>Haavk-funded raiders destroy Saeed's village. Tariq Ziaten, the old hunter, is killed by Haavk-backed warlords (Hamke); Saeed is orphaned. <span class="who">· Tariq, Saeed, Hamke</span></div>
+    <div class="ev" style="--c:var(--gti)"><span class="yr">2025-2035</span>Carl Houston, the legendary Delta leader who raised D-Wolf and saved Harrison (Raptor), dies before the deployment. <span class="who">· Houston, Raptor</span></div>
+    <div class="ev" style="--c:var(--gti)"><span class="yr">2035</span>Beacon, a G.T.I. spy deep inside Haavk and adopted son of a top G.T.I. executive, is uncovered and killed on Alonso Hudson's orders. <span class="who">· Beacon, Hudson</span></div>
+    <div class="ev now" style="--c:var(--gti)"><span class="yr">2035</span><b>Now.</b> The Ahsarah crisis: the G.T.I. deployment goes in against Haavk's bosses and the Guard's commanders, site by site. <span class="who">· the game</span></div>
+  </div>
+</section>
+
+<section id="roster">
+  <h2>Characters</h2>
+  <p class="sub">Every character from the notes, by faction and generation. Ages are as of 2035.</p>
+  <div class="filters" id="filters">
+    <button class="on" data-f="all">All</button><button data-f="gti">G.T.I.</button><button data-f="haavk">Haavk</button><button data-f="guard">Ahsarah Guard</button>
+    <button data-f="legacy">Older generation</button><button data-f="current">2035 generation</button><button data-f="boss">Bosses</button>
+  </div>
+  <div class="roster" id="grid"></div>
+</section>
+
+<section id="ages">
+  <h2>Ages at a glance (2035)</h2>
+  <p class="sub">The living cast, oldest to youngest. The G.T.I. operators are mostly in their twenties; Haavk's leaders are twenty to forty years older. Dashes mark the dead, at the age they would be now.</p>
+  <div class="diagram"><svg id="ageChart" viewBox="0 0 900 10" role="img" aria-label="Ages chart"></svg></div>
+</section>
+
+<section id="web">
+  <h2>Who is tied to whom</h2>
+  <p class="sub">The personal threads that make the factions' war personal. Dashed lines are deaths.</p>
+  <div class="diagram"><svg viewBox="0 0 960 520" role="img" aria-label="Relationship web">
+    <g font-family="Segoe UI,system-ui,sans-serif" font-size="13">
+      <g stroke="var(--t3)" stroke-width="1.4" fill="none">
+        <line x1="140" y1="90" x2="140" y2="250"/><line x1="140" y1="90" x2="300" y2="90"/>
+        <line x1="140" y1="250" x2="300" y2="90"/>
+        <line x1="620" y1="420" x2="800" y2="420" stroke-dasharray="6 5"/>
+        <line x1="620" y1="420" x2="460" y2="420"/>
+        <line x1="460" y1="250" x2="300" y2="250" stroke-dasharray="6 5"/>
+        <line x1="460" y1="250" x2="620" y2="250"/>
+        <line x1="620" y1="250" x2="760" y2="140"/>
+        <line x1="760" y1="140" x2="880" y2="250"/>
+        <line x1="760" y1="140" x2="620" y2="420"/>
+        <line x1="140" y1="420" x2="300" y2="420"/>
+      </g>
+      <g font-size="11.5" fill="var(--t3)">
+        <text x="146" y="175">raised (adoptive father)</text><text x="180" y="80">saved his life</text><text x="196" y="186">mentors</text>
+        <text x="650" y="410">killed by her backers</text><text x="510" y="410">father</text>
+        <text x="330" y="240">had him killed</text><text x="500" y="240">same company</text>
+        <text x="660" y="185">saved her boss</text><text x="830" y="185">answers to</text><text x="640" y="320">funds</text>
+        <text x="160" y="410">defected from</text>
+      </g>
+      <g>
+        <circle cx="140" cy="90" r="36" fill="var(--panel2)" stroke="var(--gone)" stroke-width="2"/><text x="140" y="86" text-anchor="middle" fill="var(--t1)" font-weight="700">Houston</text><text x="140" y="102" text-anchor="middle" fill="var(--t3)" font-size="11">dead</text>
+        <circle cx="300" cy="90" r="36" fill="var(--panel2)" stroke="var(--gti)" stroke-width="2.5"/><text x="300" y="94" text-anchor="middle" fill="var(--t1)" font-weight="700">Raptor</text>
+        <circle cx="140" cy="250" r="38" fill="var(--panel2)" stroke="var(--gti)" stroke-width="2.5"/><text x="140" y="254" text-anchor="middle" fill="var(--t1)" font-weight="700">D-Wolf</text>
+        <circle cx="300" cy="250" r="34" fill="var(--panel2)" stroke="var(--gone)" stroke-width="2"/><text x="300" y="246" text-anchor="middle" fill="var(--t1)" font-weight="700">Beacon</text><text x="300" y="262" text-anchor="middle" fill="var(--t3)" font-size="11">dead</text>
+        <circle cx="460" cy="250" r="38" fill="var(--panel2)" stroke="var(--haavk)" stroke-width="2.5"/><text x="460" y="254" text-anchor="middle" fill="var(--t1)" font-weight="700">Hudson</text>
+        <circle cx="620" cy="250" r="40" fill="var(--panel2)" stroke="var(--haavk)" stroke-width="2.5"/><text x="620" y="254" text-anchor="middle" fill="var(--t1)" font-weight="700">Desmoulins</text>
+        <circle cx="760" cy="140" r="36" fill="var(--panel2)" stroke="var(--haavk)" stroke-width="2.5"/><text x="760" y="144" text-anchor="middle" fill="var(--t1)" font-weight="700">Bashir</text>
+        <circle cx="880" cy="250" r="34" fill="var(--panel2)" stroke="var(--haavk)" stroke-width="2.5"/><text x="880" y="254" text-anchor="middle" fill="var(--t1)" font-weight="700">J. Haavk</text>
+        <circle cx="620" cy="420" r="36" fill="var(--panel2)" stroke="var(--guard)" stroke-width="2.5"/><text x="620" y="424" text-anchor="middle" fill="var(--t1)" font-weight="700">Hamke</text>
+        <circle cx="460" cy="420" r="36" fill="var(--panel2)" stroke="var(--gone)" stroke-width="2"/><text x="460" y="416" text-anchor="middle" fill="var(--t1)" font-weight="700">Tariq</text><text x="460" y="432" text-anchor="middle" fill="var(--t3)" font-size="11">dead</text>
+        <circle cx="800" cy="420" r="36" fill="var(--panel2)" stroke="var(--guard)" stroke-width="2.5"/><text x="800" y="424" text-anchor="middle" fill="var(--t1)" font-weight="700">Saeed</text>
+        <circle cx="300" cy="420" r="34" fill="var(--panel2)" stroke="var(--haavk)" stroke-width="2.5"/><text x="300" y="424" text-anchor="middle" fill="var(--t1)" font-weight="700">Haavk</text>
+        <circle cx="140" cy="420" r="34" fill="var(--panel2)" stroke="var(--gti)" stroke-width="2.5"/><text x="140" y="424" text-anchor="middle" fill="var(--t1)" font-weight="700">Nox</text>
+      </g>
+    </g></svg></div>
+  <p class="sub" style="margin-top:10px">Note: in the notes, Hamke (who ordered the raid on Saeed's village) is filed under the Ahsarah Guard section, but he is a warlord <i>backed by Haavk</i>. Treat him as Haavk's man inside Ahsarah.</p>
+</section>
+
+<section id="bosses">
+  <h2>Bosses by map</h2>
+  <p class="sub">The game ties each boss to a place, and each place to a side of the war.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Map / site</th><th>Boss</th><th>Side</th><th>Why they are there</th></tr></thead>
+    <tbody id="bossRows"></tbody>
+  </table></div>
+</section>
+
+<section id="sources">
+  <h2>Sources and confidence</h2>
+  <ul class="src">
+    <li><b>Setting, factions, ERAIS, Brakkesh split, 1993/2035 eras:</b> <a href="https://game8.co/articles/reviews/delta-force-hawk-ops-gameplay-and-story-info">Game8</a>, <a href="https://www.playdeltaforce.com/act/wikimap/">official wiki map</a>, <a href="https://zh.moegirl.org.cn/en/%E5%93%88%E5%A4%AB%E5%85%8B%E9%9B%86%E5%9B%A2">Moegirl (Haavk)</a>.</li>
+    <li><b>Operators and real names (D-Wolf / Kai Silva, Luna Kim, Stinger / Roy Smee, Shepherd, Sineva / Alexei Petrov):</b> <a href="https://www.destructoid.com/all-delta-force-hawk-ops-operators-including-classes-and-abilities/">Destructoid</a>, <a href="https://charlieintel.com/games/delta-force-hawk-ops-operators-335039">Charlie Intel</a>. Shepherd's surname appears as "Musa" there, "Muse" in the notes. Shepherd is listed as Engineer there, Recon in the notes.</li>
+    <li><b>Saeed and Zero Dam:</b> <a href="https://timesaver.gg/blog/delta-force-bosses-guide">boss guide</a>, <a href="https://mp1st.com/title-updates-and-patches/delta-force-ahsarah-update-deployed-via-patch-1-037-108">patch notes</a>, <a href="https://news.xbox.com/en-us/2026/02/03/delta-force-become-the-boss/">Xbox Wire</a>, <a href="https://deltaforcetools.gg/blog/delta-force-all-bosses-story-guide">bosses story guide</a>. Spelled Saeed, Sayid or Saeed Ziaten depending on the source.</li>
+    <li><b>From Jack's notes only (not found publicly in this search):</b> Tariq Ziaten, Carl Houston, Beacon, Hackclaw, the exact ages and most of the personal backstories. They may be right; they just weren't confirmed here.</li>
+  </ul>
+</section>
+<footer>Reference page, 2026-11-27. Delta Force is TiMi Studios / Tencent's game; this is a summary for study, not material for Crimson X.</footer>
+</main>
+
+<script>
+const COL = { gti:'var(--gti)', haavk:'var(--haavk)', guard:'var(--guard)' };
+const FN = { gti:'G.T.I.', haavk:'Haavk', guard:'Ahsarah Guard' };
+// v: confirmed publicly in this search (true) or from Jack's notes only (false)
+const P = [
+  { f:'gti', gen:'legacy', dead:true, name:'Tariq Ziaten', call:'Legend · hunter', age:65, died:'2029, ~59', v:false, text:'An old hunter killed by Haavk-funded warlords. Saeed\'s father.' },
+  { f:'gti', gen:'legacy', dead:true, name:'Carl Houston', call:'Delta Force leader', age:45, died:'before 2035, ~35', v:false, text:'Legendary leader who took in the orphaned D-Wolf and saved Harrison (Raptor).' },
+  { f:'gti', gen:'legacy', dead:true, name:'"Beacon" 信标', call:'Deep-cover spy', age:null, died:'2035, ~29', v:false, text:'Adopted son of a top G.T.I. executive. Planted inside Haavk; killed on Alonso Hudson\'s orders.' },
+  { f:'gti', gen:'legacy', name:'Landon Harrison', call:'Raptor 银翼', age:45, v:false, text:'Tracking specialist and electronic spy. Served with Houston; now the veteran guiding D-Wolf.' },
+  { f:'gti', gen:'current', name:'Kai Silva', call:'D-Wolf 红狼', age:25, v:true, text:'High-mobility assault operator (motorised exoskeleton). Orphaned, raised by Houston.' },
+  { f:'gti', gen:'current', name:'Roy Smee', call:'Stinger 蜜刺', age:26, v:true, text:'Support: medic and rescue combatant.' },
+  { f:'gti', gen:'current', name:'Terry Muse', call:'Shepherd 猎手', age:28, v:true, text:'Recon and tactical trapper in the notes; listed as Engineer in public sources.' },
+  { f:'gti', gen:'current', name:'Luna Kim', call:'Luna 露娜', age:26, v:true, text:'Recon: a bow whose sonar arrow reveals enemies.' },
+  { f:'gti', gen:'current', name:'Mai Xiaowen', call:'Hackclaw 金爪', age:25, v:false, text:'Signal interceptor and cyber-recon specialist.' },
+  { f:'gti', gen:'current', name:'Wang Yuhao', call:'Vyron 威龙', age:32, v:false, text:'Kinetic skirmisher and front-line breacher.' },
+  { f:'gti', gen:'current', name:'Alexei Petrov', call:'Sineva 震击', age:36, v:true, text:'Engineer, heavy armour and EOD veteran. Lost his fiancée, taught, then joined G.T.I.' },
+  { f:'gti', gen:'current', name:'Kasha', call:'Kasha 卡莎', age:29, v:false, text:'Heavy assault and breach specialist.' },
+  { f:'gti', gen:'current', name:'Nox', call:'Defector', age:29, v:false, text:'Support operator. A former Relink-enhanced Haavk agent who switched sides.' },
+  { f:'haavk', gen:'legacy', name:'Jacob Haavk', call:'CEO · founder', age:68, v:true, text:'Inherited his parents\' company; set its vision of a "resource-equal" society, tested first on Ahsarah.' },
+  { f:'haavk', gen:'legacy', name:'Bashir Warabe', call:'CTO', age:55, v:false, text:'Saved by Desmoulins in the 2029 Space City bombing.' },
+  { f:'haavk', gen:'current', boss:'West Dock / Space Base', name:'Alonso Hudson', call:'Efficiency Director', age:43, v:false, text:'Cold, special-forces trained. Had Beacon killed.' },
+  { f:'haavk', gen:'current', boss:'Space Base', name:'Anais Desmoulins', call:'Security Director · "Lancea"', age:51, v:true, text:'Leads the security force. Blinded and voiceless since 2029; lives on cybernetics.' },
+  { f:'haavk', gen:'current', boss:'Brakkesh', name:'Dr. Rometheus', call:'Dr. R · head neural doctor', age:32, v:false, text:'Brain-computer interfaces; creator of "Blue Eagle".' },
+  { f:'haavk', gen:'current', boss:'Tidal Prison', name:'Gehros', call:'The Warden', age:45, v:false, text:'Runs a weaponised prison. Nightmare-difficulty boss.' },
+  { f:'haavk', gen:'current', boss:'AZ3 Nuclear Plant', name:'H1000', call:'Construct', age:null, v:false, text:'A Relink cybernetic automaton guarding the nuclear plant.' },
+  { f:'haavk', gen:'current', name:'Claire Ann Byers', call:'Tempest', age:30, v:false, text:'Heavy assault agent in Haavk\'s security department.' },
+  { f:'guard', gen:'current', boss:'Tidal Prison', name:'Yusuf Faheem', call:'Raven · "The Fallen Prince"', age:28, v:false, text:'Royal rebel commander who wants the pre-war monarchy back.' },
+  { f:'guard', gen:'current', boss:'Zero Dam', name:'Saeed Ziaten', call:'Guard Captain', age:31, v:true, text:'Orphaned in 2029. Defends the dam and wants revenge for his father Tariq.' },
+  { f:'guard', gen:'current', boss:'Longbow Valley', name:'Race', call:'"Hell Black Shark"', age:38, v:false, text:'Senior Guard commander; holds the Diamond Queen Hotel.' },
+  { f:'guard', gen:'legacy', name:'Hamke', call:'Warlord', age:50, v:false, text:'Backed by Haavk to crush the rebellion; ordered the raid on Saeed\'s village.' },
+];
+const grid = document.getElementById('grid');
+function draw(f){
+  grid.innerHTML = P.filter(p => f === 'all' || p.f === f || p.gen === f || (f === 'boss' && p.boss)).map(p => `
+    <article class="pc ${p.dead ? 'dead' : ''}" style="--c:${COL[p.f]}">
+      <div class="name">${p.name}</div><div class="call">${p.call}</div>
+      <div class="meta"><span class="chip k">${FN[p.f]}</span>
+        <span class="chip">${p.dead ? 'Died ' + p.died : p.age ? 'Age ' + p.age : 'Age n/a'}</span>
+        <span class="chip">${p.gen === 'legacy' ? 'Older generation' : '2035 generation'}</span>
+        ${p.boss ? `<span class="chip">Boss · ${p.boss}</span>` : ''}
+        <span class="chip ${p.v ? 'v' : 'u'}">${p.v ? 'confirmed' : 'from notes'}</span></div>
+      <p>${p.text}</p></article>`).join('');
+}
+document.getElementById('filters').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#filters button').forEach(x => x.classList.toggle('on', x === b));
+  draw(b.dataset.f);
+});
+draw('all');
+
+// ages chart
+(function(){
+  const list = P.filter(p => p.age).sort((a, b) => b.age - a.age);
+  const row = 22, top = 10, left = 190, W = 900, max = 70;
+  const svg = document.getElementById('ageChart');
+  svg.setAttribute('viewBox', `0 0 ${W} ${top * 2 + list.length * row + 20}`);
+  const x = a => left + (W - left - 40) * a / max;
+  let s = '';
+  for (let a = 0; a <= max; a += 10) s += `<line x1="${x(a)}" y1="${top}" x2="${x(a)}" y2="${top + list.length * row}" stroke="var(--line)"/><text x="${x(a)}" y="${top + list.length * row + 16}" text-anchor="middle" font-size="11" fill="var(--t3)">${a}</text>`;
+  list.forEach((p, i) => {
+    const y = top + i * row;
+    s += `<text x="${left - 8}" y="${y + 15}" text-anchor="end" font-size="12.5" fill="var(--t2)">${p.name.replace(/"/g, '')}</text>`;
+    s += `<rect x="${left}" y="${y + 5}" width="${x(p.age) - left}" height="12" rx="3" fill="${COL[p.f]}" ${p.dead ? 'fill-opacity=".35" stroke="' + COL[p.f] + '" stroke-dasharray="3 3"' : ''}/>`;
+    s += `<text x="${x(p.age) + 6}" y="${y + 15}" font-size="11.5" fill="var(--t3)">${p.age}${p.dead ? ' (dead)' : ''}</text>`;
+  });
+  svg.innerHTML = `<g font-family="Segoe UI,system-ui,sans-serif">${s}</g>`;
+})();
+
+// bosses
+const B = [
+  ['Zero Dam', 'Saeed Ziaten', 'guard', 'Guard Captain defending the dam; avenging his father. Usually the first boss players meet.'],
+  ['Longbow Valley', 'Race "Hell Black Shark"', 'guard', 'Runs the Guard\'s defences at the Diamond Queen Hotel.'],
+  ['Tidal Prison', 'Yusuf Faheem "Raven"', 'guard', 'High-difficulty royal rebel commander.'],
+  ['Tidal Prison (Nightmare)', 'The Warden, Gehros', 'haavk', 'Haavk\'s weaponised prison system.'],
+  ['Space City / Space Base', 'Anais Desmoulins', 'haavk', 'Director of Security; cybernetic since 2029.'],
+  ['West Dock / Space Base', 'Alonso Hudson', 'haavk', 'Efficiency Director; ordered Beacon\'s death.'],
+  ['Brakkesh', 'Dr. Rometheus', 'haavk', 'Neural doctor; Blue Eagle.'],
+  ['AZ3 Nuclear Plant', 'H1000', 'haavk', 'Cybernetic construct guarding the plant.'],
+];
+document.getElementById('bossRows').innerHTML = B.map(b => `<tr><td><b style="color:var(--t1)">${b[0]}</b></td><td>${b[1]}</td><td><span class="chip k" style="--c:${COL[b[2]]}">${FN[b[2]]}</span></td><td>${b[3]}</td></tr>`).join('');
+</script>
+</body>
+</html>
