@@ -32,6 +32,7 @@ server check on every ability (`p.agent`).
 | Real name | **Tariq Ziaten** (ASEED is the callsign) |
 | Role | *to decide* |
 | Passive | **Hearing**: an enemy who fires a gun, bolt or smoke bolt within 40m is shown through walls for 4s; then 30s before it can trigger again. Blade swings are silent. |
+| Passive (new, planned) | **Trap sense**: Tariq can see enemy TRAPS through walls, the same see-through outline he gets on a heard player. First trap: Silvars' sensor. |
 | V | **Roll**: ~7.4m in 0.62s, 1.2s cooldown. **Jump roll** (added 2026-11-27): press V in the air after a jump and the roll fires on landing, ~10.2m in 0.87s. |
 | G | **Flaming crossbow**: 2 charges, 30s each. 90 head / 50 body, then burns 12/s for 5s; leaves a fire pool (18/s while inside, 9s). Right-click: ricochet once. |
 | X | **Smoke tag**: 2 charges, 30s each. A cloud (5.5m radius) that marks anyone inside it for 4s, seen through walls by Aseed. |
@@ -60,10 +61,12 @@ server check on every ability (`p.agent`).
 |---|---|
 | Role | Recon / robotics (*suggested*) |
 | Passive | **Linked Sight**: Silvars and his own robots share what they see. An enemy seen by any of them is shown to Silvars for 2s, with **a health bar above their head** for that time. |
-| V | **Sensor**: placed **by hand** on the surface of an object. It must sit ON the surface and stay visible to opponents (never sunk into the wall). When a player enters its small area it detects them and lets Silvars see them through walls for ~2s. **30s cooldown, for both placing and re-scanning**: it scans only when it detects someone, then needs 30s before it can trigger again (not a fixed 30s pulse). It makes a small sound, can be detected by special means such as Aseed's hearing, and is destroyed when it takes damage. |
+| V | **Sensor**: placed **by hand** on the surface of an object. It must sit ON the surface and stay visible to opponents (never sunk into the wall). When a player enters its small area it detects them and lets Silvars see them through walls for ~2s. **30s cooldown, for both placing and re-scanning**: it scans only when it detects someone, then needs 30s before it can trigger again (not a fixed 30s pulse). It makes a small sound that **everyone can hear**; Tariq (Aseed) can also SEE it through walls with his trap sense. It is destroyed when it takes damage. |
 | G | **Drone**: summons one flying drone; only one at a time. **60 HP** (can be shot down). It hunts enemies, and after looking at a player for 1s it crashes into them for **40 damage** and is **destroyed by the crash**. **40s cooldown, starting when the ability is used.** |
-| X | **Dog Bot**: a robot dog with **200 HP**, close-combat attack and a small gun that deals **10 damage per shot**. **Stays until destroyed**; **70s cooldown** after that. It hunts **near Silvars**, within a range it must stay inside. **When first released it dashes 10m forward.** |
+| X | **Dog Bot**: a robot dog with **200 HP**, close-combat attack and a small gun that deals **10 damage per shot**. **Stays until destroyed**; **70s cooldown** after that. It hunts **near Silvars**, within a range it must stay inside. **When first released it runs 10m forward** (no damage from the run itself); if it detects a player on the way it pounces on them. |
 | Bots | Both the drone and the dog find the enemy, track and attack them. Both feed Linked Sight. |
+| Credit | Everything the drone and dog do is credited to Silvars (damage, kills, money, round wins). **No kill-resets-cooldown** for Silvars. |
+| Death | When Silvars dies, his drone and dog die with him. |
 | Backstory | *suggested*: the station's robotics technician, who built the inspection drones for the boiler flues and the robot dog for the cable tunnels. |
 | Look | *to decide* |
 | Voice | *to decide* |
@@ -79,8 +82,12 @@ release.
 - Drone: dodge it by breaking line of sight before the 1s lock.
 - Dog: stays within ~15m of Silvars; bite 25; gun fires every 0.5s out to 20m; about sprint speed.
 
+**Multiplayer:** the same numbers everywhere; bots are not weakened for multiplayer (Jack, 2026-11-27).
+
 **Still open:**
-1. Multiplayer balance: rounds are often 1v1; should the bots be weaker in multiplayer than in story missions?
+1. Dog leash range, bite damage, gun fire rate (suggested above).
+2. Sensor scan radius (suggested 8m).
+3. One sensor at a time, or several?
 
 **Build note:** the drone and dog are real AI units that must find their way
 round the map and be run by the server. This is separate from the practice
