@@ -22,7 +22,7 @@ function sensorHave(now){ silv.sensorQ = silv.sensorQ.filter(t => t > now); retu
 function sensorNext(now){ return silv.sensorQ.length ? Math.min(...silv.sensorQ) - now : 0; }
 function silvReset(){
   silv.sensorQ = []; silv.droneAt = 0; silv.dogAt = 0; silv.dogOut = false; silv.droneOut = false; silv.dogHp = 0;
-  clearRobots(); linkedNow.clear(); localLinked.clear();
+  clearRobots(); linkedNow.clear(); localLinked.clear(); localTeam.clear(); silv.linkUntil = 0; silv.linkReadyAt = 0;
 }
 /* The server's answer to every request: ms from now, -1 for "the dog is out". */
 function onSilvTimers(d){
@@ -323,11 +323,13 @@ function onRobotFx(d){
    renewed while they stay seen). On the range it is the targets. */
 const MARK_LINK = 0x9fd8ff;          // silver-blue: not the smoke's green or the hearing's amber
 const linkedNow = new Map();         // player id -> { hp, until }
-const localLinked = new Map();       // range target -> until
-function onLinked(list){
-  const now = performance.now();
+const localLinked = new Map();       // range target -> until (what he is shown)
+const localTeam = new Map();         // range target -> until (what his robots know)
+function onLinked(d){
+  const now = performance.now(), list = Array.isArray(d) ? d : (d && d.l) || [];
   linkedNow.clear();
-  for(const e of (list || [])) linkedNow.set(e.id, { hp: e.hp, until: now + e.ms });
+  for(const e of list) linkedNow.set(e.id, { hp: e.hp, until: now + e.ms });
+  if(d && !Array.isArray(d)){ silv.linkReadyAt = now + (d.r || 0); silv.linkUntil = now + (d.u || 0); }
 }
 function isLinked(o){
   if(gameMode === 'mp'){ const e = linkedNow.get(o.id); return !!e && e.until > performance.now(); }
@@ -388,8 +390,15 @@ function localRobotWorld(now){
     G: robotGeo(currentMap), now,
     owner: id => id === 'me' ? { id: 'me', x: me.x, y: me.feetY, z: me.z, yaw: me.yaw, alive: me.alive } : null,
     enemies: () => localBots.map(b => ({ id: b, x: b.x, y: 0, z: b.z, st: 0, alive: b.alive, ref: b })),
-    known: () => localLinked,
-    reveal: (o, id) => localLinked.set(id, now + SILV.linkMs),
+    known: () => localTeam,
+    reveal: (o, id) => {                         // the same rule as the server's
+      localTeam.set(id, now + SILV.linkMs);
+      if(now >= (silv.linkUntil || 0)){
+        if(now < (silv.linkReadyAt || 0)) return;
+        silv.linkUntil = now + SILV.linkMs; silv.linkReadyAt = silv.linkUntil + SILV.linkCdMs;
+      }
+      localLinked.set(id, silv.linkUntil);
+    },
     hurt: (r, t, dmg) => {
       const b = t.ref; if(!b.alive) return;
       b.hp -= dmg; hitmark('torso'); Sfx.hit('torso');
@@ -405,14 +414,14 @@ function stepLocalRobots(dt){
   if(gameMode !== 'bots') return;
   const now = performance.now();
   if(localRobots.length) stepRobots(localRobotWorld(now), localRobots, dt);
-  /* Silvars' own eyes count too: a target on screen and in sight */
+  /* Silvars' own eyes tell his robots who is there, but light nobody up */
   if(myAgent === 'silvars' && me.alive){
     const G = robotGeo(currentMap), e = camera.position, fx = -Math.sin(me.yaw), fz = -Math.cos(me.yaw);
     for(const b of localBots){
       if(!b.alive) continue;
       const dx = b.x - e.x, dz = b.z - e.z, h = Math.hypot(dx, dz);
       if(h > SILV.sight || (h > 1.5 && (dx*fx + dz*fz) / h < SILV.ownCos)) continue;
-      if(robotLos(G, e.x, e.y, e.z, b.x, 1.1, b.z)) localLinked.set(b, now + SILV.linkMs);
+      if(robotLos(G, e.x, e.y, e.z, b.x, 1.1, b.z)) localTeam.set(b, now + SILV.linkMs);
     }
   }
   onRobots(localRobots.map(r => robotWire(r, now)));

@@ -212,13 +212,13 @@ function renderAbilityCards(){
       ['X', t('ab.zone'),    fill('ab.zone.d',  { dur: sec(ZONE.ms), cd: sec(ZONE.cdMs), hp: ZONE.regen })],
     ],
     silvars: [
-      ['P', t('ab.linked'),  fill('ab.linked.d', { s: sec(SILV.linkMs) })],
+      ['P', t('ab.linked'),  fill('ab.linked.d', { s: sec(SILV.linkMs), cd: sec(SILV.linkCdMs) })],
       ['V', t('ab.sensor'),  fill('ab.sensor.d', { n: SILV.sensor.charges, r: SILV.sensor.radius, s: sec(SILV.linkMs), cd: sec(SILV.sensor.cdMs) })],
       ['G', t('ab.drone'),   fill('ab.drone.d',  { lock: sec(SILV.drone.lockMs), dmg: SILV.drone.dmg, hp: SILV.drone.hp, cd: sec(SILV.drone.cdMs) })],
       ['X', t('ab.dog'),     fill('ab.dog.d',    { leash: SILV.dog.leash, gun: SILV.dog.gunDmg, bite: SILV.dog.bite, hp: SILV.dog.hp, cd: sec(SILV.dog.cdMs) })],
     ],
   };
-  const order = [myAgent].concat(Object.keys(kit).filter(a => a !== myAgent));
+  const order = [myAgent];                // only your own agent's kit (Jack, 2026-11-27)
   host.innerHTML = order.map(a => `
     <div class="abagent ${a === myAgent ? 'mine' : ''}">
       <div class="abhead"><b>${AGENTS[a].name}</b>${a === myAgent ? `<span>${t('ab.you')}</span>` : ''}</div>

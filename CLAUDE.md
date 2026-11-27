@@ -2273,6 +2273,15 @@ targets, one copy. It talks to the world through an adapter `W`
   `abilitySpent` read it, so you keep holding the second after the first and
   drop back to your gun when both are out. Measured on the range and the
   server (`scratchpad/sensor2.js`): third placement refused, two out.
+- **Linked Sight is robots only, with a 20s cooldown** (Jack, 2026-11-27):
+  only the drone, dog and sensors light someone up for him (2s, outline +
+  health bar), never his own eyes; then `SILV.linkCdMs` (20s) before it can
+  again. Two maps per Silvars: `teamSeen` (what the robots hunt by, fed by
+  him and them, no cooldown) and `linked` (what he is SHOWN, gated by
+  `linkUntil`/`linkReadyAt`). `linked` now sends `{l, r, u}`; the #detect
+  readout shows LINK READY / LINKED 2s / LINK 18s for Silvars, on the range too.
+  Measured on the range: own eyes 0 lit, drone lit 2s, then dark with the
+  drone still watching. The settings ABILITIES page shows only your own agent.
 - **You can destroy your OWN sensor** (Jack, 2026-11-27): `spares(r, id)` in
   server.js spares the owner's drone and dog from his fire but not his
   sensors (bullets, blade, bolts, grenades); on the range `shotSensor` does the

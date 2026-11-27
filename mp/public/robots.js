@@ -30,6 +30,11 @@ const SILV = {
   /* Linked Sight: an enemy seen by Silvars or any of his robots is shown
      to him, with a health bar over the head, for `linkMs`. */
   linkMs: 2000,
+  /* Only his ROBOTS light someone up for him, never his own eyes; and once
+     they have, Linked Sight is spent for `linkCdMs` (Jack, 2026-11-27). The
+     robots still share what they (and he) see with each other, cooldown or
+     not: that is how the drone knows whom to hunt. */
+  linkCdMs: 20000,
   sight: 45,               // how far a robot (or Silvars) can see someone
   coneCos: Math.cos(100 * Math.PI / 180),   // robots: a 200-degree cone, as Saltline's
   ownCos: Math.cos(50 * Math.PI / 180),     // Silvars himself: what is on his screen, roughly

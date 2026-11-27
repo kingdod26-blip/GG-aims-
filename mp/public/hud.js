@@ -274,8 +274,19 @@ function clearFeed(){
 function updateDetectHUD(){
   const el = document.getElementById('detect');
   if(!el) return;
-  if(gameMode !== 'mp' || gameState !== 'playing' || !agent().hearing){ el.style.display='none'; return; }
   const now = performance.now();
+  /* Silvars: the same readout for Linked Sight, on the range too */
+  if(gameState === 'playing' && myAgent === 'silvars'){
+    const on = (silv.linkUntil || 0) > now, cool = !on && (silv.linkReadyAt || 0) > now;
+    el.style.display = 'block';
+    el.className = on ? 'active' : cool ? 'cooling' : 'ready';
+    document.getElementById('detectTxt').textContent =
+        on   ? 'LINKED ' + Math.ceil((silv.linkUntil - now) / 1000) + 's'
+      : cool ? 'LINK ' + Math.ceil((silv.linkReadyAt - now) / 1000) + 's'
+      :        'LINK READY';
+    return;
+  }
+  if(gameMode !== 'mp' || gameState !== 'playing' || !agent().hearing){ el.style.display='none'; return; }
   const active = detectUntil > now, cooling = !active && detectReady > now;
   el.style.display = 'block';
   el.className = active ? 'active' : cooling ? 'cooling' : 'ready';

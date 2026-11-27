@@ -173,3 +173,6 @@ time, Tariq's trap sense 40m.
 grenade and left-click places it; it holds **two charges** (30s each) and two
 can be out at once. The drone and dog stay **around** Silvars instead of
 always behind him.
+
+**Linked Sight (Jack, 2026-11-27):** only his robots light someone up (not his
+own eyes): see-through outline and health bar for 2s, then a **20s cooldown**.

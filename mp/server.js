@@ -807,7 +807,8 @@ function resetResupply(room) {
   for (const p of room.players.values()) p.inResupply = false;
 }
 function resetDetection(room) {
-  for (const p of room.players.values()) { p.detectReadyAt = 0; p.detectUntil = 0; p.detectTarget = null; }
+  for (const p of room.players.values()) { p.detectReadyAt = 0; p.detectUntil = 0; p.detectTarget = null;
+    p.linkUntil = 0; p.linkReadyAt = 0; if (p.teamSeen) p.teamSeen.clear(); }   // Silvars' Linked Sight too
 }
 function startRound(room, n, resetWins) {
   if (resetWins) resetEconomy(room);
@@ -979,6 +980,7 @@ io.on('connection', (socket) => {
     agent: agentOf(auth.agent),        // locked for this connection
     gshots: [], zoneUntil: 0, zoneReadyAt: 0,
     sensorShots: [], droneReadyAt: 0, dogReadyAt: 0, linked: new Map(),   // Silvars
+    teamSeen: new Map(), linkUntil: 0, linkReadyAt: 0,
     money: back ? back.money : ECON.start,
     guns: back ? back.guns : [],       // owned WEAPONS slots, in purchase order
     detectReadyAt: 0, detectUntil: 0, detectTarget: null,
@@ -1609,8 +1611,18 @@ function robotWorld(room, now) {
     G: room.robotG, now,
     owner: id => players.get(id) || null,
     enemies: id => [...players.values()].filter(q => q.id !== id),
-    known: id => { const p = players.get(id); return p ? p.linked : new Map(); },
-    reveal: (id, tid) => { const p = players.get(id); if (p) p.linked.set(tid, now + SILV.linkMs); },
+    /* what the team knows (for the robots' hunting), and what Silvars is
+       SHOWN: the second opens a 2s window only when it is off cooldown */
+    known: id => { const p = players.get(id); return p ? p.teamSeen : new Map(); },
+    reveal: (id, tid) => {
+      const p = players.get(id); if (!p) return;
+      p.teamSeen.set(tid, now + SILV.linkMs);
+      if (now >= p.linkUntil) {
+        if (now < p.linkReadyAt) return;                      // spent: 20s before it lights anyone again
+        p.linkUntil = now + SILV.linkMs; p.linkReadyAt = p.linkUntil + SILV.linkCdMs;
+      }
+      p.linked.set(tid, p.linkUntil);
+    },
     hurt: (r, t, dmg, how) => {
       if (!t.alive || room.match.phase !== 'live') return;
       const owner = players.get(r.owner);
@@ -1649,7 +1661,8 @@ function tickRobots(room, now, dt) {
         if (e === p || !e.alive) continue;
         const dx = e.x - p.x, dz = e.z - p.z, h = Math.hypot(dx, dz);
         if (h > SILV.sight || (h > 1.5 && (dx * fx + dz * fz) / h < SILV.ownCos)) continue;
-        if (ROBOTS.robotLos(room.robotG, p.x, ey, p.z, e.x, ROBOTS.robotChestY(e), e.z)) p.linked.set(e.id, now + SILV.linkMs);
+        // his own eyes tell his robots, but never light anyone up for him
+        if (ROBOTS.robotLos(room.robotG, p.x, ey, p.z, e.x, ROBOTS.robotChestY(e), e.z)) p.teamSeen.set(e.id, now + SILV.linkMs);
       }
     }
     const list = [];
@@ -1658,7 +1671,12 @@ function tickRobots(room, now, dt) {
       if (until <= now || !e || !e.alive || !p.alive) { p.linked.delete(id); continue; }
       list.push({ id, hp: Math.max(0, Math.round(e.hp)), ms: until - now });
     }
-    if (list.length || p.linkedSent) io.to(p.id).emit('linked', list);
+    /* the list, plus when it is ready again; every tick while someone is lit,
+       otherwise four times a second so the HUD's countdown stays right */
+    if (list.length || p.linkedSent || now - (p.linkSentAt || 0) > 250) {
+      io.to(p.id).emit('linked', { l: list, r: Math.max(0, p.linkReadyAt - now), u: Math.max(0, p.linkUntil - now) });
+      p.linkSentAt = now;
+    }
     p.linkedSent = list.length > 0;
   }
   if (room.robots.length || room.robotsSent) io.to(room.id).emit('robots', room.robots.map(r => ROBOTS.robotWire(r, now)));
