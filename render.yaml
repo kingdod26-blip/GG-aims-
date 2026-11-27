@@ -10,7 +10,7 @@
 #    asleep. See public/config.js.
 services:
   - type: web
-    name: crimson-x
+    name: eliteforce-server   # was crimson-x: Render cannot rename an address, so this is a new service
     runtime: node
     plan: free
     rootDir: mp               # server.js + package.json live in mp/
@@ -30,6 +30,6 @@ services:
   # and the whole sync fails, so neither service updates.
   - type: web
     runtime: static
-    name: crimson-x-play
+    name: eliteforce          # the link to share: eliteforce.onrender.com (was crimson-x-play)
     staticPublishPath: ./mp/public
     autoDeploy: true

@@ -1,5 +1,5 @@
 /* =============================================================
-   Crimson X — config.js  (loaded first, ahead of core.js)
+   Elite Force — config.js  (loaded first, ahead of core.js)
 
    WHERE THE GAME SERVER IS.
 
@@ -30,8 +30,17 @@
    open a socket against a host that only serves files.
 
    >>> SERVER_URL is the one line to edit if the Render service is renamed.
+
+   2026-11-28 rename: the game moved to eliteforce.onrender.com (the link)
+   and eliteforce-server.onrender.com (this box). Render cannot rename an
+   address, so these are NEW services; the old crimson-x pair keeps running
+   until it is deleted. Each page talks to its own server, so neither link
+   breaks while both exist. Once the old pair is deleted this can become a
+   single line again.
    ============================================================= */
-const SERVER_URL = 'https://crimson-x.onrender.com';
+const SERVER_URL = location.hostname === 'crimson-x-play.onrender.com'
+  ? 'https://crimson-x.onrender.com'
+  : 'https://eliteforce-server.onrender.com';
 
 const MP_SERVER = (() => {
   const h = location.hostname;
