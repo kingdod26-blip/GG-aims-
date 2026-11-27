@@ -89,6 +89,60 @@ release.
 2. Sensor scan radius (suggested 8m).
 3. One sensor at a time, or several?
 
+**Reference: Saltline's Gull and Hound** (Jack, 2026-11-27: "refer to the
+design for Saltline ... not just the design but generally"). Saltline
+(`Mini games/SALETINE`) has exactly these two robots as its enemies: the
+drone is the **Gull**, the robot dog is the **Hound**. Silvars' bots take
+their look AND their behaviour from them. What Saltline does, read from its
+code and its showcase (`Saltline.html?show=enemies&eshow=gull|hound`):
+
+*Gull -> Silvars' drone*
+- Look: a quad-rotor with four ducted fans (white shells, orange rims,
+  yellow/black hazard tabs), a small central pod, two whip antennas, a chin
+  sensor/gun with a searchlight that throws a visible beam where it looks,
+  a stencilled ID ("G-11").
+- Flight: hovers and orbits at 4-8m, up to 8 m/s, eases in and out; banks
+  and pitches as it moves.
+- Warning before it attacks: a 0.55s "telegraph" - the lens glows brighter
+  and a warning sound plays - then it fires. **Use this for the 1s lock**:
+  the lens and beam brighten over the second, so the target can see and hear
+  it coming and break line of sight.
+- Damaged: trails smoke and sparks. Destroyed: spins, falls, crashes with
+  debris. Saltline's Gull also has a 3m blast (30 damage) - our drone's
+  40-damage crash plays like that.
+- Sound: a rotor whine whose pitch rises with speed (3D-placed), a cry, a
+  death sound.
+
+*Hound -> Silvars' dog*
+- Look: a four-legged robot dog: white/grey body panels with orange stripes,
+  black jointed legs with round knee joints and feet, a sensor block for a
+  head, an antenna, an amber beacon, a stencilled ID.
+- Movement: a real walking gait - feet planted on the ground and stepped in
+  diagonal pairs, body pitching and rolling with the ground and with
+  speed-ups and turns, a footstep sound on every step, a servo whine.
+  Speeds: patrol 1.5, stalk 2, run 4.5 m/s. Hounds push apart so they do
+  not stack.
+- Fighting: picks a firing spot using cover, keeps 8-18m away, turns to
+  face, 0.5s telegraph, then a 4-shot burst. **Lunge**: within 3m it winds
+  up (0.28s warning), then leaps at 9.5 m/s for a hit; 3.5s before the next.
+  **This is the pounce** (release run, and its close-combat attack).
+- Destroyed: sparks, collapses, bounces, lies as a wreck, sinks away.
+- Senses (both robots): sight 45m in a 200-degree cone, lose a target after
+  4s unseen, search 8s, hear gunfire within 45m. Only two robots may attack
+  at the same moment, 1.25s apart, so attacks never all land at once.
+
+*Our numbers stay Jack's*: drone 60 HP / 40 crash; dog 200 HP, gun 10 a
+shot, 70s cooldown. Saltline's speeds need one change: its Hound runs 4.5
+m/s, slower than our 5.6 walk, so **our dog must run at least sprint speed
+(8.4)** to keep up with Silvars and catch players.
+
+**Open (Saltline reference):**
+1. Copy Saltline's actual Gull and Hound models into the game (as was done
+   for the PAC-9 rifle, with credit), or draw our own versions that follow
+   them?
+2. Keep Saltline's white-and-orange paint, or repaint them in Crimson X's
+   crimson on near-black?
+
 **Build note:** the drone and dog are real AI units that must find their way
 round the map and be run by the server. This is separate from the practice
 bots, which stay untouched (Jack's rule).
