@@ -8,326 +8,302 @@
 :root{
   --bg:#0c0d0f; --panel:#15171b; --panel2:#1c1f24; --line:#2a2e35;
   --t1:#f1f2f4; --t2:#c3c7ce; --t3:#8d939c;
-  --ac:#ff2d4a; --ac-soft:#ff6274; --ac-deep:#8e0f22;
-  --cx:#ff2d4a; --corp:#6fb4ff; --ash:#e8a33a; --gone:#7d838c;
+  --ac:#ff2d4a; --ac-soft:#ff6274;
+  --hb:#ff2d4a; --corp:#6fb4ff; --ash:#e8a33a; --gone:#7d838c;
 }
 @media (prefers-color-scheme: light){
   :root:not([data-theme="dark"]){
-    --bg:#f4f3f1; --panel:#ffffff; --panel2:#f0eeeb; --line:#ddd9d3;
+    --bg:#f4f3f1; --panel:#fff; --panel2:#f0eeeb; --line:#ddd9d3;
     --t1:#16171a; --t2:#3d4148; --t3:#6a6f77;
-    --ac:#c4102a; --ac-soft:#b3192f; --ac-deep:#8e0f22;
-    --cx:#c4102a; --corp:#1f6fc4; --ash:#a8650a; --gone:#7d838c;
+    --ac:#c4102a; --ac-soft:#b3192f; --hb:#c4102a; --corp:#1f6fc4; --ash:#a8650a;
   }
 }
-:root[data-theme="dark"]{
-  --bg:#0c0d0f; --panel:#15171b; --panel2:#1c1f24; --line:#2a2e35;
-  --t1:#f1f2f4; --t2:#c3c7ce; --t3:#8d939c; --ac:#ff2d4a; --ac-soft:#ff6274;
-  --cx:#ff2d4a; --corp:#6fb4ff; --ash:#e8a33a;
-}
+:root[data-theme="dark"]{ --bg:#0c0d0f; --panel:#15171b; --panel2:#1c1f24; --line:#2a2e35; --t1:#f1f2f4; --t2:#c3c7ce; --t3:#8d939c; --ac:#ff2d4a; --ac-soft:#ff6274; --hb:#ff2d4a; --corp:#6fb4ff; --ash:#e8a33a; }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--t2);font:15px/1.6 "Segoe UI",system-ui,sans-serif}
+body{margin:0;background:var(--bg);color:var(--t2);font:15px/1.65 "Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif}
 .wrap{max-width:1120px;margin:0 auto;padding:0 16px 80px}
-header{padding:56px 0 28px;border-bottom:1px solid var(--line)}
-.kicker{color:var(--ac-soft);letter-spacing:.22em;font-size:12px;font-weight:700;text-transform:uppercase}
-h1{color:var(--t1);font-size:clamp(34px,6vw,58px);line-height:1.02;margin:10px 0 14px;letter-spacing:-.01em}
-h2{color:var(--t1);font-size:26px;margin:56px 0 6px}
-h3{color:var(--t1);font-size:17px;margin:0 0 4px}
-.lead{max-width:760px;font-size:17px;color:var(--t2)}
-.note{margin-top:18px;padding:12px 14px;border-left:3px solid var(--ac);background:var(--panel);font-size:13.5px;color:var(--t3);max-width:820px}
+header{padding:48px 0 26px;border-bottom:1px solid var(--line)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.kicker{color:var(--ac-soft);letter-spacing:.2em;font-size:12px;font-weight:700;text-transform:uppercase}
+.lang{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.lang button{background:var(--panel);color:var(--t2);border:0;padding:6px 14px;font:600 13px inherit;cursor:pointer}
+.lang button.on{background:var(--t1);color:var(--bg)}
+h1{color:var(--t1);font-size:clamp(32px,6vw,56px);line-height:1.06;margin:12px 0 12px}
+h2{color:var(--t1);font-size:25px;margin:54px 0 6px}
+h3{color:var(--t1);font-size:16.5px;margin:0 0 4px}
+.lead{max-width:780px;font-size:17px}
+.note{margin-top:16px;padding:12px 14px;border-left:3px solid var(--ac);background:var(--panel);font-size:13.5px;color:var(--t3);max-width:860px}
 nav{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
 nav .wrap{display:flex;gap:18px;overflow-x:auto;padding:10px 16px}
 nav a{color:var(--t3);text-decoration:none;font-size:13px;font-weight:600;white-space:nowrap}
 nav a:hover{color:var(--t1)}
-.sub{color:var(--t3);margin:0 0 20px;max-width:780px}
+.sub{color:var(--t3);max-width:800px;margin:0 0 18px}
 .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
-.fac{border-top:3px solid var(--c)}
-.fac .tag{color:var(--c);font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+.card p{margin:0}
+.fac{border-top:3px solid var(--c)} .fac .tag{color:var(--c);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
 .fac ul{margin:10px 0 0;padding-left:18px}
-.diagram{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:14px}
-.diagram svg{width:100%;height:auto;display:block}
-/* timeline */
-.tl{position:relative;margin-top:10px;padding-left:26px}
-.tl:before{content:"";position:absolute;left:7px;top:6px;bottom:6px;width:2px;background:var(--line)}
-.ev{position:relative;margin:0 0 18px}
-.ev:before{content:"";position:absolute;left:-24px;top:7px;width:12px;height:12px;border-radius:50%;background:var(--c,var(--t3));box-shadow:0 0 0 3px var(--bg)}
-.ev .yr{color:var(--t1);font-weight:700;font-variant-numeric:tabular-nums;margin-right:8px}
-.ev .who{color:var(--t3);font-size:13px}
-.ev.now:before{background:var(--ac);box-shadow:0 0 0 3px var(--bg),0 0 14px var(--ac)}
+/* eras */
+.eras{display:grid;gap:14px}
+.era{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.era .eh{display:flex;gap:14px;align-items:baseline;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--panel2);flex-wrap:wrap}
+.era .ey{color:var(--ac);font-weight:800;font-size:20px;font-variant-numeric:tabular-nums}
+.era .et{color:var(--t1);font-weight:700;font-size:17px}
+.era .es{color:var(--t3);font-size:13.5px;flex-basis:100%}
+.era ul{list-style:none;margin:0;padding:6px 18px 12px}
+.era li{display:grid;grid-template-columns:62px 1fr;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line)}
+.era li:last-child{border-bottom:0}
+.era li b.y{color:var(--t1);font-variant-numeric:tabular-nums}
+.era li .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px;background:var(--c)}
+.era li.key{background:color-mix(in srgb,var(--ac) 8%,transparent);border-radius:6px;padding-left:6px}
 /* roster */
 .filters{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 18px}
 .filters button{background:var(--panel);color:var(--t2);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font:600 13px inherit;cursor:pointer}
 .filters button.on{background:var(--t1);color:var(--bg);border-color:var(--t1)}
-.roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:12px}
 .pc{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--c);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px}
-.pc.dead{opacity:.78}
-.pc .top{display:flex;gap:12px;align-items:center}
-.pc img{width:58px;height:58px;object-fit:cover;object-position:top;border-radius:8px;border:1px solid var(--line);background:var(--panel2);flex:none}
-.pc .ph{width:58px;height:58px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center;color:var(--c);font-weight:800;flex:none}
+.pc.dead{opacity:.8}
+.pc .hd{display:flex;gap:12px;align-items:center}
+.pc img,.pc .ph{width:58px;height:58px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);flex:none}
+.pc img{object-fit:cover;object-position:top}
+.pc .ph{display:grid;place-items:center;color:var(--c);font-weight:800}
 .pc .name{color:var(--t1);font-weight:700;line-height:1.2}
-.pc .call{color:var(--c);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.pc .call{color:var(--c);font-size:12px;font-weight:700;letter-spacing:.05em}
 .meta{display:flex;flex-wrap:wrap;gap:6px}
 .chip{font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--panel2);color:var(--t2);border:1px solid var(--line)}
 .chip.k{color:var(--c);border-color:color-mix(in srgb,var(--c) 45%,var(--line))}
 .pc p{margin:0;font-size:13.5px}
 .pc .hook{color:var(--t3);font-size:12.5px;border-top:1px dashed var(--line);padding-top:6px}
-/* missions */
-.ms{display:grid;grid-template-columns:64px 1fr;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:10px}
-.ms .n{font-size:34px;font-weight:800;color:var(--ac);line-height:1}
+.ages{display:grid;grid-template-columns:auto 1fr 1fr;font-size:12px;gap:2px 10px;color:var(--t3)}
+.ages b{color:var(--t1);font-weight:600}
+/* lifelines */
+.diagram{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:12px;overflow-x:auto}
+.diagram svg{width:100%;min-width:720px;height:auto;display:block}
+/* campaign */
+.ms{display:grid;grid-template-columns:76px 1fr;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:10px}
+.ms.fb{border-style:dashed;background:color-mix(in srgb,var(--panel) 85%,var(--ash) 4%)}
+.ms .n{font-size:28px;font-weight:800;color:var(--ac);line-height:1}
+.ms .yr{font-size:12px;color:var(--t3);margin-top:6px;font-variant-numeric:tabular-nums}
 .ms .row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--t3);margin-top:8px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--t3);margin-top:10px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
 footer{margin-top:60px;color:var(--t3);font-size:12.5px;border-top:1px solid var(--line);padding-top:16px}
-@media (max-width:560px){ .ms{grid-template-columns:1fr} .ms .n{font-size:26px} }
+@media (max-width:560px){ .ms{grid-template-columns:1fr} .era li{grid-template-columns:52px 1fr} }
 </style>
 </head>
 <body>
 <header class="wrap">
-  <div class="kicker">Crimson X · Story bible · draft 1</div>
-  <h1>The Ashgrove Blackout</h1>
-  <p class="lead">One power station, three sides that each think it is theirs, and a younger generation paying for what the older one did in 2033. The present day of the game is <b>2041</b>; every age on this page is counted from it.</p>
-  <div class="note">How this was made: Jack's reference was the Delta Force (三角洲行动) lore. Its <i>structure</i> is borrowed here: three factions, a fallen older generation, ages tied to a present year, and a boss for each location. Every name, faction, event and place is our own and set in Crimson X's power station. Nothing here belongs to that game. Our three agents and Jack's Ashara boss sheet are already in.</div>
+  <div class="top"><div class="kicker" data-t="kicker"></div>
+    <div class="lang" role="group" aria-label="Language"><button data-l="en">English</button><button data-l="zh">中文</button></div></div>
+  <h1 data-t="title"></h1>
+  <p class="lead" data-t="lead"></p>
+  <div class="note" data-t="note"></div>
 </header>
-
-<nav><div class="wrap">
-  <a href="#works">How it works</a><a href="#factions">Factions</a><a href="#timeline">Timeline</a>
-  <a href="#roster">Characters</a><a href="#web">Who is tied to whom</a><a href="#campaign">Campaign</a><a href="#open">Open questions</a>
-</div></nav>
-
+<nav><div class="wrap" id="nav"></div></nav>
 <main class="wrap">
-
-<section id="works">
-  <h2>How the story works</h2>
-  <p class="sub">Four rules hold the plot together. Each character below is built to sit on at least two of them.</p>
-  <div class="grid3">
-    <div class="card"><h3>1 · One place everyone needs</h3><p>Ashgrove Works powers the city of Calderhaven. Whoever holds it holds the lights, the hospitals and the money. Every faction's goal is a version of "control the plant".</p></div>
-    <div class="card"><h3>2 · Three sides, no clean one</h3><p>Crimson X keeps order but answers to the governments that sold the plant. Halcyne Power owns it legally and abuses it. The Ash Line are the workers it was taken from, and some of them have done terrible things to get it back.</p></div>
-    <div class="card"><h3>3 · The older generation's debt</h3><p>On <b>Blackout Night, 2033</b> a strike at the plant ended in fire. The people who died that night are why every younger character is fighting now: each of them lost someone, or caused it.</p></div>
-    <div class="card"><h3>4 · Each place has a keeper</h3><p>Every area of the map has a boss who runs it: the switchyard, the turbine hall, the boiler house, the cooling towers. Clearing an area means beating its keeper, and each keeper knows a piece of what happened in 2033.</p></div>
-    <div class="card"><h3>5 · The agents are from here</h3><p>Tariq, Blast and Silvars are not outsiders. All three worked at or near Ashgrove before 2033, which is why Crimson X sends them, and why the other two sides take it personally.</p></div>
-    <div class="card"><h3>6 · The twist sits in plain sight</h3><p>The man who guides you through the plant is the man who let Halcyne in. Hollis is helpful, kind and right about everything except himself.</p></div>
-  </div>
-</section>
-
-<section id="factions">
-  <h2>The three factions</h2>
-  <p class="sub">The arrows are what each side wants from the others. The plant sits in the middle because it is the prize.</p>
-  <div class="grid3">
-    <div class="card fac" style="--c:var(--cx)"><div class="tag">Crimson X</div><h3>The response unit</h3>
-      <p>A small multinational unit set up in 2027 to secure infrastructure in a crisis. Fast, deniable, sent in at night. You play as Crimson X.</p>
-      <ul><li><b>Wants:</b> the plant safe and running, the city lit.</li><li><b>Weakness:</b> its paymasters sold the plant to Halcyne.</li><li><b>Base:</b> a forward post in the HV yard.</li></ul></div>
-    <div class="card fac" style="--c:var(--corp)"><div class="tag">Halcyne Power</div><h3>The owner</h3>
-      <p>The energy group that bought Ashgrove in 2029. It uses the station's output to drive <b>Project Overcurrent</b>, a grid-scale neural network that learns to run, and to switch off, whole cities.</p>
-      <ul><li><b>Wants:</b> Overcurrent finished, the workers gone.</li><li><b>Weakness:</b> Overcurrent is illegal; the evidence is inside the plant.</li><li><b>Base:</b> the turbine hall and control room.</li></ul></div>
-    <div class="card fac" style="--c:var(--ash)"><div class="tag">The Ash Line</div><h3>The workers' militia</h3>
-      <p>Former staff, their families and the town of Ashgrove. They seized the plant on the night the game opens and are threatening to overload it unless Halcyne is thrown out.</p>
-      <ul><li><b>Wants:</b> the plant back for the people who built it.</li><li><b>Weakness:</b> a hardline wing will burn the city to make the point.</li><li><b>Base:</b> the boiler house, coal yard and cooling towers.</li></ul></div>
-  </div>
-  <div class="diagram" aria-label="Faction diagram">
-    <svg viewBox="0 0 900 360" role="img">
-      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--t3)"/></marker></defs>
-      <g font-family="Segoe UI,system-ui,sans-serif" font-size="14" fill="var(--t2)">
-        <circle cx="450" cy="190" r="62" fill="var(--panel2)" stroke="var(--ac)" stroke-width="2"/>
-        <text x="450" y="185" text-anchor="middle" fill="var(--t1)" font-weight="700">ASHGROVE</text>
-        <text x="450" y="205" text-anchor="middle" fill="var(--t3)" font-size="12">WORKS</text>
-        <rect x="350" y="16" width="200" height="54" rx="8" fill="var(--panel2)" stroke="var(--cx)" stroke-width="2"/>
-        <text x="450" y="48" text-anchor="middle" fill="var(--cx)" font-weight="700">CRIMSON X</text>
-        <rect x="40" y="276" width="220" height="54" rx="8" fill="var(--panel2)" stroke="var(--corp)" stroke-width="2"/>
-        <text x="150" y="308" text-anchor="middle" fill="var(--corp)" font-weight="700">HALCYNE POWER</text>
-        <rect x="640" y="276" width="220" height="54" rx="8" fill="var(--panel2)" stroke="var(--ash)" stroke-width="2"/>
-        <text x="750" y="308" text-anchor="middle" fill="var(--ash)" font-weight="700">THE ASH LINE</text>
-        <line x1="450" y1="72" x2="450" y2="124" stroke="var(--t3)" stroke-width="1.5" marker-end="url(#ar)"/>
-        <line x1="250" y1="278" x2="396" y2="222" stroke="var(--t3)" stroke-width="1.5" marker-end="url(#ar)"/>
-        <line x1="650" y1="278" x2="504" y2="222" stroke="var(--t3)" stroke-width="1.5" marker-end="url(#ar)"/>
-        <line x1="262" y1="304" x2="636" y2="304" stroke="var(--t3)" stroke-width="1.5" stroke-dasharray="5 5" marker-start="url(#ar)" marker-end="url(#ar)"/>
-        <text x="450" y="296" text-anchor="middle" font-size="12.5" fill="var(--t3)">open war since Blackout Night</text>
-        <path d="M352 52 C 190 70, 120 160, 140 272" fill="none" stroke="var(--t3)" stroke-width="1.5" marker-end="url(#ar)"/>
-        <text x="150" y="128" font-size="12.5" fill="var(--t3)">paid by the same</text><text x="150" y="144" font-size="12.5" fill="var(--t3)">governments</text>
-        <path d="M548 52 C 710 70, 780 160, 760 272" fill="none" stroke="var(--t3)" stroke-width="1.5" stroke-dasharray="3 4" marker-end="url(#ar)"/>
-        <text x="640" y="128" font-size="12.5" fill="var(--t3)">our agents grew</text><text x="640" y="144" font-size="12.5" fill="var(--t3)">up in this town</text>
-        <text x="462" y="104" font-size="12" fill="var(--t3)">secure</text>
-        <text x="270" y="232" font-size="12" fill="var(--t3)">own</text>
-        <text x="590" y="232" font-size="12" fill="var(--t3)">reclaim</text>
-      </g>
-    </svg>
-  </div>
-</section>
-
-<section id="timeline">
-  <h2>Timeline</h2>
-  <p class="sub">The older generation's choices up to 2033, and the younger one's war in 2041.</p>
-  <div class="tl">
-    <div class="ev" style="--c:var(--cx)"><span class="yr">2027</span>Ruth Calder founds Crimson X after a grid failure leaves a city dark for nine days. <span class="who">· Calder</span></div>
-    <div class="ev" style="--c:var(--corp)"><span class="yr">2029</span>The government sells Ashgrove Works to Halcyne Power. Chief Engineer Owen Hollis signs off the handover, privately promised a pension and his staff's jobs. <span class="who">· Halcyne, Hollis</span></div>
-    <div class="ev" style="--c:var(--corp)"><span class="yr">2031</span>Project Overcurrent starts under Dr. Imre Vasko. A third of the staff are laid off, including supervisor Kade Rusk and robotics tech Rune Halloway (Silvars). <span class="who">· Vasko, Rusk, Silvars</span></div>
-    <div class="ev" style="--c:var(--ash)"><span class="yr">2033</span><b>Blackout Night.</b> A strike occupies the turbine hall. Halcyne's new security chief, Ashara, clears it by force; a fire starts in the boiler house. Tariq's father, Samir, dies keeping a boiler from blowing. Calder dies pulling workers out. Ashara is burned and has worn a mask since. <span class="who">· everyone</span></div>
-    <div class="ev" style="--c:var(--cx)"><span class="yr">2034</span>Tariq joins Crimson X. A year later Blast follows him in, then Silvars is recruited for his robots. <span class="who">· the agents</span></div>
-    <div class="ev" style="--c:var(--ash)"><span class="yr">2038</span>Kade Rusk organises the Ash Line out of the town's union hall. His daughter Nadia becomes its best scout. <span class="who">· Rusk, Nadia</span></div>
-    <div class="ev now" style="--c:var(--ac)"><span class="yr">2041</span><b>Now.</b> The Ash Line seizes the plant and threatens an overload. Crimson X is sent in at night to take it back. The game begins. <span class="who">· the campaign</span></div>
-  </div>
-</section>
-
-<section id="roster">
-  <h2>Characters</h2>
-  <p class="sub">Grouped by faction and generation. Ages are in 2041. Characters marked <i>legacy</i> are dead, but drive the plot.</p>
-  <div class="filters" id="filters">
-    <button class="on" data-f="all">All</button><button data-f="cx">Crimson X</button><button data-f="corp">Halcyne Power</button>
-    <button data-f="ash">The Ash Line</button><button data-f="legacy">Legacy (dead)</button><button data-f="boss">Bosses</button><button data-f="npc">NPCs you talk to</button>
-  </div>
-  <div class="roster" id="roster-grid"></div>
-  <div class="legend"><span><i style="background:var(--cx)"></i>Crimson X</span><span><i style="background:var(--corp)"></i>Halcyne Power</span><span><i style="background:var(--ash)"></i>The Ash Line</span></div>
-</section>
-
-<section id="web">
-  <h2>Who is tied to whom</h2>
-  <p class="sub">Every line is something the player discovers. Dashed lines are secrets.</p>
-  <div class="diagram">
-    <svg viewBox="0 0 960 520" role="img" aria-label="Relationship web">
-      <g font-family="Segoe UI,system-ui,sans-serif" font-size="13">
-        <g stroke="var(--t3)" stroke-width="1.4" fill="none">
-          <line x1="160" y1="110" x2="160" y2="250"/>
-          <line x1="160" y1="250" x2="320" y2="420"/>
-          <line x1="160" y1="250" x2="470" y2="250"/>
-          <line x1="320" y1="420" x2="470" y2="250" stroke-dasharray="6 5"/>
-          <line x1="470" y1="250" x2="760" y2="110"/>
-          <line x1="760" y1="110" x2="840" y2="300"/>
-          <line x1="470" y1="250" x2="640" y2="420"/>
-          <line x1="640" y1="420" x2="840" y2="300"/>
-          <line x1="300" y1="110" x2="160" y2="250"/>
-          <line x1="300" y1="110" x2="470" y2="250"/>
-          <line x1="300" y1="110" x2="760" y2="110" stroke-dasharray="6 5"/>
-          <line x1="840" y1="300" x2="900" y2="450"/>
-          <line x1="160" y1="110" x2="560" y2="60" stroke-dasharray="6 5"/>
-        </g>
-        <g font-size="11.5" fill="var(--t3)">
-          <text x="166" y="185">father</text>
-          <text x="196" y="345">guided by</text>
-          <text x="290" y="242">burned in the same fire</text>
-          <text x="398" y="352">let Halcyne in</text>
-          <text x="575" y="168">answers to</text>
-          <text x="805" y="208">builds for</text>
-          <text x="520" y="350">fired by</text>
-          <text x="720" y="380">hunts</text>
-          <text x="198" y="170">friend from school</text>
-          <text x="360" y="168">fired with</text>
-          <text x="470" y="100">his drones became her guards</text>
-          <text x="862" y="390">daughter</text>
-          <text x="330" y="80">swore to finish what she started</text>
-        </g>
-        <g>
-          <circle cx="160" cy="110" r="34" fill="var(--panel2)" stroke="var(--gone)" stroke-width="2"/><text x="160" y="106" text-anchor="middle" fill="var(--t1)" font-weight="700">Samir</text><text x="160" y="122" text-anchor="middle" fill="var(--t3)" font-size="11">legacy</text>
-          <circle cx="160" cy="250" r="40" fill="var(--panel2)" stroke="var(--cx)" stroke-width="2.5"/><text x="160" y="248" text-anchor="middle" fill="var(--t1)" font-weight="700">Tariq</text><text x="160" y="264" text-anchor="middle" fill="var(--cx)" font-size="11">Aseed</text>
-          <circle cx="300" cy="110" r="34" fill="var(--panel2)" stroke="var(--cx)" stroke-width="2.5"/><text x="300" y="114" text-anchor="middle" fill="var(--t1)" font-weight="700">Silvars</text>
-          <circle cx="560" cy="60" r="32" fill="var(--panel2)" stroke="var(--gone)" stroke-width="2"/><text x="560" y="56" text-anchor="middle" fill="var(--t1)" font-weight="700">Calder</text><text x="560" y="72" text-anchor="middle" fill="var(--t3)" font-size="11">legacy</text>
-          <circle cx="320" cy="420" r="38" fill="var(--panel2)" stroke="var(--ash)" stroke-width="2.5"/><text x="320" y="418" text-anchor="middle" fill="var(--t1)" font-weight="700">Hollis</text><text x="320" y="434" text-anchor="middle" fill="var(--ash)" font-size="11">NPC · traitor</text>
-          <circle cx="470" cy="250" r="46" fill="var(--panel2)" stroke="var(--corp)" stroke-width="2.5"/><text x="470" y="248" text-anchor="middle" fill="var(--t1)" font-weight="700">Ashara</text><text x="470" y="264" text-anchor="middle" fill="var(--corp)" font-size="11">final boss</text>
-          <circle cx="760" cy="110" r="36" fill="var(--panel2)" stroke="var(--corp)" stroke-width="2.5"/><text x="760" y="114" text-anchor="middle" fill="var(--t1)" font-weight="700">Halcyne</text>
-          <circle cx="840" cy="300" r="36" fill="var(--panel2)" stroke="var(--corp)" stroke-width="2.5"/><text x="840" y="304" text-anchor="middle" fill="var(--t1)" font-weight="700">Vasko</text>
-          <circle cx="640" cy="420" r="38" fill="var(--panel2)" stroke="var(--ash)" stroke-width="2.5"/><text x="640" y="424" text-anchor="middle" fill="var(--t1)" font-weight="700">Rusk</text>
-          <circle cx="900" cy="450" r="30" fill="var(--panel2)" stroke="var(--ash)" stroke-width="2.5"/><text x="900" y="454" text-anchor="middle" fill="var(--t1)" font-weight="700">Nadia</text>
-        </g>
-      </g>
-    </svg>
-  </div>
-</section>
-
-<section id="campaign">
-  <h2>How it plays: the campaign</h2>
-  <p class="sub">Six missions across the map you already have. Each lists who you talk to, who you fight, and what the player learns. The boss of each area is its keeper.</p>
-  <div id="missions"></div>
-</section>
-
-<section id="open">
-  <h2>Open questions for Jack</h2>
-  <div class="grid3">
-    <div class="card"><h3>Tariq's surname</h3><p>"Ziaten" is a Delta Force character's surname (Tariq Ziaten, Saeed Ziaten). Pick a new one for our Tariq. This page uses no surname until then.</p></div>
-    <div class="card"><h3>Blast's real name</h3><p>Drafted here as <b>Dmitri Varga</b>. Keep it, or give your own.</p></div>
-    <div class="card"><h3>Silvars' real name</h3><p>Drafted as <b>Rune Halloway</b>, with Silvars as his callsign. The sheet's hawk could be his own robotic bird.</p></div>
-    <div class="card"><h3>Who is the final boss?</h3><p>Ashara (your sheet) is drafted as the final boss, with Vasko's machine as the mid boss. Rusk could be a boss or an ally, depending on the player's choice in mission 5.</p></div>
-    <div class="card"><h3>One ending or two?</h3><p>Mission 5 lets you save Rusk or leave him. That could split the ending: the Ash Line runs the plant, or Crimson X hands it back to the state.</p></div>
-    <div class="card"><h3>Present year</h3><p>Drafted as 2041, eight years after Blackout Night. Change it and every age shifts with it.</p></div>
-  </div>
-</section>
-
-<footer>Crimson X story bible, draft 1 · 2026-11-27 · names, factions and events are original to Crimson X. Agent portraits from Jack's character sheets.</footer>
+  <section id="rules"><h2 data-t="h.rules"></h2><p class="sub" data-t="s.rules"></p><div class="grid3" id="rulesGrid"></div></section>
+  <section id="factions"><h2 data-t="h.fac"></h2><p class="sub" data-t="s.fac"></p><div class="grid3" id="facGrid"></div></section>
+  <section id="eras"><h2 data-t="h.eras"></h2><p class="sub" data-t="s.eras"></p><div class="eras" id="eraList"></div></section>
+  <section id="lives"><h2 data-t="h.lives"></h2><p class="sub" data-t="s.lives"></p><div class="diagram"><svg id="lifeSvg" viewBox="0 0 960 10"></svg></div>
+    <div class="legend" id="legend"></div></section>
+  <section id="roster"><h2 data-t="h.cast"></h2><p class="sub" data-t="s.cast"></p><div class="filters" id="filters"></div><div class="roster" id="grid"></div></section>
+  <section id="campaign"><h2 data-t="h.camp"></h2><p class="sub" data-t="s.camp"></p><div id="missions"></div></section>
+  <section id="open"><h2 data-t="h.open"></h2><div class="grid3" id="openGrid"></div></section>
+  <footer data-t="foot"></footer>
 </main>
 
 <script>
+/* Every word on the page lives here, in both languages. */
+const NOW = 2026;
+const S = {
+  kicker: ['Crimson X · story bible · draft 2', 'Crimson X · 世界观设定 · 第二稿'],
+  title: ['The Years Before: 1990 to 2026', '风暴之前：1990 – 2026'],
+  lead: ['The story of one power station, from the day it was built to the night it was taken. Thirty-six years in four eras: the people who built it, the people who sold it, the people who burned for it, and the young ones who inherit all of it. The game\'s present is 2026; ages are counted from it.',
+         '一座发电厂的故事：从它建成的那天，到它被夺走的那一夜。三十六年，四个时代——建造它的人、出卖它的人、为它葬身火海的人，以及继承这一切的年轻一代。游戏的"现在"是 2026 年，所有年龄都以此为准。'],
+  note: ['"Crimson X" is only the name of the game. The unit you play in is called HALBERD. Every name, faction and event here is original. The structure (three sides, a fallen older generation, a boss for each place) is the one Jack liked in the Delta Force background.',
+         '"Crimson X"只是游戏名。玩家所属的部队叫做"戟卫"（HALBERD）。这里所有的名字、阵营与事件都是原创的；借鉴的只是 Jack 喜欢的《三角洲行动》背景的结构：三方势力、逝去的上一代、每个地点一名首领。'],
+  nav: [['rules','How it works','运作方式'],['factions','Factions','阵营'],['eras','The four eras','四个时代'],['lives','Lifelines','人物年表'],['roster','Characters','角色'],['campaign','Campaign','战役'],['open','Open questions','待定问题']],
+  'h.rules': ['How the story works', '故事如何运作'], 's.rules': ['Six rules hold it together. Every character sits on at least two.', '六条规则把故事串在一起，每个角色至少涉及其中两条。'],
+  'h.fac': ['The three sides', '三方势力'], 's.fac': ['All three are born in the 1990s and grow up alongside the plant.', '三方都诞生于九十年代，与电厂一同成长。'],
+  'h.eras': ['The four eras', '四个时代'], 's.eras': ['Highlighted rows are the turning points the whole story hangs on.', '高亮的条目是整个故事的转折点。'],
+  'h.lives': ['Lifelines', '人物年表'], 's.lives': ['When each character was born, when they reached the plant, and when they died. The red line is 2024, Blackout Night.', '每个角色的出生、来到电厂、以及去世的时间。红线是 2024 年——停电之夜。'],
+  'h.cast': ['Characters', '角色'], 's.cast': ['Ages are shown in 1990, when the plant was begun, and in 2026, the game\'s present.', '年龄分别显示 1990 年（电厂开工时）与 2026 年（游戏当下）。'],
+  'h.camp': ['How it plays', '游戏流程'], 's.camp': ['The campaign is set in 2026, with flashback missions you play in earlier eras. Dashed cards are flashbacks.', '战役发生在 2026 年，中间穿插在早期年代进行的回忆关卡。虚线卡片为回忆关卡。'],
+  'h.open': ['Open questions for Jack', '需要 Jack 决定的问题'],
+  foot: ['Crimson X story bible, draft 2 · 2026-11-27 · all names, factions and events are original to Crimson X. Portraits are from Jack\'s character sheets.', 'Crimson X 世界观设定第二稿 · 2026-11-27 · 所有名字、阵营与事件均为 Crimson X 原创。角色头像来自 Jack 的角色设定图。'],
+  all: ['All', '全部'], legacy: ['Died before 2026', '已故'], boss: ['Bosses', '首领'], npc: ['NPCs', 'NPC'], playable: ['Playable', '可操作'],
+  age: ['Age', '年龄'], notborn: ['not born', '未出生'], died: ['died', '去世'], talk: ['Talk to', '对话'], fight: ['Fight', '战斗'], area: ['Area', '地点'], flash: ['Flashback', '回忆'],
+};
+const F = {
+  hb:   { col:'var(--hb)',   name:['HALBERD','戟卫'], sub:['Infrastructure task force · you','基础设施特遣队 · 玩家'],
+          body:['A small multinational unit founded in 2008 by army engineer Ruth Calder, after the 2004 grid collapse. It protects power, water and dams in a crisis: fast, deniable, sent in at night.',
+                '2008 年由陆军工兵露丝·考尔德在 2004 年全国大停电后创立的小型多国部队。危机时守护电力、水源与水坝：行动迅速、可推诿、夜间投送。'],
+          li:[['Wants: the plant safe and the city lit.','目标：保住电厂，让城市亮着灯。'],['Weakness: answers to the governments that sold the plant.','弱点：听命于出卖电厂的政府。']] },
+  corp: { col:'var(--corp)', name:['Halcyne Power','哈尔辛电力'], sub:['The owner','电厂所有者'],
+          body:['Founded in 1994 by Augustin Halcyne as a small grid-software firm. It grows into an energy giant and buys Ashgrove in 2018 to run Project Overcurrent: a network that learns to run, and to switch off, whole cities.',
+                '1994 年由奥古斯丁·哈尔辛创立，起初是一家小型电网软件公司，后成长为能源巨头。2018 年收购灰林电厂，用于"过载计划"——一个学会运营、也学会关停整座城市的网络。'],
+          li:[['Wants: Overcurrent finished, the old workers gone.','目标：完成过载计划，赶走老员工。'],['Weakness: Overcurrent is illegal, and the proof is inside the plant.','弱点：过载计划违法，证据就在电厂里。']] },
+  ash:  { col:'var(--ash)',  name:['The Ash Line','灰线'], sub:['The workers, then the militia','工人，后来成为民兵'],
+          body:['Started in 1998 as Ashgrove\'s plant union. After the sale it shrinks; after Blackout Night it turns into an armed militia. In 2026 it seizes the plant.',
+                '1998 年作为灰林电厂工会成立。电厂出售后逐渐衰落；停电之夜后转为武装民兵。2026 年夺取了电厂。'],
+          li:[['Wants: the plant back for the people who built it.','目标：把电厂还给建造它的人。'],['Weakness: a hardline wing that will black out the city to make a point.','弱点：强硬派不惜让全城断电来表态。']] },
+};
+const RULES = [
+  [['One place everyone needs','所有人都需要的地方'],['Ashgrove Works powers the city of Calderhaven. Whoever holds it holds the lights, the hospitals and the money.','灰林电厂为考德海文市供电。谁掌握它，谁就掌握了灯光、医院和金钱。']],
+  [['Three sides, none clean','三方势力，没有一方是干净的'],['HALBERD keeps order but answers to those who sold the plant. Halcyne owns it and abuses it. The Ash Line built it, and some of them will do terrible things to get it back.','戟卫维持秩序，却听命于出卖电厂的人；哈尔辛拥有它并滥用它；灰线建造了它，其中一些人为夺回它不择手段。']],
+  [['The older generation built everything','上一代建起了一切'],['The 1990s generation built the plant, started the companies and founded the unit. Their choices decide what the young ones fight over.','九十年代的一代人建起了电厂、创立了公司、组建了部队。他们的选择决定了年轻一代为何而战。']],
+  [['Two nights change everything','两个夜晚改变一切'],['The Long Dark (2004) makes the plant precious. Blackout Night (2024) makes it a grave. Every character remembers where they were on both.','"漫长黑夜"（2004）让电厂变得珍贵，"停电之夜"（2024）让它变成坟墓。每个角色都记得这两夜自己身在何处。']],
+  [['Each place has a keeper','每个地点都有守门人'],['Each area of the map has a boss who runs it, and each one knows a piece of what happened in 2024.','地图上每个区域都有一名首领，每人都知道 2024 年真相的一部分。']],
+  [['The traitor is the one who helps you','背叛者就是帮你的人'],['Owen Hollis kept the plant alive in 2004 and guides you through it in 2026. He also sold it in 2018 and locked the doors in 2024.','欧文·霍利斯在 2004 年守住了电厂，在 2026 年为你带路；但他也在 2018 年出卖了电厂，并在 2024 年锁上了那扇门。']],
+];
+const ERAS = [
+  { y:'1990–1999', t:['Era I · The plant is built','第一时代 · 电厂落成'], s:['A new power station, a new town, and the three sides are born.','新的电厂、新的小镇，三方势力就此诞生。'],
+    ev:[ ['1990','hb',['Construction begins on Ashgrove Works outside Calderhaven. A town grows round the site.','灰林电厂在考德海文市外动工，一座小镇围绕工地发展起来。']],
+         ['1993','ash',['Unit 1 comes online. Samir (27) starts as a boiler operator; Owen Hollis (28) is a shift engineer.','一号机组投运。萨米尔（27 岁）成为锅炉操作员，欧文·霍利斯（28 岁）是值班工程师。'],1],
+         ['1994','corp',['Augustin Halcyne (34) founds Halcyne Power, a small grid-software company.','奥古斯丁·哈尔辛（34 岁）创立哈尔辛电力，一家小型电网软件公司。'],1],
+         ['1996','ash',['Unit 2 comes online. Ashgrove is now the city\'s biggest power station.','二号机组投运，灰林成为全市最大的发电厂。']],
+         ['1998','ash',['The plant union forms: the start of the Ash Line. Samir\'s son Tariq is born in the plant town.','电厂工会成立——灰线由此起步。萨米尔的儿子塔里克在电厂小镇出生。'],1] ] },
+  { y:'2000–2012', t:['Era II · The Long Dark','第二时代 · 漫长黑夜'], s:['A winter grid collapse makes the plant precious, and makes a hero and a soldier.','一场冬季电网崩溃让电厂变得珍贵，也造就了一位英雄和一名军人。'],
+    ev:[ ['2000','hb',['Dmitri Varga (Blast) is born in the quarry villages above Ashgrove.','德米特里·瓦尔加（爆破）出生在灰林上方的采石场村落。']],
+         ['2004','ash',['The Long Dark: the national grid fails for nine days in deep winter. Ashgrove is the only plant left running, because Hollis keeps it up by hand. He becomes a local hero.','漫长黑夜：隆冬时节全国电网瘫痪九天。灰林是唯一仍在运转的电厂，因为霍利斯靠手动操作撑住了它。他成了当地英雄。'],1],
+         ['2008','hb',['Army engineer Ruth Calder (33) founds HALBERD so that no city goes dark like that again. Marisol Okafor is her first recruit.','陆军工兵露丝·考尔德（33 岁）创立戟卫，誓言不让任何城市再陷入那样的黑暗。玛丽索·奥卡福是她招募的第一人。'],1],
+         ['2010','ash',['Rune Halloway (22, later Silvars) joins as robotics tech. He builds inspection drones for the boiler flues.','鲁恩·哈洛威（22 岁，即后来的"银戈"）以机器人技师身份加入，为锅炉烟道制造巡检无人机。']],
+         ['2011','corp',['Ashara (29) leaves the army and turns private contractor.','阿莎拉（29 岁）退伍，成为私人军事承包商。']],
+         ['2012','ash',['Halloway builds the robot dog for the cable tunnels.','哈洛威为电缆隧道制造了机械犬。']] ] },
+  { y:'2013–2023', t:['Era III · The Sale','第三时代 · 出售'], s:['The government sells the plant, and Halcyne moves in.','政府出售电厂，哈尔辛入驻。'],
+    ev:[ ['2016','ash',['Tariq (18) starts as an apprentice in turbine diagnostics. He learns to hear a failing bearing through a wall.','塔里克（18 岁）进入汽轮机诊断部门当学徒，学会了隔墙听出轴承故障。']],
+         ['2018','corp',['The government sells Ashgrove to Halcyne Power. Hollis signs off the handover, secretly promised a pension and his staff\'s jobs.','政府将灰林卖给哈尔辛电力。霍利斯在移交文件上签字——私下得到了养老金和保住员工饭碗的承诺。'],1],
+         ['2019','corp',['Dr. Imre Vasko (33) starts Project Overcurrent inside the plant.','伊姆雷·瓦斯科博士（33 岁）在电厂内启动"过载计划"。']],
+         ['2021','corp',['A third of the staff are laid off, among them supervisor Kade Rusk and Halloway. Halcyne re-arms Halloway\'s drones as security robots.','三分之一员工被裁，其中包括主管凯德·拉斯克和哈洛威。哈尔辛把哈洛威的无人机改装成安保机器人。'],1],
+         ['2022','corp',['Ashara (40) is hired as Halcyne\'s Director of Site Security.','阿莎拉（40 岁）受聘为哈尔辛厂区安保总监。']] ] },
+  { y:'2024–2026', t:['Era IV · Blackout Night, and after','第四时代 · 停电之夜，以及之后'], s:['The night the older generation falls, and the war the younger one inherits.','上一代倒下的那一夜，以及年轻一代继承的战争。'],
+    ev:[ ['2024','ash',['Blackout Night. A strike occupies the turbine hall. Ashara clears it by force and a fire starts in the boiler house. Samir (58) dies stopping a boiler from blowing; the doors he needed were locked from outside. Calder (49) dies pulling workers out. Ashara is burned, and wears the mask from then on.','停电之夜。罢工者占领汽机厂房，阿莎拉强行清场，锅炉房起火。萨米尔（58 岁）为阻止锅炉爆炸而牺牲——他需要的那扇门被人从外面锁上了。考尔德（49 岁）在救出工人时遇难。阿莎拉被烧伤，从此戴上面具。'],1],
+         ['2025','hb',['Tariq joins HALBERD, then Blast follows him in, then Silvars is recruited for his robots. Okafor (Ledger) takes Calder\'s place.','塔里克加入戟卫，爆破随后跟进，银戈因他的机器人被招募。奥卡福（账簿）接替考尔德。']],
+         ['2025','ash',['Rusk turns the union\'s remains into the armed Ash Line. His daughter Nadia becomes its best scout.','拉斯克把工会残部改组为武装的灰线，女儿娜迪亚成为最出色的侦察兵。']],
+         ['2026','hb',['Now. The Ash Line seizes the plant and threatens an overload. HALBERD goes in at night. The game begins.','现在。灰线夺取电厂并威胁制造过载。戟卫夜间突入。游戏开始。'],1] ] },
+];
 const IMG = '../../Pictures/character design/';
 const C = [
-  // Crimson X
-  { f:'cx', gen:'current', name:'Tariq', call:'Aseed', age:34, role:'Scout · tracker', img:'Tariq.jpg', tags:['agent'],
-    bio:'Turbine diagnostics engineer at Ashgrove before 2033: he could hear a bearing failing through a wall, and that is still his passive. Grew up in the plant town.',
-    hook:'His father Samir died on Blackout Night. He hunts Ashara for it, and finds out Hollis is to blame too.' },
-  { f:'cx', gen:'current', name:'Dmitri Varga', call:'Blast', age:31, role:'Demolitions · assault', img:'Blast.jpg', tags:['agent'],
-    bio:'Quarry blaster from the hills above Ashgrove, Tariq\'s friend since school. Loud, reckless and funny, the one who argues with Ledger on the radio.',
-    hook:'Knows the boiler house\'s blast walls because he helped build them.' },
-  { f:'cx', gen:'current', name:'Rune Halloway', call:'Silvars', age:38, role:'Recon · robotics', img:'Silvars.jpg', tags:['agent'],
-    bio:'The station\'s robotics tech: he built the inspection drones for the flues and the robot dog for the cable tunnels. Laid off in 2031, grey before forty.',
-    hook:'Halcyne re-armed his old drones as its security. Every one he meets is his own work.' },
-  { f:'cx', gen:'current', name:'Marisol Okafor', call:'Ledger', age:52, role:'Handler · radio', tags:['npc'],
-    bio:'Calder\'s second-in-command, now running Crimson X. The voice in your ear for every mission and every briefing.',
-    hook:'She signed the order that sent Crimson X to protect Halcyne\'s plant, and isn\'t proud of it.' },
-  { f:'cx', gen:'legacy', name:'Ruth Calder', call:'Founder', age:'died 2033 at 49', role:'Founder of Crimson X', tags:['legacy'],
-    bio:'Founded the unit in 2027. Went into the burning turbine hall on Blackout Night to pull workers out and didn\'t come back.',
-    hook:'Her last radio log is the clue in mission 4.' },
-  // Halcyne
-  { f:'corp', gen:'current', name:'Augustin Halcyne', call:'CEO', age:66, role:'Owner of Halcyne Power', tags:[],
-    bio:'Bought Ashgrove for Overcurrent and never set foot in it. Appears on screens in the control room, never in person.',
-    hook:'The sequel\'s villain, if there is one.' },
-  { f:'corp', gen:'current', name:'Ashara', call:'Director of Site Security', age:44, role:'Final boss · turbine hall', img:'Ashara boss.jpg', tags:['boss'],
-    bio:'An ex-mercenary hired to clear the 2033 strike. Burned in the fire she started, and has worn the skull mask since. Runs Halcyne\'s guards and Silvars\' re-armed drones.',
-    hook:'She believes the fire was the workers\' fault. Hollis\'s confession says otherwise.' },
-  { f:'corp', gen:'current', name:'Dr. Imre Vasko', call:'Overcurrent lead', age:40, role:'Mid boss · control room', tags:['boss'],
-    bio:'The scientist behind Overcurrent. Fights through the station\'s automated defence rig, which he wires into the plant.',
-    hook:'His data proves Overcurrent is illegal, which is the way to end the war without more burning.' },
-  // Ash Line
-  { f:'ash', gen:'current', name:'Kade Rusk', call:'The Foreman', age:47, role:'Ash Line leader · coal yard boss', tags:['boss'],
-    bio:'A shift supervisor fired in 2031. Organised the Ash Line and led the seizure. Armoured, heavy, and not wrong about Halcyne.',
-    hook:'Wants the overload as leverage. Fight him, or save him in mission 5.' },
-  { f:'ash', gen:'current', name:'Nadia Rusk', call:'Scout', age:22, role:'Ash Line scout · cooling towers', tags:['npc'],
-    bio:'Rusk\'s daughter. Knows every ladder and pipe on the site, and climbs the towers to watch you.',
-    hook:'Can lead you to her father, or warn him you\'re coming.' },
-  { f:'ash', gen:'current', name:'Owen Hollis', call:'Chief Engineer', age:61, role:'Trapped in the control room', tags:['npc'],
-    bio:'Ran the plant for thirty years. You rescue him in mission 2, and he guides you through shutting it down safely.',
-    hook:'The traitor: he let Halcyne in for a pension and left the boiler house doors locked on Blackout Night.' },
-  { f:'ash', gen:'current', name:'The night shift', call:'Hostages', age:'20s to 60s', role:'Workers to find and escort', tags:['npc'],
-    bio:'Staff caught inside when the Ash Line took the plant. They give tips and open shortcuts.',
-    hook:'Some are Ash Line sympathisers. One sends the guards after you.' },
-  { f:'ash', gen:'legacy', name:'Samir', call:'Tariq\'s father', age:'died 2033 at 58', role:'Boiler operator', tags:['legacy'],
-    bio:'Stayed in the boiler house on Blackout Night to stop a boiler blowing, which would have taken the town with it.',
-    hook:'The doors he couldn\'t get out through were locked from outside.' },
+  { f:'hb', born:1998, at:2016, name:['Tariq','塔里克'], call:['Aseed · playable','阿希德 · 可操作'], tags:['playable'], img:'Tariq.jpg',
+    bio:['Born in the plant town, son of Samir. A turbine diagnostics apprentice who could hear faults through walls (his hearing passive).','生于电厂小镇，萨米尔之子。汽轮机诊断学徒，能隔墙听出故障（即他的"听觉"被动技能）。'],
+    hook:['Hunts Ashara for his father, then learns Hollis locked the doors.','为父亲追猎阿莎拉，却发现是霍利斯锁上了门。'] },
+  { f:'hb', born:2000, at:2025, name:['Dmitri Varga','德米特里·瓦尔加'], call:['Blast · playable','爆破 · 可操作'], tags:['playable'], img:'Blast.jpg',
+    bio:['Quarry blaster from the hills, Tariq\'s friend since school. Loud, reckless, funny.','山上采石场的爆破工，塔里克的发小。嗓门大、鲁莽、爱开玩笑。'],
+    hook:['Helped build the boiler house blast walls as a teenager, so he knows where they are weak.','少年时参与修建锅炉房防爆墙，知道哪里最薄弱。'] },
+  { f:'hb', born:1988, at:2010, name:['Rune Halloway','鲁恩·哈洛威'], call:['Silvars · playable','银戈 · 可操作'], tags:['playable'], img:'Silvars.jpg',
+    bio:['The plant\'s robotics tech: the flue drones (2010) and the tunnel dog (2012). Laid off in 2021.','电厂的机器人技师：烟道无人机（2010）和隧道机械犬（2012）都出自他手。2021 年被裁。'],
+    hook:['Halcyne turned his robots into guards. Every one he fights is his own work.','哈尔辛把他的机器人改造成守卫，他面对的每一台都是自己的作品。'] },
+  { f:'hb', born:1974, at:2008, name:['Marisol Okafor','玛丽索·奥卡福'], call:['Ledger · handler (NPC)','账簿 · 指挥官（NPC）'], tags:['npc'],
+    bio:['Calder\'s first recruit, now commanding HALBERD. The voice on your radio.','考尔德招募的第一人，如今指挥戟卫。你耳机里的声音。'],
+    hook:['Signed the order to guard Halcyne\'s plant, and regrets it.','签署了保护哈尔辛电厂的命令，并为此后悔。'] },
+  { f:'hb', born:1975, at:2008, died:2024, name:['Ruth Calder','露丝·考尔德'], call:['Founder of HALBERD','戟卫创始人'], tags:['legacy'],
+    bio:['Army engineer who lived through the Long Dark and founded HALBERD so no city would go dark again.','经历过漫长黑夜的陆军工兵，创立戟卫，誓言不让任何城市再陷入黑暗。'],
+    hook:['Died on Blackout Night. Her last radio log is a clue in the campaign.','死于停电之夜。她最后的无线电记录是战役中的线索。'] },
+  { f:'corp', born:1960, at:2018, name:['Augustin Halcyne','奥古斯丁·哈尔辛'], call:['Founder and CEO','创始人兼首席执行官'], tags:[],
+    bio:['Started a grid-software firm in 1994; bought Ashgrove in 2018 for Overcurrent. Never sets foot in the plant.','1994 年创办电网软件公司；2018 年为过载计划买下灰林。从未踏足电厂。'],
+    hook:['Only appears on screens in the control room.','只出现在控制室的屏幕上。'] },
+  { f:'corp', born:1982, at:2022, name:['Ashara','阿莎拉'], call:['Director of Site Security · final boss','厂区安保总监 · 最终首领'], tags:['boss'], img:'Ashara boss.jpg',
+    bio:['Ex-soldier, then contractor. Cleared the 2024 strike and was burned in the fire it started. Wears the skull mask since.','退伍军人，后为承包商。2024 年清场罢工，被由此引发的大火烧伤，从此戴着骷髅面具。'],
+    hook:['Believes the workers started the fire. Hollis\'s confession says otherwise.','坚信是工人放的火——霍利斯的供词却说明了真相。'] },
+  { f:'corp', born:1986, at:2019, name:['Dr. Imre Vasko','伊姆雷·瓦斯科博士'], call:['Overcurrent lead · mid boss','过载计划负责人 · 中期首领'], tags:['boss'],
+    bio:['Runs Project Overcurrent and fights through the plant\'s automated defence rig.','主持过载计划，借助电厂的自动防御装置作战。'],
+    hook:['His data proves Overcurrent is illegal: a way to end the war without more fire.','他的数据能证明过载计划违法——这是不再流血结束战争的办法。'] },
+  { f:'ash', born:1979, at:1998, name:['Kade Rusk','凯德·拉斯克'], call:['The Foreman · boss','工头 · 首领'], tags:['boss'],
+    bio:['Joined as an apprentice in 1998, became a shift supervisor, was laid off in 2021, and built the armed Ash Line in 2025.','1998 年以学徒身份进厂，后升为值班主管，2021 年被裁，2025 年组建武装灰线。'],
+    hook:['Wants the overload as leverage. You can fight him, or save him.','想用过载作为筹码。你可以与他交战，也可以救他。'] },
+  { f:'ash', born:2004, at:2025, name:['Nadia Rusk','娜迪亚·拉斯克'], call:['Scout (NPC)','侦察兵（NPC）'], tags:['npc'],
+    bio:['Born in the year of the Long Dark. Knows every ladder and pipe on the site.','生于漫长黑夜那一年，熟悉厂区每一架梯子、每一根管道。'],
+    hook:['Can lead you to her father, or warn him.','可以带你去找她父亲，也可以向他通风报信。'] },
+  { f:'ash', born:1965, at:1993, name:['Owen Hollis','欧文·霍利斯'], call:['Chief Engineer · NPC · traitor','总工程师 · NPC · 背叛者'], tags:['npc'],
+    bio:['Thirty-three years at the plant. Kept it alive through the Long Dark; you rescue him in 2026 and he guides you.','在电厂工作了三十三年。漫长黑夜中撑住了电厂；2026 年你救出他，他为你带路。'],
+    hook:['Sold the plant in 2018 and locked the boiler house doors in 2024.','2018 年出卖电厂，2024 年锁上了锅炉房的门。'] },
+  { f:'ash', born:1966, at:1993, died:2024, name:['Samir','萨米尔'], call:['Boiler operator · Tariq\'s father','锅炉操作员 · 塔里克之父'], tags:['legacy'],
+    bio:['One of the first crew in 1993. Thirty-one years at the boilers.','1993 年第一批员工之一，在锅炉旁工作了三十一年。'],
+    hook:['Died on Blackout Night behind doors locked from outside.','死于停电之夜，被困在从外面锁上的门后。'] },
 ];
-const FCOL = { cx:'var(--cx)', corp:'var(--corp)', ash:'var(--ash)' };
-const FNAME = { cx:'Crimson X', corp:'Halcyne Power', ash:'The Ash Line' };
-const grid = document.getElementById('roster-grid');
-function draw(filter){
-  grid.innerHTML = C.filter(c => filter === 'all' || c.f === filter || c.tags.includes(filter) || (filter === 'legacy' && c.gen === 'legacy'))
-    .map(c => `<article class="pc ${c.gen === 'legacy' ? 'dead' : ''}" style="--c:${FCOL[c.f]}">
-      <div class="top">${c.img ? `<img src="${IMG + c.img}" alt="${c.name}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ph',textContent:'${c.name[0]}'}))">` : `<div class="ph">${c.name[0]}</div>`}
-      <div><div class="name">${c.name}</div><div class="call">${c.call}</div></div></div>
-      <div class="meta"><span class="chip k">${FNAME[c.f]}</span><span class="chip">${typeof c.age === 'number' ? 'Age ' + c.age : c.age}</span>
-        <span class="chip">${c.gen === 'legacy' ? 'Legacy' : 'Current'}</span>${c.tags.filter(t => t !== 'legacy').map(t => `<span class="chip">${t === 'npc' ? 'NPC' : t === 'boss' ? 'Boss' : 'Playable'}</span>`).join('')}</div>
-      <p><b>${c.role}.</b> ${c.bio}</p><p class="hook">${c.hook}</p></article>`).join('');
-}
-document.getElementById('filters').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  document.querySelectorAll('#filters button').forEach(x => x.classList.toggle('on', x === b));
-  draw(b.dataset.f);
-});
-draw('all');
+const MISSIONS = [
+  { fb:0, y:'2026', t:['Lights Out','熄灯'], a:['Switchyard','开关站'], talk:['Ledger','账簿'], fight:['Ash Line pickets','灰线哨兵'],
+    d:['Drop in at night through the HV yard and cut the Ash Line\'s link to the overload controls. Teaches the agents\' kits.','夜间从高压场突入，切断灰线与过载控制的联系。教学关卡。'] },
+  { fb:1, y:'2004', t:['The Long Dark','漫长黑夜'], a:['Turbine hall (younger)','汽机厂房（早年）'], talk:['Samir','萨米尔'], fight:['the cold, the machines','严寒与机器'],
+    d:['Flashback. Play as young Hollis keeping Unit 1 running by hand through the blackout. Shows why the plant matters, and why everyone trusts him.','回忆关卡。扮演年轻的霍利斯，在停电中手动维持一号机组运转。说明电厂为何重要，以及为何人人信任他。'] },
+  { fb:0, y:'2026', t:['The Engineer','工程师'], a:['Control room','控制室'], talk:['Hollis','霍利斯'], fight:['Halcyne guards','哈尔辛守卫'],
+    d:['Fight through Halcyne\'s guards and get Hollis out. He says the plant can\'t be shut down from one place.','突破哈尔辛守卫，救出霍利斯。他说电厂无法在一处关停。'] },
+  { fb:0, y:'2026', t:['Old Machines','旧机器'], a:['Turbine hall','汽机厂房'], talk:['Hollis, Silvars','霍利斯、银戈'], fight:['Vasko and the defence rig','瓦斯科与防御装置'],
+    d:['Silvars\' re-armed drones guard the hall. Beat Vasko and take the Overcurrent drive.','银戈被改装的无人机守卫着厂房。击败瓦斯科，夺取过载计划硬盘。'] },
+  { fb:1, y:'2024', t:['Blackout Night','停电之夜'], a:['Boiler house','锅炉房'], talk:['Calder','考尔德'], fight:['fire, Halcyne security','大火、哈尔辛安保'],
+    d:['Flashback. Play as Calder, pulling workers out of the fire. You reach the boiler house doors, and find them locked.','回忆关卡。扮演考尔德，从火中救出工人。你来到锅炉房门前，却发现门被锁上了。'] },
+  { fb:0, y:'2026', t:['The Foreman','工头'], a:['Coal yard and conveyor','煤场与输煤廊道'], talk:['Nadia','娜迪亚'], fight:['Kade Rusk','凯德·拉斯克'],
+    d:['Rusk starts the overload. Beat him, then choose: save him from the conveyor fire, or leave him.','拉斯克启动过载。击败他之后做出选择：把他从廊道大火中救出，或任其自生自灭。'] },
+  { fb:0, y:'2026', t:['Ashes','灰烬'], a:['Turbine hall, generator','汽机厂房、发电机'], talk:['Hollis (confession), Ledger','霍利斯（供认）、账簿'], fight:['Ashara','阿莎拉'],
+    d:['Three phases round the centre generator: the floor, the catwalks and crane, then the overload. Hollis confesses over the radio mid-fight.','围绕中央发电机的三阶段战斗：地面、走廊与吊车、最后是过载。战斗中霍利斯通过无线电坦白一切。'] },
+];
+const OPEN = [
+  [['Tariq\'s surname','塔里克的姓氏'],['"Ziaten" belongs to a Delta Force character. Pick a new surname for our Tariq.','"Ziaten"属于《三角洲行动》中的角色，请为我们的塔里克另取一个姓氏。']],
+  [['Names in Chinese','中文名'],['HALBERD is drafted as 戟卫, Silvars as 银戈, Ashgrove as 灰林. Change any you like.','暂定：HALBERD 译为"戟卫"，Silvars 译为"银戈"，Ashgrove 译为"灰林"。可随意修改。']],
+  [['Flashbacks','回忆关卡'],['Two flashback missions (2004, 2024) are drafted. More eras, or none?','目前草拟了两个回忆关卡（2004、2024）。要更多年代，还是不要？']],
+  [['One ending or two?','一个结局还是两个？'],['Saving or leaving Rusk could split the ending: the Ash Line runs the plant, or the state takes it back.','救下或放弃拉斯克可以分出两个结局：灰线掌管电厂，或由国家收回。']],
+];
 
-const M = [
-  ['Lights Out', 'Switchyard', 'Ledger', 'Ash Line pickets', 'Drop in at night through the HV yard. Cut the Ash Line\'s link to the overload controls. Tutorial for the agents\' kits.'],
-  ['The Engineer', 'Control room', 'Hollis', 'Halcyne guards', 'Fight Halcyne\'s guards to the control room and get Hollis out. He tells you the plant can\'t be shut down from one place.'],
-  ['Old Machines', 'Turbine hall', 'Hollis, Silvars', 'Vasko + the defence rig (mid boss)', 'Silvars\' re-armed drones guard the hall. Beat Vasko and his rig; take the Overcurrent drive.'],
-  ['Calder\'s Log', 'Boiler house', 'Night shift, Ledger', 'Ash Line hardliners', 'Shut the boilers down floor by floor. Find Calder\'s last radio log, then find out the doors were locked from outside.'],
-  ['The Foreman', 'Coal yard and conveyor', 'Nadia', 'Kade Rusk (boss)', 'Rusk starts the overload. Beat him, then choose: save him from the conveyor fire, or leave him.'],
-  ['Blackout Night', 'Turbine hall, generator', 'Hollis (confession), Ledger', 'Ashara (final boss)', 'Three phases around the centre generator: the floor, the catwalks and crane, then the overload. Hollis confesses over the radio mid-fight.'],
-];
-document.getElementById('missions').innerHTML = M.map((m, i) => `<div class="ms"><div class="n">${String(i + 1).padStart(2, '0')}</div><div>
-  <h3>${m[0]}</h3><p style="margin:2px 0 0">${m[4]}</p>
-  <div class="row"><span class="chip k" style="--c:var(--ac)">Area: ${m[1]}</span><span class="chip">Talk to: ${m[2]}</span><span class="chip">Fight: ${m[3]}</span></div></div></div>`).join('');
+let lang = (()=>{ try { return localStorage.getItem('cx.storylang') || (navigator.language.startsWith('zh') ? 'zh' : 'en'); } catch(e){ return 'en'; } })();
+const L = p => Array.isArray(p) ? p[lang === 'zh' ? 1 : 0] : p;
+const ageIn = (c, y) => y < c.born ? L(S.notborn) : (c.died && y > c.died) ? L(S.died) + ' ' + c.died : String(y - c.born);
+let filter = 'all';
+
+function render(){
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  document.querySelectorAll('[data-t]').forEach(e => { e.textContent = L(S[e.dataset.t]); });
+  document.querySelectorAll('.lang button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
+  document.getElementById('nav').innerHTML = S.nav.map(n => `<a href="#${n[0]}">${lang === 'zh' ? n[2] : n[1]}</a>`).join('');
+  document.getElementById('rulesGrid').innerHTML = RULES.map((r, i) => `<div class="card"><h3>${i + 1} · ${L(r[0])}</h3><p>${L(r[1])}</p></div>`).join('');
+  document.getElementById('facGrid').innerHTML = Object.values(F).map(f => `<div class="card fac" style="--c:${f.col}"><div class="tag">${L(f.name)}</div><h3>${L(f.sub)}</h3><p>${L(f.body)}</p><ul>${f.li.map(x => `<li>${L(x)}</li>`).join('')}</ul></div>`).join('');
+  document.getElementById('eraList').innerHTML = ERAS.map(e => `<div class="era"><div class="eh"><span class="ey">${e.y}</span><span class="et">${L(e.t)}</span><span class="es">${L(e.s)}</span></div>
+    <ul>${e.ev.map(v => `<li class="${v[3] ? 'key' : ''}" style="--c:${F[v[1]].col}"><b class="y">${v[0]}</b><span><i class="dot"></i>${L(v[2])}</span></li>`).join('')}</ul></div>`).join('');
+  drawLives();
+  document.getElementById('legend').innerHTML = Object.values(F).map(f => `<span><i style="background:${f.col}"></i>${L(f.name)}</span>`).join('');
+  const fl = [['all', S.all], ['hb', F.hb.name], ['corp', F.corp.name], ['ash', F.ash.name], ['playable', S.playable], ['boss', S.boss], ['npc', S.npc], ['legacy', S.legacy]];
+  document.getElementById('filters').innerHTML = fl.map(x => `<button data-f="${x[0]}" class="${filter === x[0] ? 'on' : ''}">${L(x[1])}</button>`).join('');
+  drawCast();
+  document.getElementById('missions').innerHTML = MISSIONS.map((m, i) => `<div class="ms ${m.fb ? 'fb' : ''}"><div><div class="n">${String(i + 1).padStart(2, '0')}</div><div class="yr">${m.y}${m.fb ? ' · ' + L(S.flash) : ''}</div></div><div>
+    <h3>${L(m.t)}</h3><p style="margin:2px 0 0">${L(m.d)}</p>
+    <div class="row"><span class="chip k" style="--c:var(--ac)">${L(S.area)}: ${L(m.a)}</span><span class="chip">${L(S.talk)}: ${L(m.talk)}</span><span class="chip">${L(S.fight)}: ${L(m.fight)}</span></div></div></div>`).join('');
+  document.getElementById('openGrid').innerHTML = OPEN.map(o => `<div class="card"><h3>${L(o[0])}</h3><p>${L(o[1])}</p></div>`).join('');
+}
+function drawCast(){
+  const list = C.filter(c => filter === 'all' || c.f === filter || c.tags.includes(filter));
+  document.getElementById('grid').innerHTML = list.map(c => {
+    const pic = c.img ? `<img src="${IMG + c.img}" alt="" onerror="this.outerHTML='<div class=&quot;ph&quot;>${L(c.name)[0]}</div>'">` : `<div class="ph">${L(c.name)[0]}</div>`;
+    return `<article class="pc ${c.died ? 'dead' : ''}" style="--c:${F[c.f].col}">
+      <div class="hd">${pic}<div><div class="name">${L(c.name)}</div><div class="call">${L(c.call)}</div></div></div>
+      <div class="ages"><span></span><b>1990</b><b>2026</b><span>${L(S.age)}</span><span>${ageIn(c, 1990)}</span><span>${ageIn(c, 2026)}</span></div>
+      <div class="meta"><span class="chip k">${L(F[c.f].name)}</span><span class="chip">${c.born}${c.died ? '–' + c.died : ''}</span></div>
+      <p>${L(c.bio)}</p><p class="hook">${L(c.hook)}</p></article>`; }).join('');
+}
+function drawLives(){
+  const y0 = 1958, y1 = NOW, left = 170, W = 960, right = 20, row = 26, top = 30;
+  const x = y => left + (W - left - right) * (y - y0) / (y1 - y0);
+  const list = C.slice().sort((a, b) => a.born - b.born);
+  const H = top + list.length * row + 30;
+  let s = '';
+  for (let y = 1960; y <= 2026; y += 10) s += `<line x1="${x(y)}" y1="${top - 10}" x2="${x(y)}" y2="${H - 24}" stroke="var(--line)"/><text x="${x(y)}" y="${top - 16}" text-anchor="middle" font-size="11" fill="var(--t3)">${y}</text>`;
+  s += `<rect x="${x(1990)}" y="${top - 10}" width="${x(2026) - x(1990)}" height="${H - top - 14}" fill="var(--ac)" opacity=".05"/>`;
+  for (const [yr, lab] of [[2004, lang === 'zh' ? '漫长黑夜' : 'Long Dark'], [2024, lang === 'zh' ? '停电之夜' : 'Blackout Night']])
+    s += `<line x1="${x(yr)}" y1="${top - 10}" x2="${x(yr)}" y2="${H - 24}" stroke="var(--ac)" stroke-width="${yr === 2024 ? 2 : 1}" stroke-dasharray="${yr === 2024 ? '' : '4 4'}"/><text x="${x(yr)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--ac-soft)">${lab} ${yr}</text>`;
+  list.forEach((c, i) => {
+    const y = top + i * row, end = c.died || NOW, col = F[c.f].col;
+    s += `<text x="${left - 10}" y="${y + 13}" text-anchor="end" font-size="12.5" fill="var(--t2)">${L(c.name)}</text>`;
+    s += `<rect x="${x(c.born)}" y="${y + 4}" width="${x(end) - x(c.born)}" height="12" rx="3" fill="${col}" opacity=".28"/>`;
+    s += `<rect x="${x(c.at)}" y="${y + 4}" width="${Math.max(2, x(end) - x(c.at))}" height="12" rx="3" fill="${col}"/>`;
+    if (c.died) s += `<text x="${x(end) + 5}" y="${y + 14}" font-size="12" fill="var(--t3)">✝</text>`;
+  });
+  const svg = document.getElementById('lifeSvg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = `<g font-family="Segoe UI,Microsoft YaHei,system-ui,sans-serif">${s}</g>`;
+}
+document.querySelector('.lang').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
+  lang = b.dataset.l; try { localStorage.setItem('cx.storylang', lang); } catch(err){} render(); });
+document.getElementById('filters').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
+  filter = b.dataset.f; document.querySelectorAll('#filters button').forEach(x => x.classList.toggle('on', x === b)); drawCast(); });
+render();
 </script>
 </body>
 </html>
