@@ -58,11 +58,11 @@ server check on every ability (`p.agent`).
 | | |
 |---|---|
 | Role | Recon / robotics (*suggested*) |
-| Passive | **Linked Sight**: Silvars and his own robots share what they see. An enemy seen by any of them is shown to Silvars, **with their current health**, for 2s. |
-| V | **Sensor**: sticks a small device on the surface of an object. It detects players in a small area and lets Silvars see them through walls for ~2s. 30s cooldown. It makes a small sound, can be detected by special means such as Aseed's hearing, and is destroyed when it takes damage. |
-| G | **Drone**: summons one flying drone; only one at a time; 40s cooldown. It hunts enemies, and after looking at a player for 1s it crashes into them and deals damage. |
-| X | **Dog Bot**: a robot dog with 200 HP, close-combat attack and a small gun that deals 10 damage per shot. Hunts and attacks enemies on its own. |
-| Bots | Both the drone and the dog go out, find the enemy, track them and attack. Both feed Linked Sight. |
+| Passive | **Linked Sight**: Silvars and his own robots share what they see. An enemy seen by any of them is shown to Silvars for 2s, with **a health bar above their head** for that time. |
+| V | **Sensor**: placed **by hand** on the surface of an object. It must sit ON the surface and stay visible to opponents (never sunk into the wall). When a player enters its small area it detects them and lets Silvars see them through walls for ~2s. **30s cooldown, for both placing and re-scanning**: it scans only when it detects someone, then needs 30s before it can trigger again (not a fixed 30s pulse). It makes a small sound, can be detected by special means such as Aseed's hearing, and is destroyed when it takes damage. |
+| G | **Drone**: summons one flying drone; only one at a time. **60 HP** (can be shot down). It hunts enemies, and after looking at a player for 1s it crashes into them for **40 damage** and is **destroyed by the crash**. **40s cooldown, starting when the ability is used.** |
+| X | **Dog Bot**: a robot dog with **200 HP**, close-combat attack and a small gun that deals **10 damage per shot**. **Stays until destroyed**; **70s cooldown** after that. It hunts **near Silvars**, within a range it must stay inside. **When first released it dashes 10m forward.** |
+| Bots | Both the drone and the dog find the enemy, track and attack them. Both feed Linked Sight. |
 | Backstory | *suggested*: the station's robotics technician, who built the inspection drones for the boiler flues and the robot dog for the cable tunnels. |
 | Look | *to decide* |
 | Voice | *to decide* |
