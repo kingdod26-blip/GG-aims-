@@ -1,4 +1,4 @@
-# Crimson X
+# Elite Force · 精锐队
 
 A browser-based first-person shooter built with **Three.js** — no engine, no install, runs from a URL.
 Comes in two flavours: a self-contained single-player range, and a multiplayer deathmatch with an

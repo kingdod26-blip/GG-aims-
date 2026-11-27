@@ -29,7 +29,7 @@ server check on every ability (`p.agent`).
 
 | | |
 |---|---|
-| Real name | **Tariq Ziaten** (ASEED is the callsign) |
+| Name | **Aseed** (Jack, 2026-11-28: the name stays Aseed; Tariq Ziaten is dropped) |
 | Role | *to decide* |
 | Passive | **Hearing**: an enemy who fires a gun, bolt or smoke bolt within 40m is shown through walls for 4s; then 30s before it can trigger again. Blade swings are silent. |
 | Passive (new, planned) | **Trap sense**: Tariq can see enemy TRAPS through walls, the same see-through outline he gets on a heard player. First trap: Silvars' sensor. |

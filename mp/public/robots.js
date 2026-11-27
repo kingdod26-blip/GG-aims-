@@ -64,7 +64,11 @@ const SILV = {
      `recallR`) calls it back; so does walking more than `orderRange` from
      the spot. */
   order: { range: 20, recallR: 3 },
-  dog: { lifeMs: 120000, cdMs: 70000, hp: 120, leash: 15, guardLeash: 8, speed: 8.4, gunDmg: 10, gunMs: 500, gunRange: 20,
+  /* The dog is 50 HP behind a 40 shield (Jack, 2026-11-28). The shield takes
+     every hit first, and a hit bigger than what is left of it (a sniper
+     round) only breaks the shield: nothing carries through, so no single
+     shot kills the dog. */
+  dog: { lifeMs: 120000, cdMs: 70000, hp: 50, shield: 40, leash: 15, guardLeash: 8, speed: 8.4, gunDmg: 10, gunMs: 500, gunRange: 20,
          spread: 0.045, teleMs: 400, bite: 25, biteRange: 2.1, biteMs: 1200, lunge: 0.28,
          runDist: 10, runSpeed: 9.5, pounceR: 3.5, r: 0.5, eye: 0.75, follow: 2.4 },
 };
@@ -241,7 +245,7 @@ let robotSeq = 0;
 function makeRobot(kind, owner, x, y, z, extra){
   const S = SILV[kind];
   return Object.assign({ id: (robotSeq = (robotSeq + 1) & 0xffff), kind, owner, x, y, z, vx: 0, vy: 0, vz: 0,
-                         yaw: 0, hp: S.hp, maxHp: S.hp, state: 'idle', t: 0, lock: 0, alive: true }, extra || {});
+                         yaw: 0, hp: S.hp, maxHp: S.hp, shield: S.shield || 0, state: 'idle', t: 0, lock: 0, alive: true }, extra || {});
 }
 /* Is this robot hit by a ray? Returns t or Infinity. */
 function robotHitT(r, ox, oy, oz, dx, dy, dz){
@@ -259,6 +263,7 @@ function robotCenterY(r){ return r.kind === 'dog' ? (r.y || 0) + 0.55 : r.y; }
 /* Damage to a robot. Returns true when that destroyed it. */
 function damageRobot(r, dmg){
   if (!r.alive) return false;
+  if (r.shield > 0) { r.shield = Math.max(0, r.shield - dmg); return false; }   // the shield eats the whole hit
   r.hp -= dmg;
   if (r.hp <= 0) { r.hp = 0; r.alive = false; r.why = 'destroyed'; return true; }
   return false;
@@ -571,7 +576,7 @@ const ROBOT_STATES = ['idle', 'follow', 'hunt', 'lock', 'dive', 'run', 'engage',
 function robotWire(r, now){
   return { i: r.id, k: r.kind === 'dog' ? 'g' : r.kind === 'drone' ? 'd' : 's', o: r.owner,
            x: +r.x.toFixed(2), y: +(r.y || 0).toFixed(2), z: +r.z.toFixed(2), w: +(r.yaw || 0).toFixed(2),
-           h: Math.round(r.hp), s: Math.max(0, ROBOT_STATES.indexOf(r.state)),
+           h: Math.round(r.hp), sh: r.shield ? Math.round(r.shield) : undefined, s: Math.max(0, ROBOT_STATES.indexOf(r.state)),
            l: r.kind === 'drone' ? +Math.min(1, (r.lock || 0) / SILV.drone.lockMs).toFixed(2) : 0,
            n: r.kind === 'sensor' ? [+r.nx.toFixed(2), +r.ny.toFixed(2), +r.nz.toFixed(2)] : undefined,
            p: r.kind === 'sensor' ? Math.max(0, Math.round(((r.readyAt || 0) - now) / 1000)) : undefined,

@@ -1,5 +1,5 @@
 /* =============================================================
-   Crimson X — i18n.js  (loaded with config.js, ahead of core.js)
+   Elite Force — i18n.js  (loaded with config.js, ahead of core.js)
 
    Language. English and 简体中文, picked in the top bar and remembered.
 
@@ -29,6 +29,7 @@
 
 const STRINGS = {
   en: {
+    'brand.a':'ELITE', 'brand.b':' FORCE', 'brand.full':'ELITE FORCE',
     'tab.start':'START', 'tab.operators':'OPERATORS', 'tab.arsenal':'ARSENAL', 'tab.controls':'CONTROLS',
     'top.settings':'SETTINGS',
     'card.agent':'AGENT', 'card.mode':'MODE', 'card.map':'MAP',
@@ -110,7 +111,7 @@ const STRINGS = {
     'ab.linked':'LINKED SIGHT', 'ab.linked.d':'Anyone your robots see lights up through walls with a health bar over their head, for {s}s. Then {cd}s before it can happen again. Your own eyes do not trigger it.',
     'ab.sensor':'SENSOR', 'ab.sensor.d':'Stick it on a surface by hand. Anyone who walks within {r}m is shown to you for {s}s; then {cd}s before it scans again. It beeps, and any damage destroys it. {n} charges, {cd}s each; two can be out at once.',
     'ab.drone':'DRONE', 'ab.drone.d':'Hunts what your team can see. After {lock}s with its own eyes on someone it dives in for {dmg} and is destroyed. {hp} HP, lasts {life}s, one at a time. Press G again to send it to guard the spot you aim at (up to {or}m). {cd}s cooldown once it is gone.',
-    'ab.dog':'DOG', 'ab.dog.d':'Runs 10m ahead and pounces, then fights within {leash}m of you: a {gun}-damage gun and a {bite}-damage bite. {hp} HP, lasts {life}s or until it is destroyed; then {cd}s. Press X again to send it to guard the spot you aim at (up to {or}m); aim at your feet to call it back.',
+    'ab.dog':'DOG', 'ab.dog.d':'Runs 10m ahead and pounces, then fights within {leash}m of you: a {gun}-damage gun and a {bite}-damage bite. {hp} HP behind a {sh} shield (a hit bigger than the shield only breaks it), lasts {life}s or until it is destroyed; then {cd}s. Press X again to send it to guard the spot you aim at (up to {or}m); aim at your feet to call it back.',
     'set.performance':'PERFORMANCE', 'set.balanced':'BALANCED', 'set.quality':'QUALITY',
     'set.current':'CURRENT:', 'set.done':'DONE',
     'hud.health':'HEALTH', 'hud.stance':'STANCE:', 'hud.detect':'DETECT',
@@ -125,6 +126,7 @@ const STRINGS = {
   },
 
   zh: {
+    'brand.a':'精锐', 'brand.b':'队', 'brand.full':'精锐队',
     'tab.start':'开始', 'tab.operators':'干员', 'tab.arsenal':'军械库', 'tab.controls':'操作',
     'top.settings':'设置',
     'card.agent':'干员', 'card.mode':'模式', 'card.map':'地图',
@@ -206,7 +208,7 @@ const STRINGS = {
     'ab.linked':'联动视野', 'ab.linked.d':'你的机器人看到的敌人会透墙高亮，并在头顶显示血条，持续 {s} 秒；之后 {cd} 秒内不会再次触发。你自己看到的不会触发。',
     'ab.sensor':'传感器', 'ab.sensor.d':'用手贴在物体表面。{r} 米内有人经过时会向你显示 {s} 秒，之后 {cd} 秒才能再次扫描。会发出提示音，受到任何伤害即被摧毁。{n} 次充能，每次 {cd} 秒；最多同时放置两个。',
     'ab.drone':'无人机', 'ab.drone.d':'追踪队伍看到的敌人。亲眼锁定 {lock} 秒后俯冲撞击，造成 {dmg} 伤害并自毁。{hp} 生命，持续 {life} 秒，同时只能有一架。再按 G 可派它守卫你瞄准的位置（最远 {or} 米）。消失后冷却 {cd} 秒。',
-    'ab.dog':'机械犬', 'ab.dog.d':'向前冲 10 米并扑向敌人，之后在你 {leash} 米范围内作战：每发 {gun} 伤害的枪和 {bite} 伤害的撕咬。{hp} 生命，持续 {life} 秒或直到被摧毁；之后冷却 {cd} 秒。再按 X 可派它守卫你瞄准的位置（最远 {or} 米）；瞄准脚下可召回。',
+    'ab.dog':'机械犬', 'ab.dog.d':'向前冲 10 米并扑向敌人，之后在你 {leash} 米范围内作战：每发 {gun} 伤害的枪和 {bite} 伤害的撕咬。{hp} 生命加 {sh} 护盾（超过护盾的单次伤害只会击碎护盾），持续 {life} 秒或直到被摧毁；之后冷却 {cd} 秒。再按 X 可派它守卫你瞄准的位置（最远 {or} 米）；瞄准脚下可召回。',
     'set.performance':'流畅', 'set.balanced':'均衡', 'set.quality':'画质',
     'set.current':'当前：', 'set.done':'完成',
     'hud.health':'生命值', 'hud.stance':'姿态：', 'hud.detect':'感知',
@@ -247,6 +249,7 @@ function applyLang() {
   document.documentElement.lang = (LANG === 'zh') ? 'zh-CN' : 'en';
   document.body.classList.toggle('lang-zh', LANG === 'zh');
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.title = (LANG === 'zh') ? '精锐队 · Elite Force' : 'Elite Force · 精锐队';
   document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
   document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
   document.querySelectorAll('#langSw button').forEach(b => b.classList.toggle('on', b.dataset.lang === LANG));

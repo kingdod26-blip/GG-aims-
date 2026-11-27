@@ -1,4 +1,14 @@
-# Crimson X — project context
+# Elite Force (精锐队) — project context
+
+**The game is called Elite Force, 精锐队 in Chinese** (Jack, 2026-11-28; it
+was Crimson X). The name and the emblem (`icon.png`, `icon-180.png`,
+`favicon.ico`, `assets/brand-emblem-square.png`, link preview
+`assets/og-elite-force.jpg`, all cut from Jack's red triangle-in-a-ring
+emblem) must be the same everywhere: tab title, menu logo (`brand.a/b` in
+i18n.js), settings crumb (`brand.full`), link preview. The Render service and
+its URL are still `crimson-x` - renaming them is a dashboard job (see
+Deployment); internal ids like `cx.agent` keep their old prefix on purpose,
+so nobody's saved settings are lost. The folder is now `Elite force/GG aims`.
 
 Browser FPS built with Three.js. No game engine: the browser is the runtime,
 Three.js does rendering, and physics/collision/netcode are hand-written.
@@ -2245,7 +2255,8 @@ rubber-banding rather than speed. Measured in the range: 5.6 walking, 8.4 on
 Shift, 12 on Shift in the zone, 2.8 crouched, and aiming still refuses to
 sprint.
 
-- **Aseed** (the original kit). Passive: **hearing** (the detection passive —
+- **Aseed** (the original kit; the name stays Aseed - Jack, 2026-11-28, so
+  "Tariq" in older notes and comments means Aseed). Passive: **hearing** (the detection passive —
   the server skips non-Aseed listeners in `noiseMade`, and `#detect` is
   hidden for anyone else). V roll · G flaming crossbow · X smoke tag. One
   jump, no sprint.
@@ -2315,6 +2326,16 @@ targets, one copy. It talks to the world through an adapter `W`
   down and is gone (`why: 'expired'`, robotfx `expire`: no explosion); the
   70s starts then, as when it is destroyed. Its X tile counts the 120s down
   while it is out (wire field `e`, seconds left). Measured: gone at 120.0s.
+- **The dog is 50 HP behind a 40 shield** (Jack, 2026-11-28; `damageRobot`):
+  the shield takes every hit first and a hit bigger than what is left only
+  breaks it (nothing carries through), so no single shot kills the dog. A
+  sniper round leaves it at 50 HP, shield gone. Measured: 110 -> 50/0, then
+  three rifle rounds (26) kill it.
+- **Aseed's trap sense works like his hearing** (Jack: the passive has a
+  cooldown): a sensor within 40m lights up for 4s, then 30s before another
+  can (`TRAP` in silvars.js). His hearing already had its 30s (DETECT).
+- **Aiming slows you** (`MOVE_SPD.aimMul` 0.6, blended by `ads`): walk 5.6 ->
+  3.4 at full ADS. Measured on the range.
 - **Linked Sight is robots only, with a 20s cooldown** (Jack, 2026-11-27):
   only the drone, dog and sensors light someone up for him (2s, outline +
   health bar), never his own eyes; then `SILV.linkCdMs` (20s) before it can

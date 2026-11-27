@@ -23,6 +23,7 @@ function sensorNext(now){ return silv.sensorQ.length ? Math.min(...silv.sensorQ)
 function silvReset(){
   silv.sensorQ = []; silv.droneAt = 0; silv.dogAt = 0; silv.dogOut = false; silv.droneOut = false; silv.dogHp = 0;
   clearRobots(); linkedNow.clear(); localLinked.clear(); localTeam.clear(); silv.linkUntil = 0; silv.linkReadyAt = 0;
+  trapUntil = 0; trapReadyAt = 0;
 }
 /* The server's answer to every request: ms from now, -1 for "the dog is out". */
 function onSilvTimers(d){
@@ -402,10 +403,18 @@ function updateLinked(){
    the same see-through outline a heard player gets. The sensor is the
    first trap. */
 const TRAP_RANGE = 40;
+/* It is Aseed's PASSIVE, so it works like his hearing (Jack, 2026-11-28: the
+   passive has a cooldown): a trap coming within 40m lights up for 4s, then
+   the sense rests 30s before it can light one again. */
+const TRAP = { showMs: 4000, cdMs: 30000 };
+let trapUntil = 0, trapReadyAt = 0;
 let TRAP_MAT = null;
 function updateTrapMark(r){
-  const want = r.kind === 's' && myAgent === 'aseed' && r.owner !== myId && r.owner !== 'me'
+  const now = performance.now();
+  const near = r.kind === 's' && myAgent === 'aseed' && r.owner !== myId && r.owner !== 'me'
     && Math.hypot(r.x - camera.position.x, r.z - camera.position.z) <= TRAP_RANGE;
+  if(near && now >= trapUntil && now >= trapReadyAt){ trapUntil = now + TRAP.showMs; trapReadyAt = trapUntil + TRAP.cdMs; }
+  const want = near && now < trapUntil;
   if(want && !r.trap){
     TRAP_MAT = TRAP_MAT || new THREE.MeshBasicMaterial({ color: MARK_HEARD, transparent: true, opacity: 0.6, depthTest: false, depthWrite: false });
     r.trap = new THREE.Mesh(rgeo('trapball', () => new THREE.SphereGeometry(0.2, 10, 8)), TRAP_MAT);

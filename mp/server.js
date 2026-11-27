@@ -2134,4 +2134,4 @@ function tickRoom(room, now, dt) {
   io.to(room.id).emit('snapshot', encodeSnapshot(room, now));
 }
 
-server.listen(PORT, () => console.log(`Crimson X MP server on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Elite Force MP server on http://localhost:${PORT}`));

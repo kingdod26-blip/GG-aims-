@@ -26,7 +26,10 @@ const MOVE_SPD = { walk:5.6, sprint:8.4, zoneSprint:12,
      moving faster when i equip the sword"): nothing to aim, nothing heavy.
      The fastest it makes anything is the zone sprint at 15 m/s, inside the
      server's 20 m/s movement budget (MOVE.maxSpeed). */
-  bladeMul:1.25 };
+  bladeMul:1.25,
+  /* Aiming slows you (Jack, 2026-11-28): at full ADS you move at `aimMul`
+     of your speed (walk 5.6 -> 3.4), blended in with the sight coming up. */
+  aimMul:0.6 };
 const JUMP_V = 10.5, GRAV = 24;
 // jumps are per agent now: AGENTS[...].jumps (Blast's passive is the second)
 let jumpPressed = false;             // edge-triggered by keydown
