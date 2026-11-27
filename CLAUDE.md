@@ -2308,7 +2308,7 @@ targets, one copy. It talks to the world through an adapter `W`
   (`guardCheck`). A crimson ring marks the spot (`orderMark`). Robots now
   notice anyone within 6m whatever way they face (`robotSees`), or a
   guarding dog missed someone behind it.
-- **The drone lasts 70s** (`SILV.drone.lifeMs`, Jack 2026-11-27) unless already diving, then powers down (`expired`); its G tile counts the 70s down. Measured: gone at 70.0s.
+- **The drone lasts 20s** (`SILV.drone.lifeMs`, Jack 2026-11-27; 70s was tried first) unless already diving, then powers down (`expired`); its G tile counts it down.
 - **The drone's 40s starts when it is GONE** (crash, shot down, round end),
   not when sent; its G tile is lit while it is out (server `drone: -1`).
 - **The dog lasts 120s** (`SILV.dog.lifeMs`, Jack 2026-11-27), then powers

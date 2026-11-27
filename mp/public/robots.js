@@ -49,7 +49,7 @@ const SILV = {
   /* G. One drone at a time, 60 HP. It hunts what the team can see; once it
      has had its own eyes on someone for `lockMs` it dives, hits for `dmg`
      and is destroyed by the crash. The cooldown starts when it is SENT. */
-  drone: { lifeMs: 70000, cdMs: 40000, hp: 60, dmg: 40, lockMs: 1000, speed: 9, diveSpeed: 22, diveMs: 2200,
+  drone: { lifeMs: 20000, cdMs: 40000, hp: 60, dmg: 40, lockMs: 1000, speed: 9, diveSpeed: 22, diveMs: 2200,
            lockRange: 22, standOff: 9, alt: 3.2, hitR: 0.95, r: 0.5, follow: 2.6 },
   /* X. The dog, 200 HP, until it is destroyed; then `cdMs`. It stays within
      `leash` of Silvars. Released, it RUNS `runDist` the way he faces and
@@ -347,7 +347,7 @@ function droneFly(W, r, gx, gy, gz, spd, dt){
 function stepDrone(W, r, owner, enemies, dt){
   const D = SILV.drone;
   r.t += dt * 1000;
-  /* It lasts 70s (Jack, 2026-11-27), then powers down - unless it is already
+  /* It lasts 20s (Jack, 2026-11-27), then powers down - unless it is already
      diving, which it finishes. The 40s starts when it is gone. */
   if (r.t >= D.lifeMs && r.state !== 'dive') { r.alive = false; r.why = 'expired'; return; }
   // what its own camera sees (the cone is about the way it is heading)
