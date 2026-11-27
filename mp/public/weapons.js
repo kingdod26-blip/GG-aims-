@@ -39,7 +39,13 @@ let jumpPressed = false;             // edge-triggered by keydown
    removed on Jack's call — tilting the POV on a forward roll felt bad.
    Sideways rolls still lean (ROLL.lean). */
 const ROLL = { dur:0.62, speed:20, cdMs:1200, lean:0.22,
-               fov:9, tuck:0.22 };                     // V — dodge roll (~7m)
+               fov:9, tuck:0.22,                       // V — dodge roll (~7m)
+               jumpMul:1.4, jumpWinMs:180 };
+/* JUMP ROLL (Jack, 2026-11-27): press V in the air after a jump and the roll
+   fires the moment you land, carrying the jump into it - it lasts jumpMul
+   longer, so it goes further (~10m against ~7m). Pressing V within jumpWinMs
+   of touching down counts too. Longer, not faster: 20 m/s is the server's
+   sustained movement limit, so distance has to come from time. */
 /* Q/E peek. Deliberately shallow — angle is the camera roll in radians
    (0.16 ~= 9 deg), offset is how far the eye slides sideways. Enough to
    clear a corner without the horizon tipping over. */
@@ -82,7 +88,8 @@ const LEAN = { angle:0.16, offset:0.45, rate:9 };
 // extras/slide-ability.md. With it off, C is always a plain crouch toggle.
 const SLIDE_ENABLED = false;
 const SLIDE= { dur:0.80, speed:13.0, cdMs:1500 };     // C while sprinting
-let rollT=0, rollCdUntil=0, rollDir=new THREE.Vector3();
+let rollT=0, rollDur=ROLL.dur, rollCdUntil=0, rollDir=new THREE.Vector3();
+let rollQueued=false, jumpLandAt=-1e9;    // the jump roll: V held over from the air, and when a jump last landed
 let slideT=0, slideCdUntil=0, slideDir=new THREE.Vector3(), slideSpd=0;
 // Crossbow charges regenerate independently: each entry is a "ready at" time.
 /* Each ability slot keeps its OWN charges and its own recharge timers, so

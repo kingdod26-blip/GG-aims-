@@ -53,7 +53,10 @@ addEventListener('keydown',e=>{
 function startRoll(){
   const now=performance.now();
   // a roll may cancel a slide — that chain is the whole point
-  if(gameState!=='playing' || !me.alive || rollT>0 || now<rollCdUntil || !me.onGround) return;
+  if(gameState!=='playing' || !me.alive || rollT>0 || now<rollCdUntil) return;
+  if(!me.onGround){ if(me.jumped) rollQueued=true; return; }   // in the air after a jump: roll on landing
+  const jumpRoll = rollQueued || now-jumpLandAt < ROLL.jumpWinMs;
+  rollQueued=false;
   slideT=0;
   // roll the way you're moving; straight ahead if you're standing still
   const fwd=new THREE.Vector3(-Math.sin(me.yaw),0,-Math.cos(me.yaw));
@@ -61,7 +64,7 @@ function startRoll(){
   const d=new THREE.Vector3();
   if(keys['KeyW'])d.add(fwd); if(keys['KeyS'])d.sub(fwd); if(keys['KeyD'])d.add(rgt); if(keys['KeyA'])d.sub(rgt);
   if(d.lengthSq()===0) d.copy(fwd);
-  rollDir.copy(d.normalize()); rollT=ROLL.dur; Sfx.roll();
+  rollDir.copy(d.normalize()); rollDur=ROLL.dur*(jumpRoll ? ROLL.jumpMul : 1); rollT=rollDur; Sfx.roll();
   rollCdUntil = training('noCooldown') ? 0 : now+ROLL.cdMs;
   // lean the camera the way we're rolling, and pitch it the way we're going:
   // sideways rolls lean, forward/back rolls somersault

@@ -176,6 +176,7 @@ function findLedge(){
 function startClimb(l){
   climbT=CLIMB.dur; climbFrom={ x:me.x, z:me.z, y:me.feetY }; climbTo=l;
   me.hv.set(0,0,0); me.vy=0; me.onGround=false;
+  me.jumped=false; rollQueued=false;  // a mantle ends the jump: no jump roll off the top
   stepDist=0;                       // the pull-up is not a stride
   Sfx.step(true);
 }
@@ -227,7 +228,7 @@ function movePlayer(dt){
   let rate=18;                                   // how quickly velocity follows
   if(rollT>0){                                   // V: dodge roll
     rollT=Math.max(0, rollT-dt);
-    const k=Math.max(0.42, rollT/ROLL.dur);      // ease out, never fully stalls
+    const k=Math.max(0.42, rollT/rollDur);      // ease out, never fully stalls
     want.copy(rollDir).multiplyScalar(ROLL.speed*k); rate=24;
   } else if(dashT>0){                            // V as Blast: dash
     dashT=Math.max(0, dashT-dt);
@@ -260,7 +261,7 @@ function movePlayer(dt){
     if(me.stance!=='stand') me.stance='stand';            // first press stands you up
     else if(me.jumpsUsed < agent().jumps){        // Blast's passive is the second one
       me.vy = (me.jumpsUsed===0) ? JUMP_V : JUMP_V*0.88;  // air jump slightly weaker
-      me.jumpsUsed++; me.onGround=false;
+      me.jumpsUsed++; me.onGround=false; me.jumped=true;
       Sfx.step(me.jumpsUsed>1);
     }
   }
@@ -280,6 +281,8 @@ function movePlayer(dt){
   if(me.onGround && me.vy<=0 && me.feetY>groundY && me.feetY-groundY<=STEP_UP) me.feetY=groundY;
   if(me.feetY<=groundY){ const hard=me.vy<-6; me.feetY=groundY; me.vy=0; me.onGround=true;
     me.jumpsUsed=0;                                        // refill jumps on landing
+    if(wasAir && me.jumped){ me.jumped=false; jumpLandAt=performance.now();
+      if(rollQueued) startRoll(); }                        // the jump roll (ROLL.jumpMul)
     if(wasAir && hard) Sfx.land(); }
   else { me.onGround=false;
     if(me.jumpsUsed===0) me.jumpsUsed=1; }                 // walked off a ledge = no free double jump
@@ -384,7 +387,7 @@ function loop(){ requestAnimationFrame(loop);
       if(gameMode==='mp' && socket){ sendAcc+=dt; if(sendAcc>0.033){ sendAcc=0; socket.emit('state',{x:me.x,z:me.z,y:me.feetY,yaw:me.yaw,pitch:me.pitch,st:STANCE_ID[me.stance],
           tp: lastTp,          // the forced move we've accepted; stale ones are ignored
           lo: +(me.lean||0).toFixed(2),   // lean offset in metres, already wall-clamped
-          rl: rollT>0 ? +(1-rollT/ROLL.dur).toFixed(3) : 0});   // roll progress, so others see the tumble
+          rl: rollT>0 ? +(1-rollT/rollDur).toFixed(3) : 0});   // roll progress, so others see the tumble
       } }
     }
     /* The snapshot writes me.hp straight from the server and never tells the
@@ -402,7 +405,7 @@ function loop(){ requestAnimationFrame(loop);
     // Camera lean/dip during abilities — this is what sells the transition as
     // momentum rather than a teleport between movement modes.
     let wRoll=0, wDip=0, wPunch=0;
-    if(rollT>0){ const p=1-rollT/ROLL.dur, s=Math.sin(p*Math.PI);
+    if(rollT>0){ const p=1-rollT/rollDur, s=Math.sin(p*Math.PI);
       wRoll = s*ROLL.lean*rollLean; wDip = s*0.22;
       // forward/back rolls kick the FOV and tuck the weapon, but deliberately
       // do NOT pitch the view — that tilt was removed for feeling bad

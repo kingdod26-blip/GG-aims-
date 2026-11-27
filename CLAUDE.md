@@ -2380,7 +2380,11 @@ arrives as one mesh with one material, so `splitGeometryByAxis` cuts the
 triangles into material groups along the model's long axis — limbs/stock for
 the crossbow, grip/guard/blade for the sword. The procedural versions are
 still there and stay on screen until the files load, or if a load fails.
-`V` roll (~7m, 1.2s cd). Sideways rolls lean the camera (`ROLL.lean`, ~12°).
+`V` roll (~7m, 1.2s cd). **Jump roll** (2026-11-27): press V in the air after a
+jump and the roll fires on landing at `ROLL.jumpMul` (1.4x) its length --
+10.2m measured against 7.4m; V within `ROLL.jumpWinMs` (180ms) of landing a
+jump counts too. Longer, not faster, because 20 m/s is the server's limit.
+Walking off a ledge does not queue one (`me.jumped` is set only by a jump). Sideways rolls lean the camera (`ROLL.lean`, ~12°).
 Forward/back rolls punch the FOV and tuck the weapon but **do not pitch the
 view** — there was a `ROLL.arc` somersault and Jack had it removed, so don't
 reintroduce camera pitch here. Other players see a full hip-pivoted tumble,

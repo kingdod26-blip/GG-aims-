@@ -257,7 +257,7 @@ function quitToMenu(){
   // clear arrows in flight + reset ability state
   while(arrows.length) removeArrow(arrows[0]);
   for(const [id,m] of arrowGfx) scene.remove(m); arrowGfx.clear();
-  rollT=0; slideT=0; leanAmt=0; resetAbilities(); clearSmoke(); clearGrenades();
+  rollT=0; rollQueued=false; me.jumped=false; slideT=0; leanAmt=0; resetAbilities(); clearSmoke(); clearGrenades();
   dashT=0; dashCdUntil=0; climbT=0; zoneUntil=0; zoneReadyAt=0; document.body.classList.remove('inzone');
   me.hv.set(0,0,0); camRoll=0; camDip=0; comboStep=0; swingT=0;
   // stop timers / audio / input state
