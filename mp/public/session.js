@@ -86,6 +86,7 @@ const SET_DEFS = [
      in the room. */
   { tab:'gameplay', key:'showBoxes',label:'HITBOXES',   opts:[[0,'HIDDEN'],[1,'SHOW']], practice:true },
   { tab:'gameplay', key:'noSpread',  label:'PRACTICE SPREAD', opts:[[0,'NORMAL'],[1,'NONE']], practice:true },
+  { tab:'gameplay', key:'noFall',    label:'FALL DAMAGE', opts:[[0,'ON'],[1,'OFF']], practice:true },
 
   /* Only Aseed's bolts bank: the crossbow and the smoke tag both take it.
      Blast's grenade bounces whatever, so the row is not shown to Blast. */
@@ -784,6 +785,7 @@ function connectMP(name){
   socket.on('robots', list=>onRobots(list));
   socket.on('robotfx', d=>onRobotFx(d));
   socket.on('silv', d=>onSilvTimers(d));
+  socket.on('fell', ()=>{ dmgFlash(); });          // the server's fall damage; the landing already thudded
   socket.on('linked', list=>onLinked(list));
   socket.on('fieldclear', ()=>{
     clearGroundFires(); clearSmoke(); clearRobots(); linkedNow.clear();

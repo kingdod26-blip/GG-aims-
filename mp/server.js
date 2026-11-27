@@ -228,6 +228,44 @@ function floorUnder(room, x, z, y) {
   return g;
 }
 
+/* Who last hurt a player, for crediting a fall. */
+function hitBy(t, byId) { if (byId && t.id !== byId) { t.lastHitBy = byId; t.lastHitAt = Date.now(); } }
+/* The highest top a body standing at (x, z) can be on: anything under its
+   feet circle, as the client's own ground test does (touches / FOOT_R). */
+function groundAt(room, x, z, y) {
+  let g = 0; const R = FALL.footR;
+  for (const r of room.rects) {
+    if (r.maxy > y + 0.05 || r.maxy <= g) continue;
+    const cx = Math.max(r.minx, Math.min(x, r.maxx)), cz = Math.max(r.minz, Math.min(z, r.maxz));
+    if (Math.hypot(x - cx, z - cz) <= R) g = r.maxy;
+  }
+  return g;
+}
+/* One accepted position: off the ground, keep the highest point; back on
+   it, the drop is that peak minus here. `fl` bits from the client: 1 on a
+   ladder or mantling, 2 Blast dashing or just double-jumped, 4 a landing
+   roll queued (Tariq). 1 and 2 restart the count from where you are. */
+function trackFall(room, p, fl, now) {
+  const y = p.y || 0;
+  if (!p.alive || room.match.phase !== 'live' || (fl & 3) || p.fallPeak === undefined) { p.fallPeak = y; p.fallRoll = false; return; }
+  const ground = groundAt(room, p.x, p.z, y);
+  if (y > ground + FALL.air) { if (y > p.fallPeak) p.fallPeak = y; if (fl & 4) p.fallRoll = true; return; }
+  const drop = p.fallPeak - y, rolled = p.fallRoll || !!(fl & 4);
+  p.fallPeak = y; p.fallRoll = false;
+  if (drop <= FALL.safe) return;
+  let dmg = (drop - FALL.safe) * FALL.perM;
+  if (rolled && p.agent === 'aseed') dmg *= FALL.rollMul;
+  dmg = Math.round(dmg); if (dmg <= 0) return;
+  p.hp -= dmg;
+  io.to(p.id).emit('fell', { dmg, h: +drop.toFixed(1) });
+  if (p.hp <= 0 && p.alive) {
+    const room_ = room, players = room_.players;
+    const k = (p.lastHitBy && now - (p.lastHitAt || 0) < FALL.creditMs) ? players.get(p.lastHitBy) : null;
+    eliminate(room_, p, true); p.deaths++;
+    if (k) k.kills++;
+    io.to(room_.id).emit('kill', { by: k ? k.name : 'the fall', byId: k ? k.id : null, victim: p.name, head: false, via: 'fall' });
+  }
+}
 function resolve2D(room, pos, radius) {
   for (const r of room.rects) {
     const cx = Math.max(r.minx, Math.min(pos.x, r.maxx));
@@ -448,6 +486,13 @@ const GRENADE = { charges: 2, cooldownMs: 30000, fuseMs: 2000, gravity: 14, boun
    the regen lives here — sprint, aim speed and spread are client feel, and
    the server's movement check already bounds sprint. */
 const ZONE = { ms: 25000, cdMs: 90000, regen: 10, reloadMul: 0.6 };
+/* FALL DAMAGE (Jack, 2026-11-27). Drops up to `safe` are free - a jump peaks
+   at 2.3m and Blast's double jump at 4.1m, so normal movement never hurts -
+   then `perM` a metre, so about 15m is lethal from full. Tariq's landing roll
+   (V in the air) takes `rollMul` of it. Ladders, mantles, Blast's air dash
+   and his double jump restart the count (the client says which, in `fl`). A fall death goes to
+   whoever last hurt you inside `creditMs`. Must match FALL in loop.js. */
+const FALL = { safe: 5, perM: 10, rollMul: 0.5, creditMs: 5000, air: 0.12, footR: 0.3 };
 // Smoke bolt: no damage. Anyone standing in the cloud is tagged for markMs,
 // and the tag renews every tick they stay in it. Must match the client's
 // SMOKEFX radius/top/markMs or the cloud you see won't match the one that tags.
@@ -721,6 +766,7 @@ function respawnAll(room) {
     p.burnUntil = 0; p.burnRate = 0; p.inFire = false;
     p.markedUntil = 0; p.markedBy = null; p.rl = 0; p.st = 0; p.diedAt = 0;
     p.lo = 0; p.vx = 0; p.vz = 0; p.stateAt = 0; p.moveAt = 0;   // a teleport is not travel
+    p.fallPeak = undefined; p.lastHitBy = null;                    // nor is it a fall
     if (p.hist) p.hist.length = 0;                  // and nothing to rewind onto
   }
 }
@@ -1062,6 +1108,7 @@ io.on('connection', (socket) => {
       if (typeof d.x === 'number' && typeof d.z === 'number') {
         const v = vetMove(room, p, d.x, typeof d.y === 'number' ? d.y : (p.y || 0), d.z, at);
         p.x = v.x; p.y = v.y; p.z = v.z;
+        trackFall(room, p, d.fl | 0, at);
       }
     }
     if (typeof d.yaw === 'number') p.yaw = d.yaw;
@@ -1140,7 +1187,7 @@ io.on('connection', (socket) => {
     if (best.target) {
       const dealt = dmg * best.mult;
       const tgt = best.target.ref;
-      tgt.hp -= dealt;
+      tgt.hp -= dealt; hitBy(tgt, p.id);
       /* `by` says whose hit this was. The event goes to the whole room, and
          the client used to flash a hit marker on EVERY one of them — so you
          got a marker for other people's fights, and for being shot yourself.
@@ -1273,7 +1320,7 @@ io.on('connection', (socket) => {
     }
     const step = Math.min(p.comboStep || 0, MELEE.combo.length-1);
     const t = best.ref, isPlayer = best.kind === 'player';
-    t.hp -= heavyDmg || MELEE.combo[step];
+    t.hp -= heavyDmg || MELEE.combo[step]; hitBy(t, p.id);
     io.to(room.id).emit('impact', { x:t.x, y:(t.y||0)+1.1, z:t.z, head:false, by: p.id });
     if (isPlayer) io.to(t.id).emit('hurt', { x: p.x, z: p.z });
     p.comboStep = heavyDmg ? 0 : (step + 1) % MELEE.combo.length;
@@ -1550,7 +1597,7 @@ function explodeGrenade(room, g, now) {
     const dmg = d <= GRENADE.full ? GRENADE.dmg
               : Math.round(GRENADE.dmg * (1 - (d - GRENADE.full) / (GRENADE.radius - GRENADE.full)));
     if (dmg <= 0) continue;
-    t.hp -= dmg;
+    t.hp -= dmg; hitBy(t, g.by);
     io.to(t.id).emit('hurt', { x: g.x, z: g.z });
     io.to(room.id).emit('impact', { x: cx, y: cy, z: cz, head: dmg >= GRENADE.dmg, by: g.by,
                                     zone: dmg >= GRENADE.dmg ? 'head' : 'torso' });
@@ -1568,7 +1615,7 @@ function igniteTarget(room, hit, byId, now) {
   const players = room.players;
   const t = hit.ref, isPlayer = hit.kind === 'player';
   const head = !!hit.head;
-  t.hp -= head ? XBOW.headDmg : XBOW.bodyDmg;
+  t.hp -= head ? XBOW.headDmg : XBOW.bodyDmg; hitBy(t, byId);
   t.burnUntil = now + XBOW.burnMs; t.burnNext = now + 1000; t.burnBy = byId;
   t.burnRate = XBOW.burnDps;
   const shooter = players.get(byId);
@@ -1638,7 +1685,7 @@ function robotWorld(room, now) {
     hurt: (r, t, dmg, how) => {
       if (!t.alive || room.match.phase !== 'live') return;
       const owner = players.get(r.owner);
-      t.hp -= dmg;
+      t.hp -= dmg; hitBy(t, r.owner);
       io.to(t.id).emit('hurt', { x: r.x, z: r.z });
       io.to(room.id).emit('impact', { x: t.x, y: ROBOTS.robotChestY(t), z: t.z, head: false, zone: 'torso', by: r.owner });
       if (t.hp <= 0 && t.alive) {
@@ -2067,7 +2114,7 @@ function tickRoom(room, now, dt) {
     if (now > e.burnUntil) { e.burnUntil = 0; e.burnRate = 0; return; }
     if (now < (e.burnNext || 0)) return;
     e.burnNext = now + 1000;
-    e.hp -= (e.burnRate || XBOW.burnDps);
+    e.hp -= (e.burnRate || XBOW.burnDps); hitBy(e, e.burnBy);
     if (e.hp <= 0 && e.alive) {
       eliminate(room, e, isPlayer);
       const killer = players.get(e.burnBy);

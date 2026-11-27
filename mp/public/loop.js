@@ -196,9 +196,41 @@ function updateClimb(dt){
     Sfx.land();
   }
 }
+/* FALL DAMAGE (Jack, 2026-11-27): free up to `safe`, then `perM` a metre;
+   Tariq's landing roll takes `rollMul` of it. In a match the SERVER decides
+   (FALL in server.js, which this must match) and this only plays the
+   landing; on the range it is applied here, unless switched off (noFall),
+   and your health comes back `regenMs` after the last fall. */
+const FALL = { safe: 5, perM: 10, rollMul: 0.5, regenMs: 4000 };
+let fallHurtAt = 0;
+/* bit 2 also covers Blast's double jump (Jack, 2026-11-27): the second jump
+   restarts the count, held for a few packets so the server sees it */
+function fallFlags(){ return (me.ladder || climbT > 0 ? 1 : 0) | (dashT > 0 || performance.now() - (me.djAt || 0) < 150 ? 2 : 0) | (rollQueued ? 4 : 0); }
+/* A landing from more than FALL.safe. In a match the server sends `fell`
+   with the damage; here we only make it heavy. On the range it is real. */
+function landFall(drop, rolled){
+  let dmg = (drop - FALL.safe) * FALL.perM;
+  if(rolled && myAgent === 'aseed') dmg *= FALL.rollMul;
+  dmg = Math.round(dmg);
+  Sfx.land(); Sfx.hurt();
+  if(gameMode === 'mp' || training('noFall') || dmg <= 0) return;
+  me.hp -= dmg; fallHurtAt = performance.now(); dmgFlash(); updateHUD();
+  if(me.hp <= 0){                                      // the range has no death: back to the start, whole
+    addFeed({ by: 'the fall', victim: (document.getElementById('nameInput') || {}).value || 'you', head: false });
+    const p = clearSpawnSpot(0, Math.min(44, ARENA - 8));
+    me.x = p[0]; me.z = p[1]; me.feetY = 0; me.vy = 0; me.hv.set(0,0,0); me.fallPeak = 0; me.hp = 100; updateHUD();
+  }
+}
+function rangeRegen(){
+  if(gameMode === 'mp' || me.hp >= 100 || !fallHurtAt) return;
+  if(performance.now() - fallHurtAt > FALL.regenMs){ me.hp = 100; fallHurtAt = 0; updateHUD(); }
+}
 function movePlayer(dt){
   const st=STANCE[me.stance];
   me.eyeH += (st.eye-me.eyeH)*Math.min(1,dt*12);
+  /* ladders, mantles and the dash restart the fall count, as on the server */
+  if(me.fallPeak === undefined || me.ladder || climbT > 0 || dashT > 0 || !me.alive) me.fallPeak = me.feetY;
+  else if(!me.onGround && me.feetY > me.fallPeak) me.fallPeak = me.feetY;
   /* A climb owns the frame: no input, no gravity, no wall push — it is
      moving you along a path it already checked. */
   if(climbT>0){ updateClimb(dt); return; }
@@ -262,6 +294,7 @@ function movePlayer(dt){
     else if(me.jumpsUsed < agent().jumps){        // Blast's passive is the second one
       me.vy = (me.jumpsUsed===0) ? JUMP_V : JUMP_V*0.88;  // air jump slightly weaker
       me.jumpsUsed++; me.onGround=false; me.jumped=true;
+      if(me.jumpsUsed > 1){ me.fallPeak = me.feetY; me.djAt = performance.now(); }   // a double jump resets the fall
       Sfx.step(me.jumpsUsed>1);
     }
   }
@@ -281,9 +314,12 @@ function movePlayer(dt){
   if(me.onGround && me.vy<=0 && me.feetY>groundY && me.feetY-groundY<=STEP_UP) me.feetY=groundY;
   if(me.feetY<=groundY){ const hard=me.vy<-6; me.feetY=groundY; me.vy=0; me.onGround=true;
     me.jumpsUsed=0;                                        // refill jumps on landing
-    if(wasAir && me.jumped){ me.jumped=false; jumpLandAt=performance.now();
-      if(rollQueued) startRoll(); }                        // the jump roll (ROLL.jumpMul)
-    if(wasAir && hard) Sfx.land(); }
+    const drop = wasAir ? (me.fallPeak || groundY) - groundY : 0, rolled = rollQueued;
+    me.fallPeak = groundY;
+    if(wasAir && (me.jumped || rollQueued)){ me.jumped=false; jumpLandAt=performance.now();
+      if(rollQueued) startRoll(); }                        // the jump roll (ROLL.jumpMul), or a landing roll
+    if(wasAir && hard) Sfx.land();
+    if(drop > FALL.safe) landFall(drop, rolled); }
   else { me.onGround=false;
     if(me.jumpsUsed===0) me.jumpsUsed=1; }                 // walked off a ledge = no free double jump
   /* HEAD BUMP. A box with air under it (an upper floor's slab, a stair
@@ -387,10 +423,12 @@ function loop(){ requestAnimationFrame(loop);
       if(gameMode==='mp' && socket){ sendAcc+=dt; if(sendAcc>0.033){ sendAcc=0; socket.emit('state',{x:me.x,z:me.z,y:me.feetY,yaw:me.yaw,pitch:me.pitch,st:STANCE_ID[me.stance],
           tp: lastTp,          // the forced move we've accepted; stale ones are ignored
           lo: +(me.lean||0).toFixed(2),   // lean offset in metres, already wall-clamped
-          rl: rollT>0 ? +(1-rollT/rollDur).toFixed(3) : 0});   // roll progress, so others see the tumble
+          rl: rollT>0 ? +(1-rollT/rollDur).toFixed(3) : 0,    // roll progress, so others see the tumble
+          fl: fallFlags()});                                  // ladder / dash / landing roll, for fall damage
       } }
     }
     if(!paused) updateSilvars(dt);           // Silvars' robots and Linked Sight, alive or spectating
+    rangeRegen();                            // the range refills you after a fall
     /* The snapshot writes me.hp straight from the server and never tells the
        HUD, so the number and the bar sat at whatever they last showed until
        something else happened to call updateHUD() — a weapon switch, a buy, a

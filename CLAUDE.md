@@ -2199,6 +2199,31 @@ is `mvpanel` switchgear (canvas `litSwitchFaceTexture`, faces north) and
 `drytx` transformers (green finned tanks in steel bund trays, cable boots),
 with a blue `epoxy` walkway (a ground kind).
 
+## Fall damage (2026-11-27)
+
+Jack: safe up to 5m, then 10 a metre (so ~15m is lethal from full).
+- **The server decides** (`FALL`, `trackFall`, `groundAt` in server.js): from
+  each accepted position it keeps the highest point since you last stood on
+  something (`groundAt` tests the feet CIRCLE, 0.3m, like the client's
+  `touches`, so stair treads and crate edges count as ground), and on landing
+  the drop is peak minus here. It sends the victim `fell {dmg, h}`.
+- The client says what restarts the count, in the state packet's `fl`:
+  1 ladder or mantle, 2 Blast's air dash or his double jump (held 150ms so a
+  packet carries it), 4 a landing roll queued. **Tariq's landing roll halves
+  it** (V while falling now queues a roll even without a jump, `startRoll`).
+- **A fall death goes to whoever hurt you in the last 5s** (`hitBy` at every
+  damage site sets `lastHitBy/At`); otherwise the feed says "the fall".
+- **The range** applies it locally (`landFall` in loop.js, `FALL` must match
+  the server's), refills you 4s after (`rangeRegen`), and a lethal fall puts
+  you back at the start. Setting FALL DAMAGE (gameplay, `noFall`, practice
+  only) switches it off.
+- Measured: `scratchpad/fallunit.js` runs the server's own functions on the
+  real map: 4.8m 0, 12m 70, 12m with Tariq's roll 35 (Blast gets no halving),
+  16.6m dead, down a ladder 0, pushed at 40 HP credited to the attacker. On
+  the range: 11m 60, rolled 30, double jump at 6m 27, setting off 0.
+  Heights: catwalk 6.4 (14), boiler gallery 7.6 (26), office roof 11.7 (67),
+  hall roof 16.6 (dead).
+
 ## Agents
 
 You play an **agent**, picked in the menu's OPERATORS tab (`#agentRow`,
