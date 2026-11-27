@@ -136,11 +136,13 @@ shot, 70s cooldown. Saltline's speeds need one change: its Hound runs 4.5
 m/s, slower than our 5.6 walk, so **our dog must run at least sprint speed
 (8.4)** to keep up with Silvars and catch players.
 
+**Decided (Jack, 2026-11-27): copy Saltline's actual Gull and Hound
+models** into the game, the same way the PAC-9 rifle was (read out of the
+running Saltline, credited in the README and in the code). This extends
+the PAC-9 exception to "Saltline is read, not shipped" to these two models.
+
 **Open (Saltline reference):**
-1. Copy Saltline's actual Gull and Hound models into the game (as was done
-   for the PAC-9 rifle, with credit), or draw our own versions that follow
-   them?
-2. Keep Saltline's white-and-orange paint, or repaint them in Crimson X's
+1. Keep Saltline's white-and-orange paint, or repaint them in Crimson X's
    crimson on near-black?
 
 **Build note:** the drone and dog are real AI units that must find their way
