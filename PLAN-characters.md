@@ -278,6 +278,41 @@ A secret agent that only a code typed in the CALLSIGN box can summon.
 - It is deliberately overpowered (a boss to hunt). The one-per-room cap and
   the feed warning are what keep a match playable.
 
+## 8. KAGE (影) (new, Jack's design, 2026-11-28; PLANNED, not built)
+
+The stealth agent. An original character, like Salvo and TxF. Jack named
+the feel of his X after 蛊's X (a lasting effect the victim has to deal
+with), not to copy it.
+
+| Part | Kage |
+|---|---|
+| Name | **KAGE** / 影 ("shadow") |
+| Role | Stealth (*suggested*) |
+| Passive | **Soundproof.** His footsteps, jumps and landings carry about **3 m** (everyone else's 11 m), so he is heard only up close. **His gunshots stay as loud as everyone's** (the gun fire is not touched). |
+| V | **Smoke.** A plain smoke screen that blocks sight; it marks nobody (unlike Aseed's smoke tag). **2 charges, 30 s each.** |
+| G | **Invisibility, 3 s**, then **20 s cooldown**. **Firing, throwing or using another ability ends it at once**; taking damage does not. Fully invisible beyond about **5 m**; closer than that a **faint heat-haze shimmer** gives him away. |
+| X | **Spike burst. 2 charges, 30 s each.** Fires a spread of sharp spikes in a **25° cone out to 15 m**. A hit does **15 damage**, and the target is **spiked**: **30% slower** (walk 5.6 → about 3.9, sprint 8.4 → about 5.9), **cannot aim down sights**, **aim shakes**, and **bleeds 10 HP/s for 20 s**. **The bleed alone never kills: it stops at 1 HP.** |
+| Plucking | The spiked player **holds H for 3 s** to pull the spikes out, which ends every effect. While plucking they can **slow-walk but not shoot**; taking damage **does not** reset the 3 s. **Only the spiked player can pluck**; teammates cannot. |
+| Jumps | one |
+| Backstory | *to decide* (original to Elite Force) |
+| Look | *Draft, for Jack to change:* lean build. A fitted **charcoal-indigo** stealth suit with soft quilted padding at the joints (nothing rattles), a **matte black half-mask** over nose and mouth with a thin **indigo** seam, and a low hood over short black hair tied back. **Cloth wraps** on forearms and shins, split-toe **soft-soled boots** for silent steps. A **spike launcher on the right forearm**: a slim magazine of steel spikes along the arm. **Two smoke canisters** strapped tight on the belt. No dangling gear; every strap is taped down. Accent colour: deep indigo. |
+| Voice | *to decide* (suggested: few words, said low) |
+
+**Notes for building it:**
+- Passive: other players' footsteps are client audio (`loop.js`,
+  `REMOTE_STRIDE`; `hud.js` `bus(at, ref)`, ref 11 for a step). Kage's steps
+  play with ref about 3. `noiseMade` (Aseed's hearing) only fires on shots,
+  so it is unchanged.
+- Invisibility: the server tells the others he is cloaked; their clients
+  hide his model beyond 5 m and draw the shimmer inside it. The nameplate
+  and minimap dot hide too.
+- Spikes: the server rolls the cone and the hits, owns the `spiked` state
+  (slow, no ADS, shake, bleed floor at 1 HP) and the 3 s pluck on `KeyH`
+  (free today).
+- The polish rule applies: a detailed model, the forearm launcher, the
+  spikes stuck in a hit player, smoke and shimmer effects, sounds, and a
+  `cd-*.png` icon per ability from Jack.
+
 ## Looks (Jack's sheets, `Crinsome x/Pictures/character design`) - built 2026-11-27
 
 - **Aseed**: grey hood, crimson mask, plaid poncho over maroon
