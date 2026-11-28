@@ -198,7 +198,7 @@ function cdState(kind, now){
     return { remain, total: SALVO.barrage.cdMs, have: remain > 0 ? 0 : 1, max: 1 };
   }
   if(kind === 'missile'){
-    if(salvo.missile) return { live:true, txt: String(Math.max(0, Math.ceil(SALVO.missile.lifeMs / 1000 - salvo.missile.t))), remain:0, total:1, have:1, max:1 };
+    if(salvo.missile) return { live:true, txt: cdFree() ? '∞' : String(Math.max(0, Math.ceil(SALVO.missile.lifeMs / 1000 - salvo.missile.t))), remain:0, total:1, have:1, max:1 };
     const remain = Math.max(0, salvo.missileAt - now);
     return { remain, total: SALVO.missile.cdMs, have: remain > 0 ? 0 : 1, max: 1 };
   }

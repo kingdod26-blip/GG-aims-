@@ -416,7 +416,12 @@ function updateMissile(dt){
   if(hit){ missileDetonate(hit.point.clone().addScaledVector(dir, -0.2)); return; }
   m.pos.addScaledVector(dir, step);
   if(m.pos.y <= 0.05){ m.pos.y = 0.05; missileDetonate(m.pos.clone()); return; }
-  if(m.t * 1000 >= M.lifeMs){ missileDetonate(m.pos.clone()); return; }
+  /* NO COOLDOWN on the range (Jack, 2026-11-28) also means no fuel limit: it
+     flies until it hits something, or leaves the site (training() is off in
+     a match, where the server's lifeMs stands) */
+  const endless = cdFree();
+  if(endless ? (Math.abs(m.pos.x) > ARENA + 40 || Math.abs(m.pos.z) > ARENA + 40 || m.pos.y > 150)
+             : m.t * 1000 >= M.lifeMs){ missileDetonate(m.pos.clone()); return; }
   m.mesh.position.copy(m.pos); m.mesh.rotation.set(m.pitch, m.yaw, 0, 'YXZ');
   if(m.mesh.userData.flame) m.mesh.userData.flame.scale.setScalar(0.8 + Math.random() * 0.4);
   if(gameMode === 'mp' && socket && m.id != null){
@@ -426,7 +431,7 @@ function updateMissile(dt){
   let lbl = document.getElementById('missileHud');
   if(!m.guided){ if(lbl) lbl.style.display = 'none'; return; }   // a straight shot needs no readout: you are still looking through your own eyes
   if(!lbl){ lbl = document.createElement('div'); lbl.id = 'missileHud'; document.body.appendChild(lbl); }
-  lbl.style.display = ''; lbl.textContent = 'MISSILE · ' + Math.max(0, (M.lifeMs / 1000 - m.t)).toFixed(1) + 's';
+  lbl.style.display = ''; lbl.textContent = 'MISSILE · ' + (cdFree() ? '∞' : Math.max(0, (M.lifeMs / 1000 - m.t)).toFixed(1) + 's');
 }
 /* loop.js: while it flies, the camera rides it */
 function missileCamera(){
