@@ -3447,7 +3447,7 @@ the one file both sides load, so the range and the match cannot disagree.
   incendiary for its own mesh.
 - **V, barrage, AIM AND PRESS** (the standard for any spot-targeting
   ability now): V shows a ring where the crosshair meets the world (grey
-  past 60m), V or left-click calls it, right-click or Esc calls it off. The
+  past 60m), left-click calls it, V again, right-click or Esc calls it off. The
   server checks range and cooldown, lays 6 shells at random in 10m over 3s
   after a 2s warning, and tells the whole room (`barrage`: ring + whistle).
 - **X takes out the LAUNCHER** (`MISSILE` slot, appended after `INCEN`;
@@ -3458,8 +3458,8 @@ the one file both sides load, so the range and the match cannot disagree.
   special-case it), and after firing you are handed your gun back.
   Guided, **W boosts it** to `speed x boost` (22 -> 55 m/s, `boostAcc` 40
   m/s2) and the view widens 16 degrees; the server's `mpos` check allows the
-  boosted speed. With NO COOLDOWN on the range it has no fuel limit (it
-  still goes off 40m past the site edge or 150m up).
+  boosted speed. With NO COOLDOWN on the range it has no fuel limit and
+  flies past the site edge; left-click while flying sets it off in the air.
 - **The missile itself = a robot of kind 'missile'** so the existing shot code
   (`robotOnRay`, `shootRobot`, `damageRobot`) shoots it down: 40 HP, two
   rifle hits. The PILOT flies it locally (salvo.js: mouse steers, camera

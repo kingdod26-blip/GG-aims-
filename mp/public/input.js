@@ -127,11 +127,11 @@ addEventListener('mousemove',e=>{ if(!pointerLocked) return;
   const l=Math.PI/2-0.05; me.pitch=Math.max(-l,Math.min(l,me.pitch)); });
 addEventListener('mousedown',e=>{
   /* Salvo: aiming the barrage, left-click calls it in and right-click calls it
-     off; while a missile flies the buttons do nothing */
+     off; while a missile flies, left-click sets it off where it is */
   if(typeof salvo !== 'undefined' && salvo.aiming && pointerLocked){ if(e.button===0) barrageConfirm(); else if(e.button===2) salvoAimOff(); return; }
   /* TxF: aiming the teleport, left-click goes and right-click calls it off */
   if(typeof txf !== 'undefined' && txf.aiming && pointerLocked){ if(e.button===0) teleConfirm(); else if(e.button===2) teleAimOff(); return; }
-  if(typeof missileOn === 'function' && missileOn()) return;
+  if(typeof missileOn === 'function' && missileOn()){ if(e.button===0 && pointerLocked) missileDetonate(salvo.missile.pos.clone()); return; }
   if(e.button===0){ wantFire=true; semiQueued=true; }
   // crossbow: right-click switches fire mode instead of aiming
   if(e.button===2){ if(curW().melee) startCharge();                 // the blade: hold to charge a cut

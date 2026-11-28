@@ -193,7 +193,7 @@ function barrageAimPoint(){
 function barrageKey(){
   if(gameState !== 'playing' || !me.alive) return;
   const now = performance.now();
-  if(salvo.aiming){ barrageConfirm(); return; }
+  if(salvo.aiming){ salvoAimOff(); Sfx.swap(); return; }   // V again calls it off (Jack, 2026-11-28); left-click calls it in
   if(now < salvo.barrageAt && !cdFree()){ Sfx.empty(); return; }
   salvo.aiming = true;
   if(!barrageRing){
@@ -422,11 +422,10 @@ function updateMissile(dt){
   m.pos.addScaledVector(dir, step);
   if(m.pos.y <= 0.05){ m.pos.y = 0.05; missileDetonate(m.pos.clone()); return; }
   /* NO COOLDOWN on the range (Jack, 2026-11-28) also means no fuel limit: it
-     flies until it hits something, or leaves the site (training() is off in
-     a match, where the server's lifeMs stands) */
-  const endless = cdFree();
-  if(endless ? (Math.abs(m.pos.x) > ARENA + 40 || Math.abs(m.pos.z) > ARENA + 40 || m.pos.y > 150)
-             : m.t * 1000 >= M.lifeMs){ missileDetonate(m.pos.clone()); return; }
+     flies until it hits something, right over the site's edge if you like
+     (Jack: "fly past the edge"); left-click sets it off in the air (input.js).
+     training() is off in a match, where the server's lifeMs stands. */
+  if(!cdFree() && m.t * 1000 >= M.lifeMs){ missileDetonate(m.pos.clone()); return; }
   m.mesh.position.copy(m.pos); m.mesh.rotation.set(m.pitch, m.yaw, 0, 'YXZ');
   if(m.mesh.userData.flame) m.mesh.userData.flame.scale.setScalar(0.8 + Math.random() * 0.4);
   if(gameMode === 'mp' && socket && m.id != null){
