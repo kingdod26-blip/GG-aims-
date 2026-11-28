@@ -3609,6 +3609,17 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
     angled bracket out of a big square hazard pommel, then a striped bar up
     to the head); the grip is wrapped in leather on the slant. The
     lightning (`arcBoltsFrame`) follows each blade's curving middle.
+  - **ARC BLADES checked in the game** (2026-11-29, Jack's screenshot showed
+    thin white slivers with a needle at the base, a grip of rings and loose
+    copper hoops). Blades now: a broader outline with a chunky angular
+    beard; the face is a canvas texture (`arcBladeTex`: molten orange,
+    hotter in the middle, frozen lightning cracks) mapped by the shape's own
+    x,y uv, one soft centred halo, a thin hot edge; set 0.106 apart so they
+    no longer overlap. Grip: a leather-wrap texture (`arcWrapTex`) with shallow
+    lapped edges. Copper hoses are TubeGeometry runs hugging the head down
+    to the grip and the guard, with fittings. Head in dark worn steel
+    (`arciron2`), wider to hold the spaced blades; the guard bar's hazard
+    stripes come from its own repeated copy of the texture so they slant.
   - **The drum launcher rebuilt too** (2026-11-28, from Jack's HAZARD
     BLASTER picture, ~160 meshes): a hazard-striped yellow drum with blue
     bands, steel end rings and flutes (three chambers, top one on the bore,

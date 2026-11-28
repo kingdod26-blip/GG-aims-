@@ -1086,36 +1086,82 @@ function drawInferno(){
      angled bracket from the pommel out to the blade side, then a
      hazard-striped bar up to the head. */
 function arcBladeShape(len){
+  /* Jack's screenshot (2026-11-29) showed thin slivers with a long needle
+     sticking out at the base. In his picture each blade is broad, and the
+     hook at its root is a chunky beard: from a short neck the lower edge
+     runs out and down to a spur pointing back, the upper edge climbs back
+     to the blade in one diagonal, then the blade runs long to the point. */
   const s = new THREE.Shape(), L = len;
-  s.moveTo(-0.012, 0);
-  s.lineTo(-0.016, L * 0.045);                                                  // the neck
-  s.lineTo(-0.074, L * 0.030);                                                  // the spur, pointing back and down
-  s.lineTo(-0.044, L * 0.090);                                                  // the tang's top edge
-  s.lineTo(-0.030, L * 0.120);
-  s.lineTo(-0.012, L * 0.165);                                                  // the notch
-  s.quadraticCurveTo(-0.020, L * 0.40, 0.000, L * 0.66);                        // the back edge, a long gentle curve
-  s.quadraticCurveTo(0.012, L * 0.85, 0.030, L);                                // to the point
-  s.quadraticCurveTo(0.040, L * 0.80, 0.042, L * 0.58);                         // the cutting edge coming back down
-  s.quadraticCurveTo(0.044, L * 0.30, 0.030, L * 0.17);
-  s.lineTo(0.040, L * 0.11);                                                    // a small swell near the base
-  s.lineTo(0.016, L * 0.04);
-  s.lineTo(0.014, 0);
-  s.lineTo(-0.012, 0);
+  s.moveTo(-0.011, 0);
+  s.lineTo(-0.013, 0.032);                                                      // the neck
+  s.lineTo(-0.064, 0.024);                                                      // the beard's lower edge, out and down
+  s.lineTo(-0.086, 0.004);                                                      // the spur
+  s.lineTo(-0.074, 0.044);
+  s.lineTo(-0.040, 0.104);                                                      // the beard's top, back up to the blade
+  s.lineTo(-0.026, 0.124);
+  s.quadraticCurveTo(-0.022, L * 0.40, -0.006, L * 0.64);                       // the back edge
+  s.quadraticCurveTo(0.008, L * 0.86, 0.032, L);                                // to the point
+  s.quadraticCurveTo(0.050, L * 0.78, 0.048, L * 0.52);                         // the cutting edge
+  s.quadraticCurveTo(0.044, L * 0.24, 0.030, 0.066);
+  s.lineTo(0.022, 0.036);
+  s.lineTo(0.013, 0);
+  s.lineTo(-0.011, 0);
   return s;
+}
+/* The blade's face: molten orange, hotter toward the middle, with bright
+   cracks of lightning frozen into it (the picture's look). ShapeGeometry
+   gives each vertex its own x,y as uv, so the texture is scaled onto the
+   blade's real size (x -0.088 .. 0.052, y 0 .. 0.62). */
+function arcBladeTex(){
+  if (arcBladeTex.t) return arcBladeTex.t;
+  const W = 128, H = 512, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  const gr = x.createLinearGradient(0, 0, W, 0);
+  gr.addColorStop(0.00, '#7a1c00'); gr.addColorStop(0.42, '#e85a0c'); gr.addColorStop(0.62, '#ffb43a'); gr.addColorStop(0.78, '#ff8a1e'); gr.addColorStop(1.00, '#9a2a04');
+  x.fillStyle = gr; x.fillRect(0, 0, W, H);
+  const crack = (x0, y0, steps, w, col) => {                                    // a jagged crack climbing the blade
+    x.strokeStyle = col; x.lineWidth = w; x.shadowColor = '#ffd27a'; x.shadowBlur = 6;
+    x.beginPath(); x.moveTo(x0, y0); let px = x0, py = y0;
+    for (let i = 0; i < steps; i++){ px += (Math.random() - 0.5) * 26; py -= 10 + Math.random() * 22; px = Math.max(8, Math.min(W - 8, px)); x.lineTo(px, py);
+      if (Math.random() < 0.3){ x.moveTo(px, py); x.lineTo(px + (Math.random() - 0.5) * 30, py - Math.random() * 18); x.moveTo(px, py); } }
+    x.stroke(); };
+  for (let k = 0; k < 7; k++) crack(30 + Math.random() * 70, H - Math.random() * 120, 14 + (Math.random() * 10 | 0), 1.6, 'rgba(255,236,170,0.95)');
+  for (let k = 0; k < 10; k++) crack(20 + Math.random() * 90, H - Math.random() * H * 0.8, 6, 0.9, 'rgba(255,214,120,0.7)');
+  const tx = new THREE.CanvasTexture(c); tx.encoding = THREE.sRGBEncoding; tx.wrapS = tx.wrapT = THREE.ClampToEdgeWrapping;
+  if (tx.repeat){ tx.repeat.set(1 / 0.140, 1 / 0.62); tx.offset.set(0.088 / 0.140, 0); }
+  return (arcBladeTex.t = tx);
+}
+/* A leather-wrapped grip as a texture: overlapping strips on the slant,
+   each with a darker edge where it laps the next. */
+function arcWrapTex(){
+  if (arcWrapTex.t) return arcWrapTex.t;
+  const c = document.createElement('canvas'); c.width = 128; c.height = 256;
+  const x = c.getContext('2d'); x.fillStyle = '#1b1917'; x.fillRect(0, 0, 128, 256);
+  for (let k = -3; k < 12; k++){
+    const y = k * 28;
+    x.fillStyle = k % 2 ? '#2e2a26' : '#26231f';
+    x.beginPath(); x.moveTo(0, y); x.lineTo(128, y + 40); x.lineTo(128, y + 64); x.lineTo(0, y + 24); x.closePath(); x.fill();
+    x.strokeStyle = '#0c0b0a'; x.lineWidth = 3; x.beginPath(); x.moveTo(0, y + 24); x.lineTo(128, y + 64); x.stroke();
+    x.strokeStyle = 'rgba(120,104,88,0.35)'; x.lineWidth = 1; x.beginPath(); x.moveTo(0, y + 2); x.lineTo(128, y + 42); x.stroke();
+  }
+  const tx = new THREE.CanvasTexture(c); tx.encoding = THREE.sRGBEncoding; tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
+  return (arcWrapTex.t = tx);
 }
 function drawArcBlades(){
   const root = new THREE.Group(), g = new THREE.Group(); root.add(g);
   const dk = M_DARK(), st = M_TXFSTL(), hz = M_TXFHAZ();
-  const iron = dmatL('arciron', [0.075, 0.072, 0.070], 0.80, 0.50, 1);        // the head's worn dark steel
+  const iron = dmatL('arciron2', [0.034, 0.033, 0.032], 0.70, 0.55, 0);        // the head's worn dark steel
   const leather = dmatL('arcleather', [0.032, 0.030, 0.028], 0.0, 0.80, 2);
   const cop = dmatL('archose', [0.20, 0.085, 0.03], 0.55, 0.45, 1);           // copper-brown pipes
   const V = (r0, r1, h, m, x, yy, z) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, h, 20), m); o.position.set(x, yy, z); return dAdd(g, o); };
   const rivet = (x, y, z) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(0.0026, 0.0026, 0.0014, 8), M_STEEL()); o.rotation.x = Math.PI / 2; o.position.set(x, y, z); return dAdd(g, o); };   // facing you
 
-  // ---- grip: a core wrapped in leather strips on the slant ----
-  V(0.0175, 0.0175, 0.135, dk, 0, -0.002, 0);
-  for (let k = 0; k < 8; k++){ const w = new THREE.Mesh(new THREE.TorusGeometry(0.0182, 0.0042, 6, 20), leather);
-    w.rotation.set(Math.PI / 2 + 0.38, 0, 0); w.position.y = -0.052 + k * 0.0145; dAdd(g, w); }
+  // ---- grip: wrapped in leather strips on the slant (a texture, plus the lapped edges in relief) ----
+  { const wrap = DRAWN_MATS.arcwrap || (DRAWN_MATS.arcwrap = lookTag(Object.assign(new THREE.MeshStandardMaterial({ map: arcWrapTex(), metalness: 0, roughness: 0.82 }), { userData: { envK: 0.5 } }),
+                                                                    { metalness: 0, roughness: 0.82 }, { metalness: 0, roughness: 0.82 }));
+    V(0.0185, 0.0185, 0.132, wrap, 0, -0.003, 0);
+    for (let k = 0; k < 6; k++){ const w = new THREE.Mesh(new THREE.TorusGeometry(0.0186, 0.0011, 4, 24), leather);   // the lapped edges, shallow
+      w.rotation.set(Math.PI / 2 + 0.30, 0, 0); w.position.y = -0.050 + k * 0.019; dAdd(g, w); } }
   V(0.0195, 0.0195, 0.016, hz, 0, 0.068, 0);                                   // a hazard band under the head
 
   // ---- pommel: a big square hazard block with screws ----
@@ -1130,14 +1176,20 @@ function drawArcBlades(){
     o.position.z = -0.009; dAdd(g, o); }
   rivet(0.060, -0.098, 0.011);
   dBox(g, iron, 0.018, 0.020, 0.022, 0.066, -0.080, 0);                         // the bar's foot
-  { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.150, 0.016), hz); bar.position.set(0.060, -0.002, 0); bar.rotation.z = 0.07; dAdd(g, bar);
+  /* the bar's stripes run on the slant as in the picture: its own copy of
+     the hazard texture, repeated down its length so they are not stretched */
+  const hzBar = DRAWN_MATS.txfhazbar || (DRAWN_MATS.txfhazbar = (() => { const tx = new THREE.CanvasTexture(txfHazardTex().image);
+    tx.encoding = THREE.sRGBEncoding; tx.wrapS = tx.wrapT = THREE.RepeatWrapping; if (tx.repeat) tx.repeat.set(1, 7);
+    const m = new THREE.MeshStandardMaterial({ map: tx, metalness: 0.2, roughness: 0.55 }); m.userData.envK = 0.7;
+    return lookTag(m, { metalness: 0.2, roughness: 0.55 }, { metalness: 0, roughness: 0.55 }); })());
+  { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.150, 0.016), hzBar); bar.position.set(0.060, -0.002, 0); bar.rotation.z = 0.07; dAdd(g, bar);
     for (const sx of [-1, 1]){ const e = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.150, 0.018), iron); e.position.set(0.060 + sx * 0.0095, -0.002, 0); e.rotation.z = 0.07; dAdd(g, e); } }
   dBox(g, iron, 0.020, 0.018, 0.022, 0.054, 0.076, 0);                          // and its head end
   rivet(0.054, 0.076, 0.0115);
 
   // ---- the head: riveted block, the danger sign, pods, pipes ----
-  dBox(g, iron, 0.110, 0.064, 0.050, 0.007, 0.112, 0);
-  dBox(g, dk, 0.112, 0.008, 0.052, 0.007, 0.142, 0);                            // the top plate
+  dBox(g, iron, 0.134, 0.064, 0.050, 0.005, 0.112, 0);
+  dBox(g, dk, 0.136, 0.008, 0.052, 0.005, 0.142, 0);                            // the top plate
   dBox(g, dk, 0.060, 0.044, 0.004, 0.004, 0.110, 0.026);                        // the front plate
   for (const [x, y] of [[-0.022, 0.128], [0.030, 0.128], [-0.022, 0.092], [0.030, 0.092]]) rivet(x + 0.004, y, 0.0285);
   for (const [x, y] of [[-0.040, 0.130], [-0.040, 0.094], [0.048, 0.130], [0.048, 0.094]]) rivet(x, y, 0.0255);
@@ -1148,39 +1200,40 @@ function drawArcBlades(){
     const dot = new THREE.Mesh(new THREE.BoxGeometry(0.0026, 0.0026, 0.002), dk); dot.position.set(0.004, 0.1025, 0.0315); g.add(dot); }
   for (const sx of [-1, 1]){
     const pod = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.040, 18), st);              // round pods on the top corners
-    pod.rotation.x = Math.PI / 2; pod.position.set(0.004 + sx * 0.040, 0.150, -0.004); dAdd(g, pod);
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.004, 14), dk); cap.rotation.x = Math.PI / 2; cap.position.set(0.004 + sx * 0.040, 0.150, 0.017); dAdd(g, cap);
-    const pipe = new THREE.Mesh(new THREE.TorusGeometry(0.040, 0.0032, 6, 20, Math.PI * 0.9), cop);   // a pipe looping down the side
-    pipe.position.set(0.004 + sx * 0.050, 0.108, 0.012); pipe.rotation.set(0, 0, sx > 0 ? -1.4 : 1.4 + Math.PI * 0.1); dAdd(g, pipe);
-    const pipe2 = new THREE.Mesh(new THREE.TorusGeometry(0.030, 0.0026, 6, 18, Math.PI * 0.8), cop);
-    pipe2.position.set(0.004 + sx * 0.052, 0.104, -0.014); pipe2.rotation.set(0, 0, sx > 0 ? -1.2 : 1.2 + Math.PI * 0.2); dAdd(g, pipe2);
+    pod.rotation.x = Math.PI / 2; pod.position.set(0.005 + sx * 0.052, 0.150, -0.004); dAdd(g, pod);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.004, 14), dk); cap.rotation.x = Math.PI / 2; cap.position.set(0.005 + sx * 0.052, 0.150, 0.017); dAdd(g, cap);
+    for (const dz of [0.012, -0.012]){                                          // two hoses a side, hugging the body
+      const end = sx < 0 ? [-0.020, 0.064, dz * 0.6] : [0.052, 0.070, dz * 0.6];   // left: into the grip's top; right: the guard bar
+      const pts = [[0.005 + sx * 0.068, 0.130, dz], [0.005 + sx * 0.078, 0.112, dz], [0.005 + sx * 0.072, 0.088, dz], [end[0] + sx * 0.012, end[1] + 0.006, dz], end]
+        .map(p => new THREE.Vector3(p[0], p[1], p[2]));
+      const hose = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, dz > 0 ? 0.0032 : 0.0026, 8, false), cop); dAdd(g, hose);
+      for (const p of [pts[0], pts[4]]){ const fit = new THREE.Mesh(new THREE.CylinderGeometry(0.0048, 0.0048, 0.008, 10), st); fit.position.copy(p); dAdd(g, fit); }   // brass fittings
+    }
   }
   // the forked clamps outside each blade
-  for (const [cx, ang] of [[-0.056, 0.35], [0.070, -0.35]]){
+  for (const [cx, ang] of [[-0.070, 0.35], [0.080, -0.35]]){
     const arm = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.048, 0.020), iron); arm.position.set(cx, 0.168, 0); arm.rotation.z = ang; dAdd(g, arm);
     const tip = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.010, 0.022), dk); tip.position.set(cx + (ang > 0 ? -0.008 : 0.008), 0.190, 0); dAdd(g, tip);
     rivet(cx, 0.160, 0.0105);
   }
-  for (const bx of [-0.036, 0.050]){ dBox(g, iron, 0.030, 0.014, 0.024, bx, 0.153, 0); dBox(g, M_TXFGLOW(), 0.022, 0.003, 0.016, bx, 0.1615, 0); }   // the blade sockets, glowing at the lip
+  for (const bx of [-0.048, 0.058]){ dBox(g, iron, 0.030, 0.014, 0.024, bx, 0.153, 0); dBox(g, M_TXFGLOW(), 0.022, 0.003, 0.016, bx, 0.1615, 0); }   // the blade sockets, glowing at the lip
 
-  // ---- the blades: halo, glow, a white-hot core, a bright edge, lightning ----
-  const glow = new THREE.MeshBasicMaterial({ color: 0xff7414, transparent: true, opacity: 0.82, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  const core = new THREE.MeshBasicMaterial({ color: 0xffd88a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  const halo = new THREE.MeshBasicMaterial({ color: 0xff4a08, transparent: true, opacity: 0.20, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  // ---- the blades: molten face with frozen lightning, a soft halo, a hot edge, live lightning ----
+  const face = new THREE.MeshBasicMaterial({ map: arcBladeTex(), transparent: true, opacity: 0.96, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const halo = new THREE.MeshBasicMaterial({ color: 0xff6a14, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const halo2 = new THREE.MeshBasicMaterial({ color: 0xff7a1a, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const bolts = [];
-  for (const [bx, lean, len] of [[-0.036, -0.20, 0.56], [0.050, -0.20, 0.60]]){
+  for (const [bx, lean, len] of [[-0.048, -0.20, 0.56], [0.058, -0.20, 0.60]]){
     const b = new THREE.Group(); b.position.set(bx, 0.160, 0.0); b.rotation.z = lean; g.add(b);
     const shape = arcBladeShape(len);
-    const haloM = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), halo); haloM.scale.set(1.25, 1.03, 1); haloM.position.set(0.004, -0.004, -0.001); b.add(haloM);
-    const outer = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), glow); b.add(outer);
-    const inner = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), core); inner.scale.set(0.50, 0.96, 1); inner.position.set(0.008, 0.012, 0.001); b.add(inner);
-    const em = new THREE.LineBasicMaterial({ color: 0xfff0c0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+    { const h = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), halo); h.scale.set(1.16, 1.02, 1); h.position.set(0.002, -0.006, -0.002); b.add(h); h.renderOrder = 1001; }
+    const body = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), face); b.add(body); body.renderOrder = 1001;
+    const em = new THREE.LineBasicMaterial({ color: 0xffe2a0, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false });
     const edgeLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(shape.getPoints(18).map(p => new THREE.Vector3(p.x, p.y, 0.0015))), em);
-    edgeLine.frustumCulled = false; b.add(edgeLine);
-    const lm = new THREE.LineBasicMaterial({ color: 0xffe8a0, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+    edgeLine.frustumCulled = false; edgeLine.renderOrder = 1001; b.add(edgeLine);
+    const lm = new THREE.LineBasicMaterial({ color: 0xfff0c0, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
     const line = new THREE.Line(new THREE.BufferGeometry(), lm); line.frustumCulled = false; b.add(line);
     bolts.push({ line, len });
-    for (const m of [haloM, outer, inner, edgeLine]) m.renderOrder = 1001;
   }
   root.userData = { blades: g, bolts };
   g.rotation.set(-0.35, 0, -0.25);
