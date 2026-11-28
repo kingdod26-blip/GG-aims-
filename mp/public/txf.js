@@ -541,6 +541,16 @@ addEventListener('keydown', e => { if(e.code === 'Escape' && txf.aiming) teleAim
 txf.spin = 0; txf.mgHeat = 0; txf.mgHotUntil = 0; txf.mslQ = []; txf.msls = [];
 function txfMslHave(now){ txf.mslQ = txf.mslQ.filter(t => t > now); return TXF.missile.charges - txf.mslQ.length; }
 
+/* An open tube along Z (a sight's housing): no end caps, so you can look
+   through it. dTube's cylinders are capped, which turned the window black. */
+function txfSightTube(g, m, r, len, x, y, z){
+  const mat = m.clone(); mat.side = THREE.DoubleSide;
+  const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 24, 1, true), mat);
+  o.rotation.x = Math.PI / 2; o.position.set(x, y, z); return dAdd(g, o);
+}
+function txfSightRing(g, m, r, x, y, z){
+  const o = new THREE.Mesh(new THREE.TorusGeometry(r, 0.0025, 6, 24), m); o.position.set(x, y, z); return dAdd(g, o);
+}
 /* 1: a six-barrel rotary gun. Bore on the gun's own axis, muzzles at -0.55
    (where the tracers leave from), the barrel cluster turning as it spins. */
 function drawMinigun(){
@@ -576,11 +586,19 @@ function drawMinigun(){
   dProf(g, poly, [[0.035, -0.055], [0.005, -0.055], [-0.005, -0.16], [0.04, -0.16]], 0.03, 0.004, 0, 0, 0.09);   // rear grip
   dProf(g, poly, [[0.02, -0.055], [-0.02, -0.055], [-0.025, -0.15], [0.02, -0.15]], 0.032, 0.004, 0, 0, -0.17);   // front grip
   dBox(g, st, 0.008, 0.018, 0.012, 0, -0.07, 0.07);
+  /* a reflex sight on the carry handle (Jack: a red dot when aiming); its
+     window is on the centreline, so aimed you look through it at the dot */
+  dBox(g, dk, 0.026, 0.012, 0.06, 0, 0.122, -0.02);
+  txfSightTube(g, dk, 0.019, 0.05, 0, 0.147, -0.02);
+  txfSightRing(g, y, 0.019, 0, 0.147, -0.046);
+  { const m = new THREE.MeshStandardMaterial({ color: 0x6a8a90, transparent: true, opacity: 0.18, roughness: 0.05, metalness: 0.6, depthWrite: false });
+    const pane = new THREE.Mesh(new THREE.CircleGeometry(0.016, 20), m); pane.position.set(0, 0.147, -0.047); dAdd(g, pane); }
+  dKnob(g, dk, 0.005, 0.007, 0.022, 0.147, -0.015, 'x');
   dDecal(g, 'TxF  RG-6  ROTARY', 0.0505, 0.01, -0.02, 0.17, 0.016, 1);
   for (const z of [-0.08, 0.02, 0.09]) dScrew(g, 0.0505, -0.04, z, 'x', 0.003);
   g.userData = { rotor };
   return { g, grip: [0, -0.115, 0.07], fore: [0, -0.07, -0.17], mag: null, magAt: [-0.1, -0.06, 0.02],
-           aimTop: 0.12,
+           aimTop: 0.147,                                                  // the sight's window
            vm: { x: 0.13, y: -0.14, z: -0.36, adsZ: 0.09, rx: 0.03, ry: 0.07, rz: -0.02, viewFov: 62, motion: 0.6 } };
 }
 /* 2: the drum launcher (Jack's reference, 2026-11-28): a heavy revolver
@@ -633,8 +651,8 @@ function drawTxfLauncher(){
   for (const sx of [-1, 1]) dScrew(g, sx * 0.031, 0.0, -0.16, 'x', 0.004);
   /* the sight: a top rail and a reflex sight on the centreline */
   dBox(g, dk, 0.03, 0.012, 0.14, 0, 0.048, 0.07);
-  dTube(g, dk, 0.022, 0.06, 0, 0.082, 0.05, 0.022, 20);
-  dTube(g, org, 0.023, 0.006, 0, 0.082, 0.02, 0.023, 20);
+  txfSightTube(g, dk, 0.022, 0.06, 0, 0.082, 0.05);
+  txfSightRing(g, org, 0.022, 0, 0.082, 0.02);
   dBox(g, dk, 0.026, 0.022, 0.04, 0, 0.06, 0.05);
   { const m = new THREE.MeshStandardMaterial({ color: 0x6a8a90, transparent: true, opacity: 0.18, roughness: 0.05, metalness: 0.6, depthWrite: false });
     const pane = new THREE.Mesh(new THREE.CircleGeometry(0.019, 20), m); pane.position.set(0, 0.082, 0.019); dAdd(g, pane); }
@@ -695,6 +713,7 @@ const TXF_MG_BUILT = drawMinigun(), TXF_ML_BUILT = drawTxfLauncher();
 mountGun(MINIGUN, TXF_MG_BUILT);
 mountGun(TXFMSL, TXF_ML_BUILT);
 WEAPONS[TXFMSL].redDot = true;           // aimed, you look through its sight
+WEAPONS[MINIGUN].redDot = true;          // and the minigun's (Jack, 2026-11-28)
 /* When the PAC-9's gloves arrive they hold these too (as salvo.js does). */
 function txfGlove(b){
   const rOff = b.right.position.clone().sub(new THREE.Vector3().fromArray(PAC9_GRIP));
