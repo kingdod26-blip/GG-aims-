@@ -823,7 +823,7 @@ function connectMP(name){
     for(const o of others.values()){ clearBurnFx(o); clearMark(o); }
   });
   socket.on('kill', d=>{ addFeed(d); if(d && d.byId === myId){ Sfx.kill(); creditKill(); } });
-  socket.on('boom', d=>{ if(d) boom(d.x, d.y || 0, d.z); });
+  socket.on('boom', d=>{ if(d) boom(d.x, d.y || 0, d.z, d.fx); });
   /* The server's answer to X as Blast: the zone's timers, or a refusal that
      still tells us when it will be ready. */
   socket.on('zone', d=>{

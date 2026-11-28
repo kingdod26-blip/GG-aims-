@@ -712,7 +712,7 @@ function updateGrenades(dt){
     if(now - g.at >= g.fuseMs){
       if(g.incen){ burstIncen(g, i); continue; }
       const C = g.cfg || GREN;
-      boom(g.pos.x, g.pos.y, g.pos.z);
+      boom(g.pos.x, g.pos.y, g.pos.z, C.fx);
       for(const b of localBots){
         if(!b.alive) continue;
         const chest = new THREE.Vector3(b.x, 1.05, b.z);
@@ -762,22 +762,22 @@ function clearGrenades(){ while(grenades.length){ scene.remove(grenades[0].mesh)
 /* The blast itself: a hot flash that swells and fades, a darker puff that
    hangs a moment longer, and the sound, placed where it went off. */
 const booms = [];
-function boom(x, y, z){
+function boom(x, y, z, fx){   // fx: size scale for a wider blast (Salvo's frag), 1 by default
   const flash = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12),
     new THREE.MeshBasicMaterial({ color:0xffb347, transparent:true, opacity:0.9, depthWrite:false }));
   const puff = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10),
     new THREE.MeshLambertMaterial({ color:0x3a3330, transparent:true, opacity:0.55, depthWrite:false }));
   flash.position.set(x, y + 0.3, z); puff.position.set(x, y + 0.5, z);
   scene.add(flash); scene.add(puff);
-  booms.push({ flash, puff, t:0 });
+  booms.push({ flash, puff, t:0, s: fx || 1 });
   Sfx.boom({ x, z });
 }
 function updateBooms(dt){
   for(let i = booms.length - 1; i >= 0; i--){
     const b = booms[i]; b.t += dt;
     const f = Math.min(1, b.t / 0.28), p = Math.min(1, b.t / 1.1);
-    b.flash.scale.setScalar(0.4 + 3.6 * f); b.flash.material.opacity = 0.9 * (1 - f);
-    b.puff.scale.setScalar(0.8 + 2.6 * p);  b.puff.material.opacity = 0.55 * (1 - p);
+    b.flash.scale.setScalar((0.4 + 3.6 * f) * b.s); b.flash.material.opacity = 0.9 * (1 - f);
+    b.puff.scale.setScalar((0.8 + 2.6 * p) * b.s);  b.puff.material.opacity = 0.55 * (1 - p);
     b.puff.position.y += dt * 0.6;
     if(p >= 1){ for(const m of [b.flash, b.puff]){ scene.remove(m); m.geometry.dispose(); m.material.dispose(); }
                 booms.splice(i, 1); }

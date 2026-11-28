@@ -1727,7 +1727,7 @@ function explodeGrenade(room, g, now) {
    takes blastMul of it. */
 function blastAt(room, x, y, z, byId, cfg, now, name) {
   const players = room.players, match = room.match;
-  io.to(room.id).emit('boom', { x, y, z });
+  io.to(room.id).emit('boom', cfg && cfg.fx ? { x, y, z, fx: cfg.fx } : { x, y, z });   // fx: a bigger blast draws bigger
   noiseMade(room, byId, now);
   if (match.phase !== 'live') return;
   const thrower = players.get(byId);

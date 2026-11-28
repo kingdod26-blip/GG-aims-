@@ -89,8 +89,8 @@ const SILV = {
 const SALVO = {
   blastMul: 0.25,
   incen: { charges: 2, cdMs: 30000, speed: 17, fragFuseMs: 1000, maxFuseMs: 4000,
-           pool: { radius: 8, ms: 12000, dps: 26, lingerDps: 8, lingerMs: 6000 } },
-  frag: { radius: 5.5, full: 1.5, dmg: 90 },
+           pool: { radius: 5.5, ms: 12000, dps: 26, lingerDps: 8, lingerMs: 6000 } },
+  frag: { radius: 8, full: 2, dmg: 90, fx: 1.45 },   // wider than Blast's (5.5); fx scales the explosion to match
   barrage: { range: 60, cdMs: 50000, warnMs: 2000, spanMs: 3000, shells: 6, radius: 10,
              blast: { radius: 4.5, full: 1.2, dmg: 60 } },
   missile: { cdMs: 60000, lifeMs: 8000, speed: 22, boost: 2.5, boostAcc: 40, turn: 2.2,   // boost: W while flying it, up to speed x boost hp: 40, r: 0.4,
