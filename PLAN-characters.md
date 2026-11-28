@@ -218,6 +218,43 @@ slide, and **Tempest (疾风)**'s ultimate, 紧急回避装置, for X.
   with HP.
 - Each part needs a `cd-*.png` icon from Jack.
 
+---
+
+## 6. SINEVA (the young 教官) (new, Jack's design, 2026-11-28; PLANNED, not built)
+
+He is Alexei Petrov (阿列克谢·彼得罗夫, born 1990): the young version of
+Delta Force's **深蓝 (Sineva)**, whom players call **教官 (Instructor)**. He
+keeps the Delta Force name, SINEVA (Jack). His story is in the story bible
+(`Elite force/story/Elite Force background.html`). His early life comes
+from fan write-ups of 深蓝, not official text. The rest is our own draft:
+he is an army bomb-disposal engineer, his love dies in the hospital on
+Blackout Night, and he is HALBERD's training instructor from 2025.
+References: Delta Force's **Uluru (乌鲁鲁)** 速凝掩体 for G.
+
+| Part | Sineva |
+|---|---|
+| Name | **SINEVA** (深蓝 / 教官 in the story) |
+| Passive | **Athlete**: walk and sprint **+15%** (6.4 / 9.7 m/s; Blast's zone sprint stays his own), a jump about **30% higher** (~1.55 m, onto waist-high crates without climbing), **aim down sights 40% faster**. Stays under the server's `MOVE.maxSpeed` 20. |
+| V | **Chest shield**: he punches the button on his chest (~0.6 s, he can't shoot during the press) and a **50-point shield** wraps his body. It takes damage before HP and stays **until it is shot off**. There is a blue shimmer on the body and a blue bar above HP. **30 s cooldown, starting when it breaks.** |
+| G | **Wall gear**, thrown, like Uluru's 速凝掩体: where it lands it sets into a **3 m wide, 1.5 m high** wall facing the thrower (crouch behind it or shoot over it). **Two halves of 225 HP** break separately. It stops bullets and blasts; fire and explosives eat it faster. It lasts **60 s**. **2 charges, 35 s each**, at most 2 walls up. The server owns the wall (collision, HP). |
+| X | **Rage**, **30 s**. **+75 HP**, **30% less damage taken**. Guns still fire on left-click. **Right-click becomes close combat**: **tap** = **gun strike** (hits with the gun itself), **double-tap** = **kick**, **hold** = aim as normal. The gun strike is always weaker than the kick. **Gun strike** 25, 1 m knockback, 0.3 s stagger. **Kick** 30, **0.6 s stun, 2 m knockback**. **With a jump**: a **flying gun strike** (40, 1.5 m) and a **flying kick** (50, 1 s stun, **4 m knockback**). Reach 2.2 m. **He senses every hit**: a big red arrow points at the shooter and the shooter is outlined through walls for 1 s. Afterwards he is winded for 2 s (slower). **90 s cooldown** (to re-check in play now that rage lasts 30 s). |
+| Jumps | 1 (higher, from the passive) |
+| Look | *Jack's picture to come.* 深蓝 is a very big man (198 cm). The bomb suit and shield are his Delta Force kit. |
+| Backstory | Grew up under shelling in a cold country, became an army bomb-disposal engineer, came to Calderhaven to study, and lost the woman he loved on Blackout Night with the ring still in his pocket. He joined HALBERD in 2025 to guard other people's happiness. The rage is that grief let loose. |
+
+**Notes for building it:**
+- The kick and gun strike are new melee hits the server resolves
+  (`MELEE`-style, line-of-sight through `RAY_BOXES`). Knockback is a forced
+  move (bumps `p.tp`), and the stun reuses Beacon's daze where it can.
+- The hit-direction arrow already exists (`hurtFrom` in hud.js). Rage makes
+  it bigger and adds the outline.
+- The 50 shield is server HP that soaks damage first. It goes in the
+  snapshot/meta so others see the shimmer.
+- The wall is a server collider that can break, so it must stay in step on
+  both sides, like the drone and dog.
+- Every piece of gear is a detailed model (the polish rule above): the
+  chest button rig, the thrown gear, and the wall as it sets.
+
 ## Looks (Jack's sheets, `Crinsome x/Pictures/character design`) - built 2026-11-27
 
 - **Aseed**: grey hood, crimson mask, plaid poncho over maroon
