@@ -1440,7 +1440,7 @@ io.on('connection', (socket) => {
     const r = ownMissile(d && d.i); if (!r) return;
     const now = Date.now(), x = +d.x, y = +d.y, z = +d.z;
     if (!isFinite(x) || !isFinite(y) || !isFinite(z)) return;
-    const most = SALVO.missile.speed * Math.max(0.05, (now - r.movedAt) / 1000) * 1.6 + 1.5;
+    const most = SALVO.missile.speed * SALVO.missile.boost * Math.max(0.05, (now - r.movedAt) / 1000) * 1.6 + 1.5;
     if (Math.hypot(x - r.x, y - r.y, z - r.z) > most) return;   // faster than it can fly: ignored
     r.x = x; r.y = y; r.z = z; r.yaw = +d.w || 0; r.pitch = +d.q || 0; r.movedAt = now;
   });

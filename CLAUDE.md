@@ -3456,6 +3456,10 @@ the one file both sides load, so the range and the match cannot disagree.
   click, and it is guided (camera, mouse, feet frozen). `missileFire(guided)`
   in salvo.js; its one "charge" is the cooldown (`abilityTick` / `abilitySpent`
   special-case it), and after firing you are handed your gun back.
+  Guided, **W boosts it** to `speed x boost` (22 -> 55 m/s, `boostAcc` 40
+  m/s2) and the view widens 16 degrees; the server's `mpos` check allows the
+  boosted speed. With NO COOLDOWN on the range it has no fuel limit (it
+  still goes off 40m past the site edge or 150m up).
 - **The missile itself = a robot of kind 'missile'** so the existing shot code
   (`robotOnRay`, `shootRobot`, `damageRobot`) shoots it down: 40 HP, two
   rifle hits. The PILOT flies it locally (salvo.js: mouse steers, camera

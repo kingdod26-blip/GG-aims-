@@ -93,7 +93,7 @@ const SALVO = {
   frag: { radius: 5.5, full: 1.5, dmg: 90 },
   barrage: { range: 60, cdMs: 50000, warnMs: 2000, spanMs: 3000, shells: 6, radius: 10,
              blast: { radius: 4.5, full: 1.2, dmg: 60 } },
-  missile: { cdMs: 60000, lifeMs: 8000, speed: 22, turn: 2.2, hp: 40, r: 0.4,
+  missile: { cdMs: 60000, lifeMs: 8000, speed: 22, boost: 2.5, boostAcc: 40, turn: 2.2,   // boost: W while flying it, up to speed x boost hp: 40, r: 0.4,
              blast: { radius: 4.5, full: 1.2, dmg: 75 },
              bomblets: 4, spread: 2.6, bombletMs: 350, bomb: { radius: 2.8, full: 0.6, dmg: 25 } },
 };

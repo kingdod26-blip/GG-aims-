@@ -492,7 +492,7 @@ function loop(){ requestAnimationFrame(loop);
     // sprint widens the view a touch — the cue that tells you you're sprinting
     sprintAmt += ((me.sprinting ? 1 : 0) - sprintAmt) * Math.min(1, dt*6);
     const baseFov = 80 + 9*sprintAmt + ROLL.fov*rollPunch;
-    const targetFov = baseFov + (curW().adsFov - baseFov) * ads;
+    const targetFov = flying ? 80 + 16 * missileBoostK() : baseFov + (curW().adsFov - baseFov) * ads;   // the missile's own lens, wider as it boosts
     if (Math.abs(camera.fov - targetFov) > 0.05){ camera.fov = targetFov; camera.updateProjectionMatrix(); }
     const scoped = curW().scope && ads > 0.85;
     document.getElementById('scope').style.display = scoped ? 'block' : 'none';

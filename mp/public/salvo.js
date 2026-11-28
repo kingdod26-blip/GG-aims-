@@ -408,7 +408,12 @@ function updateMissile(dt){
   }
   m.t += dt;
   const dir = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(m.pitch, m.yaw, 0, 'YXZ'));
-  const step = M.speed * dt;
+  /* W speeds it up while you fly it (Jack, 2026-11-28), to speed x boost;
+     let go and it eases back to cruise */
+  const want = m.guided && keys['KeyW'] ? M.speed * M.boost : M.speed;
+  if(m.spd === undefined) m.spd = M.speed;
+  m.spd += Math.sign(want - m.spd) * Math.min(Math.abs(want - m.spd), M.boostAcc * dt);
+  const step = m.spd * dt;
   _sray.set(m.pos, dir); _sray.far = step + 0.3;
   const hit = _sray.intersectObjects(wallMeshes, false)[0];
   const body = missileBodyHit(m.pos, dir, step + 0.3);
@@ -431,9 +436,14 @@ function updateMissile(dt){
   let lbl = document.getElementById('missileHud');
   if(!m.guided){ if(lbl) lbl.style.display = 'none'; return; }   // a straight shot needs no readout: you are still looking through your own eyes
   if(!lbl){ lbl = document.createElement('div'); lbl.id = 'missileHud'; document.body.appendChild(lbl); }
-  lbl.style.display = ''; lbl.textContent = 'MISSILE · ' + (cdFree() ? '∞' : Math.max(0, (M.lifeMs / 1000 - m.t)).toFixed(1) + 's');
+  lbl.style.display = ''; lbl.textContent = (m.spd > M.speed + 1 ? 'BOOST · ' : 'MISSILE · ') + (cdFree() ? '∞' : Math.max(0, (M.lifeMs / 1000 - m.t)).toFixed(1) + 's');
 }
 /* loop.js: while it flies, the camera rides it */
+/* 0 at cruise, 1 at full boost (loop.js widens the missile's view with it) */
+function missileBoostK(){
+  const m = salvo.missile, M = SALVO.missile; if(!m || !m.spd) return 0;
+  return Math.max(0, Math.min(1, (m.spd - M.speed) / (M.speed * (M.boost - 1))));
+}
 function missileCamera(){
   const m = salvo.missile; if(!m || !m.guided) return false;
   const back = new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(m.pitch, m.yaw, 0, 'YXZ'));
