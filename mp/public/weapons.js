@@ -207,8 +207,8 @@ WEAPONS.push({ name:'MINIGUN', mode:'ROTARY', txf:true, kind:'minigun', auto:tru
   recoil:0.0035, spread:0.05, adsSpread:0.012, range:300, adsFov:66, scope:false });
 WEAPONS.push({ name:'TxF MISSILE', mode:'LAUNCHER', txf:true, kind:'txfmsl', auto:false, fireRate:600, dmg:200,
   recoil:0.04, spread:0, adsSpread:0, range:300, adsFov:62, scope:false });
-WEAPONS.push({ name:'INFERNO', mode:'FIRE BLAST', txf:true, kind:'inferno', auto:false, fireRate:300, dmg:120,
-  recoil:0.05, spread:0.22, adsSpread:0.22, range:12, adsFov:66, scope:false });
+WEAPONS.push({ name:'INFERNO', mode:'FIRE BLAST', txf:true, kind:'inferno', auto:false, fireRate:150, dmg:120,
+  recoil:0.05, spread:0.22, adsSpread:0.22, range:20, adsFov:66, scope:false });
 WEAPONS.push({ name:'ARC BLADES', mode:'CLOSE COMBAT', txf:true, kind:'arc', auto:false, fireRate:360, dmg:50,
   recoil:0, spread:0, adsSpread:0, range:3.5, adsFov:80, scope:false });
 const XBOW  = WEAPONS.findIndex(w=>w.kind==='xbow');    // crossbow slot
