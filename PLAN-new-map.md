@@ -75,8 +75,8 @@ is -z). Site plan grid: columns A-H are 29 m each from x -116; rows 1-8 are
      - a plain gate with a barrier
      - a weighbridge and a small hut
      - road markings leading in
-   - Jack also drew a small black mark near H8, by the bottom-right
-     building. Still to ask what he meant.
+   - The small black mark near H8 on Jack's marked-up plan was drawn by
+     accident. Ignore it (Jack, 2026-11-24).
 7. **Office surroundings.** A car park, paths and landscaping (see D13 for
    the building itself).
 8. **Outside the fence.** A perimeter road, fence lights and CCTV, instead
@@ -117,8 +117,8 @@ is -z). Site plan grid: columns A-H are 29 m each from x -116; rows 1-8 are
     - platforms and ladders at each gallery level
     - "BOILER 1" / "BOILER 2" stencilled on the side
 13. **The office, branded "POWER OI".** Jack: it is "not done well" and
-    "not like how an office would look in a power station". Confirm the
-    exact spelling and logo colours with Jack.
+    "not like how an office would look in a power station". The name is
+    spelled "POWER OI" and the logo is black (Jack, 2026-11-24).
     - **Outside:**
       - lit POWER OI letters and a logo on the roofline
       - a sign by the entrance, a canopy, logo decals on the glass

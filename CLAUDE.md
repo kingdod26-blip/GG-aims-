@@ -2260,7 +2260,7 @@ rubber-banding rather than speed. Measured in the range: 5.6 walking, 8.4 on
 Shift, 12 on Shift in the zone, 2.8 crouched, and aiming still refuses to
 sprint.
 
-- **Aseed** (the original kit; the name stays Aseed - Jack, 2026-11-28, so. Passive: **hearing** (the detection passive —
+- **Aseed** (the original kit; the name stays Aseed - Jack, 2026-11-28). Passive: **hearing** (the detection passive —
   the server skips non-Aseed listeners in `noiseMade`, and `#detect` is
   hidden for anyone else). V roll · G flaming crossbow · X smoke tag. One
   jump, no sprint.
