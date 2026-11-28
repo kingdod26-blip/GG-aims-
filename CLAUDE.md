@@ -3570,7 +3570,7 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
   - **3 INFERNO** (`TXF.inferno`, Jack's "HP210" picture, named INFERNO by
     him): a fire shotgun. One cone of fire a shot (0.22 rad each side): 120
     inside 7m, falling to nothing at 20m (was 4/12), walls block it, and the target
-    burns 8/s for 4s through the ordinary burn tick. 0.2s between shots, 300 RPM semi-auto (Jack), 6
+    burns 8/s for 4s through the ordinary burn tick. 0.2s between shots, 300 RPM semi-auto (Jack), 20
     then a 2.5s reload (R, or empty); server event `inferno` keeps rate, mag
     and reload; everyone sees `infernofx`. Drawn: boxy worn-steel receiver,
     slotted sides, rail with raised orange-tipped sights, the round drum with

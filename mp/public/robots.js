@@ -130,7 +130,7 @@ const TXF = {
      shot: `dmg` inside `full`, falling to nothing at `range`, inside a cone
      of `cone` radians each side; walls block it. It sets the target burning
      at `burnDps` for `burnMs`. `rateMs` between shots, `mag` then `reloadMs`. */
-  inferno: { dmg: 120, full: 7, range: 20, cone: 0.22, burnDps: 8, burnMs: 4000, rateMs: 200, mag: 6, reloadMs: 2500 },   // 300 RPM semi-auto, 20m (Jack)
+  inferno: { dmg: 120, full: 7, range: 20, cone: 0.22, burnDps: 8, burnMs: 4000, rateMs: 200, mag: 20, reloadMs: 2500 },   // 300 RPM semi-auto, 20m, 20 a magazine (Jack)
   /* F ARC BLADES (Jack's picture): twin energy blades. Left-click slashes
      for `dmg` within `reach` (the sword's arc and pace); right-click lets
      the lightning out in a `burstR` burst round him for `burstDmg`, then
