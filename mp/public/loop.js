@@ -197,7 +197,7 @@ function updateClimb(dt){
   }
 }
 /* FALL DAMAGE (Jack, 2026-11-27): free up to `safe`, then `perM` a metre;
-   Tariq's landing roll takes `rollMul` of it. In a match the SERVER decides
+   Aseed's landing roll takes `rollMul` of it. In a match the SERVER decides
    (FALL in server.js, which this must match) and this only plays the
    landing; on the range it is applied here, unless switched off (noFall),
    and your health comes back `regenMs` after the last fall. */

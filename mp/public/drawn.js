@@ -1189,7 +1189,7 @@ const OP_GEO = {};
 const opGeo = (key, make) => OP_GEO[key] || (OP_GEO[key] = make());
 /* THE AGENTS' LOOKS (2026-11-27, from Jack's character sheets in
    `Crinsome x/Pictures/character design`). One body, three outfits:
-   TARIQ (Aseed): a grey hood with a crimson mask, a plaid poncho over
+   ASEED: a grey hood with a crimson mask, a plaid poncho over
      maroon sleeves, a tattered crimson-and-grey cape, a bandolier, crimson
      armour on the forearms (with spines) and the shins, olive camo trousers.
    BLAST: a black ballistic helmet with a four-lens night-vision unit
@@ -1328,7 +1328,7 @@ function makeOperator(accent, look){
     P(p, dark, B(0.07, 0.13, 0.05), sx * 0.085, -0.16, 0);                                // holster / pouch
     P(p, pad, S(0.062), 0, -0.415, 0.030).scale.set(1.05, 1.1, 0.9);                      // knee
     cap(p, legs, 0.066, 0.050, 0.34, 0, -0.42, 0);                                        // shin
-    if (legArmour) P(p, legArmour, B(0.10, 0.25, 0.045), 0, -0.59, 0.045);                // greave (Tariq's crimson ones)
+    if (legArmour) P(p, legArmour, B(0.10, 0.25, 0.045), 0, -0.59, 0.045);                // greave (Aseed's crimson ones)
     P(p, dark, B(0.105, 0.085, 0.24), 0, -0.835, 0.040); P(p, dark, B(0.100, 0.050, 0.10), 0, -0.790, -0.040);   // boot and heel
     P(p, dark, B(0.108, 0.030, 0.26), 0, -0.865, 0.045);                                  // sole
     return p; };

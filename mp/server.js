@@ -244,7 +244,7 @@ function groundAt(room, x, z, y) {
 /* One accepted position: off the ground, keep the highest point; back on
    it, the drop is that peak minus here. `fl` bits from the client: 1 on a
    ladder or mantling, 2 Blast dashing or just double-jumped, 4 a landing
-   roll queued (Tariq). 1 and 2 restart the count from where you are. */
+   roll queued (Aseed). 1 and 2 restart the count from where you are. */
 function trackFall(room, p, fl, now) {
   const y = p.y || 0;
   if (!p.alive || room.match.phase !== 'live' || (fl & 3) || p.fallPeak === undefined) { p.fallPeak = y; p.fallRoll = false; return; }
@@ -488,7 +488,7 @@ const GRENADE = { charges: 2, cooldownMs: 30000, fuseMs: 2000, gravity: 14, boun
 const ZONE = { ms: 25000, cdMs: 90000, regen: 10, reloadMul: 0.6 };
 /* FALL DAMAGE (Jack, 2026-11-27). Drops up to `safe` are free - a jump peaks
    at 2.3m and Blast's double jump at 4.1m, so normal movement never hurts -
-   then `perM` a metre, so about 15m is lethal from full. Tariq's landing roll
+   then `perM` a metre, so about 15m is lethal from full. Aseed's landing roll
    (V in the air) takes `rollMul` of it. Ladders, mantles, Blast's air dash
    and his double jump restart the count (the client says which, in `fl`). A fall death goes to
    whoever last hurt you inside `creditMs`. Must match FALL in loop.js. */

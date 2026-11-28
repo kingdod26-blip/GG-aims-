@@ -2224,7 +2224,7 @@ Jack: safe up to 5m, then 10 a metre (so ~15m is lethal from full).
   the drop is peak minus here. It sends the victim `fell {dmg, h}`.
 - The client says what restarts the count, in the state packet's `fl`:
   1 ladder or mantle, 2 Blast's air dash or his double jump (held 150ms so a
-  packet carries it), 4 a landing roll queued. **Tariq's landing roll halves
+  packet carries it), 4 a landing roll queued. **Aseed's landing roll halves
   it** (V while falling now queues a roll even without a jump, `startRoll`).
 - **A fall death goes to whoever hurt you in the last 5s** (`hitBy` at every
   damage site sets `lastHitBy/At`); otherwise the feed says "the fall".
@@ -2233,7 +2233,7 @@ Jack: safe up to 5m, then 10 a metre (so ~15m is lethal from full).
   you back at the start. Setting FALL DAMAGE (gameplay, `noFall`, practice
   only) switches it off.
 - Measured: `scratchpad/fallunit.js` runs the server's own functions on the
-  real map: 4.8m 0, 12m 70, 12m with Tariq's roll 35 (Blast gets no halving),
+  real map: 4.8m 0, 12m 70, 12m with Aseed's roll 35 (Blast gets no halving),
   16.6m dead, down a ladder 0, pushed at 40 HP credited to the attacker. On
   the range: 11m 60, rolled 30, double jump at 6m 27, setting off 0.
   Heights: catwalk 6.4 (14), boiler gallery 7.6 (26), office roof 11.7 (67),
@@ -2260,8 +2260,7 @@ rubber-banding rather than speed. Measured in the range: 5.6 walking, 8.4 on
 Shift, 12 on Shift in the zone, 2.8 crouched, and aiming still refuses to
 sprint.
 
-- **Aseed** (the original kit; the name stays Aseed - Jack, 2026-11-28, so
-  "Tariq" in older notes and comments means Aseed). Passive: **hearing** (the detection passive —
+- **Aseed** (the original kit; the name stays Aseed - Jack, 2026-11-28, so. Passive: **hearing** (the detection passive —
   the server skips non-Aseed listeners in `noiseMade`, and `#detect` is
   hidden for anyone else). V roll · G flaming crossbow · X smoke tag. One
   jump, no sprint.
@@ -2272,7 +2271,7 @@ sprint.
 
 **Each agent wears their own outfit** (2026-11-27, from Jack's sheets in
 `Crinsome x/Pictures/character design`): `makeOperator(accent, look)` in
-drawn.js, `OP_LOOKS` for the cloth colours. Tariq (Aseed): grey hood, crimson
+drawn.js, `OP_LOOKS` for the cloth colours. Aseed: grey hood, crimson
 mask, plaid poncho, tattered crimson cape, bandolier, spined crimson
 vambraces. Blast: black helmet with a four-lens red night-vision unit, olive
 scarf and ear cups, dark camo, two red grenades, a big black pack. Silvars:
@@ -2364,7 +2363,7 @@ targets, one copy. It talks to the world through an adapter `W`
   inside a wall. It sits proud of the surface. Triggers when an enemy is
   within 8m with line of sight, reveals them, beeps (everyone hears it), then
   30s before it can trigger again. Placing is on a 30s cooldown; one at a time.
-  1 HP. **Tariq's trap sense**: an Aseed sees enemy sensors through walls
+  1 HP. **Aseed's trap sense**: an Aseed sees enemy sensors through walls
   within 40m (`updateTrapMark`).
 - **G drone**: 60 HP, one at a time, 40s from SENT. Follows over his shoulder,
   hunts whoever the team can see, holds and locks for 1s with its own eyes

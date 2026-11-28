@@ -56,7 +56,7 @@ function startRoll(){
   const now=performance.now();
   // a roll may cancel a slide — that chain is the whole point
   if(gameState!=='playing' || !me.alive || rollT>0 || now<rollCdUntil) return;
-  // in the air after a jump, or falling: roll on landing (a landing roll halves Tariq's fall damage)
+  // in the air after a jump, or falling: roll on landing (a landing roll halves Aseed's fall damage)
   if(!me.onGround){ if(me.jumped || me.vy < -1) rollQueued=true; return; }
   const jumpRoll = rollQueued || now-jumpLandAt < ROLL.jumpWinMs;
   rollQueued=false;

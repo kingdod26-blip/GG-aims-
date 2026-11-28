@@ -20,7 +20,7 @@ function run(agent, from, roll, flags){
 }
 console.log('4.8m jump-height drop  ', run('blast', 4.8, false, { up: 0 }));
 console.log('12m fall               ', run('blast', 12, false, { up: 1 }));
-console.log('12m fall, Tariq rolls  ', run('aseed', 12, true, { up: 1 }));
+console.log('12m fall, Aseed rolls  ', run('aseed', 12, true, { up: 1 }));
 console.log('12m fall, Blast "rolls"', run('blast', 12, true, { up: 1 }), '(no halving: not his)');
 console.log('16.6m roof             ', run('blast', 16.6, false, { up: 1 }));
 

@@ -3,7 +3,7 @@
 
    SILVARS on the client: his three abilities on V / G / X, the robots
    drawn and animated, Linked Sight (enemies his team sees, outlined with
-   a health bar over the head), Tariq's trap sense, and the practice
+   a health bar over the head), Aseed's trap sense, and the practice
    range, where the same robots.js runs locally against the targets.
 
    The rules live in robots.js. In a match the SERVER runs them and this
@@ -292,7 +292,7 @@ function updateRobotGfx(dt){
       m.position.set(r.x, r.y, r.z);
       // a slow blink, faster just after it has pinged someone
       u.led.material.color.setHex(Math.sin(t * (r.ping > 0 ? 9 : 2.5)) > 0.2 ? 0xff3348 : 0x40070d);
-      updateTrapMark(r);                       // Tariq sees it through walls
+      updateTrapMark(r);                       // Aseed sees it through walls
       continue;
     }
     m.position.set(r.x, r.y, r.z); m.rotation.y = r.yaw;
@@ -398,8 +398,8 @@ function updateLinked(){
   }
 }
 
-/* =================== Tariq's trap sense ===================
-   Aseed (Tariq) sees enemy traps through walls within his hearing's 40m,
+/* =================== Aseed's trap sense ===================
+   Aseed sees enemy traps through walls within his hearing's 40m,
    the same see-through outline a heard player gets. The sensor is the
    first trap. */
 const TRAP_RANGE = 40;
