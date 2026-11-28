@@ -3544,6 +3544,33 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
   closed helmet with an amber T-visor, a danger sign on the brow and chest,
   a jet pack (`userData.thrust`, lit while flying) and a shoulder emitter.
   Icons `cd-laser/tele/pulse.png` (drawn by script, line art like the rest).
+- **His own weapons** (Jack, 2026-11-28): **no bought guns and no blade.**
+  `inventory()` is `[MINIGUN, TXFMSL]` for TxF, `canEquip` refuses
+  everything else (and refuses those two to anyone else), the shop (Tab) is
+  shut to him, and the server refuses his `buy`, `fire` and `melee`. Both
+  slots carry `txf:true` and are fired by `txfWeaponShot` (input.js hands
+  over before any other weapon code).
+  - **1 Minigun** (`TXF.mg`): spins up 0.4s, then 20 a round at 20/s
+    (rate kept by the server), cone 0.05 hip / 0.012 aimed through
+    `currentCone`; no magazine: 6s of firing overheats it for 3s (both
+    sides). Server event `mg`, hit test like a gunshot (rewind, `hitZone`,
+    robots). Others' tracers come as `shot` with `w: 'mg'`. Drawn: six
+    barrels on a rotor that turns with the spin, motor, ammo can, chute,
+    carry handle, two grips.
+  - **2 Missile** (`TXF.missile`, Jack's reference picture): a drum
+    launcher (three-chamber drum that turns a third per shot, a loaded
+    round's base showing in each full chamber; ribbed barrel, flared muzzle,
+    reflex sight; steel with orange and dark-blue trim) firing a swirling
+    FIREBALL with a flame trail, lightning arcs at the muzzle. 3 charges,
+    20s each. Flies straight at 45 m/s for up to 6s on the server
+    (`room.txfMissiles`, snapshot arrow flag bit3, `tickTxfMissiles`); the
+    first wall, body or the floor sets it off: `blastAt` with radius 100,
+    full 6, 200 - walls between block it, the thrower is spared. `txfboom`
+    draws the fireball and the 100m shock ring for everyone.
+  - Measured (`scratchpad/txfarms.js`): buy and rifle refused, two minigun
+    rounds 100 -> 60, two at once land one, a missile at the victim's feet
+    kills from 100 and TxF stays 500. Range: spin-up then a kill; missile in
+    the open kills targets at 0.7m and 13m, spares one 31m off behind cover.
 - **Fixed on the way:** decoded players never carried `agent`, so every
   remote player was drawn in the plain outfit; `agent` is copied from meta now.
 - Measured (`TXF_CODE=<the code> URL=http://localhost:8210 node mp/scratchpad/txfmp.js`): second

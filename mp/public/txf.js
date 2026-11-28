@@ -55,7 +55,7 @@ function toastHome(msg){
   clearTimeout(toastHome.t); toastHome.t = setTimeout(() => el.classList.remove('on'), 2600);
 }
 function onTxfRefused(d){
-  myAgent = 'aseed'; configureTiles(); updateHUD();
+  myAgent = 'aseed'; configureTiles(); ensureValidWeapon(); updateHUD();
   toast(t(d && d.why === 'taken' ? 'txf.refused.taken' : 'txf.refused.code'));
 }
 
@@ -69,6 +69,7 @@ function txfReset(){
   txf.seen.clear(); clearTxfMarks();
   const d = document.getElementById('txfDetected'); if(d) d.classList.remove('on');
   const h = document.getElementById('txfHeat'); if(h) h.style.display = 'none';
+  const n = document.getElementById('txfNote'); if(n) n.classList.remove('on');
   if(txfEmitter){ txfEmitter.visible = false; txfEmitter.userData.k = 0; }
   Sfx.laserHum(0);
 }
@@ -481,9 +482,10 @@ function marksFrame(){
 function fxFrame(now){
   for(let i = txf.fx.length - 1; i >= 0; i--){
     const f = txf.fx[i], k = (now - f.t0) / f.ms;
+    if(f.kind === 'boom') continue;                    // drawn by the weapons' own pass below
     if(k >= 1){ scene.remove(f.g); f.g.traverse(o => { if(o.geometry && o.geometry !== BEAM.geo) o.geometry.dispose(); }); txf.fx.splice(i, 1); continue; }
     if(f.kind === 'tele'){ f.mat.opacity = 0.85 * (1 - k); f.col.scale.set(1 - k * 0.7, 1 + k * 0.6, 1 - k * 0.7); f.ring.scale.setScalar(1 + k * 3); }
-    else { const r = Math.max(1, f.r * (1 - Math.pow(1 - k, 3))); f.shell.scale.setScalar(r); f.ring.scale.setScalar(r); f.mat.opacity = 0.45 * (1 - k); f.ringMat.opacity = 0.7 * (1 - k); }
+    else if(f.kind === 'pulse'){ const r = Math.max(1, f.r * (1 - Math.pow(1 - k, 3))); f.shell.scale.setScalar(r); f.ring.scale.setScalar(r); f.mat.opacity = 0.45 * (1 - k); f.ringMat.opacity = 0.7 * (1 - k); }
   }
 }
 function hudFrame(){
@@ -531,3 +533,308 @@ addEventListener('keydown', e => { if(e.code === 'Escape' && txf.aiming) teleAim
     if(k === 'pulse') return pulseKey();
     return _useAgentKey(k);
   }; }
+
+/* =================== HIS OWN WEAPONS (Jack, 2026-11-28) ===================
+   TxF carries no normal gun and no blade: 1 is the minigun, 2 the missile
+   launcher (weapons.js MINIGUN / TXFMSL; numbers TXF.mg / TXF.missile).
+   Both are drawn like the guns: the PAC-9's finishes, real sizes, details. */
+txf.spin = 0; txf.mgHeat = 0; txf.mgHotUntil = 0; txf.mslQ = []; txf.msls = [];
+function txfMslHave(now){ txf.mslQ = txf.mslQ.filter(t => t > now); return TXF.missile.charges - txf.mslQ.length; }
+
+/* 1: a six-barrel rotary gun. Bore on the gun's own axis, muzzles at -0.55
+   (where the tracers leave from), the barrel cluster turning as it spins. */
+function drawMinigun(){
+  const g = new THREE.Group(), dk = M_DARK(), st = M_STEEL(), y = M_TXFY(), poly = M_POLY();
+  /* the motor housing and receiver */
+  dBox(g, dk, 0.10, 0.11, 0.24, 0, -0.005, 0.0);
+  dBox(g, poly, 0.104, 0.03, 0.2, 0, 0.055, 0.0);
+  for (let k = 0; k < 7; k++) dBox(g, st, 0.106, 0.004, 0.008, 0, 0.073, -0.08 + k * 0.026);   // cooling fins on top
+  dTube(g, dk, 0.05, 0.06, 0, 0, 0.14, 0.04, 20);                         // the drive motor at the back
+  dTube(g, y, 0.051, 0.012, 0, 0, 0.118, 0.051, 20);
+  /* the barrel cluster: a rotor turning six barrels about the bore */
+  const rotor = new THREE.Group(); g.add(rotor);
+  for (let k = 0; k < 6; k++){
+    const a = k * Math.PI / 3, bx = Math.cos(a) * 0.024, by = Math.sin(a) * 0.024;
+    dTube(rotor, st, 0.0075, 0.43, bx, by, -0.335, 0.0075, 10);
+    dTube(rotor, dk, 0.0045, 0.003, bx, by, -0.551, 0.0045, 8);            // the bore, dark at the muzzle
+  }
+  dTube(rotor, dk, 0.012, 0.43, 0, 0, -0.335, 0.012, 12);                  // the spindle
+  for (const z of [-0.2, -0.38, -0.53]) dTube(rotor, dk, 0.04, 0.014, 0, 0, z, 0.04, 20);   // barrel clamps
+  dTube(g, y, 0.043, 0.01, 0, 0, -0.545, 0.043, 22);                       // the hazard ring at the muzzle
+  dTube(g, dk, 0.045, 0.05, 0, 0, -0.14, 0.045, 22);                        // the front bearing housing
+  /* the ammo can on the left, and the feed chute over to the receiver */
+  dBox(g, y, 0.075, 0.12, 0.15, -0.11, -0.06, 0.02);
+  dBox(g, dk, 0.077, 0.02, 0.152, -0.11, -0.005, 0.02);
+  for (let k = 0; k < 3; k++) dBox(g, dk, 0.077, 0.012, 0.02, -0.11, -0.09 + k * 0.03, -0.045, 0, 0.5);   // black chevrons
+  dDecal(g, '7.62 LINKED', -0.1485, -0.06, 0.03, 0.1, 0.016, -1);
+  { const chute = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.012, 8, 18, Math.PI / 2), dk);
+    chute.position.set(-0.055, 0.0, 0.0); chute.rotation.set(0, Math.PI / 2, Math.PI / 2); dAdd(g, chute); }
+  for (let k = 0; k < 5; k++) dBox(g, M_BRASS(), 0.006, 0.006, 0.03, -0.06 - k * 0.004, 0.045 - k * 0.012, -0.02 + k * 0.004);   // rounds on the belt
+  /* carry handle, grips, a spade-switch trigger */
+  dBox(g, dk, 0.02, 0.012, 0.18, 0, 0.11, -0.02);
+  for (const z of [-0.09, 0.05]) dBox(g, dk, 0.016, 0.04, 0.016, 0, 0.085, z);
+  dProf(g, poly, [[0.035, -0.055], [0.005, -0.055], [-0.005, -0.16], [0.04, -0.16]], 0.03, 0.004, 0, 0, 0.09);   // rear grip
+  dProf(g, poly, [[0.02, -0.055], [-0.02, -0.055], [-0.025, -0.15], [0.02, -0.15]], 0.032, 0.004, 0, 0, -0.17);   // front grip
+  dBox(g, st, 0.008, 0.018, 0.012, 0, -0.07, 0.07);
+  dDecal(g, 'TxF  RG-6  ROTARY', 0.0505, 0.01, -0.02, 0.17, 0.016, 1);
+  for (const z of [-0.08, 0.02, 0.09]) dScrew(g, 0.0505, -0.04, z, 'x', 0.003);
+  g.userData = { rotor };
+  return { g, grip: [0, -0.115, 0.07], fore: [0, -0.07, -0.17], mag: null, magAt: [-0.1, -0.06, 0.02],
+           aimTop: 0.12,
+           vm: { x: 0.13, y: -0.14, z: -0.36, adsZ: 0.09, rx: 0.03, ry: 0.07, rz: -0.02, viewFov: 62, motion: 0.6 } };
+}
+/* 2: the drum launcher (Jack's reference, 2026-11-28): a heavy revolver
+   launcher in worn steel with orange and dark-blue trim. A three-chamber
+   drum under the bore (one round a missile, so it turns a third per shot),
+   a short wide ribbed barrel with a flared muzzle, a reflex sight on a top
+   rail, the drum's spring, a pistol grip and a fore grip. The bore is on
+   the gun's own axis and the muzzle sits at -0.55, where shots leave from. */
+const M_TXFORG = () => dmatL('txforg', [0.55, 0.16, 0.02], 0.25, 0.45, 2, 0.6);   // orange trim
+const M_TXFBLU = () => dmatL('txfblu', [0.03, 0.05, 0.16], 0.4, 0.4, 0, 0.8);     // dark blue anodised
+const M_TXFSTL = () => dmatL('txfstl', [0.16, 0.16, 0.17], 0.85, 0.42, 1);        // worn bright steel
+function drawTxfLauncher(){
+  const g = new THREE.Group(), dk = M_DARK(), st = M_TXFSTL(), org = M_TXFORG(), blu = M_TXFBLU(), poly = M_POLY();
+  /* the receiver and the stock block behind the drum */
+  dBox(g, st, 0.07, 0.085, 0.2, 0, -0.005, 0.1);
+  dBox(g, blu, 0.072, 0.02, 0.2, 0, -0.05, 0.1);
+  dBox(g, st, 0.06, 0.07, 0.12, 0, -0.01, 0.26);                             // stock block
+  dBox(g, dk, 0.062, 0.08, 0.02, 0, -0.01, 0.325);                            // butt pad
+  dDecal(g, 'TxF  ML-3  HEAVY', 0.0355, 0.0, 0.12, 0.17, 0.02, 1);
+  dDecal(g, 'TxF  ML-3  HEAVY', -0.0355, 0.0, 0.12, 0.17, 0.02, -1);
+  /* the drum: three chambers round its axis, below the bore */
+  const drum = new THREE.Group(); drum.position.set(0, -0.045, -0.06); g.add(drum);
+  dTube(drum, st, 0.078, 0.14, 0, 0, 0, 0.078, 30);
+  for (const z of [0.074, -0.074]) dTube(drum, org, 0.081, 0.014, 0, 0, z, 0.081, 30);   // orange rings on both faces
+  dTube(drum, blu, 0.0795, 0.02, 0, 0, 0, 0.0795, 30);                       // a blue band round the middle
+  const noses = [];
+  for (let k = 0; k < 3; k++){
+    const a = k * Math.PI * 2 / 3 + Math.PI / 2, cx = Math.cos(a) * 0.045, cy = Math.sin(a) * 0.045;
+    dTube(drum, dk, 0.025, 0.004, cx, cy, -0.079, 0.025, 16);               // a chamber mouth on the front face
+    const r = new THREE.Group(); r.position.set(cx, cy, 0.079); drum.add(r);  // the round's base at the back: shows it is loaded
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.006, 16), M_BRASS()); base.rotation.x = Math.PI / 2; r.add(base);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.008, 10), org); cap.rotation.x = Math.PI / 2; cap.position.z = 0.002; r.add(cap);
+    noses.push(r);
+  }
+  dTube(g, dk, 0.012, 0.2, 0, -0.045, -0.06, 0.012, 12);                      // the drum's axle
+  /* the spring, wound round the axle in front of the drum */
+  for (let k = 0; k < 6; k++){ const c = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.0025, 6, 14), st); c.position.set(0, -0.045, -0.145 - k * 0.008); dAdd(g, c); }
+  /* the barrel: short, wide, ribbed on top, a flared muzzle */
+  dTube(g, dk, 0.034, 0.34, 0, 0, -0.33, 0.034, 24);
+  dTube(g, st, 0.046, 0.06, 0, 0, -0.52, 0.038, 24);                          // the flare
+  dTube(g, org, 0.047, 0.012, 0, 0, -0.548, 0.047, 24);
+  dTube(g, dk, 0.03, 0.004, 0, 0, -0.553, 0.03, 20);                          // dark inside the muzzle
+  dBox(g, dk, 0.05, 0.016, 0.3, 0, 0.038, -0.32);                             // the rail on the barrel
+  for (let k = 0; k < 14; k++) dBox(g, st, 0.054, 0.008, 0.008, 0, 0.049, -0.46 + k * 0.021);   // its ribs
+  dBox(g, org, 0.012, 0.018, 0.05, 0.04, 0.02, -0.3);                          // the orange charging lever
+  { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.003, 6, 14), org); ring.position.set(0.046, 0.02, -0.28); ring.rotation.y = Math.PI / 2; dAdd(g, ring); }
+  /* the frame joining barrel, drum and receiver */
+  dBox(g, st, 0.06, 0.12, 0.04, 0, -0.02, -0.16);
+  dBox(g, blu, 0.062, 0.02, 0.042, 0, -0.07, -0.16);
+  for (const sx of [-1, 1]) dScrew(g, sx * 0.031, 0.0, -0.16, 'x', 0.004);
+  /* the sight: a top rail and a reflex sight on the centreline */
+  dBox(g, dk, 0.03, 0.012, 0.14, 0, 0.048, 0.07);
+  dTube(g, dk, 0.022, 0.06, 0, 0.082, 0.05, 0.022, 20);
+  dTube(g, org, 0.023, 0.006, 0, 0.082, 0.02, 0.023, 20);
+  dBox(g, dk, 0.026, 0.022, 0.04, 0, 0.06, 0.05);
+  { const m = new THREE.MeshStandardMaterial({ color: 0x6a8a90, transparent: true, opacity: 0.18, roughness: 0.05, metalness: 0.6, depthWrite: false });
+    const pane = new THREE.Mesh(new THREE.CircleGeometry(0.019, 20), m); pane.position.set(0, 0.082, 0.019); dAdd(g, pane); }
+  dKnob(g, dk, 0.006, 0.008, 0.026, 0.082, 0.05, 'x');
+  /* grips and the trigger guard */
+  dProf(g, poly, [[0.035, -0.05], [0.005, -0.05], [-0.005, -0.17], [0.04, -0.17]], 0.03, 0.004, 0, 0, 0.1);
+  dProf(g, blu, [[0.02, -0.035], [-0.02, -0.035], [-0.025, -0.14], [0.02, -0.14]], 0.032, 0.004, 0, 0, -0.33);
+  { const guard = new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.004, 6, 14, Math.PI), dk); guard.position.set(0, -0.06, 0.06); guard.rotation.set(0, Math.PI / 2, Math.PI); dAdd(g, guard); }
+  g.userData = { noses, drum };
+  return { g, grip: [0, -0.125, 0.085], fore: [0, -0.08, -0.33], mag: null, magAt: [0, -0.2, -0.06],
+           aimTop: 0.082,
+           vm: { x: 0.15, y: -0.15, z: -0.52, adsZ: 0.2, rx: 0.03, ry: 0.08, rz: -0.03, viewFov: 62, motion: 0.6 } };
+}
+/* What it fires (the same reference): a swirling ball of fire, white-hot in
+   the middle, two arms of flame curling round it, a trail of fire behind.
+   Its front is +Z, since it is turned with lookAt. */
+function makeTxfMissileMesh(){
+  const g = new THREE.Group();
+  const add = (geo, color, op) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); m.frustumCulled = false; g.add(m); return m; };
+  add(new THREE.SphereGeometry(0.16, 16, 12), 0xfff4d2, 0.95);               // the white-hot core
+  add(new THREE.SphereGeometry(0.3, 18, 14), 0xffa030, 0.55);                // the fire round it
+  add(new THREE.SphereGeometry(0.48, 18, 14), 0xff5a14, 0.22);               // and its glow
+  const swirl = new THREE.Group(); g.add(swirl);
+  for (let k = 0; k < 2; k++){
+    const pts = []; for (let i = 0; i <= 40; i++){ const t = i / 40, a = t * Math.PI * 3 + k * Math.PI, r = 0.42 - t * 0.12;
+      pts.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, (t - 0.5) * 0.6)); }
+    const arm = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, 0.045, 8, false),
+      new THREE.MeshBasicMaterial({ color: k ? 0xffc040 : 0xff7a20, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false }));
+    arm.frustumCulled = false; swirl.add(arm);
+  }
+  /* the trail: fire streaming out behind */
+  const trail = add(new THREE.ConeGeometry(0.32, 2.4, 14, 1, true), 0xff6a1a, 0.35); trail.rotation.x = -Math.PI / 2; trail.position.z = -1.25;
+  const trail2 = add(new THREE.ConeGeometry(0.14, 1.4, 12, 1, true), 0xffd080, 0.6); trail2.rotation.x = -Math.PI / 2; trail2.position.z = -0.75;
+  swirl.onBeforeRender = () => { swirl.rotation.z = performance.now() / 70; };
+  g.userData = { flame: swirl };
+  return g;
+}
+/* the shot leaving: lightning crackling out of the muzzle and a flash */
+function txfMuzzleArcs(at){
+  const g = new THREE.Group(); g.position.copy(at);
+  const mat = new THREE.LineBasicMaterial({ color: 0xffb070, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
+  for (let k = 0; k < 7; k++){
+    const pts = [new THREE.Vector3()], dir = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.3, Math.random() - 0.5).normalize();
+    let p = new THREE.Vector3();
+    for (let i = 0; i < 6; i++){ p = p.clone().addScaledVector(dir, 0.06 + Math.random() * 0.06);
+      p.add(new THREE.Vector3((Math.random() - 0.5) * 0.05, (Math.random() - 0.5) * 0.05, (Math.random() - 0.5) * 0.05)); pts.push(p); }
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat); l.frustumCulled = false; l.renderOrder = 1002; g.add(l);
+  }
+  const flashMat = new THREE.MeshBasicMaterial({ color: 0xffe0a0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+  const flash = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), flashMat); flash.renderOrder = 1002; g.add(flash);
+  scene.add(g);
+  const t0 = performance.now();
+  (function fade(){ const k = (performance.now() - t0) / 220;
+    if (k >= 1){ scene.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); return; }
+    mat.opacity = 1 - k; flashMat.opacity = 0.9 * (1 - k); flash.scale.setScalar(1 + k * 3); requestAnimationFrame(fade); })();
+}
+const TXF_MG_BUILT = drawMinigun(), TXF_ML_BUILT = drawTxfLauncher();
+mountGun(MINIGUN, TXF_MG_BUILT);
+mountGun(TXFMSL, TXF_ML_BUILT);
+WEAPONS[TXFMSL].redDot = true;           // aimed, you look through its sight
+/* When the PAC-9's gloves arrive they hold these too (as salvo.js does). */
+function txfGlove(b){
+  const rOff = b.right.position.clone().sub(new THREE.Vector3().fromArray(PAC9_GRIP));
+  const lOff = b.left.position.clone().sub(new THREE.Vector3().fromArray(PAC9_FORE));
+  for (const slot of [MINIGUN, TXFMSL]){
+    const r = VM_RIGS[slot]; if (!r || !r.right.parent) continue;
+    const parent = r.right.parent, right = b.right.clone(), left = b.left.clone();
+    right.position.copy(r.grip).add(rOff);
+    const foreBottom = r.fore.clone(); foreBottom.y += 0.01;
+    left.position.copy(foreBottom).add(lOff);
+    parent.remove(r.right); parent.remove(r.left); parent.add(right, left);
+    r.grip = right.position.clone(); r.fore = left.position.clone(); r.right = right; r.left = left;
+  }
+}
+{ const _glove = gloveEveryGun;
+  gloveEveryGun = function(b){ _glove(b); txfGlove(b); };
+  if (PAC9_BUILT) txfGlove(PAC9_BUILT); }
+
+/* the trigger (input.js shoot) */
+const _tx = new THREE.Raycaster();
+function txfWeaponShot(w, now){
+  const look = () => new THREE.Vector3(0, 0, -1).applyEuler(_te.set(me.pitch, me.yaw, 0));
+  if (w.kind === 'minigun'){
+    const M = TXF.mg;
+    if (txf.spin < 1) return;                                                // still spinning up
+    if (now < txf.mgHotUntil){ if (!dryClicked){ dryClicked = true; Sfx.empty(); } return; }
+    lastShot = now; dryClicked = false;
+    if (!txfFree()){ txf.mgHeat += M.rateMs / M.heatMs;
+      if (txf.mgHeat >= 1){ txf.mgHeat = 0; txf.mgHotUntil = now + M.coolMs; Sfx.overheat(); } }
+    const spread = currentCone(w, Math.min(1, ads / 0.85));
+    const dir = look(); dir.x += (Math.random() - 0.5) * spread; dir.y += (Math.random() - 0.5) * spread; dir.z += (Math.random() - 0.5) * spread; dir.normalize();
+    const o = camera.position.clone();
+    const tt = wallMeshes.slice(); if (gameMode === 'mp') for (const q of others.values()) if (q.mesh.visible) tt.push(q.mesh);
+    _tx.set(o, dir); _tx.far = M.range;
+    const th = _tx.intersectObjects(tt, true), tlen = Math.min(th.length ? th[0].distance : Infinity, M.range);
+    addTracer(o, dir, tlen, muzzleWorld().clone().lerp(o.clone().addScaledVector(dir, 0.4), ads));
+    Sfx.minigun(); gunKick = 0.3;
+    if (gameMode === 'mp'){ if (socket) socket.emit('mg', { ox: o.x, oy: o.y, oz: o.z, dx: dir.x, dy: dir.y, dz: dir.z }); }
+    else {
+      _tx.set(o, dir); _tx.far = M.range;
+      const wh = _tx.intersectObjects(wallMeshes, false); let bd = Math.min(wh.length ? wh[0].distance : Infinity, M.range), best = null, mult = 1, zone = null;
+      for (const b of localBots){ if (!b.alive) continue; const z = hitZone(o, dir, b.x, b.z, 0, 0); if (z && z.t < bd){ bd = z.t; best = b; mult = z.mult; zone = z.zone; } }
+      if (best){ best.hp -= M.dmg * mult; hitmark(zone); Sfx.hit(zone); if (best.hp <= 0 && best.alive) localKillBot(best); }
+    }
+    me.pitch = Math.min(me.pitch + M.recoil * (1 - ads * 0.5), Math.PI / 2 - 0.05);
+    me.yaw += (Math.random() - 0.5) * M.recoil * 0.6;
+    return;
+  }
+  /* the missile */
+  const MS = TXF.missile;
+  if (txfMslHave(now) <= 0 && !txfFree()){ Sfx.empty(); return; }
+  lastShot = now;
+  if (!txfFree()) txf.mslQ.push(now + MS.cdMs);
+  const dir = look(), o = camera.position.clone().addScaledVector(dir, 1.0);
+  gunKick = 1; Sfx.txfLaunch(); updateHUD();
+  txfMuzzleArcs(muzzleWorld().clone());
+  txf.drumTo = (txf.drumTo || 0) + Math.PI * 2 / 3;                   // the drum turns to the next chamber
+  if (gameMode === 'mp'){ if (socket) socket.emit('txfmsl', { ox: o.x, oy: o.y, oz: o.z, dx: dir.x, dy: dir.y, dz: dir.z }); }
+  else {
+    const mesh = makeTxfMissileMesh(); scene.add(mesh);
+    txf.msls.push({ pos: o, vel: dir.clone().multiplyScalar(MS.speed), mesh, born: now });
+  }
+  me.pitch = Math.min(me.pitch + w.recoil * (1 - ads * 0.5), Math.PI / 2 - 0.05);
+}
+/* the range's missiles: straight; the first wall, target or the floor sets them off */
+function localMissilesFrame(dt){
+  const MS = TXF.missile, now = performance.now();
+  for (let i = txf.msls.length - 1; i >= 0; i--){
+    const m = txf.msls[i], step = MS.speed * dt, dir = m.vel.clone().normalize();
+    _tx.set(m.pos, dir); _tx.far = step + 0.3;
+    let hit = Infinity; const wh = _tx.intersectObjects(wallMeshes, false)[0]; if (wh) hit = wh.distance;
+    for (const b of localBots){ if (!b.alive) continue;
+      const h = segBoxHit(m.pos, dir, step + 0.3, { minx: b.x - 0.45, maxx: b.x + 0.45, miny: 0, maxy: 1.8, minz: b.z - 0.45, maxz: b.z + 0.45 });
+      if (h && h.t < hit) hit = h.t; }
+    if (dir.y < -1e-6){ const tf = -m.pos.y / dir.y; if (tf >= 0 && tf < hit) hit = tf; }
+    if (hit <= step + 0.3 || now - m.born > MS.lifeMs){
+      const p = m.pos.clone().addScaledVector(dir, Math.max(0, Math.min(hit, step) - 0.25)); p.y = Math.max(0, p.y);
+      scene.remove(m.mesh); txf.msls.splice(i, 1);
+      onTxfBoom({ x: p.x, y: p.y, z: p.z, r: MS.blast.radius });
+      localBlast(p.x, p.y, p.z, MS.blast);
+      continue;
+    }
+    m.pos.addScaledVector(dir, step);
+    m.mesh.position.copy(m.pos); m.mesh.lookAt(m.pos.x + dir.x, m.pos.y + dir.y, m.pos.z + dir.z);
+  }
+}
+/* the 100m blast, for everyone: a fireball, a shock ring racing out to the
+   edge of the blast, a flash if you are inside it */
+function onTxfBoom(d){
+  if (!d) return;
+  boom(d.x, d.y, d.z);
+  const g = new THREE.Group(); g.position.set(d.x, d.y, d.z);
+  const fire = new THREE.MeshBasicMaterial({ color: 0xffa23a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), fire); g.add(ball);
+  const coreMat = new THREE.MeshBasicMaterial({ color: 0xfff2d0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+  const core = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), coreMat); g.add(core);
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xffb300, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 96), ringMat); ring.rotation.x = -Math.PI / 2; ring.position.y = -d.y + 0.15; g.add(ring);
+  const shellMat = new THREE.MeshBasicMaterial({ color: 0xffc070, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), shellMat); g.add(shell);
+  for (const m of [ball, core, ring, shell]){ m.frustumCulled = false; m.renderOrder = 945; }
+  scene.add(g);
+  txf.fx.push({ g, t0: performance.now(), ms: 1800, kind: 'boom', r: d.r || 100, ball, core, ring, shell, fire, coreMat, ringMat, shellMat });
+  const dist = Math.hypot(camera.position.x - d.x, camera.position.y - d.y, camera.position.z - d.z);
+  if (dist < (d.r || 100)){ const f = document.getElementById('txfFlash'); if (f){ f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); } }
+  Sfx.bigBoom(dist < 12 ? null : { x: d.x, z: d.z });
+}
+/* the frame: spin-up and heat, the barrels turning, the noses in the tubes */
+function weaponsFrame(dt){
+  const now = performance.now(), M = TXF.mg, w = curW();
+  const want = myAgent === 'txf' && w.kind === 'minigun' && wantFire && me.alive && gameState === 'playing' && !paused;
+  txf.spin = want ? Math.min(1, txf.spin + dt * 1000 / M.spinMs) : Math.max(0, txf.spin - dt * 1.6);
+  if (now - lastShot > M.rateMs * 3 && now >= txf.mgHotUntil) txf.mgHeat = Math.max(0, txf.mgHeat - dt * 1000 / M.coolMs);
+  const rotor = TXF_MG_BUILT.g.userData.rotor; if (rotor) rotor.rotation.z += txf.spin * dt * 45;
+  Sfx.mgSpin(myAgent === 'txf' && w.kind === 'minigun' && gameState === 'playing' ? txf.spin : 0);
+  const have = txfFree() ? TXF.missile.charges : txfMslHave(now);
+  TXF_ML_BUILT.g.userData.noses.forEach((n, i) => { n.visible = i < have; });
+  { const dr = TXF_ML_BUILT.g.userData.drum; if (dr) dr.rotation.z += ((txf.drumTo || 0) - dr.rotation.z) * Math.min(1, dt * 14); }
+  if (myAgent === 'txf' && w.txf && gameState === 'playing') updateHUD();
+  localMissilesFrame(dt);
+}
+{ const _upd = updateTxf; updateTxf = function(dt){ _upd(dt); weaponsFrame(dt); }; }
+{ const _fx = fxFrame; fxFrame = function(now){
+    for (let i = txf.fx.length - 1; i >= 0; i--){
+      const f = txf.fx[i]; if (f.kind !== 'boom') continue;
+      const k = (now - f.t0) / f.ms;
+      if (k >= 1){ scene.remove(f.g); txf.fx.splice(i, 1); continue; }
+      const fb = Math.min(1, k * 3);                                         // the fireball swells in the first third
+      f.ball.scale.setScalar(2 + 22 * (1 - Math.pow(1 - fb, 2))); f.fire.opacity = 0.85 * (1 - k);
+      f.core.scale.setScalar(1 + 10 * fb); f.coreMat.opacity = 0.9 * Math.max(0, 1 - k * 2.5);
+      const rr = Math.max(1, f.r * (1 - Math.pow(1 - k, 3)));
+      f.ring.scale.setScalar(rr); f.ringMat.opacity = 0.8 * (1 - k);
+      f.shell.scale.setScalar(rr * 0.9); f.shellMat.opacity = 0.25 * (1 - k);
+    }
+    _fx(now);
+  }; }
+{ const _timers = onTxfTimers; onTxfTimers = function(d){ _timers(d); if (!d) return;
+    const now = performance.now();
+    if (d.mslQ) txf.mslQ = d.mslQ.map(ms => now + ms);
+    if (d.mgHot !== undefined && d.mgHot > 0) txf.mgHotUntil = now + d.mgHot; }; }
+{ const _reset = txfReset; txfReset = function(){ _reset();
+    txf.spin = 0; txf.mgHeat = 0; txf.mgHotUntil = 0; txf.mslQ = [];
+    for (const m of txf.msls) scene.remove(m.mesh); txf.msls.length = 0; Sfx.mgSpin(0); }; }

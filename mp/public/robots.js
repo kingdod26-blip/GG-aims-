@@ -120,6 +120,14 @@ const TXF = {
   laser: { dps: 300, range: 120, heatMs: 4000, coolMs: 6000, tickMs: 50 },
   tele: { range: 200, charges: 2, cdMs: 8000 },
   pulse: { radius: 200, dmg: 40, showMs: 8000, cdMs: 25000 },
+  /* HIS OWN WEAPONS (Jack, 2026-11-28): TxF carries no normal gun and no
+     blade. 1 the minigun: spins up, then 20 a round at 20 a second; no
+     magazine, it overheats after heatMs of firing and takes coolMs.
+     2 the missile: 200 at the centre falling to nothing at 100m, walls
+     block it, he is immune to his own; 3 charges, 20s each. */
+  mg: { dmg: 20, rateMs: 50, spinMs: 400, heatMs: 6000, coolMs: 3000, range: 300, spread: 0.05, adsSpread: 0.012, recoil: 0.0035 },
+  missile: { charges: 3, cdMs: 20000, speed: 45, lifeMs: 6000, r: 0.35,
+             blast: { radius: 100, full: 6, dmg: 200 } },
 };
 /* The code is never written down anywhere in the game: only a hash of it.
    Spaces, emoji variation marks and letter case do not matter, and the

@@ -634,6 +634,7 @@ function startPlay(mode){
   camera.fov=80; camera.updateProjectionMatrix();
   localKills=0;
   dashT=0; dashCdUntil=0; climbT=0; zoneUntil=0; zoneReadyAt=0; configureTiles();   // the agent is locked from here
+  if(myAgent === 'txf') switchWeapon(MINIGUN);        // TxF holds his own minigun, never a bought gun
   updateHUD();
   if (mode==='mp'){ connectMP(nm); document.getElementById('status').textContent=t('status.connecting'); }
   else { spawnLocalBots(8); document.getElementById('status').textContent=t('status.offline'); }
@@ -750,7 +751,8 @@ function connectMP(name){
      are. It used to be a silent line across the room. */
   socket.on('shot', d=>{
     addTracer(new THREE.Vector3(d.ox,d.oy,d.oz), new THREE.Vector3(d.dx,d.dy,d.dz), d.len);
-    if(d.f && WEAPONS[d.w]) Sfx.shoot(WEAPONS[d.w], { x:d.ox, z:d.oz });
+    if(d.w === 'mg') Sfx.minigun({ x:d.ox, z:d.oz });       // TxF's minigun
+    else if(d.f && WEAPONS[d.w]) Sfx.shoot(WEAPONS[d.w], { x:d.ox, z:d.oz });
   });
   /* Only your own hits get a marker. `impact` reaches the whole room, and
      marking all of them showed you other people's fights and your own
@@ -773,6 +775,8 @@ function connectMP(name){
   socket.on('pulsefx', d=> onPulseFx(d));
   socket.on('pulse', d=> onPulseSeen(d));
   socket.on('pulsed', d=> onPulsed(d));
+  socket.on('txfboom', d=> onTxfBoom(d));
+  socket.on('txflaunch', d=> { if(d && d.by !== myId) Sfx.txfLaunch({ x:d.x, z:d.z }); });
   /* Salvo: everyone's barrage warning, and his own timers and missile id */
   socket.on('barrage', d=> onBarrage(d));
   socket.on('salvo', d=> onSalvoTimers(d));
@@ -975,8 +979,8 @@ function decodeSnapshot(buf){
     const vx = d.getInt16(o,true)/100; o += 2;
     const vy = d.getInt16(o,true)/100; o += 2;
     const vz = d.getInt16(o,true)/100; o += 2;
-    const fl = d.getUint8(o++);                  // bit0 smoke bolt, bit1 grenade, bit2 Salvo's incendiary
-    arrows.push({ id, x:ax, y:ay, z:az, vx, vy, vz, sm: !!(fl & 1), gr: !!(fl & 2), ic: !!(fl & 4) });
+    const fl = d.getUint8(o++);                  // bit0 smoke bolt, bit1 grenade, bit2 Salvo's incendiary, bit3 TxF's missile
+    arrows.push({ id, x:ax, y:ay, z:az, vx, vy, vz, sm: !!(fl & 1), gr: !!(fl & 2), ic: !!(fl & 4), tm: !!(fl & 8) });
   }
   return { match:{ phase, round, endsIn, roundWinner, matchWinner, resupplyTaken, ammoIn, potions },
            players, arrows };
@@ -1060,9 +1064,10 @@ function onSnapshot(s){
   const aseen=new Set();
   for(const ar of (s.arrows||[])){ aseen.add(ar.id);
     let m=arrowGfx.get(ar.id);
-    if(!m){ m = ar.ic ? makeIncenMesh() : ar.gr ? makeGrenadeMesh() : makeArrowMesh(); if(ar.ic) m.scale.setScalar(1.6); if(ar.sm) tintSmokeBolt(m); scene.add(m); arrowGfx.set(ar.id,m); }
+    if(!m){ m = ar.tm ? makeTxfMissileMesh() : ar.ic ? makeIncenMesh() : ar.gr ? makeGrenadeMesh() : makeArrowMesh(); if(ar.ic) m.scale.setScalar(1.6); if(ar.sm) tintSmokeBolt(m); scene.add(m); arrowGfx.set(ar.id,m); }
     m.position.set(ar.x,ar.y,ar.z);
     if(ar.gr){ m.rotation.x += 0.15; m.rotation.z += 0.08; continue; }   // a grenade tumbles; no bolt trail
+    if(ar.tm){ m.lookAt(ar.x+ar.vx, ar.y+ar.vy, ar.z+ar.vz); continue; }   // TxF's missile: nose along its flight
     const voff = boltVisualOffset(ar.id, m.position);
     if(voff) m.position.add(voff);          // leaves the barrel, then catches up
     m.lookAt(ar.x+ar.vx, ar.y+ar.vy, ar.z+ar.vz);

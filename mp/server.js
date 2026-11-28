@@ -372,7 +372,7 @@ function makeRoom(id, holdMs, mapId) {
   return { id, ...arenaOf(mapById(mapId || DEFAULT_MAP_ID)),
     players: new Map(),           // socket.id -> player
     parked: new Map(),            // token -> { wins, money, guns, name, at }
-    smokes: [], fires: [], arrows: [], grenades: [], blasts: [],   // blasts: Salvo's shells and bomblets, each waiting for its moment
+    smokes: [], fires: [], arrows: [], grenades: [], blasts: [], txfMissiles: [],   // txfMissiles: TxF's 100m missiles in flight   // blasts: Salvo's shells and bomblets, each waiting for its moment
     robots: [],                   // Silvars' sensors, drones and dogs (robots.js)
     /* A room made by the Create button has nobody in it yet. Without a hold
        the very next tick would retire it before its creator's socket even
@@ -780,7 +780,7 @@ function respawnAll(room) {
   }
 }
 function clearField(room) {        // no fire, smoke or arrows carried between rounds
-  room.arrows.length = 0; room.smokes.length = 0; room.fires.length = 0; room.grenades.length = 0;
+  room.arrows.length = 0; room.smokes.length = 0; room.fires.length = 0; room.grenades.length = 0; room.txfMissiles.length = 0;
   /* Robots do not carry between rounds either. A dog cleared away by the
      round ending was not DESTROYED, so its 70s does not start: it is ready
      for the next round. */
@@ -921,7 +921,7 @@ const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff
    ARROW   15 bytes each (grenades too)
      u16 id
      i16 x,y,z *100           i16 vx,vy,vz *100
-     u8  flags: bit0 smoke bolt, bit1 grenade
+     u8  flags: bit0 smoke bolt, bit1 grenade, bit2 incendiary, bit3 TxF missile
    ========================================================================= */
 const SNAP_VERSION = 5;          // 2 lean, 3 ammo timer, 4 potions, 5 hp u16 (TxF's 500)
 const PHASES = ['waiting', 'intermission', 'live', 'over', 'paused'];
@@ -949,7 +949,7 @@ function sendMeta(room, force) {
 }
 function encodeSnapshot(room, now) {
   // grenades ride in the arrow section with flag bit1 - no layout change
-  const ps = [...room.players.values()], as = room.arrows.concat(room.grenades);
+  const ps = [...room.players.values()], as = room.arrows.concat(room.grenades, room.txfMissiles);
   const slotOf = id => { const p = room.players.get(id); return p ? p.slot : -1; };
   const buf = Buffer.allocUnsafe(HEAD_B + ps.length*PLAYER_B + as.length*ARROW_B);
   const m = room.match;
@@ -991,7 +991,7 @@ function encodeSnapshot(room, now) {
     buf.writeInt16LE(i16(a.vx), o); o += 2;
     buf.writeInt16LE(i16(a.vy), o); o += 2;
     buf.writeInt16LE(i16(a.vz), o); o += 2;
-    buf.writeUInt8((a.smoke ? 1 : 0) | (a.grenade ? 2 : 0) | (a.incen ? 4 : 0), o++);
+    buf.writeUInt8((a.smoke ? 1 : 0) | (a.grenade ? 2 : 0) | (a.incen ? 4 : 0) | (a.tm ? 8 : 0), o++);
   }
   return buf;
 }
@@ -1044,6 +1044,7 @@ io.on('connection', (socket) => {
     hp: agentId === 'txf' ? TXF.hp : 100, alive: match.phase !== 'live', kills: 0, deaths: 0, wins: back ? back.wins : 0, tp: 0,
     agent: agentId,                    // locked for this connection
     teleShots: [], pulseReadyAt: 0, laserOn: false, heat: 0, overheatUntil: 0, fly: false,   // TxF
+    mslShots: [], mgHeat: 0, mgAt: 0, mgHotUntil: 0,                                        // TxF's own weapons
     gshots: [], zoneUntil: 0, zoneReadyAt: 0,
     sensorShots: [], droneReadyAt: 0, dogReadyAt: 0, linked: new Map(),   // Silvars
     ishots: [], barrageReadyAt: 0, missileReadyAt: 0,                    // Salvo
@@ -1154,7 +1155,7 @@ io.on('connection', (socket) => {
        must actually own it: p.guns is server-side, set by the buy handler. */
     const slot = d && (d.w | 0);
     const gun = GUNS[slot];
-    if (!gun || !p.guns.includes(slot)) return;      // not a gun, or not theirs
+    if (!gun || !p.guns.includes(slot) || p.agent === 'txf') return;      // not a gun, or not theirs
 
     /* Rate limit. A trigger pull may send up to gun.pellets packets; the next
        pull cannot start until fireRate has passed. */
@@ -1249,7 +1250,7 @@ io.on('connection', (socket) => {
   /* ---- Buy a gun. One main and one side, never mid-round, money checked
      here so a patched client cannot hand itself a sniper. ---- */
   socket.on('buy', (d) => {
-    const p = players.get(socket.id); if (!p) return;
+    const p = players.get(socket.id); if (!p || p.agent === 'txf') return;   // TxF carries his own weapons only
     if (match.phase === 'live') return;              // shop shuts during a round
     const slot = d && d.slot | 0;
     if (!(slot >= 0 && slot < PRICES.length)) return;
@@ -1280,6 +1281,7 @@ io.on('connection', (socket) => {
   });
   // ---- Blade: five-hit melee combo, validated server-side ----
   socket.on('melee', (d) => {
+    { const q = players.get(socket.id); if (q && q.agent === 'txf') return; }   // TxF has no blade
     if (match.phase !== 'live') return;      // only during a live round
     const p = players.get(socket.id); if (!p || !p.alive) return;
     const now = Date.now();
@@ -1478,6 +1480,56 @@ io.on('connection', (socket) => {
     if (p.hist) p.hist.length = 0;
     if (p.y > groundAt(room, p.x, p.z, p.y) + 0.3) p.fly = true;
     io.to(room.id).emit('telefx', { id: p.id, a: from, b: { x: p.x, y: p.y, z: p.z }, fly: p.fly ? 1 : 0 });
+    sendTxfTimers(p, now);
+  });
+  /* TxF's minigun: one packet per round, from the client's trigger. The
+     server keeps the rate, the spin, the heat and the hit test. */
+  socket.on('mg', (d) => {
+    const p = players.get(socket.id); if (!txfOK(p) || !d) return;
+    const now = Date.now(), M = TXF.mg;
+    if (now < (p.mgHotUntil || 0)) return;
+    const idle = now - (p.mgAt || 0);
+    if (idle < M.rateMs * 0.75) return;                        // faster than it can turn
+    if (idle > M.rateMs * 3) p.mgHeat = Math.max(0, (p.mgHeat || 0) - idle / M.coolMs);   // it cooled while idle
+    p.mgAt = now;
+    p.mgHeat = (p.mgHeat || 0) + M.rateMs / M.heatMs;
+    if (p.mgHeat >= 1) { p.mgHeat = 0; p.mgHotUntil = now + M.coolMs; sendTxfTimers(p, now); }
+    let ox = +d.ox, oy = +d.oy, oz = +d.oz;
+    const eye = (p.y || 0) + [1.7, 1.05, 0.6][p.st | 0];
+    if (!(Math.hypot(ox - p.x, oy - eye, oz - p.z) < 2.5)) { ox = p.x; oy = eye; oz = p.z; }
+    const o = { x: ox, y: oy, z: oz }, dir = normalize(+d.dx || 0, +d.dy || 0, +d.dz || -1);
+    noiseMade(room, p.id, now);
+    socket.to(room.id).emit('shot', { ox: o.x, oy: o.y, oz: o.z, dx: dir.x, dy: dir.y, dz: dir.z, len: M.range, w: 'mg', f: 1 });
+    let far = M.range;
+    for (const r of room.rayBoxes) { const h = rayBoxHit(o, dir, r); if (h && h.t < far) far = h.t; }
+    let best = null;
+    const when = now - rewindFor(p);
+    for (const t of players.values()) {
+      if (!t.alive || t.id === p.id) continue;
+      const h = stateAt(t, when), z = hitZone(o, dir, h.x, h.z, h.y, h.st);
+      if (z && z.t < far && (!best || z.t < best.t)) best = { t: z.t, ref: t, zone: z.zone, mult: z.mult };
+    }
+    const rHit = robotOnRay(room, p.id, o, dir, best ? best.t : far);
+    if (rHit) { shootRobot(room, rHit.r, M.dmg, p, o.x + dir.x*rHit.t, o.y + dir.y*rHit.t, o.z + dir.z*rHit.t); return; }
+    if (!best) return;
+    const t = best.ref, dmg = M.dmg * best.mult;
+    io.to(room.id).emit('impact', { x: o.x + dir.x*best.t, y: o.y + dir.y*best.t, z: o.z + dir.z*best.t, head: best.zone === 'head', zone: best.zone, by: p.id });
+    txfHurt(room, t, dmg, p, { x: p.x, z: p.z }, best.zone === 'head');
+  });
+  /* TxF's missile: flies straight on the server; a 100m blast where it hits */
+  socket.on('txfmsl', (d) => {
+    const p = players.get(socket.id); if (!txfOK(p) || !d) return;
+    const now = Date.now(), M = TXF.missile;
+    p.mslShots = (p.mslShots || []).filter(t => now - t < M.cdMs);
+    if (p.mslShots.length >= M.charges) { sendTxfTimers(p, now); return; }
+    p.mslShots.push(now);
+    let ox = +d.ox, oy = +d.oy, oz = +d.oz;
+    const eye = (p.y || 0) + 1.7;
+    if (!(Math.hypot(ox - p.x, oy - eye, oz - p.z) < 2.5)) { ox = p.x; oy = eye; oz = p.z; }
+    const dir = normalize(+d.dx || 0, +d.dy || 0, +d.dz || -1);
+    room.txfMissiles.push({ id: (arrowSeq = (arrowSeq + 1) & 0xffff), by: socket.id, tm: true,
+      x: ox, y: oy, z: oz, vx: dir.x * M.speed, vy: dir.y * M.speed, vz: dir.z * M.speed, born: now });
+    io.to(room.id).emit('txflaunch', { x: ox, z: oz, by: socket.id });
     sendTxfTimers(p, now);
   });
   socket.on('pulse', () => {
@@ -1827,17 +1879,49 @@ function sendTxfTimers(p, now) {
   const sock = io.sockets.sockets.get(p.id); if (!sock) return;
   sock.emit('txf', { heat: +(p.heat || 0).toFixed(3), hot: Math.max(0, (p.overheatUntil || 0) - now), on: p.laserOn ? 1 : 0,
                      teleQ: (p.teleShots || []).map(t => t + TXF.tele.cdMs - now).filter(ms => ms > 0),
-                     pulse: Math.max(0, (p.pulseReadyAt || 0) - now) });
+                     pulse: Math.max(0, (p.pulseReadyAt || 0) - now),
+                     mslQ: (p.mslShots || []).map(t => t + TXF.missile.cdMs - now).filter(ms => ms > 0),
+                     mgHot: Math.max(0, (p.mgHotUntil || 0) - now) });
+}
+/* TxF's missiles in flight: straight, no gravity; the first wall, body or
+   the floor sets them off. A 100m blast through blastAt (walls block it,
+   the thrower is spared), and everyone is told so they see the wave. */
+function tickTxfMissiles(room, now, dt) {
+  const list = room.txfMissiles, M = TXF.missile;
+  for (let i = list.length - 1; i >= 0; i--) {
+    const m = list[i];
+    const sx = m.vx * dt, sy = m.vy * dt, sz = m.vz * dt, len = Math.hypot(sx, sy, sz);
+    const dir = { x: sx / len, y: sy / len, z: sz / len }, o = { x: m.x, y: m.y, z: m.z };
+    let hit = len;
+    for (const r of room.rayBoxes) { const h = rayBoxHit(o, dir, r); if (h && h.t > 0.01 && h.t < hit) hit = h.t; }
+    for (const t of room.players.values()) {
+      if (!t.alive || t.id === m.by) continue;
+      const tx = aimX(t), tz = aimZ(t), ty = t.y || 0, top = ty + (BODY_H[t.st | 0] || 1.8);
+      const h = rayBoxHit(o, dir, { minx: tx - 0.45, maxx: tx + 0.45, miny: ty, maxy: top, minz: tz - 0.45, maxz: tz + 0.45 });
+      if (h && h.t < hit) hit = h.t;
+    }
+    if (dir.y < -1e-6) { const tf = -o.y / dir.y; if (tf >= 0 && tf < hit) hit = tf; }
+    const gone = now - m.born > M.lifeMs;
+    if (hit < len || gone) {
+      const k = Math.max(0, hit - 0.25);
+      const x = o.x + dir.x * k, y = Math.max(0, o.y + dir.y * k), z = o.z + dir.z * k;
+      list.splice(i, 1);
+      io.to(room.id).emit('txfboom', { x, y, z, r: M.blast.radius });
+      blastAt(room, x, y, z, m.by, M.blast, now, 'a missile');
+      continue;
+    }
+    m.x += sx; m.y += sy; m.z += sz;
+  }
 }
 /* Damage from TxF to a player: the same bookkeeping as a gunshot. */
-function txfHurt(room, t, dmg, by, from) {
+function txfHurt(room, t, dmg, by, from, head) {
   if (!t.alive || room.match.phase !== 'live' || dmg <= 0) return;
   t.hp -= dmg; hitBy(t, by.id);
   io.to(t.id).emit('hurt', { x: from.x, z: from.z });
   if (t.hp <= 0 && t.alive) {
     eliminate(room, t, true);
     by.kills++; t.deaths++;
-    io.to(room.id).emit('kill', { by: by.name, byId: by.id, victim: t.name, head: false });
+    io.to(room.id).emit('kill', { by: by.name, byId: by.id, victim: t.name, head: !!head });
   }
 }
 /* Is there room for a body standing at (x, y, z)? Inside the map, under the
@@ -2276,8 +2360,9 @@ function tickRoom(room, now, dt) {
     blastAt(room, b.x, b.y, b.z, b.by, b.cfg, now, b.name);
   }
 
-  // ---- TxF's laser ----
+  // ---- TxF's laser and missiles ----
   tickLasers(room, now, dt);
+  tickTxfMissiles(room, now, dt);
 
   // ---- Blast's zone: regenerate while it runs ----
   for (const pl of players.values())

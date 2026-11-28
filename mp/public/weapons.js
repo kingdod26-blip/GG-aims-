@@ -200,6 +200,13 @@ WEAPONS.push({ name:'INCENDIARY', mode:'ABILITY', ability:true, kind:'incen', au
 WEAPONS.push({ name:'MISSILE', mode:'ABILITY', ability:true, kind:'missile', auto:false, fireRate:800, dmg:75,
   charges:1, cooldownMs:60000, speed:22,
   recoil:0.03, spread:0, adsSpread:0, range:180, adsFov:55, scope:false });
+/* TxF's OWN weapons (2026-11-28; txf.js, TXF.mg / TXF.missile in robots.js).
+   He carries nothing else: no bought guns, no blade. `txf` marks them so
+   the inventory and the firing code tell them apart from everyone's. */
+WEAPONS.push({ name:'MINIGUN', mode:'ROTARY', txf:true, kind:'minigun', auto:true, fireRate:50, dmg:20,
+  recoil:0.0035, spread:0.05, adsSpread:0.012, range:300, adsFov:66, scope:false });
+WEAPONS.push({ name:'TxF MISSILE', mode:'LAUNCHER', txf:true, kind:'txfmsl', auto:false, fireRate:600, dmg:200,
+  recoil:0.04, spread:0, adsSpread:0, range:300, adsFov:62, scope:false });
 const XBOW  = WEAPONS.findIndex(w=>w.kind==='xbow');    // crossbow slot
 const GRENADE = WEAPONS.findIndex(w=>w.kind==='grenade');   // Blast's frag slot
 const SMOKE = WEAPONS.findIndex(w=>w.kind==='smoke');   // smoke slot
@@ -207,6 +214,8 @@ const SENSOR = WEAPONS.findIndex(w=>w.kind==='sensor');  // Silvars' sensor slot
 const INCEN = WEAPONS.findIndex(w=>w.kind==='incen');    // Salvo's incendiary slot
 const MISSILE = WEAPONS.findIndex(w=>w.kind==='missile');   // Salvo's launcher slot
 const BLADE = WEAPONS.findIndex(w=>w.melee);            // blade slot
+const MINIGUN = WEAPONS.findIndex(w=>w.kind==='minigun');   // TxF's minigun
+const TXFMSL = WEAPONS.findIndex(w=>w.kind==='txfmsl');     // TxF's missile launcher
 const ABILITY_SLOTS = WEAPONS.map((w,i)=>w.ability?i:-1).filter(i=>i>=0);
 /* What the armory should print on each card. Guns are 1-5; the abilities
    and the blade have their own keys, and printing i+1 told you to press 7
@@ -622,11 +631,13 @@ let dryClicked=false;
    scroll wheel never lands on them mid-fight.
    Target practice has no economy, so everything is yours there. */
 function inventory(){
+  if(myAgent === 'txf') return [MINIGUN, TXFMSL];       // TxF: his own two, nothing else
   if(gameMode !== 'mp') return [0,1,2,3,4,BLADE];
   return [...myGuns, BLADE];
 }
 function canEquip(i){
   const w = WEAPONS[i]; if(!w) return false;
+  if(w.txf || myAgent === 'txf') return !!w.txf && myAgent === 'txf';   // his weapons are his alone, and he has no others
   if(w.ability) return agentHas(i);          // only your own agent's abilities
   if(gameMode !== 'mp') return true;
   return inventory().includes(i);

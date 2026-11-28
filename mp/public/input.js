@@ -261,6 +261,9 @@ function shoot(){
     return;
   }
 
+  // --- TxF's own minigun and missile (txf.js) ---
+  if(w.txf){ txfWeaponShot(w, now); return; }
+
   // --- CROSSBOW ability: spends a charge, launches a real flaming arrow ---
   // --- SENSOR (Silvars): held like the grenade, the click puts it on the wall ---
   if(w.kind === 'sensor'){

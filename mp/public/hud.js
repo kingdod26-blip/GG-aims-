@@ -26,6 +26,19 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
     document.getElementById('modeLbl').textContent =
       'BLADE · HIT '+((comboStep||0)+1)+'/'+w.combo.length+
       (comboStep===w.combo.length-1 ? ' · FINISHER' : '')+' · '+nextDmg+' DMG';
+  } else if(w.txf){                                // TxF: the minigun's heat, the missiles left
+    const now = performance.now();
+    if(w.kind === 'minigun'){
+      const hot = now < txf.mgHotUntil;
+      document.getElementById('magNum').textContent = hot ? '--' : Math.round(txf.mgHeat * 100) + '%';
+      document.getElementById('reserveNum').textContent = '';
+      document.getElementById('modeLbl').textContent = hot ? 'MINIGUN · OVERHEAT ' + Math.ceil((txf.mgHotUntil - now) / 1000) + 's' : 'MINIGUN · HEAT';
+    } else {
+      const have = txfMslHave(now), next = txf.mslQ.length ? Math.max(0, Math.ceil((Math.min(...txf.mslQ) - now) / 1000)) : 0;
+      document.getElementById('magNum').textContent = have;
+      document.getElementById('reserveNum').textContent = '/ ' + TXF.missile.charges;
+      document.getElementById('modeLbl').textContent = 'MISSILE · 100m BLAST' + (next ? ' · ' + next + 's' : '');
+    }
   } else if(w.ability){                            // charges, not magazines
     abilityTick();
     const q = abilityRecharge[currentWeapon] || [];
@@ -524,7 +537,7 @@ const Sfx = (()=>{
      thin whine riding it, and the shaft itself at 50 turns a second.
      The fundamentals are below what a laptop speaker can make, so most of
      what carries on one is the 200 to 400Hz partials and the whine. */
-  let plant = null, laserNodes = null;
+  let plant = null, laserNodes = null, spinNodes = null;
   /* THE AMBIENCE (2026-11-23, the Saltline list): wind over the site
      outdoors - band-passed noise whose pitch and level drift on two slow
      LFOs so it gusts - and room tone indoors, a low muffled air with a
@@ -696,6 +709,28 @@ const Sfx = (()=>{
       osc(dest,'sine',70,32,1.3,0.55); osc(dest,'sine',960,240,0.9,0.10); nz(dest,'lowpass',320,1.1,0.42); }),
     ping: safe(()=>{ osc(master,'sine',1320,1320,0.16,0.24); osc(master,'sine',1980,1980,0.22,0.18,0.13); osc(master,'sine',1320,1320,0.16,0.2,0.3); }),
     overheat: safe(()=>{ nz(master,'highpass',2600,0.7,0.24); osc(master,'square',420,130,0.45,0.07); }),
+    /* TxF's own weapons: the minigun's buzz-saw report, its motor whine
+       (held: only the level moves), the missile leaving, and the 100m blast. */
+    minigun: safe((at)=>{ const dest = bus(at, 40); if(!dest) return;
+      gunshot({ crack:[2600,0.012,0.42], body:[560,0.05,0.45], thump:[140,0.045,0.42], tail:[900,0.12,0.10] }, dest); }),
+    mgSpin: safe((level)=>{
+      let S = spinNodes;
+      if(!S){ if(!(level > 0.003)) return;
+        const c = ctx, g = c.createGain(); g.gain.value = 0; g.connect(master);
+        const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 60;
+        const lp = c.createBiquadFilter(); lp.type = 'bandpass'; lp.frequency.value = 900; lp.Q.value = 1.2;
+        o.connect(lp).connect(g); o.start(); S = spinNodes = { g, o, c };
+      }
+      if(S.c !== ctx){ spinNodes = null; return; }
+      const t = ctx.currentTime;
+      S.g.gain.setTargetAtTime(Math.max(0, level) * 0.05, t, 0.05);
+      S.o.frequency.setTargetAtTime(60 + level * 260, t, 0.08);
+    }),
+    txfLaunch: safe((at)=>{ const dest = at ? bus(at, 60) : master; if(!dest) return;
+      nz(dest,'bandpass',700,0.6,0.42,0.7,2800); osc(dest,'sawtooth',70,220,0.5,0.14); osc(dest,'sine',1400,500,0.7,0.06); }),
+    bigBoom: safe((at)=>{ const dest = at ? bus(at, 260) : master; if(!dest) return;
+      osc(dest,'sine',48,22,2.4,0.9); nz(dest,'lowpass',420,2.6,0.75); nz(dest,'lowpass',160,3.8,0.55);
+      nz(dest,'highpass',1600,0.12,0.5); osc(dest,'sine',95,40,1.2,0.5,0.05); }),
     thrust: safe(()=>{ nz(master,'lowpass',900,0.5,0.4,0.8,240); osc(master,'sawtooth',70,140,0.35,0.08); }),
     laserHum: safe((level)=>{
       let L = laserNodes;
@@ -943,6 +978,7 @@ function gunBars(w){
 }
 function toggleArmory(force){
   const want = (force!==undefined) ? force : !armoryOpen;
+  if(want && myAgent === 'txf'){ toast('TxF CARRIES HIS OWN WEAPONS'); return; }   // nothing to buy
   armoryOpen = want;
   document.getElementById('armory').classList.toggle('hidden', !want);
   if(want){ renderArmory(); document.exitPointerLock(); }
