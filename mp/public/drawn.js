@@ -309,7 +309,8 @@ function s12Slot(g, m, x, y, z, len, h){                // an oval (stadium) slo
 function drawS12K(){
   const g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), po = M_POLY(), p2 = M_POLY2();
   const blk = dmatL('s12blk', [0.022, 0.022, 0.024], 0.55, 0.42, 0);                     // the receiver's black finish
-  const rust = dmatL('s12rust', [0.20, 0.058, 0.028], 0.50, 0.52, 0);                    // the drum's face: scuffed, not turned
+  const rust = dmatL('s12rust', [0.26, 0.075, 0.034], 0.55, 0.48, 0);                    // the drum's cog: scuffed rust, bright
+  const rustDk = dmatL('s12rustdk', [0.080, 0.028, 0.016], 0.45, 0.60, 0);              // the face plate behind it, darker, so the cog reads
   const laser = dmat('s12laser', 0x3a0604, 0.0, 0.35, { emissive: new THREE.Color(0xff2a14), emissiveIntensity: 1.6 });
   const holo = dmat('s12holo', 0x7a2018, 0.1, 0.05, { transparent: true, opacity: 0.14, depthWrite: false, emissive: new THREE.Color(0x401008) });
   const P = (m, pts, thick, bevel) => dProf(g, m, pts, thick, bevel);
@@ -318,9 +319,21 @@ function drawS12K(){
   P(blk, [[-0.216, -0.026], [0.042, -0.030], [0.042, 0.022], [-0.172, 0.022], [-0.204, 0.014], [-0.216, 0.004]], 0.046, 0.003);
   P(blk, [[-0.200, 0.020], [0.036, 0.020], [0.036, 0.034], [-0.168, 0.034], [-0.196, 0.028]], 0.048, 0.004);   // dust cover
   for (const sx of [-1, 1]) dBox(g, dk, 0.001, 0.0018, 0.23, sx * 0.0242, 0.020, 0.080);                        // its seam
-  dRail(g, dk, 0.034, -0.034, 0.192);                                                    // rail on the dust cover
-  dBox(g, st, 0.020, 0.010, 0.018, 0, 0.0435, 0.150);                                    // rear sight on the rail
-  for (const sx of [-1, 1]) dBox(g, st, 0.0035, 0.014, 0.014, sx * 0.0078, 0.054, 0.150);
+  /* What you look down when aimed (2026-11-29): the eye sits over the back
+     of the receiver, so the rail here is a lighter anodised grey whose teeth
+     catch the light, numbered every slot like the PAC-9's, and the dust
+     cover's rear latch shows behind it. */
+  const railM = dmatL('s12rail', [0.060, 0.062, 0.066], 0.55, 0.38, 0);
+  dRail(g, railM, 0.034, -0.034, 0.192);                                                 // rail on the dust cover
+  { const num = dmat('s12num', 0xd8d8cc, 0.0, 0.5, { emissive: new THREE.Color(0x1a1a16) });
+    for (let k = 0; k < 6; k++){ const z = 0.176 - k * 0.040;                          // the slot numbers, white ticks on the rail's side
+      dBox(g, num, 0.0006, 0.0030, 0.0012, 0.0108, 0.0365, z); dBox(g, num, 0.0006, 0.0030, 0.0012, -0.0108, 0.0365, z); } }
+  dBox(g, st, 0.012, 0.006, 0.006, 0, 0.026, 0.202);                                     // the dust cover's rear latch
+  dBox(g, railM, 0.040, 0.004, 0.012, 0, 0.0325, 0.196);                                 // its lip
+  /* a low folding rear sight: it sits 6cm from the eye when aimed, so a tall
+     one filled the view under the holographic window */
+  dBox(g, st, 0.020, 0.006, 0.018, 0, 0.0415, 0.150);                                    // rear sight on the rail, folded
+  for (const sx of [-1, 1]) dBox(g, st, 0.0030, 0.006, 0.014, sx * 0.0078, 0.0465, 0.150);
   for (const sx of [-1, 1]){                                                             // rivets and pins
     for (const [y, z] of [[-0.020, 0.185], [-0.020, 0.165], [-0.020, -0.010], [-0.020, -0.028], [0.004, 0.120], [0.004, 0.090], [0.004, -0.030]])
       dScrew(g, sx * 0.0232, y, z, 'x', 0.0021);
@@ -347,17 +360,21 @@ function drawS12K(){
   // ---- pistol grip: AK style, raked, stippled panels, a finger bump ----
   P(po, [[-0.148, -0.024], [-0.194, -0.024], [-0.224, -0.124], [-0.188, -0.132], [-0.170, -0.090], [-0.162, -0.074], [-0.158, -0.050]], 0.034, 0.005);
   for (const sx of [-1, 1]){ const pan = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.070, 0.024), p2);
-    pan.position.set(sx * 0.0172, -0.074, 0.188); pan.rotation.x = -0.29; dAdd(g, pan); }
+    pan.material = blk; pan.position.set(sx * 0.0175, -0.074, 0.188); pan.rotation.x = -0.29; dAdd(g, pan); }
   dBox(g, p2, 0.035, 0.008, 0.040, 0, -0.130, 0.205, -0.29);                             // its base
 
   // ---- folding adapter, a short tube, the skeleton stock ----
   P(dk, [[-0.212, 0.022], [-0.236, 0.022], [-0.236, -0.016], [-0.212, -0.024]], 0.040, 0.003);
   dKnob(g, st, 0.0050, 0.046, 0, 0.000, 0.226);                                          // hinge pin
   dTube(g, st, 0.0140, 0.040, 0, 0.010, 0.255);                                          // buffer tube
-  { const s = new THREE.Shape(), O = [[-0.262, 0.028], [-0.380, 0.034], [-0.398, 0.030], [-0.398, -0.084], [-0.384, -0.092],
-      [-0.346, -0.064], [-0.300, -0.014], [-0.262, -0.008]];
+  /* A solid body (Jack's screenshot read the first one as a bracket with a
+     hole): the top runs straight back, the underside sweeps down from the
+     tube to the toe, and only a slim window is cut low at the back, with
+     the brace across it as in the render. */
+  { const s = new THREE.Shape(), O = [[-0.262, 0.028], [-0.382, 0.033], [-0.398, 0.029], [-0.398, -0.090], [-0.386, -0.098],
+      [-0.330, -0.052], [-0.292, -0.022], [-0.262, -0.012]];
     O.forEach((p, i) => i ? s.lineTo(p[0], p[1]) : s.moveTo(p[0], p[1]));
-    const h = new THREE.Path(), H = [[-0.334, -0.004], [-0.378, -0.002], [-0.380, -0.060], [-0.366, -0.064]];
+    const h = new THREE.Path(), H = [[-0.346, -0.030], [-0.384, -0.030], [-0.384, -0.078]];
     H.forEach((p, i) => i ? h.lineTo(p[0], p[1]) : h.moveTo(p[0], p[1])); s.holes.push(h);
     const b = 0.005, th = 0.040;
     const geo = new THREE.ExtrudeGeometry(s, { depth: th - 2 * b, bevelEnabled: true, bevelSize: b, bevelThickness: b, bevelSegments: 2, curveSegments: 6 });
@@ -367,7 +384,7 @@ function drawS12K(){
   dBox(g, p2, 0.012, 0.008, 0.050, 0, -0.008, 0.300);                                    // adjust lever under it
   dScrew(g, -0.0205, 0.012, 0.316, 'x', 0.004); dScrew(g, 0.0205, 0.012, 0.316, 'x', 0.004);   // the lock pin
   dBox(g, M_PAD(), 0.042, 0.128, 0.012, 0, -0.026, 0.404);                               // butt pad
-  for (let k = 0; k < 8; k++) dBox(g, dk, 0.043, 0.0025, 0.013, 0, -0.082 + k * 0.016, 0.405);
+  for (let k = 0; k < 8; k++) dBox(g, dk, 0.039, 0.0022, 0.003, 0, -0.082 + k * 0.016, 0.4105);   // its ribs, on the back face only
   { const cup = new THREE.Mesh(new THREE.TorusGeometry(0.0065, 0.0018, 6, 14), st);     // QD sling cup
     cup.rotation.y = Math.PI / 2; cup.position.set(-0.0205, -0.068, 0.370); dAdd(g, cup); }
 
@@ -406,9 +423,9 @@ function drawS12K(){
   dTube(g, st, 0.0105, 0.140, 0, -0.016, -0.330);                                        // gas cylinder under it
   dKnurl(g, dk, 0.0115, -0.016, -0.400, -0.388);                                         // its ribbed cap
   dBox(g, st, 0.026, 0.052, 0.034, 0, -0.002, -0.376);                                   // gas block
-  P(st, [[0.360, 0.024], [0.392, 0.024], [0.386, 0.052], [0.366, 0.052]], 0.018, 0.002);   // front sight base
-  for (const sx of [-1, 1]) dBox(g, st, 0.0028, 0.024, 0.012, sx * 0.0080, 0.062, -0.376);
-  dBox(g, st, 0.0025, 0.020, 0.0028, 0, 0.060, -0.376);                                  // the post
+  P(st, [[0.358, 0.024], [0.394, 0.024], [0.384, 0.040], [0.368, 0.040]], 0.016, 0.002);   // front sight base, tapered
+  for (const sx of [-1, 1]) dBox(g, st, 0.0026, 0.016, 0.010, sx * 0.0072, 0.047, -0.376);
+  dBox(g, st, 0.0022, 0.014, 0.0026, 0, 0.046, -0.376);                                  // the post
   dTube(g, st, 0.0140, 0.012, 0, 0.012, -0.432);                                         // thread collar
   dKnurl(g, st, 0.0144, 0.012, -0.437, -0.428);
   dTube(g, dk, 0.0178, 0.080, 0, 0.012, -0.478, 0.0172);                                 // the brake
@@ -450,29 +467,43 @@ function drawS12K(){
     dBox(g, st, 0.0035, 0.0015, 0.006, -0.0198, 0.060, z); }
   for (const [y, z] of [[0.060, zc + 0.022], [0.060, zc + 0.036]]){ dScrew(g, 0.0182, y, z, 'x', 0.0032);   // windage and elevation (right)
     dBox(g, dk, 0.0012, 0.0045, 0.0008, 0.0190, y, z); }
+  /* the back face, which is what you look down when aimed: an inset panel
+     with the up/down and night-vision buttons, a seam, and the mount's lever
+     end showing below (2026-11-29, so it is not a blank black block) */
+  { const zb = zc + 0.0515;                                                              // just proud of the body's rounded back
+    const pnl = dmatL('s12pnl', [0.075, 0.078, 0.084], 0.3, 0.55, 2);            // a grey panel, so it reads from behind
+    dBox(g, pnl, 0.028, 0.017, 0.002, 0, 0.0585, zb);
+    for (const [x, col] of [[-0.0075, p2], [0.0075, p2], [0, st]]){
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(x ? 0.0042 : 0.0026, x ? 0.0042 : 0.0026, 0.003, 16), col === st ? st : dk);
+      b.rotation.x = Math.PI / 2; b.position.set(x, x ? 0.0590 : 0.0525, zb + 0.0015); dAdd(g, b); }
+    for (const x of [-0.0075, 0.0075]) dBox(g, M_WHITE(), 0.0030, 0.0008, 0.0006, x, 0.0590, zb + 0.0032);   // the buttons' marks: -
+    dBox(g, M_WHITE(), 0.0008, 0.0030, 0.0006, 0.0075, 0.0590, zb + 0.0032);                                 // and +
+    for (const x of [-0.0125, 0.0125]) dBox(g, M_WHITE(), 0.0016, 0.0016, 0.0006, x, 0.0640, zb + 0.0012);    // two index dots
+    dBox(g, dk, 0.036, 0.0012, 0.001, 0, 0.0675, zb + 0.0002);                                            // the seam under the hood
+    dBox(g, st, 0.010, 0.006, 0.004, -0.010, 0.0430, zb + 0.004); }                                       // the lever's end
   dDecal(g, 'HWS  EXPS3', -0.0184, 0.0535, zc - 0.012, 0.034, 0.0055, -1);
   // the hood: an arched tunnel with the window through it
   { const s = new THREE.Shape();
-    rRect(s, -0.0200, 0.0700, 0.0200, 0.1065, 0.002, 0.012);                                     // outside: square feet, round shoulders
-    const h = new THREE.Path(); rRect(h, -0.0150, 0.0770, 0.0150, 0.1000, 0.0035);               // the 30 x 23mm window
+    rRect(s, -0.0190, 0.0700, 0.0190, 0.1045, 0.002, 0.008);                                     // outside: square feet, round shoulders, thin walls (the PAC-9's look)
+    const h = new THREE.Path(); rRect(h, -0.0163, 0.0765, 0.0163, 0.1005, 0.0030);               // the window, as big as the walls allow
     s.holes.push(h);
     const len = 0.056, b = 0.0016;
     const geo = new THREE.ExtrudeGeometry(s, { depth: len - 2 * b, bevelEnabled: true, bevelSize: b, bevelThickness: b, bevelSegments: 2, curveSegments: 10 });
     const hood = new THREE.Mesh(geo, dk); hood.position.set(0, 0, zc - 0.050 + b); dAdd(g, hood);
     /* the rear frame: a thicker rounded ring where the eye looks in */
-    const r = new THREE.Shape(); rRect(r, -0.0210, 0.0695, 0.0210, 0.1075, 0.002, 0.013);
-    const rh = new THREE.Path(); rRect(rh, -0.0158, 0.0762, 0.0158, 0.1008, 0.004); r.holes.push(rh);
+    const r = new THREE.Shape(); rRect(r, -0.0196, 0.0695, 0.0196, 0.1052, 0.002, 0.009);
+    const rh = new THREE.Path(); rRect(rh, -0.0166, 0.0762, 0.0166, 0.1008, 0.0032); r.holes.push(rh);
     const rg = new THREE.Mesh(new THREE.ExtrudeGeometry(r, { depth: 0.004, bevelEnabled: true, bevelSize: 0.001, bevelThickness: 0.001, bevelSegments: 2, curveSegments: 10 }), st);
     rg.position.set(0, 0, zc + 0.004); dAdd(g, rg);
     /* the front lip, and the hood's side ribs */
     const f = new THREE.Mesh(new THREE.ExtrudeGeometry(r, { depth: 0.003, bevelEnabled: true, bevelSize: 0.001, bevelThickness: 0.001, bevelSegments: 2, curveSegments: 10 }), dk);
     f.position.set(0, 0, zc - 0.052); dAdd(g, f);
-    for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) dBox(g, st, 0.0012, 0.020, 0.0022, sx * 0.0203, 0.086, zc - 0.036 + k * 0.010);
+    for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) dBox(g, st, 0.0012, 0.020, 0.0022, sx * 0.0193, 0.086, zc - 0.036 + k * 0.010);
     /* the two panes: the front one coated (it glints copper), the rear clear */
     const glassF = dmat('s12glassF', 0x6a2a10, 0.6, 0.05, { transparent: true, opacity: 0.20, depthWrite: false, emissive: new THREE.Color(0x200804) });
     const glassR = dmat('s12glassR', 0x203038, 0.4, 0.05, { transparent: true, opacity: 0.10, depthWrite: false });
-    dBox(g, glassF, 0.030, 0.023, 0.0012, 0, 0.0885, zc - 0.046);
-    dBox(g, glassR, 0.031, 0.024, 0.0012, 0, 0.0885, zc + 0.002);
+    dBox(g, glassF, 0.0326, 0.024, 0.0012, 0, 0.0885, zc - 0.046);
+    dBox(g, glassR, 0.0330, 0.0245, 0.0012, 0, 0.0885, zc + 0.002);
     /* the reticle hanging in the window: the 68 MOA ring and its centre dot */
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.0062, 0.00035, 6, 40), laser); ring.position.set(0, 0.0885, zc - 0.044); dAdd(g, ring);
     const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0007, 8, 6), laser); dot.position.set(0, 0.0885, zc - 0.044); dAdd(g, dot); }
@@ -482,12 +513,12 @@ function drawS12K(){
      from the magazine well leaning forward, its centre ahead of the well.
      `mag` pivots at the bottom of the well; `drumIn` keeps the parts' own
      coordinates. The reload only moves mag.position, so the tilt rides along. */
-  /* ...and, as in the render (Jack, 2026-11-29: "the ammo part mainly"), the
-     drum is TURNED on its hanger: its face angles toward the muzzle, so from
-     the side you see the face foreshortened and the drum's round band, not
-     a flat disc. It is also fatter than the receiver (13% wider here). */
-  const mag = new THREE.Group(); mag.position.set(0, -0.060, 0.010); mag.rotation.set(0.10, 0.50, 0); g.add(mag);
-  const drumIn = new THREE.Group(); drumIn.position.set(0, 0.060, -0.010); drumIn.scale.x = 1.13; mag.add(drumIn);
+  /* The drum's axis stays square across the gun: turning it about the
+     vertical (tried 2026-11-29) made it stick out sideways seen from the
+     front, which no real drum does. It leans forward a little and is a
+     little fatter than the receiver, as in the render. */
+  const mag = new THREE.Group(); mag.position.set(0, -0.060, 0.010); mag.rotation.x = 0.12; g.add(mag);
+  const drumIn = new THREE.Group(); drumIn.position.set(0, 0.060, -0.010); drumIn.scale.x = 1.10; mag.add(drumIn);
   dBox(drumIn, blk, 0.040, 0.030, 0.050, 0, -0.072, 0.010);                                 // the feed tower
   for (const sx of [-1, 1]) dBox(drumIn, dk, 0.002, 0.016, 0.030, sx * 0.0202, -0.074, 0.010);
   const C = [0, -0.152, 0.010], R = 0.070;
@@ -496,22 +527,24 @@ function drawS12K(){
     band.rotation.y = Math.PI / 2; band.position.set(bx, C[1], C[2]); dAdd(drumIn, band); }
   for (const sx of [-1, 1]){
     const rim = new THREE.Mesh(new THREE.TorusGeometry(R - 0.002, 0.0035, 8, 40), blk); rim.rotation.y = Math.PI / 2; rim.position.set(sx * 0.030, C[1], C[2]); dAdd(drumIn, rim);
-    const face = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.005, R - 0.005, 0.004, 40), rust); face.rotation.z = Math.PI / 2; face.position.set(sx * 0.0315, C[1], C[2]); dAdd(drumIn, face);
-    const cog = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.004, 32), rust); cog.rotation.z = Math.PI / 2; cog.position.set(sx * 0.0345, C[1], C[2]); dAdd(drumIn, cog);   // the raised cog
-    for (let k = 0; k < 10; k++){ const a = k / 10 * Math.PI * 2;                                 // its teeth, out toward the rim
-      const t = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.012, 0.010), rust);
-      t.position.set(sx * 0.0345, C[1] + Math.cos(a) * 0.050, C[2] + Math.sin(a) * 0.050); t.rotation.x = -a; dAdd(drumIn, t); }
-    const ann = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.0025, 6, 28), rust); ann.rotation.y = Math.PI / 2; ann.position.set(sx * 0.0370, C[1], C[2]); dAdd(drumIn, ann);
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.006, 24), rust); hub.rotation.z = Math.PI / 2; hub.position.set(sx * 0.0375, C[1], C[2]); dAdd(drumIn, hub);
-    const ctr = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 18), dk); ctr.rotation.z = Math.PI / 2; ctr.position.set(sx * 0.0405, C[1], C[2]); dAdd(drumIn, ctr);
-    dBox(drumIn, st, 0.003, 0.0035, 0.014, sx * 0.0420, C[1], C[2]);                         // the winding key's slot
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.005, R - 0.005, 0.004, 40), rustDk); face.rotation.z = Math.PI / 2; face.position.set(sx * 0.0315, C[1], C[2]); dAdd(drumIn, face);
+    /* the cog stamped into the face, as bold as the render's: a raised disc
+       with eight broad square teeth running out almost to the rim */
+    const cog = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.006, 32), rust); cog.rotation.z = Math.PI / 2; cog.position.set(sx * 0.0350, C[1], C[2]); dAdd(drumIn, cog);
+    for (let k = 0; k < 8; k++){ const a = k / 8 * Math.PI * 2 + Math.PI / 8;
+      const tt = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.020, 0.017), rust);
+      tt.position.set(sx * 0.0350, C[1] + Math.cos(a) * 0.050, C[2] + Math.sin(a) * 0.050); tt.rotation.x = -a; dAdd(drumIn, tt); }
+    const ann = new THREE.Mesh(new THREE.TorusGeometry(0.027, 0.0032, 6, 28), dk); ann.rotation.y = Math.PI / 2; ann.position.set(sx * 0.0385, C[1], C[2]); dAdd(drumIn, ann);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.006, 24), rust); hub.rotation.z = Math.PI / 2; hub.position.set(sx * 0.0390, C[1], C[2]); dAdd(drumIn, hub);
+    const ctr = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 18), dk); ctr.rotation.z = Math.PI / 2; ctr.position.set(sx * 0.0420, C[1], C[2]); dAdd(drumIn, ctr);
+    dBox(drumIn, st, 0.003, 0.0035, 0.014, sx * 0.0440, C[1], C[2]);                         // the winding key's slot
   }
   dDecal(drumIn, '20 RD  ·  12 GA', -0.0338, C[1] + 0.060, C[2], 0.034, 0.0045, -1);
 
-  return { g, grip: [0, -0.074, 0.185], fore: [0, -0.072, -0.155], mag, magAt: [0, -0.151, 0.001],
+  return { g, grip: [0, -0.074, 0.185], fore: [0, -0.072, -0.155], mag, magAt: [0, -0.151, -0.001],
     /* aimed through the holographic window: its centre on the eye line */
     aimTop: 0.0885,
-    vm: { x: 0.098, y: -0.118, z: -0.40, adsZ: 0.12, rx: 0.034, ry: 0.085, rz: -0.03, viewFov: 54, motion: 0.6 } };
+    vm: { x: 0.098, y: -0.118, z: -0.40, adsZ: 0.19, rx: 0.034, ry: 0.085, rz: -0.03, viewFov: 54, motion: 0.6 } };
 }
 function drawPistol(heavy){
   const g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), po = M_POLY(), p2 = M_POLY2();

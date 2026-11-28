@@ -3698,6 +3698,18 @@ from box magazines or a 12-30 round drum.
   to the tilted centre. Then (Jack: "the ammo part mainly", pointing at the
   render) the drum is also TURNED 0.50 rad about the vertical so its face
   angles toward the muzzle, the lean cut to 0.10, and it is 13% fatter.
+- **Checked in the game, 2026-11-29** (Jack: "look in the game before saying
+  you're done"). The drum's turn about the vertical was wrong (seen from the
+  front it stuck out sideways): the axis is square again, lean 0.12, 10%
+  fatter. The cog now reads: bright rust cog and eight broad teeth on a dark
+  rust face. Stock is a solid body with a slim window (it read as a bracket),
+  ribs only on the butt's back face; the AK front sight is lower and tapered;
+  grip panels match the grip. Aimed: the hood walls are thin and the window
+  as big as they allow (like the PAC-9's), the sight comes nearer the eye
+  (adsZ 0.19), and the sight's back face, which fills the view under the
+  window from 8cm, carries a grey panel with -/+ buttons (it must sit
+  outside the body's 4mm bevel, zc+0.0515, or it is buried). The rail is a
+  lighter grey with white ticks, and the receiver's rear sight folded low.
 - **Sound:** `GUN.S12K` in hud.js, the pump's boom made sharper and shorter.
 - Page: `wp.s12k.d` (EN + 简体中文), key 6 on the weapons page.
 - Not done: the "Dragon's Breath" name is markings only; its shells do not
