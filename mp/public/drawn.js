@@ -416,45 +416,91 @@ function drawS12K(){
                                dBox(g, po, 0.012, 0.0365, 0.011, 0, 0.012, -0.458 - k * 0.019); }
   dTube(g, st, 0.0080, 0.003, 0, 0.012, -0.5185);                                        // the crown
 
-  // ---- holographic sight: base, housing, an open-sided hood, the window ----
-  const zc = 0.030;
-  dBox(g, dk, 0.030, 0.010, 0.084, 0, 0.043, zc);                                        // base / mount
-  dKnob(g, st, 0.0055, 0.008, 0.0190, 0.043, zc - 0.012, 'x');                           // cross-bolt
-  dBox(g, dk, 0.036, 0.022, 0.084, 0, 0.059, zc);                                        // housing under the window
-  dBox(g, dk, 0.030, 0.012, 0.010, 0, 0.064, zc + 0.045);                                // battery cap at the back
-  dTube(g, st, 0.0042, 0.0015, 0, 0.064, zc + 0.0505);
-  for (const z of [zc - 0.004, zc + 0.022]) dKnob(g, p2, 0.0068, 0.004, -0.0195, 0.059, z, 'x');    // the two buttons
-  dKnob(g, st, 0.0060, 0.006, 0.0195, 0.060, zc - 0.028, 'x');                           // windage knob
-  for (const sx of [-1, 1]) for (const z of [zc - 0.034, zc + 0.012])                    // hood posts: open at the sides
-    dBox(g, dk, 0.0045, 0.040, 0.008, sx * 0.0195, 0.089, z);
-  dBox(g, dk, 0.043, 0.0050, 0.054, 0, 0.1095, zc - 0.011);                              // hood top
-  for (const sx of [-1, 1]) dBox(g, dk, 0.004, 0.006, 0.054, sx * 0.0215, 0.1055, zc - 0.011, 0, sx * 0.6);   // its chamfered edges
-  dBox(g, holo, 0.034, 0.036, 0.0015, 0, 0.0885, zc - 0.012);                            // the glass
-  { const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0012, 8, 6), laser); dot.position.set(0, 0.0885, zc - 0.013); dAdd(g, dot); }
+  // ---- holographic sight, after the EOTech EXPS3 (97 x 58 x 73mm, a 30 x 23mm window) ----
+  /* Jack, 2026-11-29: the first one was "just a square". A real holographic
+     sight is a rounded tunnel, not a box: the hood is one arched piece with
+     a landscape window through it, sitting on a lower body whose front
+     holds the transverse battery and whose raised rear carries the buttons
+     (left) and the windage/elevation screws (right), all on a QD mount.
+     The hood here is that tunnel: an arched outline with a rounded window
+     cut through, extruded along the gun. */
+  const zc = 0.030;                                                      // centre of the sight along the gun
+  const rRect = (s, x0, y0, x1, y1, r, tr) => {                          // a rounded rectangle; tr = the top corners' radius
+    tr = tr == null ? r : tr;
+    s.moveTo(x0 + r, y0); s.lineTo(x1 - r, y0); s.quadraticCurveTo(x1, y0, x1, y0 + r);
+    s.lineTo(x1, y1 - tr); s.quadraticCurveTo(x1, y1, x1 - tr, y1);
+    s.lineTo(x0 + tr, y1); s.quadraticCurveTo(x0, y1, x0, y1 - tr);
+    s.lineTo(x0, y0 + r); s.quadraticCurveTo(x0, y0, x0 + r, y0); };
+  // the QD mount on the rail, its lever on the left
+  dBox(g, dk, 0.030, 0.009, 0.092, 0, 0.0425, zc);
+  for (const z of [zc - 0.030, zc + 0.030]) dBox(g, dk, 0.034, 0.006, 0.012, 0, 0.040, z);          // the clamp jaws
+  dBox(g, st, 0.004, 0.008, 0.034, -0.0185, 0.041, zc - 0.006, 0.05);                              // QD lever
+  dKnob(g, st, 0.0045, 0.006, -0.0180, 0.041, zc + 0.012, 'x');                                    // its pivot
+  dKnob(g, st, 0.0050, 0.008, 0.0185, 0.041, zc - 0.010, 'x');                                     // the cross-bolt nut (right)
+  // the lower body: front battery bay, a long middle, the raised rear for the buttons
+  dProf(g, dk, [[-zc + 0.050, 0.047], [-zc + 0.050, 0.066], [-zc + 0.044, 0.072], [-zc - 0.008, 0.072],
+                [-zc - 0.014, 0.084], [-zc - 0.040, 0.084], [-zc - 0.047, 0.077], [-zc - 0.047, 0.047]], 0.036, 0.004);
+  dKnob(g, st, 0.0095, 0.006, 0.0195, 0.058, zc - 0.036, 'x');                                     // battery cap (right)
+  for (const z of [zc + 0.020, zc + 0.034]){                                                       // the two buttons (left)
+    dBox(g, p2, 0.003, 0.011, 0.011, -0.0195, 0.075, z);
+    dBox(g, st, 0.0035, 0.0015, 0.006, -0.0198, 0.075, z); }
+  for (const [y, z] of [[0.074, zc + 0.022], [0.074, zc + 0.036]]){ dScrew(g, 0.0182, y, z, 'x', 0.0032);   // windage and elevation (right)
+    dBox(g, dk, 0.0012, 0.0045, 0.0008, 0.0190, y, z); }
+  dDecal(g, 'HWS  EXPS3', -0.0184, 0.058, zc + 0.006, 0.040, 0.0060, -1);
+  // the hood: an arched tunnel with the window through it
+  { const s = new THREE.Shape();
+    rRect(s, -0.0200, 0.0700, 0.0200, 0.1065, 0.002, 0.012);                                     // outside: square feet, round shoulders
+    const h = new THREE.Path(); rRect(h, -0.0150, 0.0770, 0.0150, 0.1000, 0.0035);               // the 30 x 23mm window
+    s.holes.push(h);
+    const len = 0.056, b = 0.0016;
+    const geo = new THREE.ExtrudeGeometry(s, { depth: len - 2 * b, bevelEnabled: true, bevelSize: b, bevelThickness: b, bevelSegments: 2, curveSegments: 10 });
+    const hood = new THREE.Mesh(geo, dk); hood.position.set(0, 0, zc - 0.050 + b); dAdd(g, hood);
+    /* the rear frame: a thicker rounded ring where the eye looks in */
+    const r = new THREE.Shape(); rRect(r, -0.0210, 0.0695, 0.0210, 0.1075, 0.002, 0.013);
+    const rh = new THREE.Path(); rRect(rh, -0.0158, 0.0762, 0.0158, 0.1008, 0.004); r.holes.push(rh);
+    const rg = new THREE.Mesh(new THREE.ExtrudeGeometry(r, { depth: 0.004, bevelEnabled: true, bevelSize: 0.001, bevelThickness: 0.001, bevelSegments: 2, curveSegments: 10 }), st);
+    rg.position.set(0, 0, zc + 0.004); dAdd(g, rg);
+    /* the front lip, and the hood's side ribs */
+    const f = new THREE.Mesh(new THREE.ExtrudeGeometry(r, { depth: 0.003, bevelEnabled: true, bevelSize: 0.001, bevelThickness: 0.001, bevelSegments: 2, curveSegments: 10 }), dk);
+    f.position.set(0, 0, zc - 0.052); dAdd(g, f);
+    for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) dBox(g, st, 0.0012, 0.020, 0.0022, sx * 0.0203, 0.086, zc - 0.036 + k * 0.010);
+    /* the two panes: the front one coated (it glints copper), the rear clear */
+    const glassF = dmat('s12glassF', 0x6a2a10, 0.6, 0.05, { transparent: true, opacity: 0.20, depthWrite: false, emissive: new THREE.Color(0x200804) });
+    const glassR = dmat('s12glassR', 0x203038, 0.4, 0.05, { transparent: true, opacity: 0.10, depthWrite: false });
+    dBox(g, glassF, 0.030, 0.023, 0.0012, 0, 0.0885, zc - 0.046);
+    dBox(g, glassR, 0.031, 0.024, 0.0012, 0, 0.0885, zc + 0.002);
+    /* the reticle hanging in the window: the 68 MOA ring and its centre dot */
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.0062, 0.00035, 6, 40), laser); ring.position.set(0, 0.0885, zc - 0.044); dAdd(g, ring);
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0007, 8, 6), laser); dot.position.set(0, 0.0885, zc - 0.044); dAdd(g, dot); }
 
   // ---- the drum: 20 rounds, a rust-red face with its cog, seam bands ----
-  const mag = new THREE.Group(); g.add(mag);
-  dBox(mag, blk, 0.040, 0.030, 0.050, 0, -0.072, 0.010);                                 // the feed tower
-  for (const sx of [-1, 1]) dBox(mag, dk, 0.002, 0.016, 0.030, sx * 0.0202, -0.074, 0.010);
+  /* Tilted (Jack, 2026-11-29: "tilt it a bit"): in the render the drum hangs
+     from the magazine well leaning forward, its centre ahead of the well.
+     `mag` pivots at the bottom of the well; `drumIn` keeps the parts' own
+     coordinates. The reload only moves mag.position, so the tilt rides along. */
+  const mag = new THREE.Group(); mag.position.set(0, -0.060, 0.010); mag.rotation.x = 0.20; g.add(mag);
+  const drumIn = new THREE.Group(); drumIn.position.set(0, 0.060, -0.010); mag.add(drumIn);
+  dBox(drumIn, blk, 0.040, 0.030, 0.050, 0, -0.072, 0.010);                                 // the feed tower
+  for (const sx of [-1, 1]) dBox(drumIn, dk, 0.002, 0.016, 0.030, sx * 0.0202, -0.074, 0.010);
   const C = [0, -0.152, 0.010], R = 0.070;
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.060, 40), blk); body.rotation.z = Math.PI / 2; body.position.fromArray(C); dAdd(mag, body);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.060, 40), blk); body.rotation.z = Math.PI / 2; body.position.fromArray(C); dAdd(drumIn, body);
   for (const bx of [-0.016, 0.016]){ const band = new THREE.Mesh(new THREE.TorusGeometry(R + 0.0008, 0.0022, 6, 40), dk);
-    band.rotation.y = Math.PI / 2; band.position.set(bx, C[1], C[2]); dAdd(mag, band); }
+    band.rotation.y = Math.PI / 2; band.position.set(bx, C[1], C[2]); dAdd(drumIn, band); }
   for (const sx of [-1, 1]){
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(R - 0.002, 0.0035, 8, 40), blk); rim.rotation.y = Math.PI / 2; rim.position.set(sx * 0.030, C[1], C[2]); dAdd(mag, rim);
-    const face = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.005, R - 0.005, 0.004, 40), rust); face.rotation.z = Math.PI / 2; face.position.set(sx * 0.0315, C[1], C[2]); dAdd(mag, face);
-    const cog = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.004, 32), rust); cog.rotation.z = Math.PI / 2; cog.position.set(sx * 0.0345, C[1], C[2]); dAdd(mag, cog);   // the raised cog
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(R - 0.002, 0.0035, 8, 40), blk); rim.rotation.y = Math.PI / 2; rim.position.set(sx * 0.030, C[1], C[2]); dAdd(drumIn, rim);
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.005, R - 0.005, 0.004, 40), rust); face.rotation.z = Math.PI / 2; face.position.set(sx * 0.0315, C[1], C[2]); dAdd(drumIn, face);
+    const cog = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.004, 32), rust); cog.rotation.z = Math.PI / 2; cog.position.set(sx * 0.0345, C[1], C[2]); dAdd(drumIn, cog);   // the raised cog
     for (let k = 0; k < 10; k++){ const a = k / 10 * Math.PI * 2;                                 // its teeth, out toward the rim
       const t = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.012, 0.010), rust);
-      t.position.set(sx * 0.0345, C[1] + Math.cos(a) * 0.050, C[2] + Math.sin(a) * 0.050); t.rotation.x = -a; dAdd(mag, t); }
-    const ann = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.0025, 6, 28), rust); ann.rotation.y = Math.PI / 2; ann.position.set(sx * 0.0370, C[1], C[2]); dAdd(mag, ann);
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.006, 24), rust); hub.rotation.z = Math.PI / 2; hub.position.set(sx * 0.0375, C[1], C[2]); dAdd(mag, hub);
-    const ctr = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 18), dk); ctr.rotation.z = Math.PI / 2; ctr.position.set(sx * 0.0405, C[1], C[2]); dAdd(mag, ctr);
-    dBox(mag, st, 0.003, 0.0035, 0.014, sx * 0.0420, C[1], C[2]);                         // the winding key's slot
+      t.position.set(sx * 0.0345, C[1] + Math.cos(a) * 0.050, C[2] + Math.sin(a) * 0.050); t.rotation.x = -a; dAdd(drumIn, t); }
+    const ann = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.0025, 6, 28), rust); ann.rotation.y = Math.PI / 2; ann.position.set(sx * 0.0370, C[1], C[2]); dAdd(drumIn, ann);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.006, 24), rust); hub.rotation.z = Math.PI / 2; hub.position.set(sx * 0.0375, C[1], C[2]); dAdd(drumIn, hub);
+    const ctr = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 18), dk); ctr.rotation.z = Math.PI / 2; ctr.position.set(sx * 0.0405, C[1], C[2]); dAdd(drumIn, ctr);
+    dBox(drumIn, st, 0.003, 0.0035, 0.014, sx * 0.0420, C[1], C[2]);                         // the winding key's slot
   }
-  dDecal(mag, '20 RD  ·  12 GA', -0.0338, C[1] + 0.060, C[2], 0.034, 0.0045, -1);
+  dDecal(drumIn, '20 RD  ·  12 GA', -0.0338, C[1] + 0.060, C[2], 0.034, 0.0045, -1);
 
-  return { g, grip: [0, -0.074, 0.185], fore: [0, -0.072, -0.155], mag, magAt: [0, -0.152, 0.010],
+  return { g, grip: [0, -0.074, 0.185], fore: [0, -0.072, -0.155], mag, magAt: [0, -0.150, -0.008],
     /* aimed through the holographic window: its centre on the eye line */
     aimTop: 0.0885,
     vm: { x: 0.098, y: -0.118, z: -0.40, adsZ: 0.12, rx: 0.034, ry: 0.085, rz: -0.03, viewFov: 54, motion: 0.6 } };

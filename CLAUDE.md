@@ -3670,6 +3670,18 @@ from box magazines or a 12-30 round drum.
   which drew rings like wood grain), with a raised cog, annulus and hub.
   Hands moved with it (grip z 0.185, fore -0.155), so `vm` z is -0.40 and
   adsZ 0.12 to keep the hold and the sight distance.
+- **Sight and drum, 2026-11-29** (Jack: the sight was "just a square"; the
+  drum needs a tilt). The holographic sight now follows the EOTech EXPS3
+  (97 x 58 x 73mm, a 30 x 23mm window): a QD mount with its lever, a lower
+  body with the transverse battery cap at the front and a raised rear with
+  two buttons (left) and windage/elevation screws (right), and the hood as
+  an arched tunnel (an ExtrudeGeometry of a round-shouldered outline with a
+  rounded landscape window cut through it), a rear frame ring, a front lip,
+  a copper-coated front pane, a clear rear pane, and the 68 MOA ring with a
+  centre dot in the window. `aimTop` is still the window's centre (0.0885).
+  The drum leans forward 0.20 rad like the render's: `mag` pivots at the
+  bottom of the well, `drumIn` keeps the parts' coordinates, `magAt` moved
+  to the tilted centre.
 - **Sound:** `GUN.S12K` in hud.js, the pump's boom made sharper and shorter.
 - Page: `wp.s12k.d` (EN + 简体中文), key 6 on the weapons page.
 - Not done: the "Dragon's Breath" name is markings only; its shells do not
