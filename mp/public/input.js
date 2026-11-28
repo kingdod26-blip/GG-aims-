@@ -134,6 +134,7 @@ addEventListener('mousedown',e=>{
   if(typeof missileOn === 'function' && missileOn()){ if(e.button===0 && pointerLocked) missileDetonate(salvo.missile.pos.clone()); return; }
   if(e.button===0){ wantFire=true; semiQueued=true; }
   // crossbow: right-click switches fire mode instead of aiming
+  if(e.button===2 && curW().hipDot) return;                         // TxF's minigun: hip fire only, no aiming
   if(e.button===2){ if(curW().melee) startCharge();                 // the blade: hold to charge a cut
                     else if(curW().ability && curW().kind !== 'sensor' && curW().kind !== 'missile'){ ricochet=!ricochet; Sfx.swap(); updateHUD(); }
                     else aiming=true; } });   // abilities don't ADS

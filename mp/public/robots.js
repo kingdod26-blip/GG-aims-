@@ -125,7 +125,7 @@ const TXF = {
      magazine, it overheats after heatMs of firing and takes coolMs.
      2 the missile: 200 at the centre falling to nothing at 75m, walls
      block it, he is immune to his own; 3 charges, 20s each. */
-  mg: { dmg: 20, rateMs: 50, spinMs: 400, heatMs: 6000, coolMs: 3000, range: 300, spread: 0.05, adsSpread: 0.012, recoil: 0.0035 },
+  mg: { dmg: 20, rateMs: 50, spinMs: 400, heatMs: 6000, coolMs: 3000, range: 300, spread: 0.012, adsSpread: 0.012, recoil: 0.0035 },
   missile: { charges: 3, cdMs: 20000, speed: 45, lifeMs: 6000, r: 0.35,
              blast: { radius: 75, full: 6, dmg: 200 } },   // 75m (Jack: 75% of the first 100m)
 };
