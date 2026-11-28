@@ -1149,12 +1149,13 @@ function drawMapPlan(g, W, H, o){
   }
 
   /* Everyone else. Bots in the range are local; in a match `others` is the
-     room. Nobody is drawn through anything — this is a plan, not a radar,
-     and it shows what the map shows, not what you can see. */
+     room, and an opponent is on the map ONLY while one of your own abilities
+     has them (Jack, 2026-11-29: "i should not be able to see my opponents
+     location on the map"): see onMapNow(). */
   const dot = (x, z, col, r) => { g.fillStyle = col; g.beginPath();
     g.arc(px(x), pz(z), r, 0, Math.PI * 2); g.fill(); };
   if (typeof others !== 'undefined' && others)
-    for (const p of others.values()) if (p.alive !== false) dot(p.bx != null ? p.bx : p.tx, p.bz != null ? p.bz : p.tz, MAPC.them, 3);
+    for (const p of others.values()) if (p.alive !== false && onMapNow(p)) dot(p.bx != null ? p.bx : p.tx, p.bz != null ? p.bz : p.tz, MAPC.them, 3);
   if (typeof localBots !== 'undefined' && localBots)
     for (const b of localBots) if (b.alive) dot(b.x, b.z, MAPC.them, 3);
 
@@ -1167,6 +1168,18 @@ function drawMapPlan(g, W, H, o){
   g.restore();
 }
 
+/* Is this opponent on your map right now? Only while an ability of yours
+   has found them, the same ones that outline them through walls: your smoke
+   tag, your hearing (Aseed), Linked Sight (Silvars), or the pulse (TxF,
+   which was always meant to show on the map). Otherwise, nobody. */
+function onMapNow(o){
+  const now = performance.now();
+  if (o.markedBy && typeof myId !== 'undefined' && o.markedBy === myId) return true;
+  if (typeof detectTarget !== 'undefined' && detectTarget === o.id && detectUntil > now) return true;
+  if (typeof isLinked === 'function' && isLinked(o)) return true;
+  if (typeof txf !== 'undefined' && txf.seen && (txf.seen.get(o) || 0) > now) return true;
+  return false;
+}
 /* The corner map, centred on you, at two sizes. Jack: "make the map
    smaller and make it extendable". It starts SMALL, and M steps it up:
    small -> large -> the whole site -> back to small. One key, three answers
@@ -1394,7 +1407,7 @@ function drawSitePlan(g, W, S){
   g.save(); g.shadowColor = PLAN.them; g.shadowBlur = 10; g.fillStyle = PLAN.them;
   const dot = (x, z) => { g.beginPath(); g.arc(px(x), pz(z), 4, 0, Math.PI * 2); g.fill(); };
   if (typeof others !== 'undefined' && others)
-    for (const p of others.values()) if (p.alive !== false) dot(p.bx != null ? p.bx : p.tx, p.bz != null ? p.bz : p.tz);
+    for (const p of others.values()) if (p.alive !== false && onMapNow(p)) dot(p.bx != null ? p.bx : p.tx, p.bz != null ? p.bz : p.tz);
   if (typeof localBots !== 'undefined' && localBots)
     for (const b of localBots) if (b.alive) dot(b.x, b.z);
   g.restore();

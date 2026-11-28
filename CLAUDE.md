@@ -1185,6 +1185,17 @@ that job and look like what they are.
 
 ## The map on screen (hud.js)
 
+**Opponents are not on the map in a match** (Jack, 2026-11-29: "i should not
+be able to see my opponents location on the map"). Both the corner map and the
+full-site plan draw another player only while `onMapNow(o)` says an ability of
+YOURS has them: your smoke tag (`o.markedBy === myId`), your hearing
+(`detectTarget`, until `detectUntil`), Silvars' Linked Sight (`isLinked`), or
+TxF's pulse (`txf.seen`, which was always meant to show on the map). The
+practice range still shows its targets. Checked with two players on the local
+server: hidden, shown while heard, hidden again when it ran out. The server
+still sends everyone's position (it has to, to draw them when seen).
+
+
 Jack: *"add a map for inside the map, so I can see where I am located"*,
 then *"make the map smaller and make it extendable"*, and to keep the bots on
 it. `#mapPanel` is a **150px** plan in the top-left while playing, and **M
