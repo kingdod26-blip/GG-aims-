@@ -705,11 +705,10 @@ const TXF_MG_BUILT = drawMinigun(), TXF_ML_BUILT = drawTxfLauncher();
 mountGun(MINIGUN, TXF_MG_BUILT);
 mountGun(TXFMSL, TXF_ML_BUILT);
 WEAPONS[TXFMSL].redDot = true;           // aimed, you look through its sight
-/* The minigun is fired from the hip only (腰射, Jack): no aiming, and the red
-   dot is always up in the middle of the view, where the rounds go. Its cone
-   is the tight one it used to have aimed, so the rounds land on the dot. */
+/* Aiming the minigun (Jack): like hip fire, no scope - the gun stays at the
+   hip and the view does not zoom, but a red dot shows in the middle while
+   right-click is held, and the cone tightens onto it. */
 WEAPONS[MINIGUN].redDot = true; WEAPONS[MINIGUN].hipDot = true;
-WEAPONS[MINIGUN].spread = WEAPONS[MINIGUN].adsSpread;
 /* When the PAC-9's gloves arrive they hold these too (as salvo.js does). */
 function txfGlove(b){
   const rOff = b.right.position.clone().sub(new THREE.Vector3().fromArray(PAC9_GRIP));

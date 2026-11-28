@@ -204,7 +204,7 @@ WEAPONS.push({ name:'MISSILE', mode:'ABILITY', ability:true, kind:'missile', aut
    He carries nothing else: no bought guns, no blade. `txf` marks them so
    the inventory and the firing code tell them apart from everyone's. */
 WEAPONS.push({ name:'MINIGUN', mode:'ROTARY', txf:true, kind:'minigun', auto:true, fireRate:50, dmg:20,
-  recoil:0.0035, spread:0.012, adsSpread:0.012, range:300, adsFov:66, scope:false });
+  recoil:0.0035, spread:0.05, adsSpread:0.012, range:300, adsFov:66, scope:false });
 WEAPONS.push({ name:'TxF MISSILE', mode:'LAUNCHER', txf:true, kind:'txfmsl', auto:false, fireRate:600, dmg:200,
   recoil:0.04, spread:0, adsSpread:0, range:300, adsFov:62, scope:false });
 const XBOW  = WEAPONS.findIndex(w=>w.kind==='xbow');    // crossbow slot

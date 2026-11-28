@@ -492,14 +492,14 @@ function loop(){ requestAnimationFrame(loop);
     // sprint widens the view a touch — the cue that tells you you're sprinting
     sprintAmt += ((me.sprinting ? 1 : 0) - sprintAmt) * Math.min(1, dt*6);
     const baseFov = 80 + 9*sprintAmt + ROLL.fov*rollPunch;
-    const targetFov = flying ? 80 + 16 * missileBoostK() : baseFov + (curW().adsFov - baseFov) * ads;   // the missile's own lens, wider as it boosts
+    const targetFov = flying ? 80 + 16 * missileBoostK() : (curW().hipDot ? baseFov : baseFov + (curW().adsFov - baseFov) * ads);   // the missile's own lens, wider as it boosts; TxF's minigun aims without zooming
     if (Math.abs(camera.fov - targetFov) > 0.05){ camera.fov = targetFov; camera.updateProjectionMatrix(); }
     const scoped = curW().scope && ads > 0.85;
     document.getElementById('scope').style.display = scoped ? 'block' : 'none';
     document.getElementById('crosshair').style.opacity = ads > 0.5 ? 0 : 1;
     gun.visible = !scoped && !specOn && !flying;  // scope view hides the gun; so does watching someone else, or flying the missile
-    redDot.visible = !!curW().redDot && (ads > 0.82 || !!curW().hipDot) && !reloading && rollT <= 0 && !specOn;   // hipDot: TxF's minigun shows it from the hip
-    redDot.scale.setScalar(curW().hipDot ? 3.5 : 1);   // seen from the hip it would be a pixel: drawn bigger there
+    redDot.visible = !!curW().redDot && ads > 0.82 && !reloading && rollT <= 0 && !specOn;
+    redDot.scale.setScalar(curW().hipDot ? 3.5 : 1);   // TxF's minigun aims without zooming, where the dot would be a pixel: drawn bigger
 
     gunKick=Math.max(0,gunKick-dt*6);
     // reload animation: gun swings down + tilts through the reload, then returns.
@@ -542,7 +542,8 @@ function loop(){ requestAnimationFrame(loop);
        lens it is drawn through. Only the PAC-9 has one (drawn.js); every
        other gun keeps the numbers it always had. */
     const V = w.vm || VM_POSE;
-    const bx = V.x + (adsX - V.x)*ads, by = V.y + (adsY - V.y)*ads, bz = V.z + V.adsZ*ads;
+    const pa = w.hipDot ? 0 : ads;                           // TxF's minigun stays at the hip when aimed (Jack)
+    const bx = V.x + (adsX - V.x)*pa, by = V.y + (adsY - V.y)*pa, bz = V.z + V.adsZ*pa;
     // tuck the weapon down and in while rolling — you don't run a somersault
     // with the gun still levelled at the horizon
     const tuck = ROLL.tuck*rollPunch;
