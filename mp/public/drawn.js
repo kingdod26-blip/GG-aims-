@@ -802,6 +802,133 @@ function buildFragGrenade(){
   { const d = dDecal(g, 'GREN HAND FRAG', 0.0302, -0.004, 0, 0.034, 0.0055, 1); d.rotation.y = Math.PI / 2; }
   return g;
 }
+/* ASEED'S CROSSBOW (2026-11-28, Jack: "make the crossbow for aseed into a
+   very good looking design like how the other gun was made"). It replaces
+   the crossbow.fbx, and it is drawn the way the guns are: the PAC-9's
+   finishes and detail shader, profiles given thickness, rails, screws,
+   markings. A modern compound crossbow: polymer stock and pistol grip, an
+   anodised receiver with a scope on its rail, a long flight deck with the
+   bolt in its track, a riser carrying split limbs, cams at the tips, the
+   string drawn back to the latch, a foot stirrup, a vertical foregrip, and
+   crimson accents (cams, riser plates, nock and fletching). `kind` 'fire'
+   loads a bolt with a glowing broadhead, 'smoke' one with a grey canister:
+   the same bow throws both of Aseed's bolts. Gun space, -Z forward, built
+   at full size and scaled where it is mounted. */
+function drawCrossbow(kind){
+  const g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), po = M_POLY(), p2 = M_POLY2(), rd = M_RED();
+  const cord = dmat('xbcord', 0x161613, 0.0, 0.8), carbon = dmatL('xbcarbon', [0.022, 0.022, 0.025], 0.25, 0.32, 2);
+  // stock: butt, cheek riser and pad, the same shape language as the PAC-9's
+  dProf(g, po, [[-0.16, 0.030], [-0.33, 0.034], [-0.362, 0.040], [-0.372, -0.074], [-0.336, -0.080], [-0.29, -0.032], [-0.20, -0.014], [-0.16, -0.012]], 0.040, 0.006);
+  dProf(g, p2, [[-0.20, 0.032], [-0.31, 0.035], [-0.31, 0.056], [-0.215, 0.050]], 0.030, 0.004);
+  dBox(g, p2, 0.044, 0.122, 0.016, 0, -0.020, 0.372);
+  for (let i = 0; i < 4; i++) dBox(g, po, 0.046, 0.004, 0.017, 0, -0.065 + i * 0.03, 0.372);     // butt ribs
+  dScrew(g, 0.0205, 0.0, 0.26); dScrew(g, -0.0205, 0.0, 0.26);
+  // receiver, anodised, with the trigger box and a rail for the scope
+  dProf(g, dk, [[-0.17, -0.014], [0.07, -0.014], [0.07, 0.034], [-0.02, 0.040], [-0.13, 0.040], [-0.17, 0.032]], 0.048, 0.005);
+  dRail(g, dk, 0.040, -0.06, 0.13);
+  for (const x of [0.0245, -0.0245]) { dScrew(g, x, 0.012, 0.11); dScrew(g, x, 0.012, -0.04); dScrew(g, x, -0.004, 0.03); }
+  dBox(g, st, 0.050, 0.006, 0.030, 0, 0.030, -0.02);                                               // the latch over the trigger
+  dBox(g, rd, 0.010, 0.010, 0.016, 0.026, 0.020, 0.03);                                             // safety, in red
+  // pistol grip, trigger guard, trigger
+  dProf(g, po, [[-0.060, -0.012], [-0.100, -0.016], [-0.128, -0.120], [-0.086, -0.126], [-0.070, -0.062]], 0.032, 0.006);
+  dProf(g, dk, [[-0.018, -0.014], [-0.060, -0.018], [-0.058, -0.048], [-0.028, -0.052], [-0.010, -0.036]], 0.006, 0.001);
+  dBox(g, st, 0.005, 0.022, 0.006, 0, -0.028, 0.040, 0.3);
+  // the scope: tube, objective bell, eyepiece, turrets, two rings
+  dTube(g, dk, 0.016, 0.17, 0, 0.080, 0.03);
+  dTube(g, dk, 0.023, 0.045, 0, 0.080, -0.075, 0.017);
+  dTube(g, dk, 0.020, 0.04, 0, 0.080, 0.135, 0.016);
+  dTube(g, M_GLASS(), 0.020, 0.002, 0, 0.080, -0.098);
+  dTube(g, rd, 0.0168, 0.004, 0, 0.080, 0.105);
+  dKnurl(g, dk, 0.0205, 0.080, 0.118, 0.150);
+  dKnob(g, dk, 0.010, 0.018, 0, 0.102, 0.03);
+  dKnob(g, dk, 0.010, 0.018, 0.024, 0.080, 0.03, 'x');
+  for (const z of [-0.02, 0.08]) { dBox(g, dk, 0.034, 0.028, 0.014, 0, 0.058, z); dScrew(g, 0.017, 0.066, z); dScrew(g, -0.017, 0.066, z); }
+  // the flight deck out to the riser: polymer, lightened, with a steel track
+  dProf(g, p2, [[0.07, -0.026], [0.50, -0.018], [0.50, 0.018], [0.07, 0.026]], 0.052, 0.005);
+  for (let i = 0; i < 5; i++) dBox(g, po, 0.054, 0.012, 0.038, 0, -0.004, -(0.13 + i * 0.07));
+  for (const x of [0.0065, -0.0065]) dBox(g, st, 0.004, 0.004, 0.46, x, 0.021, -0.28);
+  dRail(g, dk, -0.022, -0.40, -0.30, 0.019);                                                        // an accessory rail under the deck
+  // vertical foregrip
+  dProf(g, po, [[0.205, -0.024], [0.245, -0.024], [0.240, -0.112], [0.210, -0.112]], 0.030, 0.006);
+  dBox(g, dk, 0.032, 0.008, 0.034, 0, -0.114, -0.225);
+  // riser, with crimson side plates, and the stirrup in front
+  dBox(g, dk, 0.13, 0.072, 0.064, 0, 0.0, -0.492);
+  for (const s of [1, -1]) { dBox(g, rd, 0.004, 0.050, 0.046, s * 0.066, 0, -0.492); dScrew(g, s * 0.068, 0.018, -0.492); }
+  const stir = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.006, 8, 24, Math.PI), st);
+  stir.rotation.x = -Math.PI / 2; stir.position.set(0, -0.004, -0.524); dAdd(g, stir);
+  // split limbs swept back to the cams, the cams, the string to the latch
+  /* Each limb is a real limb shape, not a plank: seen from above it tapers
+     from 36mm at the pocket to 20mm at the tip and bends back toward the
+     shooter along a curve, and there are two of them, split, above and
+     below the string's plane. Built in the X/Z plane and given thickness
+     in Y. */
+  const camAt = [];
+  const limbShape = s => {
+    const P = [], n = 10, root = [s * 0.06, -0.495], tip = [s * 0.31, -0.405];
+    const at = (t, side) => {                                    // a point along the curve, offset to one edge
+      const x = root[0] + (tip[0] - root[0]) * t, z = root[1] + (tip[1] - root[1]) * t * t;
+      const dx = tip[0] - root[0], dz = 2 * (tip[1] - root[1]) * t, l = Math.hypot(dx, dz) || 1;
+      const w = (0.036 - 0.016 * t) / 2 * side;
+      return [x - dz / l * w, z + dx / l * w];
+    };
+    for (let i = 0; i <= n; i++) P.push(at(i / n, 1));
+    for (let i = n; i >= 0; i--) P.push(at(i / n, -1));
+    const sh = new THREE.Shape(); P.forEach((p, i) => i ? sh.lineTo(p[0], p[1]) : sh.moveTo(p[0], p[1]));   // turned +90 about X below: shape y becomes world Z
+    return { sh, tip };
+  };
+  for (const s of [1, -1]) {
+    const { sh, tip } = limbShape(s);
+    for (const y of [0.0165, -0.0165]) {
+      const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.008, bevelEnabled: true, bevelSize: 0.0025, bevelThickness: 0.0025, bevelSegments: 2, curveSegments: 4 });
+      const limb = new THREE.Mesh(geo, po); limb.rotation.x = Math.PI / 2; limb.position.y = y + 0.004; dAdd(g, limb);   // depth runs down Y
+    }
+    dBox(g, dk, 0.055, 0.056, 0.052, s * 0.072, 0, -0.495);                                          // limb pocket
+    dScrew(g, s * 0.072, 0.029, -0.495, 'y', 0.004);
+    const tx = tip[0], tz = tip[1];
+    const cam = new THREE.Mesh(new THREE.CylinderGeometry(0.027, 0.027, 0.022, 24), st); cam.position.set(tx, 0, tz); dAdd(g, cam);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.027, 0.003, 6, 24), dk); rim.rotation.x = Math.PI / 2; rim.position.set(tx, 0, tz); dAdd(g, rim);
+    for (let k = 0; k < 3; k++) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.024, 10), dk);
+      c.position.set(tx + Math.cos(k * 2.09) * 0.016, 0, tz + Math.sin(k * 2.09) * 0.016); dAdd(g, c); }       // lightening holes
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.046, 14), rd); hub.position.set(tx, 0, tz); dAdd(g, hub);
+    camAt.push(new THREE.Vector3(tx - s * 0.024, 0.012, tz + 0.012));
+  }
+  const strand = (a, b, r) => { const m = a.clone().add(b).multiplyScalar(0.5), d = a.distanceTo(b);
+    const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, d, 6), cord); o.position.copy(m);
+    o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); return dAdd(g, o); };
+  const latch = new THREE.Vector3(0, 0.024, -0.02);
+  for (const c of camAt) strand(c, latch, 0.0018);
+  strand(camAt[0].clone().setY(-0.012), camAt[1].clone().setY(-0.012), 0.0012);                    // the cables between the cams
+  // the bolt in its track: carbon shaft, crimson nock and vanes, its head
+  dTube(g, carbon, 0.0045, 0.45, 0, 0.026, -0.255);
+  dTube(g, rd, 0.0058, 0.016, 0, 0.026, -0.03);
+  for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3;
+    const v = dBox(g, i ? rd : st, 0.0018, 0.013, 0.05, Math.sin(a) * 0.0095, 0.026 + Math.cos(a) * 0.0095, -0.075); v.rotation.z = -a; }
+  if (kind === 'smoke'){
+    dTube(g, dmat('xbcan', 0x8e959c, 0.2, 0.5), 0.011, 0.034, 0, 0.026, -0.497);
+    dTube(g, rd, 0.0115, 0.006, 0, 0.026, -0.49);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.011, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), st); cap.rotation.x = -Math.PI / 2; cap.position.set(0, 0.026, -0.514); dAdd(g, cap);
+  } else {
+    const ember = new THREE.MeshStandardMaterial({ color: 0x2a0d04, emissive: 0xff5a14, emissiveIntensity: 1.7, roughness: 0.4 });
+    lookTag(ember, { metalness: 0, roughness: 0.4 }, { metalness: 0, roughness: 0.4 });
+    dTube(g, st, 0.0065, 0.016, 0, 0.026, -0.487);                                                  // ferrule
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.010, 0.040, 3), ember);                      // a three-blade broadhead, glowing
+    head.rotation.x = -Math.PI / 2; head.position.set(0, 0.026, -0.515); dAdd(g, head);
+  }
+  dDecal(g, 'XB-7  ELITE FORCE', -0.0255, 0.012, 0.02, 0.11, 0.011, -1);
+  dDecal(g, 'XB-7  ELITE FORCE', 0.0255, 0.012, 0.02, 0.11, 0.011, 1);
+  return { g, grip: [0, -0.078, 0.094], fore: [0, -0.06, -0.225] };
+}
+/* Aseed's two ability slots carry it in place of the old shapes (they were
+   tagged `userData.drawn` for exactly this). Same place in the holder the
+   crossbow.fbx sat, sized so it is about as long in the hand. */
+(function mountCrossbow(){
+  for (const [slot, kind] of [[XBOW, 'fire'], [SMOKE, 'smoke']]){
+    const h = weaponHolders[slot];
+    h.children.filter(c => c.userData.drawn).forEach(c => h.remove(c));
+    const b = drawCrossbow(kind); b.g.scale.setScalar(0.74); b.g.position.set(0.02, -0.035, 0.01);
+    b.g.userData.xbow = true; h.add(b.g);
+  }
+})();
 /* Put a held thing in the PAC-9's right glove: the glove at its offset from
    the grip, the thing on the grip line (or at the grip, for a grenade), and
    the two turned together about the grip by `turn`. */

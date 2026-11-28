@@ -47,8 +47,8 @@ const WPN = [
   { id: 'pistol',   slot: 3,       grp: 'sidearm', key: '4', model: () => drawPistol(false).g },
   { id: 'pistolx',  slot: 4,       grp: 'sidearm', key: '5', model: () => drawPistol(true).g },
   { id: 'blade',    slot: BLADE,   grp: 'melee',   key: 'F', model: () => buildSword() },
-  { id: 'crossbow', slot: XBOW,    grp: 'gear', agent: 'aseed',   key: 'G', icon: 'assets/cd-fire.png' },
-  { id: 'smoke',    slot: SMOKE,   grp: 'gear', agent: 'aseed',   key: 'X', icon: 'assets/cd-smoke.png' },
+  { id: 'crossbow', slot: XBOW,    grp: 'gear', agent: 'aseed',   key: 'G', model: () => drawCrossbow('fire').g },
+  { id: 'smoke',    slot: SMOKE,   grp: 'gear', agent: 'aseed',   key: 'X', model: () => drawCrossbow('smoke').g },
   { id: 'grenade',  slot: GRENADE, grp: 'gear', agent: 'blast',   key: 'G', model: () => buildFragGrenade() },
   { id: 'sensor',   slot: SENSOR,  grp: 'gear', agent: 'silvars', key: 'V', model: () => makeSensorMesh() },
 ];
@@ -99,11 +99,30 @@ function wvInit(canvas){
   if (WV.r) return;
   WV.r = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   WV.r.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+  /* LIGHTING (2026-11-28, Jack: "the lighting in the weapon page is a bit
+     bad"). The guns are PBR metal and polymer made for the game's own look:
+     filmic tone mapping and a room to reflect. Without that, metal has
+     nothing to mirror and renders black, which is what this page showed.
+     So the page gets the same: ACES at the game's exposure, its own PMREM of
+     the game's environment room (a texture belongs to one renderer, so the
+     game's cannot be borrowed), and a photo-studio rig - a warm key high on
+     the left, a soft cool fill, a crimson rim behind and a white kicker
+     from below so the underside of a gun is not lost in the dark. */
+  WV.r.outputEncoding = THREE.sRGBEncoding;
+  WV.r.toneMapping = THREE.ACESFilmicToneMapping;
+  WV.r.toneMappingExposure = 0.85;
   WV.scene = new THREE.Scene();
+  try {
+    const pm = new THREE.PMREMGenerator(WV.r), envScene = buildEnvScene();
+    WV.scene.environment = pm.fromScene(envScene, (typeof LOOK !== 'undefined' && LOOK.pmremSigma) || 0.04).texture;
+    pm.dispose(); envScene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+  } catch (err) { console.warn('[pages] no environment for the weapon view', err); }
   WV.cam = new THREE.PerspectiveCamera(32, 1, 0.01, 50); WV.cam.position.set(0, 0.05, 2.4);
-  WV.scene.add(new THREE.HemisphereLight(0xffffff, 0x221418, 0.9));
-  const key = new THREE.DirectionalLight(0xffffff, 1.2); key.position.set(1.5, 2, 2.5); WV.scene.add(key);
-  const rim = new THREE.DirectionalLight(0xff5a6e, 0.8); rim.position.set(-2, 0.5, -2); WV.scene.add(rim);
+  WV.scene.add(new THREE.HemisphereLight(0xdde6f2, 0x2a1a1c, 0.25));
+  const key = new THREE.DirectionalLight(0xfff1e0, 1.25); key.position.set(-1.6, 2.2, 2.4); WV.scene.add(key);
+  const fill = new THREE.DirectionalLight(0xbcd2ff, 0.3); fill.position.set(2.2, 0.6, 1.8); WV.scene.add(fill);
+  const rim = new THREE.DirectionalLight(0xff4a60, 1.1); rim.position.set(0.4, 1.2, -2.6); WV.scene.add(rim);
+  const kick = new THREE.DirectionalLight(0xffffff, 0.15); kick.position.set(0, -2, 1); WV.scene.add(kick);
   WV.holder = new THREE.Group(); WV.scene.add(WV.holder);
   canvas.addEventListener('pointerdown', e => { WV.drag = [e.clientX, e.clientY]; canvas.setPointerCapture(e.pointerId); });
   canvas.addEventListener('pointermove', e => { if (!WV.drag) return;

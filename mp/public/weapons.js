@@ -459,8 +459,13 @@ function disposeTree(obj){
    tagged `userData.drawn`: drawn.js puts a hand in these same holders, and
    clearing the whole holder, as the original loader did, would take the
    hand with it. The smoke slot gets a clone, which shares geometry and
-   materials, so neither holder is ever disposeTree'd after this. */
-if (THREE.FBXLoader) ABILITY_MODELS.filter(am => am.slots.includes(XBOW)).forEach(am=>{
+   materials, so neither holder is ever disposeTree'd after this.
+   RETIRED 2026-11-28: Aseed's crossbow is drawn now (drawCrossbow in
+   drawn.js, Jack: "make the crossbow ... like how the other gun was made"),
+   so the file is no longer loaded. Kept, switched off, in case he wants it
+   back. */
+const LOAD_XBOW_FBX = false;
+if (LOAD_XBOW_FBX && THREE.FBXLoader) ABILITY_MODELS.filter(am => am.slots.includes(XBOW)).forEach(am=>{
   const onErr=(err)=> console.warn(`[CrimsonX] ${am.url} failed, keeping the drawn crossbow`, err);
   try {
     new THREE.FBXLoader(fbxTexMgr).load(am.url, (model)=>{
