@@ -89,7 +89,7 @@ const SILV = {
 const SALVO = {
   blastMul: 0.25,
   incen: { charges: 2, cdMs: 30000, speed: 17, fragFuseMs: 1000, maxFuseMs: 4000,
-           pool: { radius: 5.5, ms: 12000, dps: 26, lingerDps: 8, lingerMs: 6000 } },
+           pool: { radius: 8, ms: 12000, dps: 26, lingerDps: 8, lingerMs: 6000 } },
   frag: { radius: 5.5, full: 1.5, dmg: 90 },
   barrage: { range: 60, cdMs: 50000, warnMs: 2000, spanMs: 3000, shells: 6, radius: 10,
              blast: { radius: 4.5, full: 1.2, dmg: 60 } },

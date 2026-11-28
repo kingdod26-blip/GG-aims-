@@ -3485,7 +3485,8 @@ the one file both sides load, so the range and the match cannot disagree.
 - **Placeholders until Jack draws them:** the three HUD tiles reuse
   cd-grenade / cd-fire / cd-drone, and `OP_LOOKS.salvo` is scorched brown
   with an ember plate.
-- Measured: range - incendiary pool r 5.5, frag 1s/90, barrage on a target
+- Incendiary pool widened 5.5 -> 8 m (Jack, 2026-11-28: "a wider area"); Aseed's stays 4.35.
+- Measured: range - incendiary pool r 5.5 (before the widening), frag 1s/90, barrage on a target
   (100 -> 25), missile kill; match (two tabs) - out-of-range barrage
   refused, barrage warning seen by the victim and 56 damage, frag kills,
   passive 90 -> 23, the server's missile follows the pilot, shot down by a
