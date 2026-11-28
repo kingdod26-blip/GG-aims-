@@ -135,6 +135,12 @@ const WEAPONS = [
   { name:'SHOTGUN', redDot:true,  mode:'PUMP', auto:false, fireRate:900,  dmg:12,  pellets:8, recoil:0.03,  spread:0.09, adsSpread:0.06, range:60,  magMax:6,  reserveMax:36,  reloadMs:2200, adsFov:68, scope:false },
   { name:'PISTOL', redDot:true,   mode:'SEMI', auto:false, fireRate:200,  dmg:30,  recoil:0.013, spread:0.010, adsSpread:0.004, steady:true,  range:180, magMax:12, reserveMax:60,  reloadMs:1200, adsFov:66, scope:false },
   { name:'PISTOL X', redDot:true, mode:'SEMI', auto:false, fireRate:170,  dmg:40,  recoil:0.012, spread:0.012, adsSpread:0.005, steady:true,  range:180, magMax:10, reserveMax:50,  reloadMs:1100, adsFov:66, scope:false },
+  /* S12K (Jack, 2026-11-28): a semi-automatic 12-gauge on an AK action, fed
+     from a 20-round drum. ~300 rounds a minute, one round per trigger pull,
+     eight pellets each. Lighter pellets than the pump (9 against 12) and a
+     wider cone, because it can fire four times in the pump's one. Slot 5,
+     a MAIN; server.js GUNS[5] must match. Model: drawS12K (drawn.js). */
+  { name:'S12K', redDot:true,     mode:'SEMI', auto:false, fireRate:200,  dmg:9,   pellets:8, recoil:0.034, spread:0.10, adsSpread:0.07, range:45,  magMax:20, reserveMax:60,  reloadMs:3000, adsFov:66, scope:false },
   // ABILITY: charge-based, no magazine/reload. Each shot burns one charge that
   // regenerates on its own 30s timer. Right-click toggles RICOCHET.
   // 90 to the head, 50 to the body — see the XBOW block in server.js.
@@ -211,6 +217,9 @@ WEAPONS.push({ name:'INFERNO', mode:'FIRE BLAST', txf:true, kind:'inferno', auto
   recoil:0.05, spread:0.22, adsSpread:0.22, range:20, adsFov:66, scope:false });
 WEAPONS.push({ name:'ARC BLADES', mode:'CLOSE COMBAT', txf:true, kind:'arc', auto:false, fireRate:360, dmg:50,
   recoil:0, spread:0, adsSpread:0, range:3.5, adsFov:80, scope:false });
+/* The guns are slots 0..GUN_N-1 (keys and shop slots); everything after them
+   is an ability, the blade or TxF's kit. server.js GUNS has GUN_N entries. */
+const GUN_N = 6;
 const XBOW  = WEAPONS.findIndex(w=>w.kind==='xbow');    // crossbow slot
 const GRENADE = WEAPONS.findIndex(w=>w.kind==='grenade');   // Blast's frag slot
 const SMOKE = WEAPONS.findIndex(w=>w.kind==='smoke');   // smoke slot
@@ -638,7 +647,7 @@ let dryClicked=false;
    Target practice has no economy, so everything is yours there. */
 function inventory(){
   if(myAgent === 'txf') return [MINIGUN, TXFMSL, INFERNO, ARCBLADES];   // TxF: his own four, nothing else
-  if(gameMode !== 'mp') return [0,1,2,3,4,BLADE];
+  if(gameMode !== 'mp') return [0,1,2,3,4,5,BLADE];
   return [...myGuns, BLADE];
 }
 function canEquip(i){

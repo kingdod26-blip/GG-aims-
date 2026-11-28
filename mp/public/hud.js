@@ -648,6 +648,7 @@ const Sfx = (()=>{
     SHOTGUN:    { crack:[1400,0.030,0.60], body:[320,0.20,0.90],  thump:[95,0.15,0.85],  tail:[700,0.60,0.26] },
     PISTOL:     { crack:[2600,0.014,0.55], body:[900,0.07,0.45],  thump:[200,0.055,0.40], tail:[1300,0.22,0.12] },
     'PISTOL X': { crack:[2300,0.015,0.60], body:[760,0.085,0.55], thump:[170,0.065,0.50], tail:[1200,0.26,0.14] },
+    S12K:       { crack:[1650,0.026,0.62], body:[380,0.16,0.88],  thump:[105,0.12,0.80], tail:[760,0.48,0.24] },   // the pump's boom, sharper and shorter
   };
   function gunshot(p, dest){
     const v = 0.96 + Math.random()*0.08;          // no two shots identical, or auto fire drones

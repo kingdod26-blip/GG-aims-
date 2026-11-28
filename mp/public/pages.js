@@ -44,6 +44,7 @@ const WPN = [
   { id: 'rifle',    slot: 0,       grp: 'primary', key: '1', model: () => (typeof PAC9_BUILT !== 'undefined' && PAC9_BUILT) ? pac9Bare() : drawRifle().g },
   { id: 'sniper',   slot: 1,       grp: 'primary', key: '2', model: () => drawSniper().g },
   { id: 'shotgun',  slot: 2,       grp: 'primary', key: '3', model: () => drawShotgun().g },
+  { id: 's12k',     slot: 5,       grp: 'primary', key: '6', model: () => drawS12K().g },
   { id: 'pistol',   slot: 3,       grp: 'sidearm', key: '4', model: () => drawPistol(false).g },
   { id: 'pistolx',  slot: 4,       grp: 'sidearm', key: '5', model: () => drawPistol(true).g },
   { id: 'blade',    slot: BLADE,   grp: 'melee',   key: 'F', model: () => buildSword() },
@@ -64,7 +65,7 @@ const WPN = [
 /* What the page lists for the agent you are playing. */
 function wpnList(){ return myAgent === 'txf' ? WPN.filter(x => x.agent === 'txf') : WPN.filter(x => x.agent !== 'txf'); }
 /* the guns' bars are each gun against the best of the five */
-const GUNS = WPN.filter(w => w.slot <= 4).map(w => WEAPONS[w.slot]);
+const GUNS = WPN.filter(w => w.slot < GUN_N).map(w => WEAPONS[w.slot]);
 const BAR = {
   dmg:   w => w.dmg * (w.pellets || 1),
   rate:  w => 60000 / w.fireRate,
@@ -78,7 +79,7 @@ let wpnSel = 'rifle';
 
 function wpnStats(e){
   const w = WEAPONS[e.slot], rows = [], bars = [];
-  if (e.slot <= 4){
+  if (e.slot < GUN_N){
     for (const k of Object.keys(BAR)) bars.push([t('wp.bar.' + k), BAR[k](w) / BAR_MAX[k]]);
     rows.push([t('wp.s.dmg'), w.pellets ? `${w.dmg} × ${w.pellets}` : String(w.dmg)],
               [t('wp.s.head'), '×' + MULT.head],

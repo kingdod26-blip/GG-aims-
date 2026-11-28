@@ -21,7 +21,7 @@ let lastTp=-1;                                  // last forced-move stamp we obe
    passive has picked out; detectUntil/detectReady are local deadlines so the
    HUD can count down smoothly between snapshots. */
 let detectTarget=null, detectUntil=0, detectReady=0;
-let shopPrices=[150,300,150,50,100], MAIN_SLOTS=[0,1,2], SIDE_SLOTS=[3,4];
+let shopPrices=[150,300,150,50,100,250], MAIN_SLOTS=[0,1,2,5], SIDE_SLOTS=[3,4];
 let winsNeeded=3;            // from welcome; the snapshot no longer carries it
 let myRoom=null;             // which room this client landed in
 let MAX_MAIN=2, MAX_SIDE=1;

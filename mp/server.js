@@ -553,7 +553,7 @@ const SPAWN_APART = 22;
 const ECON = { start: 200, win: 200, loss: 100 };
 /* Pistol X out-damages the Pistol (40 vs 30) at the same rate class, so at a
    matched price there was never a reason to buy the Pistol. It costs double. */
-const PRICES = [150, 300, 150, 50, 100];
+const PRICES = [150, 300, 150, 50, 100, 250];   // slot 5: the S12K
 /* What each gun actually does. This used to come from the CLIENT — the fire
    handler read d.dmg and d.range off the packet — so three lines in a browser
    console bought you a 99999-damage rifle with 400m of reach that shot
@@ -572,6 +572,7 @@ const GUNS = [
   { name:'SHOTGUN',  dmg:12,  range:60,  fireRate:900,  pellets:8, magMax:6,  reserveMax:36,  reloadMs:2200 },
   { name:'PISTOL',   dmg:30,  range:180, fireRate:200,  pellets:1, magMax:12, reserveMax:60,  reloadMs:1200 },
   { name:'PISTOL X', dmg:40,  range:180, fireRate:170,  pellets:1, magMax:10, reserveMax:50,  reloadMs:1100 },
+  { name:'S12K',     dmg:9,   range:45,  fireRate:200,  pellets:8, magMax:20, reserveMax:60,  reloadMs:3000 },   // semi-auto, 20-round drum
 ];
 /* Ammunition was counted only in the browser, so a patched client simply
    never ran out. The server keeps the real magazines; the client keeps its
@@ -616,7 +617,7 @@ const BOUNCE = { keep: 0.55, lifeS: 1.1 };
 /* Hitting an underside is not a landing and not a bounce: the bolt stops
    dead against the surface and drops straight down from the point of
    contact, rather than skipping along the roof. */
-const MAIN_SLOTS = [0, 1, 2];
+const MAIN_SLOTS = [0, 1, 2, 5];       // 5: the S12K
 const SIDE_SLOTS = [3, 4];
 const MAX_MAIN = 2, MAX_SIDE = 1;        // what you can carry at once
 /* Hit zones, in the usual shooter convention: the head hurts most, the torso

@@ -611,7 +611,7 @@ repointed). Kill a stuck server with `taskkill //F //IM node.exe`. The server ca
   and `ensureValidWeapon` drops it back to the crossbow or blade. Note the
   squeeze this creates — lose round 1 and $100 only covers a pistol.
   `PRICES` by slot: rifle 150, sniper 300, shotgun 150, pistol 50, pistol X
-  100 — Pistol X hits for 40 against the Pistol's 30, so matching their
+  100, S12K 250 (slot 5, a main) — Pistol X hits for 40 against the Pistol's 30, so matching their
   prices left no reason to ever buy the Pistol.
   You carry `MAX_MAIN` (2) mains and `MAX_SIDE` (1) side, held as an
   **ordered list** (`p.guns`, purchase order). Buying past the cap drops the
@@ -3604,3 +3604,36 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
   "TxF -> VICTIM". Range: flight rises ~7 m/s and holds its height, laser
   300/s on a target, teleports to the floor and into the air, the third
   refused, pulse 40 to all eight targets and marks them. No console errors.
+
+## The S12K (2026-11-28)
+
+Jack: a semi-automatic shotgun, "base fire rate around 300 RPM", from his
+"Dragon's Breath S12K" render. The real gun is the Saiga-12K: a 12-gauge on
+an AK action (gas-operated, rotating bolt), 430mm barrel, about 3.5kg, fed
+from box magazines or a 12-30 round drum.
+
+- **Slot 5, a MAIN.** Guns are now slots `0..GUN_N-1` (`GUN_N` = 6 in
+  weapons.js); every ability, the blade and TxF's kit sit after them, found by
+  `findIndex` as before. The places that assumed five guns now read `GUN_N`:
+  the glove swap and the held-item arms in drawn.js, the weapons page's
+  bars and stats. Server: `GUNS[5]`, `PRICES[5]` = 250, `MAIN_SLOTS` gains 5.
+  The practice inventory is 0-5 plus the blade.
+- **Numbers:** `SEMI`, `fireRate` 200 (300 RPM), 8 pellets of **9** (72 a
+  shot; the pump is 8 x 12 every 900ms), spread 0.10 / ADS 0.07 (the pump's
+  0.09 / 0.06), range 45, a **20-round drum**, 60 reserve, 3.0s reload,
+  recoil 0.034, red dot. One trigger pull costs one round, like the pump.
+- **Model** (`drawS12K`, drawn.js, ~250 meshes): stamped black receiver with
+  rivets, the AK safety lever and charging handle on the right, a rail on
+  the dust cover carrying a **holographic sight** (aimed through its window:
+  `aimTop` 0.087 is the window centre), folding adapter, buffer tube and a
+  collapsible stock with cheek riser, a long rail handguard with M-LOK slots,
+  a side rail and a **vertical grip** (the left hand's `fore`), a
+  laser/light module with a lit red emitter, barrel and gas cylinder past the
+  handguard, an AK front sight on the gas block, a slotted brake, and the
+  **drum** (rust-red geared face plates, a feed tower) as the reload's `mag`.
+  Markings: `S12K 12 GA 12x76`, `DRAGON'S BREATH`.
+- **Sound:** `GUN.S12K` in hud.js, the pump's boom made sharper and shorter.
+- Page: `wp.s12k.d` (EN + 简体中文), key 6 on the weapons page.
+- Not done: the "Dragon's Breath" name is markings only; its shells do not
+  set fire. Checked: syntax, and the model builds headless (247 meshes). Not
+  yet seen in the browser.
