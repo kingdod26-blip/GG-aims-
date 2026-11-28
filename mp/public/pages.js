@@ -185,7 +185,7 @@ function renderWeaponsPage(){
 
 /* ---------- the agents ---------- */
 const AG_ICON = { roll: 'cd-roll', xbow: 'cd-fire', smoke: 'cd-smoke', dash: 'cd-dash', gren: 'cd-grenade', zone: 'cd-zone',
-                  sensor: 'cd-sensor', drone: 'cd-drone', dog: 'cd-dog', barrage: 'cd-grenade', incen: 'cd-fire', missile: 'cd-drone' };
+                  sensor: 'cd-sensor', drone: 'cd-drone', dog: 'cd-dog', barrage: 'cd-fire', incen: 'cd-grenade', missile: 'cd-drone' };
 /* the same kit, with the same live numbers, as the abilities page */
 function agentKit(a){
   const ch = slot => ({ n: WEAPONS[slot].charges, cd: pgSec(WEAPONS[slot].cooldownMs) });

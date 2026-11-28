@@ -139,7 +139,7 @@ const CD_TILES = [
 const CD_ART = { roll:'cd-roll', xbow:'cd-fire', smoke:'cd-smoke', dash:'cd-dash', grenade:'cd-grenade', zone:'cd-zone',
                  sensor:'cd-sensor', drone:'cd-drone', dog:'cd-dog',
                  /* Salvo: stand-ins until Jack draws his three */
-                 barrage:'cd-grenade', incen:'cd-fire', missile:'cd-drone' };
+                 barrage:'cd-fire', incen:'cd-grenade', missile:'cd-drone' };
 function configureTiles(){
   const a = agent();
   const kinds = [typeof a.v === 'number' ? WEAPONS[a.v].kind : a.v, typeof a.g === 'string' ? a.g : a.g === XBOW ? 'xbow' : a.g === INCEN ? 'incen' : 'grenade',
