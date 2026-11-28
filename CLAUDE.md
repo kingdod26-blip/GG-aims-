@@ -3599,6 +3599,16 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
     hoses, forked blade clamps; blades with a hooked tang, a halo, a
     white-hot core and a bright edge line. Same hands, poses and APIs as
     before (`userData.blades/bolts`, grip/fore/vm unchanged).
+  - **ARC BLADES laid out on the picture** (2026-11-29, Jack: "the sword
+    should look like this"): the two blades now sit SIDE BY SIDE across a
+    wider head with a gap, both broadside and leaning the same way; each
+    has a short neck, a big hooked tang with its spur pointing back and
+    down, a notch, then a long curve to the point. The head carries a pod
+    on each top corner, copper pipes down its sides, a clamp outside each
+    blade and glowing sockets; the knuckle guard is on the blade side (an
+    angled bracket out of a big square hazard pommel, then a striped bar up
+    to the head); the grip is wrapped in leather on the slant. The
+    lightning (`arcBoltsFrame`) follows each blade's curving middle.
   - **The drum launcher rebuilt too** (2026-11-28, from Jack's HAZARD
     BLASTER picture, ~160 meshes): a hazard-striped yellow drum with blue
     bands, steel end rings and flutes (three chambers, top one on the bore,

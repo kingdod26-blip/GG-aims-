@@ -1071,92 +1071,109 @@ function drawInferno(){
            vm: { x: 0.15, y: -0.15, z: -0.5, adsZ: 0.15, rx: 0.03, ry: 0.07, rz: -0.03, viewFov: 62, motion: 0.6 } };
 }
 
-/* ARC BLADES, rebuilt (2026-11-28) from Jack's sword picture: a grip
-   wrapped in dark cord over hazard-taped ends; a heavy pommel block with
-   screws; a hazard-striped knuckle guard running from the pommel up to the
-   head; the head itself a riveted block with a glowing danger sign, two
-   coil drums on its sides, hoses looping down to the guard, and two forked
-   clamps that hold the blades; and two blades of light, each with a hooked
-   tang at its root, a narrow neck and a long curve to the point, a
-   white-hot core, a bright edge, and lightning crawling over it. */
+/* ARC BLADES, rebuilt again (2026-11-29, Jack: "the sword should look like
+   this"), laid out on his picture. Seen broadside (+z toward you):
+   - two WIDE blades side by side across the head with a gap between them,
+     both leaning the same way; each rises from a short neck into a big
+     hooked tang whose spur points back and down, pinches in at a notch,
+     then runs long and slightly curved to the point, glowing orange with
+     a white-hot core and lightning crawling over it;
+   - a chunky head wider than the grip: riveted plates, a glowing danger
+     triangle on its face, a round pod on each top corner, copper pipes
+     looping down its sides, and a forked clamp outside each blade;
+   - the grip wrapped in dark leather strips on the slant;
+   - a big square hazard-striped pommel block, and the knuckle guard: an
+     angled bracket from the pommel out to the blade side, then a
+     hazard-striped bar up to the head. */
 function arcBladeShape(len){
-  const s = new THREE.Shape();
-  s.moveTo(-0.016, 0); s.lineTo(0.018, 0);
-  s.lineTo(0.022, len * 0.07);
-  s.lineTo(0.052, len * 0.12);                                                   // the hooked tang
-  s.lineTo(0.040, len * 0.16);
-  s.lineTo(0.014, len * 0.20);                                                   // the narrow neck
-  s.quadraticCurveTo(0.040, len * 0.42, 0.034, len * 0.62);                      // the blade swelling
-  s.quadraticCurveTo(0.028, len * 0.86, 0.006, len);                             // out to the point
-  s.quadraticCurveTo(0.002, len * 0.70, -0.014, len * 0.42);                     // the back edge
-  s.quadraticCurveTo(-0.022, len * 0.28, -0.012, len * 0.20);
-  s.lineTo(-0.030, len * 0.12);                                                  // a smaller barb behind
-  s.lineTo(-0.016, len * 0.06);
-  s.lineTo(-0.016, 0);
+  const s = new THREE.Shape(), L = len;
+  s.moveTo(-0.012, 0);
+  s.lineTo(-0.016, L * 0.045);                                                  // the neck
+  s.lineTo(-0.074, L * 0.030);                                                  // the spur, pointing back and down
+  s.lineTo(-0.044, L * 0.090);                                                  // the tang's top edge
+  s.lineTo(-0.030, L * 0.120);
+  s.lineTo(-0.012, L * 0.165);                                                  // the notch
+  s.quadraticCurveTo(-0.020, L * 0.40, 0.000, L * 0.66);                        // the back edge, a long gentle curve
+  s.quadraticCurveTo(0.012, L * 0.85, 0.030, L);                                // to the point
+  s.quadraticCurveTo(0.040, L * 0.80, 0.042, L * 0.58);                         // the cutting edge coming back down
+  s.quadraticCurveTo(0.044, L * 0.30, 0.030, L * 0.17);
+  s.lineTo(0.040, L * 0.11);                                                    // a small swell near the base
+  s.lineTo(0.016, L * 0.04);
+  s.lineTo(0.014, 0);
+  s.lineTo(-0.012, 0);
   return s;
 }
 function drawArcBlades(){
   const root = new THREE.Group(), g = new THREE.Group(); root.add(g);
-  const dk = M_DARK(), st = M_TXFSTL(), y = M_TXFY(), hz = M_TXFHAZ();
-  const cord = dmatL('arccord', [0.026, 0.024, 0.022], 0.0, 0.85, 2);
-  const hose = dmatL('archose', [0.20, 0.085, 0.03], 0.55, 0.45, 1);           // copper-brown hoses
+  const dk = M_DARK(), st = M_TXFSTL(), hz = M_TXFHAZ();
+  const iron = dmatL('arciron', [0.075, 0.072, 0.070], 0.80, 0.50, 1);        // the head's worn dark steel
+  const leather = dmatL('arcleather', [0.032, 0.030, 0.028], 0.0, 0.80, 2);
+  const cop = dmatL('archose', [0.20, 0.085, 0.03], 0.55, 0.45, 1);           // copper-brown pipes
   const V = (r0, r1, h, m, x, yy, z) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, h, 20), m); o.position.set(x, yy, z); return dAdd(g, o); };
+  const rivet = (x, y, z) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(0.0026, 0.0026, 0.0014, 8), M_STEEL()); o.rotation.x = Math.PI / 2; o.position.set(x, y, z); return dAdd(g, o); };   // facing you
 
-  // ---- grip: a core wrapped in cord, hazard tape at both ends ----
-  V(0.0165, 0.0165, 0.13, dk, 0, -0.005, 0);
-  for (let k = 0; k < 9; k++){ const w = new THREE.Mesh(new THREE.TorusGeometry(0.0172, 0.0034, 6, 18), cord);
-    w.rotation.set(Math.PI / 2 + 0.32, 0, 0); w.position.y = -0.055 + k * 0.012; dAdd(g, w); }
-  V(0.0185, 0.0185, 0.020, hz, 0, 0.068, 0);
-  V(0.0190, 0.0190, 0.026, hz, 0, -0.080, 0);
-  // ---- pommel: a squared block with screws and a stub ----
-  dBox(g, st, 0.044, 0.034, 0.050, 0, -0.110, -0.006);
-  dBox(g, dk, 0.046, 0.006, 0.052, 0, -0.094, -0.006);
-  for (const sx of [-1, 1]) for (const z of [-0.022, 0.010]) dScrew(g, sx * 0.0225, -0.112, z, 'x', 0.0028);
-  V(0.010, 0.012, 0.014, dk, 0, -0.134, -0.006);
+  // ---- grip: a core wrapped in leather strips on the slant ----
+  V(0.0175, 0.0175, 0.135, dk, 0, -0.002, 0);
+  for (let k = 0; k < 8; k++){ const w = new THREE.Mesh(new THREE.TorusGeometry(0.0182, 0.0042, 6, 20), leather);
+    w.rotation.set(Math.PI / 2 + 0.38, 0, 0); w.position.y = -0.052 + k * 0.0145; dAdd(g, w); }
+  V(0.0195, 0.0195, 0.016, hz, 0, 0.068, 0);                                   // a hazard band under the head
 
-  // ---- knuckle guard: hazard-striped bar from pommel to head, its brackets ----
-  dBox(g, st, 0.016, 0.026, 0.020, 0, -0.112, -0.046);
-  { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.19, 0.016), hz); bar.position.set(0, -0.005, -0.062); bar.rotation.x = -0.10; dAdd(g, bar);
-    const rim = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.19, 0.004), st); rim.position.set(0, -0.005, -0.071); rim.rotation.x = -0.10; dAdd(g, rim); }
-  dBox(g, st, 0.016, 0.022, 0.030, 0, 0.080, -0.050);
-  for (const yy of [-0.08, 0.06]) dScrew(g, 0.0085, yy, -0.062, 'x', 0.0025);
+  // ---- pommel: a big square hazard block with screws ----
+  dBox(g, hz, 0.050, 0.046, 0.044, 0, -0.095, 0);
+  dBox(g, iron, 0.054, 0.008, 0.048, 0, -0.072, 0);
+  dBox(g, iron, 0.054, 0.010, 0.048, 0, -0.121, 0);
+  for (const sx of [-1, 1]) for (const yy of [-0.084, -0.106]) rivet(sx * 0.018, yy, 0.0225);
 
-  // ---- the head: riveted block, glowing danger sign, coil drums, hoses ----
-  dBox(g, st, 0.054, 0.058, 0.074, 0, 0.112, -0.012);
-  dBox(g, dk, 0.056, 0.010, 0.076, 0, 0.144, -0.012);
-  dBox(g, dk, 0.040, 0.030, 0.004, 0, 0.112, 0.0265);                                       // the sign's plate, toward you
-  { const tri = new THREE.Mesh(new THREE.CylinderGeometry(0.0145, 0.0145, 0.003, 3), M_TXFGLOW());
-    tri.rotation.set(Math.PI / 2, 0, 0); tri.position.set(0, 0.110, 0.029); g.add(tri);
-    const mark = new THREE.Mesh(new THREE.BoxGeometry(0.0025, 0.009, 0.002), dk); mark.position.set(0, 0.111, 0.0305); g.add(mark);
-    const dot = new THREE.Mesh(new THREE.BoxGeometry(0.0025, 0.0025, 0.002), dk); dot.position.set(0, 0.1035, 0.0305); g.add(dot); }
+  // ---- knuckle guard: a bracket out to the blade side, a striped bar up to the head ----
+  { const s = new THREE.Shape(); s.moveTo(0.022, -0.125); s.lineTo(0.072, -0.108); s.lineTo(0.072, -0.082); s.lineTo(0.022, -0.090); s.lineTo(0.022, -0.125);
+    const o = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 0.018, bevelEnabled: true, bevelSize: 0.002, bevelThickness: 0.002, bevelSegments: 1 }), iron);
+    o.position.z = -0.009; dAdd(g, o); }
+  rivet(0.060, -0.098, 0.011);
+  dBox(g, iron, 0.018, 0.020, 0.022, 0.066, -0.080, 0);                         // the bar's foot
+  { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.150, 0.016), hz); bar.position.set(0.060, -0.002, 0); bar.rotation.z = 0.07; dAdd(g, bar);
+    for (const sx of [-1, 1]){ const e = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.150, 0.018), iron); e.position.set(0.060 + sx * 0.0095, -0.002, 0); e.rotation.z = 0.07; dAdd(g, e); } }
+  dBox(g, iron, 0.020, 0.018, 0.022, 0.054, 0.076, 0);                          // and its head end
+  rivet(0.054, 0.076, 0.0115);
+
+  // ---- the head: riveted block, the danger sign, pods, pipes ----
+  dBox(g, iron, 0.110, 0.064, 0.050, 0.007, 0.112, 0);
+  dBox(g, dk, 0.112, 0.008, 0.052, 0.007, 0.142, 0);                            // the top plate
+  dBox(g, dk, 0.060, 0.044, 0.004, 0.004, 0.110, 0.026);                        // the front plate
+  for (const [x, y] of [[-0.022, 0.128], [0.030, 0.128], [-0.022, 0.092], [0.030, 0.092]]) rivet(x + 0.004, y, 0.0285);
+  for (const [x, y] of [[-0.040, 0.130], [-0.040, 0.094], [0.048, 0.130], [0.048, 0.094]]) rivet(x, y, 0.0255);
+  { const tri = new THREE.Mesh(new THREE.CylinderGeometry(0.0150, 0.0150, 0.003, 3), M_TXFGLOW());     // the danger sign, lit
+    tri.rotation.set(Math.PI / 2, 0, 0); tri.position.set(0.004, 0.109, 0.0295); g.add(tri);
+    const frame = new THREE.Mesh(new THREE.TorusGeometry(0.0150, 0.0016, 4, 3), iron); frame.rotation.z = Math.PI / 2; frame.position.set(0.004, 0.109, 0.0305); g.add(frame);
+    const mark = new THREE.Mesh(new THREE.BoxGeometry(0.0026, 0.0085, 0.002), dk); mark.position.set(0.004, 0.1105, 0.0315); g.add(mark);
+    const dot = new THREE.Mesh(new THREE.BoxGeometry(0.0026, 0.0026, 0.002), dk); dot.position.set(0.004, 0.1025, 0.0315); g.add(dot); }
   for (const sx of [-1, 1]){
-    for (const yy of [0.090, 0.134]) for (const z of [-0.040, 0.016]) dScrew(g, sx * 0.0275, yy, z, 'x', 0.0024);
-    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.018, 20), st);   // coil drums
-    drum.rotation.z = Math.PI / 2; drum.position.set(sx * 0.036, 0.120, -0.018); dAdd(g, drum);
-    for (let k = 0; k < 3; k++){ const c = new THREE.Mesh(new THREE.TorusGeometry(0.0185, 0.0018, 6, 18), hose);
-      c.rotation.y = Math.PI / 2; c.position.set(sx * (0.030 + k * 0.006), 0.120, -0.018); dAdd(g, c); }
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 14), dk); cap.rotation.z = Math.PI / 2; cap.position.set(sx * 0.046, 0.120, -0.018); dAdd(g, cap);
-    const pipe = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.0034, 6, 18, Math.PI * 0.75), hose);   // a hose down to the guard
-    pipe.position.set(sx * 0.031, 0.055, -0.030); pipe.rotation.set(0, Math.PI / 2, 1.9); dAdd(g, pipe);
+    const pod = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.040, 18), st);              // round pods on the top corners
+    pod.rotation.x = Math.PI / 2; pod.position.set(0.004 + sx * 0.040, 0.150, -0.004); dAdd(g, pod);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.004, 14), dk); cap.rotation.x = Math.PI / 2; cap.position.set(0.004 + sx * 0.040, 0.150, 0.017); dAdd(g, cap);
+    const pipe = new THREE.Mesh(new THREE.TorusGeometry(0.040, 0.0032, 6, 20, Math.PI * 0.9), cop);   // a pipe looping down the side
+    pipe.position.set(0.004 + sx * 0.050, 0.108, 0.012); pipe.rotation.set(0, 0, sx > 0 ? -1.4 : 1.4 + Math.PI * 0.1); dAdd(g, pipe);
+    const pipe2 = new THREE.Mesh(new THREE.TorusGeometry(0.030, 0.0026, 6, 18, Math.PI * 0.8), cop);
+    pipe2.position.set(0.004 + sx * 0.052, 0.104, -0.014); pipe2.rotation.set(0, 0, sx > 0 ? -1.2 : 1.2 + Math.PI * 0.2); dAdd(g, pipe2);
   }
-  // ---- the forked clamps the blades sit in ----
-  for (const [bx, bz] of [[-0.014, 0.012], [0.014, -0.02]]){
-    dBox(g, st, 0.016, 0.026, 0.026, bx, 0.158, bz);
-    for (const s of [-1, 1]) dBox(g, dk, 0.004, 0.030, 0.022, bx + s * 0.009, 0.178, bz);
-    dScrew(g, bx + 0.011, 0.160, bz, 'x', 0.0026);
+  // the forked clamps outside each blade
+  for (const [cx, ang] of [[-0.056, 0.35], [0.070, -0.35]]){
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.048, 0.020), iron); arm.position.set(cx, 0.168, 0); arm.rotation.z = ang; dAdd(g, arm);
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.010, 0.022), dk); tip.position.set(cx + (ang > 0 ? -0.008 : 0.008), 0.190, 0); dAdd(g, tip);
+    rivet(cx, 0.160, 0.0105);
   }
+  for (const bx of [-0.036, 0.050]){ dBox(g, iron, 0.030, 0.014, 0.024, bx, 0.153, 0); dBox(g, M_TXFGLOW(), 0.022, 0.003, 0.016, bx, 0.1615, 0); }   // the blade sockets, glowing at the lip
 
-  // ---- the blades: glow, a white-hot core, a bright edge, lightning ----
-  const glow = new THREE.MeshBasicMaterial({ color: 0xff6a0c, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  const core = new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  const halo = new THREE.MeshBasicMaterial({ color: 0xff4a08, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  // ---- the blades: halo, glow, a white-hot core, a bright edge, lightning ----
+  const glow = new THREE.MeshBasicMaterial({ color: 0xff7414, transparent: true, opacity: 0.82, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const core = new THREE.MeshBasicMaterial({ color: 0xffd88a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const halo = new THREE.MeshBasicMaterial({ color: 0xff4a08, transparent: true, opacity: 0.20, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const bolts = [];
-  for (const [bx, bz, lean, len] of [[-0.014, 0.012, -0.06, 0.56], [0.014, -0.02, 0.1, 0.62]]){
-    const b = new THREE.Group(); b.position.set(bx, 0.17, bz); b.rotation.z = lean; g.add(b);
+  for (const [bx, lean, len] of [[-0.036, -0.20, 0.56], [0.050, -0.20, 0.60]]){
+    const b = new THREE.Group(); b.position.set(bx, 0.160, 0.0); b.rotation.z = lean; g.add(b);
     const shape = arcBladeShape(len);
-    const haloM = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), halo); haloM.scale.set(1.5, 1.03, 1); haloM.position.z = -0.001; b.add(haloM);
+    const haloM = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), halo); haloM.scale.set(1.25, 1.03, 1); haloM.position.set(0.004, -0.004, -0.001); b.add(haloM);
     const outer = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), glow); b.add(outer);
-    const inner = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), core); inner.scale.set(0.42, 0.95, 1); inner.position.set(0.004, 0.01, 0.001); b.add(inner);
+    const inner = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), core); inner.scale.set(0.50, 0.96, 1); inner.position.set(0.008, 0.012, 0.001); b.add(inner);
     const em = new THREE.LineBasicMaterial({ color: 0xfff0c0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
     const edgeLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(shape.getPoints(18).map(p => new THREE.Vector3(p.x, p.y, 0.0015))), em);
     edgeLine.frustumCulled = false; b.add(edgeLine);
@@ -1171,11 +1188,13 @@ function drawArcBlades(){
   return { g: root, grip: [0, -0.115, 0.075], fore: [0, -0.115, 0.075], mag: null, magAt: [0, -0.2, 0.0], aimTop: 0.1,
            vm: { x: 0.26, y: -0.1, z: -0.5, adsZ: 0, rx: 0, ry: 0, rz: 0, viewFov: 0 } };
 }
-/* lightning crawling over the blades: a new jagged line every few frames */
+/* lightning crawling over the blades: a new jagged line every few frames,
+   following each blade's middle as it curves toward the point */
 function arcBoltsFrame(b){
   for (const L of b.userData.bolts){
-    const pts = []; let x = 0;
-    for (let i = 0; i <= 12; i++){ const t = i / 12; x = (Math.random() - 0.5) * 0.03; pts.push(new THREE.Vector3(x + 0.006 * Math.sin(t * 7), t * L.len * 0.95, 0.002)); }
+    const pts = [];
+    for (let i = 0; i <= 14; i++){ const t = i / 14, mid = t < 0.17 ? 0.0 : 0.010 + 0.022 * t * t;
+      pts.push(new THREE.Vector3(mid + (Math.random() - 0.5) * 0.034, (0.05 + t * 0.92) * L.len, 0.002)); }
     L.line.geometry.dispose(); L.line.geometry = new THREE.BufferGeometry().setFromPoints(pts);
   }
 }
