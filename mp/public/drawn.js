@@ -482,8 +482,12 @@ function drawS12K(){
      from the magazine well leaning forward, its centre ahead of the well.
      `mag` pivots at the bottom of the well; `drumIn` keeps the parts' own
      coordinates. The reload only moves mag.position, so the tilt rides along. */
-  const mag = new THREE.Group(); mag.position.set(0, -0.060, 0.010); mag.rotation.x = 0.20; g.add(mag);
-  const drumIn = new THREE.Group(); drumIn.position.set(0, 0.060, -0.010); mag.add(drumIn);
+  /* ...and, as in the render (Jack, 2026-11-29: "the ammo part mainly"), the
+     drum is TURNED on its hanger: its face angles toward the muzzle, so from
+     the side you see the face foreshortened and the drum's round band, not
+     a flat disc. It is also fatter than the receiver (13% wider here). */
+  const mag = new THREE.Group(); mag.position.set(0, -0.060, 0.010); mag.rotation.set(0.10, 0.50, 0); g.add(mag);
+  const drumIn = new THREE.Group(); drumIn.position.set(0, 0.060, -0.010); drumIn.scale.x = 1.13; mag.add(drumIn);
   dBox(drumIn, blk, 0.040, 0.030, 0.050, 0, -0.072, 0.010);                                 // the feed tower
   for (const sx of [-1, 1]) dBox(drumIn, dk, 0.002, 0.016, 0.030, sx * 0.0202, -0.074, 0.010);
   const C = [0, -0.152, 0.010], R = 0.070;
@@ -504,7 +508,7 @@ function drawS12K(){
   }
   dDecal(drumIn, '20 RD  ·  12 GA', -0.0338, C[1] + 0.060, C[2], 0.034, 0.0045, -1);
 
-  return { g, grip: [0, -0.074, 0.185], fore: [0, -0.072, -0.155], mag, magAt: [0, -0.150, -0.008],
+  return { g, grip: [0, -0.074, 0.185], fore: [0, -0.072, -0.155], mag, magAt: [0, -0.151, 0.001],
     /* aimed through the holographic window: its centre on the eye line */
     aimTop: 0.0885,
     vm: { x: 0.098, y: -0.118, z: -0.40, adsZ: 0.12, rx: 0.034, ry: 0.085, rz: -0.03, viewFov: 54, motion: 0.6 } };

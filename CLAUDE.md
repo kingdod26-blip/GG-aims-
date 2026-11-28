@@ -3695,7 +3695,9 @@ from box magazines or a 12-30 round drum.
   lower on its sides.
   The drum leans forward 0.20 rad like the render's: `mag` pivots at the
   bottom of the well, `drumIn` keeps the parts' coordinates, `magAt` moved
-  to the tilted centre.
+  to the tilted centre. Then (Jack: "the ammo part mainly", pointing at the
+  render) the drum is also TURNED 0.50 rad about the vertical so its face
+  angles toward the muzzle, the lean cut to 0.10, and it is 13% fatter.
 - **Sound:** `GUN.S12K` in hud.js, the pump's boom made sharper and shorter.
 - Page: `wp.s12k.d` (EN + 简体中文), key 6 on the weapons page.
 - Not done: the "Dragon's Breath" name is markings only; its shells do not
