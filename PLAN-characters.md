@@ -181,6 +181,36 @@ damage. V and X are new: a server-timed barrage, and a missile the server
 moves and the client steers (a new camera mode). Each needs a `cd-*.png` icon
 from Jack.
 
+---
+
+## 5. BEACON (信标) (new, Jack's design, 2026-11-28; PLANNED, not built)
+
+He is the Beacon of the background story: the G.T.I. deep-cover spy who was
+killed on Hudson's orders. References: Delta Force's **D-Wolf (红狼)** for the
+slide, and **Tempest (疾风)**'s ultimate, 紧急回避装置, for X.
+
+| Part | Beacon |
+|---|---|
+| Name | **BEACON** / 信标 |
+| Passive | **Slide, D-Wolf style.** Press crouch (C) while sprinting to slide about 5 m. You get a small speed boost that fades smoothly, with no hard stop, and you can shoot at once with no delay to raise the gun. The slide runs longer downhill. **Slide-jump**: Space during or at the end of a slide keeps its speed. Cooldown about 1 s. The old slide code (off since it "didn't feel good") is the starting point, retuned: entry speed about sprint plus 25%, not 13 m/s. |
+| V | **Grappling hook** from the wrist launcher. **2 charges, 12 s each.** Range about 30 m. **On an enemy**: pulls them a few metres toward Beacon and staggers them; they cannot shoot for about 0.5 s. **On a wall, ceiling or object** (pipes, rails, the crane): **hold V** to hang on the rope and swing like a pendulum, WASD steers a little, Space reels in, up to 4 s; **let go of V** to fly off with your speed. **No aiming while swinging** (hip fire only). |
+| G | **Stun bomb**, thrown. 1.5 s fuse, 6 m radius, blocked by walls, **30 damage**. For 2.5 s it dazes anyone caught, Beacon included: half speed, blurred and shaky aim, no sprint, jump or abilities, ears ringing. 1 charge, 25 s. |
+| X | **Beacon recall** (Tempest's 紧急回避装置, changed by Jack). **No cooldown.** Press X to plant the beacon where you stand. It stays until you **hold X** to take it back. **Tap X** to teleport back to it, **at least 5 s between teleports**. It stays planted after a teleport, so you can go out and come back again. It **does not save you**: no pull-back when you are killed ("you die you die"). Enemies can shoot it (60 HP), and it breaks if you go more than 40 m away. If it breaks, X plants a new one. |
+| Jumps | 1 (the slide-jump and the hook are his movement) |
+| Look | Jack's sheets `信标.jpg` / `信标 模型.jpg`: short black hair, a dark worn field jacket over a grey-and-black panelled suit with silver chevrons, a black turtleneck, a chest rig with three pouches, an ID badge on a lanyard, fingerless gloves, a **wrist screen on the left arm** (where the hook launcher goes), a radio pack on his back with a coiled cable to the collar, a thigh holster, combat boots. |
+| Backstory / Voice | From the story bible (the Beacon). *To decide* |
+
+**Notes for building it:**
+- Slide: `SLIDE_ENABLED`, `SLIDE`, `startSlide()` and the loop.js branches,
+  turned on for Beacon only; `extras/slide-ability.md` holds the lessons.
+- Hook: the server checks the hook's ray (`rayBoxes`) and any pull on a
+  player; the swing is client movement, so `vetMove` must allow its speed
+  (keep it under `MOVE.maxSpeed` 20), and `fl` must reset fall tracking when
+  the rope is let go.
+- Recall: a forced move, so it bumps `p.tp`. The beacon is a server object
+  with HP.
+- Each part needs a `cd-*.png` icon from Jack.
+
 ## Looks (Jack's sheets, `Crinsome x/Pictures/character design`) - built 2026-11-27
 
 - **Aseed**: grey hood, crimson mask, plaid poncho over maroon
