@@ -593,58 +593,130 @@ function drawMinigun(){
            aimTop: 0.12,
            vm: { x: 0.13, y: -0.14, z: -0.36, adsZ: 0.09, rx: 0.03, ry: 0.07, rz: -0.02, viewFov: 62, motion: 0.6 } };
 }
-/* 2: the drum launcher (Jack's reference, 2026-11-28): a heavy revolver
-   launcher in worn steel with orange and dark-blue trim. A three-chamber
-   drum under the bore (one round a missile, so it turns a third per shot),
-   a short wide ribbed barrel with a flared muzzle, a reflex sight on a top
-   rail, the drum's spring, a pistol grip and a fore grip. The bore is on
-   the gun's own axis and the muzzle sits at -0.55, where shots leave from. */
+/* 2: the drum launcher, rebuilt (2026-11-28) from Jack's HAZARD BLASTER
+   picture: a revolver grenade launcher in worn steel, black and danger
+   yellow with dark-blue trim. A big hazard-striped drum on the bore's axis
+   line (three chambers, the top one in line with the bore; one round a
+   missile, so it turns a third per shot), held between a heavy front yoke
+   and a rear hub, a spine tube over it; in front, a squared barrel shroud
+   with ribbed top and side rails, orange-lit slits, a warning sticker and a
+   copper sling ring, ending in a flared yellow muzzle; under it a fore grip
+   wound in copper wire on a blue foot; behind, the receiver, a black
+   pistol grip with blue panels, the trigger guard, and the box stock with
+   its yellow skeleton, orange light strips and a ribbed butt. No sight:
+   Jack took it off (aimed by the red dot alone). The bore is on the gun's
+   axis and the muzzle at -0.55, where shots leave from. */
 const M_TXFORG = () => dmatL('txforg', [0.55, 0.16, 0.02], 0.25, 0.45, 2, 0.6);   // orange trim
 const M_TXFBLU = () => dmatL('txfblu', [0.03, 0.05, 0.16], 0.4, 0.4, 0, 0.8);     // dark blue anodised
 const M_TXFSTL = () => dmatL('txfstl', [0.16, 0.16, 0.17], 0.85, 0.42, 1);        // worn bright steel
 function drawTxfLauncher(){
-  const g = new THREE.Group(), dk = M_DARK(), st = M_TXFSTL(), org = M_TXFORG(), blu = M_TXFBLU(), poly = M_POLY();
-  /* the receiver and the stock block behind the drum */
-  dBox(g, st, 0.07, 0.085, 0.2, 0, -0.005, 0.1);
-  dBox(g, blu, 0.072, 0.02, 0.2, 0, -0.05, 0.1);
-  dBox(g, st, 0.06, 0.07, 0.12, 0, -0.01, 0.26);                             // stock block
-  dBox(g, dk, 0.062, 0.08, 0.02, 0, -0.01, 0.325);                            // butt pad
-  dDecal(g, 'TxF  ML-3  HEAVY', 0.0355, 0.0, 0.12, 0.17, 0.02, 1);
-  dDecal(g, 'TxF  ML-3  HEAVY', -0.0355, 0.0, 0.12, 0.17, 0.02, -1);
-  /* the drum: three chambers round its axis, below the bore */
-  const drum = new THREE.Group(); drum.position.set(0, -0.045, -0.06); g.add(drum);
-  dTube(drum, st, 0.078, 0.14, 0, 0, 0, 0.078, 30);
-  for (const z of [0.074, -0.074]) dTube(drum, org, 0.081, 0.014, 0, 0, z, 0.081, 30);   // orange rings on both faces
-  dTube(drum, blu, 0.0795, 0.02, 0, 0, 0, 0.0795, 30);                       // a blue band round the middle
+  const g = new THREE.Group(), dk = M_DARK(), st = M_TXFSTL(), org = M_TXFORG(), blu = M_TXFBLU(), poly = M_POLY(), yl = M_TXFY();
+  const blk = dmatL('mlblk', [0.028, 0.028, 0.030], 0.5, 0.5, 0);                   // the worn black of the stock and shroud
+  const cop = dmatL('mlcop', [0.30, 0.12, 0.04], 0.9, 0.38, 1);                     // copper wire and the sling ring
+  const lit = new THREE.MeshBasicMaterial({ color: 0xff9a26 });                     // the orange light strips
+  const hzTex = new THREE.CanvasTexture(txfHazardTex().image);                     // the drum's stripes, wrapped five times round
+  hzTex.encoding = THREE.sRGBEncoding; hzTex.wrapS = hzTex.wrapT = THREE.RepeatWrapping; if (hzTex.repeat) hzTex.repeat.set(5, 1);
+  const hz = DRAWN_MATS.mlhaz || (DRAWN_MATS.mlhaz = lookTag(Object.assign(new THREE.MeshStandardMaterial({ map: hzTex, metalness: 0.25, roughness: 0.6 }), { userData: { envK: 0.7 } }),
+                                                           { metalness: 0.25, roughness: 0.6 }, { metalness: 0, roughness: 0.6 }));
+  const warn = (x, y, z, s, side) => {                                              // a yellow warning triangle sticker
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(s, s, 0.0015, 3), yl); t.rotation.set(0, 0, Math.PI / 2); t.position.set(x, y, z); dAdd(g, t);
+    dBox(g, dk, 0.0018, s * 0.55, s * 0.16, x + side * 0.0008, y + s * 0.05, z);
+  };
+
+  // ---- the drum: hazard yellow, blue bands, steel end rings, three chambers ----
+  const drum = new THREE.Group(); drum.position.set(0, -0.045, -0.050); g.add(drum);
+  dTube(drum, hz, 0.082, 0.150, 0, 0, 0, 0.082, 40);
+  for (const z of [-0.068, 0.068]) dTube(drum, blu, 0.0835, 0.012, 0, 0, z, 0.0835, 40);
+  for (const z of [-0.078, 0.078]) dTube(drum, st, 0.080, 0.008, 0, 0, z, 0.080, 40);
+  for (let k = 0; k < 6; k++){ const a = k / 6 * Math.PI * 2 + Math.PI / 6;        // flutes between the chambers
+    dBox(drum, blk, 0.010, 0.010, 0.110, Math.cos(a) * 0.0815, Math.sin(a) * 0.0815, 0, 0, a); }
   const noses = [];
   for (let k = 0; k < 3; k++){
     const a = k * Math.PI * 2 / 3 + Math.PI / 2, cx = Math.cos(a) * 0.045, cy = Math.sin(a) * 0.045;
-    dTube(drum, dk, 0.025, 0.004, cx, cy, -0.079, 0.025, 16);               // a chamber mouth on the front face
-    const r = new THREE.Group(); r.position.set(cx, cy, 0.079); drum.add(r);  // the round's base at the back: shows it is loaded
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.006, 16), M_BRASS()); base.rotation.x = Math.PI / 2; r.add(base);
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.008, 10), org); cap.rotation.x = Math.PI / 2; cap.position.z = 0.002; r.add(cap);
+    dTube(drum, dk, 0.025, 0.004, cx, cy, -0.0825, 0.025, 18);                      // a chamber mouth on the front face
+    const r = new THREE.Group(); r.position.set(cx, cy, 0.083); drum.add(r);        // the round's base at the back: shows it is loaded
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.006, 18), M_BRASS()); base.rotation.x = Math.PI / 2; r.add(base);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.002, 6, 18), M_BRASS()); r.add(rim);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.008, 12), org); cap.rotation.x = Math.PI / 2; cap.position.z = 0.002; r.add(cap);
     noses.push(r);
   }
-  dTube(g, dk, 0.012, 0.2, 0, -0.045, -0.06, 0.012, 12);                      // the drum's axle
-  /* the spring, wound round the axle in front of the drum */
-  for (let k = 0; k < 6; k++){ const c = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.0025, 6, 14), st); c.position.set(0, -0.045, -0.145 - k * 0.008); dAdd(g, c); }
-  /* the barrel: short, wide, ribbed on top, a flared muzzle */
-  dTube(g, dk, 0.034, 0.34, 0, 0, -0.33, 0.034, 24);
-  dTube(g, st, 0.046, 0.06, 0, 0, -0.52, 0.038, 24);                          // the flare
-  dTube(g, org, 0.047, 0.012, 0, 0, -0.548, 0.047, 24);
-  dTube(g, dk, 0.03, 0.004, 0, 0, -0.553, 0.03, 20);                          // dark inside the muzzle
-  dBox(g, dk, 0.05, 0.016, 0.3, 0, 0.038, -0.32);                             // the rail on the barrel
-  for (let k = 0; k < 14; k++) dBox(g, st, 0.054, 0.008, 0.008, 0, 0.049, -0.46 + k * 0.021);   // its ribs
-  dBox(g, org, 0.012, 0.018, 0.05, 0.04, 0.02, -0.3);                          // the orange charging lever
-  { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.003, 6, 14), org); ring.position.set(0.046, 0.02, -0.28); ring.rotation.y = Math.PI / 2; dAdd(g, ring); }
-  /* the frame joining barrel, drum and receiver */
-  dBox(g, st, 0.06, 0.12, 0.04, 0, -0.02, -0.16);
-  dBox(g, blu, 0.062, 0.02, 0.042, 0, -0.07, -0.16);
-  for (const sx of [-1, 1]) dScrew(g, sx * 0.031, 0.0, -0.16, 'x', 0.004);
-  /* grips and the trigger guard */
-  dProf(g, poly, [[0.035, -0.05], [0.005, -0.05], [-0.005, -0.17], [0.04, -0.17]], 0.03, 0.004, 0, 0, 0.1);
-  dProf(g, blu, [[0.02, -0.035], [-0.02, -0.035], [-0.025, -0.14], [0.02, -0.14]], 0.032, 0.004, 0, 0, -0.33);
-  { const guard = new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.004, 6, 14, Math.PI), dk); guard.position.set(0, -0.06, 0.06); guard.rotation.set(0, Math.PI / 2, Math.PI); dAdd(g, guard); }
+  dTube(g, dk, 0.012, 0.230, 0, -0.045, -0.050, 0.012, 14);                          // the drum's axle
+
+  // ---- front yoke and rear hub, the spine tube over the drum ----
+  { const s = new THREE.Shape(); s.moveTo(-0.038, 0.050); s.lineTo(0.038, 0.050); s.lineTo(0.040, -0.040);
+    s.absarc(0, -0.045, 0.040, 0, -Math.PI, true); s.lineTo(-0.038, 0.050);
+    const geo = new THREE.ExtrudeGeometry(s, { depth: 0.020, bevelEnabled: true, bevelSize: 0.003, bevelThickness: 0.003, bevelSegments: 2, curveSegments: 10 });
+    const o = new THREE.Mesh(geo, st); o.position.set(0, 0, -0.152); dAdd(g, o); }
+  dBox(g, st, 0.020, 0.016, 0.026, 0, 0.060, -0.142);                                // its lug on top
+  { const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.030, 10), dk); pin.rotation.z = Math.PI / 2; pin.position.set(0, 0.062, -0.142); dAdd(g, pin); }
+  for (const sx of [-1, 1]) for (const yy of [0.030, -0.070]) dScrew(g, sx * 0.0415, yy, -0.140, 'x', 0.0035);
+  dTube(g, st, 0.030, 0.020, 0, -0.045, 0.040, 0.030, 24);                           // rear hub
+  dBox(g, st, 0.024, 0.090, 0.020, 0, 0.008, 0.040);                                 // and its bar up to the spine
+  dTube(g, st, 0.016, 0.205, 0, 0.060, -0.045, 0.016, 18);                           // the spine
+  for (const z of [-0.115, 0.020]) dTube(g, dk, 0.018, 0.010, 0, 0.060, z, 0.018, 18);
+  dDecal(g, 'HAZARD BLASTER  ·  ML-3', -0.0165, 0.060, -0.045, 0.10, 0.0085, -1);
+
+  // ---- barrel shroud: ribbed rails, lit slits, a sticker, the sling ring ----
+  dBox(g, blk, 0.074, 0.072, 0.300, 0, 0.000, -0.310);
+  dBox(g, dk, 0.040, 0.010, 0.300, 0, 0.041, -0.310);                                // top rail
+  for (let k = 0; k < 14; k++) dBox(g, st, 0.044, 0.006, 0.009, 0, 0.049, -0.450 + k * 0.021);
+  for (const sx of [-1, 1]){
+    dBox(g, dk, 0.006, 0.040, 0.200, sx * 0.040, 0.000, -0.360);                     // side rail
+    for (let k = 0; k < 12; k++) dBox(g, st, 0.008, 0.044, 0.008, sx * 0.043, 0.000, -0.450 + k * 0.018);   // its fins
+    for (const [yy, z, l] of [[-0.028, -0.250, 0.060], [-0.028, -0.345, 0.030], [0.026, -0.215, 0.022]])
+      dBox(g, lit, 0.002, 0.004, l, sx * 0.0375, yy, z);                             // orange light slits
+    for (const z of [-0.180, -0.440]) dScrew(g, sx * 0.0375, -0.026, z, 'x', 0.004);
+  }
+  warn(-0.0378, 0.024, -0.190, 0.010, -1);
+  dBox(g, cop, 0.006, 0.014, 0.030, -0.046, 0.022, -0.272);                          // the sling swivel's base
+  { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.016, 0.0032, 8, 18), cop); ring.position.set(-0.050, 0.022, -0.272); ring.rotation.y = Math.PI / 2; ring.rotation.x = 0.3; dAdd(g, ring); }
+
+  // ---- the barrel and its flared yellow muzzle ----
+  dTube(g, st, 0.034, 0.060, 0, 0.000, -0.480, 0.034, 28);
+  dTube(g, yl, 0.046, 0.070, 0, 0.000, -0.515, 0.036, 30);                           // the flare
+  dTube(g, st, 0.0465, 0.006, 0, 0.000, -0.548, 0.0465, 30);                         // its worn lip
+  for (let k = 0; k < 4; k++){ const r = 0.0386 + k * 0.0016; dTube(g, blk, r, 0.003, 0, 0, -0.492 - k * 0.011, r, 30); }   // turned grooves
+  dTube(g, dk, 0.030, 0.004, 0, 0.000, -0.551, 0.030, 24);                           // dark inside the muzzle
+
+  // ---- fore grip: copper wire wound round it, a blue foot ----
+  dBox(g, dk, 0.030, 0.014, 0.036, 0, -0.042, -0.330);
+  { const fg = new THREE.Mesh(new THREE.CylinderGeometry(0.0150, 0.0140, 0.100, 18), blk); fg.position.set(0, -0.098, -0.330); dAdd(g, fg);
+    for (let k = 0; k < 14; k++){ const c = new THREE.Mesh(new THREE.TorusGeometry(0.0168, 0.0019, 6, 16), cop);
+      c.rotation.set(Math.PI / 2 + 0.16 * (k % 2 ? 1 : -1), 0, 0); c.position.set(0, -0.060 - k * 0.0052, -0.330); dAdd(g, c); }
+    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.0175, 0.0160, 0.022, 18), blu); foot.position.set(0, -0.146, -0.330); dAdd(g, foot);
+    const loose = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.0016, 5, 18, Math.PI * 1.2), cop);   // a loose end of the wire
+    loose.position.set(0.006, -0.118, -0.322); loose.rotation.set(0.4, 0.9, 0); dAdd(g, loose); }
+
+  // ---- receiver, pistol grip with blue panels, trigger guard ----
+  dBox(g, blk, 0.060, 0.080, 0.120, 0, -0.010, 0.110);
+  dBox(g, blu, 0.062, 0.016, 0.120, 0, -0.052, 0.110);
+  dBox(g, dk, 0.062, 0.004, 0.120, 0, 0.022, 0.110);                                 // a panel line
+  for (const sx of [-1, 1]) for (const z of [0.065, 0.155]) dScrew(g, sx * 0.0305, 0.010, z, 'x', 0.0035);
+  dDecal(g, 'TxF ORDNANCE', -0.0306, -0.012, 0.110, 0.085, 0.010, -1);
+  dProf(g, poly, [[-0.050, -0.058], [-0.098, -0.058], [-0.124, -0.172], [-0.084, -0.180], [-0.060, -0.110]], 0.034, 0.006);
+  for (const sx of [-1, 1]){ const pan = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.070, 0.026), blu);
+    pan.position.set(sx * 0.0172, -0.118, 0.090); pan.rotation.x = -0.24; dAdd(g, pan); }
+  dProf(g, dk, [[-0.026, -0.050], [-0.024, -0.094], [-0.070, -0.098], [-0.072, -0.088], [-0.034, -0.084], [-0.034, -0.050]], 0.010, 0.002);   // guard, between drum and grip
+  dBox(g, st, 0.006, 0.022, 0.007, 0, -0.068, 0.046, 0.25);                          // trigger
+  dKnob(g, org, 0.006, 0.006, -0.032, -0.030, 0.140, 'x');                           // the safety, orange
+
+  // ---- the tube back to the stock, the box stock and its yellow skeleton ----
+  dTube(g, st, 0.017, 0.060, 0, 0.030, 0.190, 0.017, 18);
+  dBox(g, blk, 0.062, 0.068, 0.150, 0, 0.028, 0.270);                                // the stock's box
+  dBox(g, dk, 0.064, 0.004, 0.150, 0, 0.0, 0.270);
+  { const s = new THREE.Shape(), O = [[0.0, -0.006], [0.150, -0.006], [0.150, -0.100], [0.120, -0.104], [0.020, -0.040], [0.0, -0.034]];
+    O.forEach((p, i) => i ? s.lineTo(p[0], p[1]) : s.moveTo(p[0], p[1]));
+    for (const H of [[[0.040, -0.020], [0.070, -0.020], [0.070, -0.040]], [[0.085, -0.020], [0.132, -0.020], [0.132, -0.080], [0.115, -0.082]]]){
+      const h = new THREE.Path(); H.forEach((p, i) => i ? h.lineTo(p[0], p[1]) : h.moveTo(p[0], p[1])); s.holes.push(h); }
+    const geo = new THREE.ExtrudeGeometry(s, { depth: 0.040, bevelEnabled: true, bevelSize: 0.003, bevelThickness: 0.003, bevelSegments: 2, curveSegments: 6 });
+    geo.translate(0, 0, -0.020);
+    const o = new THREE.Mesh(geo, yl); o.rotation.y = -Math.PI / 2; o.position.set(0, 0, 0.195); dAdd(g, o); }   // its x runs back along +z
+  for (const sx of [-1, 1]) for (const z of [0.215, 0.300]) dBox(g, lit, 0.002, 0.004, 0.036, sx * 0.0315, 0.002, z);   // light strips
+  warn(-0.0315, 0.040, 0.250, 0.014, -1);
+  dBox(g, M_RUBBERISH(), 0.066, 0.172, 0.022, 0, -0.016, 0.356);                     // butt pad
+  for (let k = 0; k < 10; k++) dBox(g, dk, 0.067, 0.003, 0.023, 0, -0.094 + k * 0.017, 0.357);
+  dBox(g, st, 0.050, 0.010, 0.010, 0, 0.066, 0.335);                                 // its top plate
+
   g.userData = { noses, drum };
   return { g, grip: [0, -0.125, 0.085], fore: [0, -0.08, -0.33], mag: null, magAt: [0, -0.2, -0.06],
            aimTop: 0.05,

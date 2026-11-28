@@ -3599,6 +3599,17 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
     hoses, forked blade clamps; blades with a hooked tang, a halo, a
     white-hot core and a bright edge line. Same hands, poses and APIs as
     before (`userData.blades/bolts`, grip/fore/vm unchanged).
+  - **The drum launcher rebuilt too** (2026-11-28, from Jack's HAZARD
+    BLASTER picture, ~160 meshes): a hazard-striped yellow drum with blue
+    bands, steel end rings and flutes (three chambers, top one on the bore,
+    the loaded rounds' brass at the back still `userData.noses`, the drum
+    still `userData.drum` turning a third a shot); a front yoke and rear hub
+    with a spine tube over the drum; a squared shroud with ribbed top and
+    side rails, orange-lit slits, a warning sticker and a copper sling ring;
+    a flared yellow muzzle; a copper-wound fore grip on a blue foot; the
+    receiver, a grip with blue panels and an orange safety; a box stock with
+    a yellow skeleton, light strips and a ribbed butt. Still no sight (Jack
+    took it off). Same hands, pose and muzzle (-0.55).
   - Measured (`scratchpad/txfmelee.js`): INFERNO six shots then the reload;
     slash 100 -> 50; burst kills, credited to TxF, 8s cooldown. Range:
     INFERNO 100 -> 12 at 6.1m and burning; slash 50; burst 80; a second
