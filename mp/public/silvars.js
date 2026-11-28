@@ -232,14 +232,45 @@ function makeDogMesh(){
   g.userData = { kind: 'dog', body, legs, eye, beacon, head };
   return g;
 }
-/* THE SENSOR: a puck on the surface, a crimson light and a stub antenna.
-   It sits proud of the wall so anyone can see it, and shoot it. */
+/* THE SENSOR (redrawn 2026-11-28, Jack: "design the sensor ... better").
+   Silvars' kit, so his colours: brushed silver, crimson trim, the green of
+   his wrist screens. A hexagonal armoured pod on a dark mounting plate with
+   three anchor bolts; a crimson band round its waist with vent slots on
+   every face; a tinted glass dome on top holding the crimson eye (the LED
+   that blinks, `userData.led`) with three small green pickup lenses round
+   it; a status strip; and a two-section whip antenna with a red tip. It
+   sits proud of the surface (+Y is out of the wall), so it can be seen and
+   shot. Same size as the old puck, so the hit sphere still fits it. */
 function makeSensorMesh(){
   const M = robotMats(), g = new THREE.Group(), inner = new THREE.Group(); g.add(inner);
-  rmesh(inner, rgeo('spuck', () => new THREE.CylinderGeometry(0.11, 0.13, 0.05, 16)), M.silver, 0, 0.025, 0);
-  rmesh(inner, rgeo('sring', () => new THREE.TorusGeometry(0.1, 0.008, 6, 20)), M.crimson, 0, 0.052, 0, Math.PI/2);
-  const led = rmesh(inner, rgeo('sled', () => new THREE.SphereGeometry(0.022, 8, 6)), M.led.clone(), 0, 0.06, 0);
-  rmesh(inner, rgeo('sant', () => new THREE.CylinderGeometry(0.003, 0.005, 0.14, 4)), M.dark, 0.06, 0.1, 0);
+  const glass = RG.sglass || (RG.sglass = opMat('rb_sglass', 0x0b1418, 0.6, 0.12, { transparent: true, opacity: 0.55 }));
+  const green = RG.sgreen || (RG.sgreen = new THREE.MeshBasicMaterial({ color: 0x3dff8a }));
+  // the mounting plate and its three anchor bolts
+  rmesh(inner, rgeo('splate', () => new THREE.CylinderGeometry(0.135, 0.14, 0.012, 6)), M.dark, 0, 0.006, 0);
+  for (let k = 0; k < 3; k++) { const a = k * Math.PI * 2 / 3 + Math.PI / 6;
+    rmesh(inner, rgeo('sbolt', () => new THREE.CylinderGeometry(0.011, 0.011, 0.01, 8)), M.steel, Math.cos(a) * 0.118, 0.016, Math.sin(a) * 0.118); }
+  // the armoured hex body, a chamfered top, the crimson waist band
+  rmesh(inner, rgeo('sbody', () => new THREE.CylinderGeometry(0.104, 0.118, 0.034, 6)), M.silver, 0, 0.029, 0);
+  rmesh(inner, rgeo('schamf', () => new THREE.CylinderGeometry(0.084, 0.104, 0.012, 6)), M.silver, 0, 0.052, 0);
+  rmesh(inner, rgeo('sband', () => new THREE.CylinderGeometry(0.1135, 0.1165, 0.009, 6)), M.crimson, 0, 0.026, 0);
+  // a vent slot on each face, below the band
+  for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3 + Math.PI / 6, r = 0.112;
+    const v = rmesh(inner, rgeo('svent', () => new THREE.BoxGeometry(0.004, 0.006, 0.05)), M.dark, Math.cos(a) * r, 0.016, Math.sin(a) * r);
+    v.rotation.y = -a; }
+  // the dome, the eye inside it, and three green pickups round it
+  const led = rmesh(inner, rgeo('sled', () => new THREE.SphereGeometry(0.02, 14, 10)), M.led.clone(), 0, 0.062, 0);
+  const dome = new THREE.Mesh(rgeo('sdome', () => new THREE.SphereGeometry(0.038, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2)), glass);
+  dome.position.y = 0.058; inner.add(dome);
+  rmesh(inner, rgeo('sdomering', () => new THREE.TorusGeometry(0.039, 0.004, 6, 24)), M.steel, 0, 0.058, 0, Math.PI / 2);
+  for (let k = 0; k < 3; k++) { const a = k * Math.PI * 2 / 3;
+    rmesh(inner, rgeo('spick', () => new THREE.CylinderGeometry(0.008, 0.008, 0.006, 10)), M.dark, Math.cos(a) * 0.065, 0.059, Math.sin(a) * 0.065);
+    rmesh(inner, rgeo('spickl', () => new THREE.SphereGeometry(0.005, 8, 6)), green, Math.cos(a) * 0.065, 0.062, Math.sin(a) * 0.065); }
+  // the status strip on one face
+  rmesh(inner, rgeo('sstrip', () => new THREE.BoxGeometry(0.03, 0.004, 0.006)), green, -0.06, 0.047, 0.07);
+  // the whip antenna, two sections and a red tip, at one corner
+  rmesh(inner, rgeo('santb', () => new THREE.CylinderGeometry(0.007, 0.009, 0.02, 8)), M.dark, 0.075, 0.066, -0.02);
+  rmesh(inner, rgeo('sant', () => new THREE.CylinderGeometry(0.0025, 0.0045, 0.13, 6)), M.steel, 0.075, 0.14, -0.02);
+  rmesh(inner, rgeo('santt', () => new THREE.SphereGeometry(0.006, 8, 6)), M.crimson, 0.075, 0.207, -0.02);
   g.userData = { kind: 'sensor', led, inner };
   return g;
 }

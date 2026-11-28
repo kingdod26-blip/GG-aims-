@@ -677,10 +677,16 @@ function gloveEveryGun(b){
   /* Silvars' sensor, held like the grenade: the puck in the fist, face out */
   if (typeof SENSOR !== 'undefined' && SENSOR >= 0){
     const sn = new THREE.Group();
-    const silver = opMat('rb_held_silver', 0x9aa1a9, 0.85, 0.32), crim = opMat('rb_held_crim', 0xc8102e, 0.3, 0.45);
-    const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.058, 0.025, 18), silver); sn.add(puck);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.004, 6, 20), crim); ring.rotation.x = Math.PI / 2; ring.position.y = 0.014; sn.add(ring);
-    const led = new THREE.Mesh(new THREE.SphereGeometry(0.009, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3348 })); led.position.y = 0.016; sn.add(led);
+    if (typeof makeSensorMesh === 'function'){
+      /* the same sensor that goes on the wall (silvars.js), at 45% so it
+         sits in the fist like the old puck did */
+      const m = makeSensorMesh(); m.scale.setScalar(0.45); m.position.y = -0.012; m.traverse(o => { o.frustumCulled = false; }); sn.add(m);
+    } else {
+      const silver = opMat('rb_held_silver', 0x9aa1a9, 0.85, 0.32), crim = opMat('rb_held_crim', 0xc8102e, 0.3, 0.45);
+      const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.058, 0.025, 18), silver); sn.add(puck);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.004, 6, 20), crim); ring.rotation.x = Math.PI / 2; ring.position.y = 0.014; sn.add(ring);
+      const led = new THREE.Mesh(new THREE.SphereGeometry(0.009, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3348 })); led.position.y = 0.016; sn.add(led);
+    }
     sn.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), PAC9_GRIP_AXIS);
     sn.position.copy(PAC9_GRIP_AXIS).multiplyScalar(0.01);
     holdInGlove(SENSOR, b, rOff, at, sn, false, [0, 0, 0]);
@@ -780,9 +786,29 @@ function buildSword(){
 /* The frag grenade, fuze up (+Y), spoon on the +Z side, centred on its body. */
 function buildFragGrenade(){
   const g = new THREE.Group(), od = M_OD(), st = M_STEEL();
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.032, 24, 18), od); dAdd(g, body);
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.0275, 0.0306, 0.008, 24, 1, true), M_YEL()); band.position.y = 0.0135;   // the yellow band
+  /* REDRAWN 2026-11-28 (Jack: "design ... the granade better"): the body
+     now carries a pre-notched fragmentation sleeve, rows of raised squares
+     over the whole shell (instanced, ~150 of them), which is what makes it
+     read as a frag at any distance instead of a ball. Smooth where the
+     yellow band, the seam and the base plug are. */
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.0295, 24, 18), od); core.scale.y = 1.04; dAdd(g, core);
+  const BAND_Y = 0.0135, nubs = [];
+  for (let lat = -64; lat <= 60; lat += 11) {
+    const phi = lat * Math.PI / 180, y = Math.sin(phi) * 0.0305 * 1.04, rr = Math.cos(phi) * 0.0305;
+    if (Math.abs(y - BAND_Y) < 0.0065 || Math.abs(y) < 0.002) continue;          // leave the band and the seam smooth
+    const n = Math.max(6, Math.round(18 * Math.cos(phi))), off = (lat / 11) % 2 ? 0.5 : 0;
+    for (let i = 0; i < n; i++) { const a = (i + off) / n * Math.PI * 2; nubs.push([Math.cos(a) * rr, y, Math.sin(a) * rr]); }
+  }
+  const nubGeo = new THREE.BoxGeometry(0.0072, 0.0072, 0.0032), inst = new THREE.InstancedMesh(nubGeo, od, nubs.length);
+  const _o = new THREE.Object3D();
+  nubs.forEach((p, i) => { _o.position.set(p[0], p[1], p[2]); _o.lookAt(p[0] * 2, p[1] * 2, p[2] * 2); _o.updateMatrix(); inst.setMatrixAt(i, _o.matrix); });
+  dAdd(g, inst);
+  const seam = new THREE.Mesh(new THREE.TorusGeometry(0.0302, 0.0011, 6, 36), M_DARK()); seam.rotation.x = Math.PI / 2; dAdd(g, seam);   // where the two halves are joined
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.0284, 0.0306, 0.009, 28, 1, true), M_YEL()); band.position.y = BAND_Y;   // the yellow band
   band.material.side = THREE.DoubleSide; dAdd(g, band);
+  const tag = new THREE.Mesh(new THREE.CylinderGeometry(0.0247, 0.0262, 0.0035, 28, 1, true), M_RED()); tag.position.y = BAND_Y + 0.0072;   // a crimson Elite Force tag above it
+  tag.material.side = THREE.DoubleSide; dAdd(g, tag);
+  const plug = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.009, 0.004, 16), M_STEEL()); plug.position.y = -0.0305; dAdd(g, plug);   // the base plug
   /* the fuze: body, the striker housing, the spoon pivot */
   const fz = new THREE.Mesh(new THREE.CylinderGeometry(0.0105, 0.012, 0.022, 14), st); fz.position.y = 0.038; dAdd(g, fz);
   const hd = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.0105, 0.008, 14), st); hd.position.y = 0.053; dAdd(g, hd);

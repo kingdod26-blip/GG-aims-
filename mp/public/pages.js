@@ -47,8 +47,9 @@ const WPN = [
   { id: 'pistol',   slot: 3,       grp: 'sidearm', key: '4', model: () => drawPistol(false).g },
   { id: 'pistolx',  slot: 4,       grp: 'sidearm', key: '5', model: () => drawPistol(true).g },
   { id: 'blade',    slot: BLADE,   grp: 'melee',   key: 'F', model: () => buildSword() },
-  { id: 'crossbow', slot: XBOW,    grp: 'gear', agent: 'aseed',   key: 'G', model: () => drawCrossbow('fire').g },
-  { id: 'smoke',    slot: SMOKE,   grp: 'gear', agent: 'aseed',   key: 'X', model: () => drawCrossbow('smoke').g },
+  /* one crossbow fires both of Aseed's bolts (Jack, 2026-11-28: "the cross bow is the same so the smoke is not
+     necessary"), so it has one page, and its description covers both */
+  { id: 'crossbow', slot: XBOW,    grp: 'gear', agent: 'aseed',   key: 'G · X', model: () => drawCrossbow('fire').g },
   { id: 'grenade',  slot: GRENADE, grp: 'gear', agent: 'blast',   key: 'G', model: () => buildFragGrenade() },
   { id: 'sensor',   slot: SENSOR,  grp: 'gear', agent: 'silvars', key: 'V', model: () => makeSensorMesh() },
   { id: 'incen',    slot: INCEN,   grp: 'gear', agent: 'salvo',   key: 'G', model: () => makeIncenMesh() },
@@ -89,7 +90,9 @@ function wpnStats(e){
 }
 function wpnDesc(e){
   const w = WEAPONS[e.slot], ch = { n: w.charges, cd: w.cooldownMs ? pgSec(w.cooldownMs) : '' };
-  return { crossbow: pgFill('ab.xbow.d', ch), smoke: pgFill('ab.smoke.d', ch), grenade: pgFill('ab.gren.d', ch),
+  const both = (LANG === 'zh' ? '同一把弩发射 Aseed 的两种弩箭。' : 'One crossbow fires both of Aseed’s bolts.')
+    + ` ${t('ab.xbow')} (G): ${pgFill('ab.xbow.d', ch)} ${t('ab.smoke')} (X): ${pgFill('ab.smoke.d', { n: WEAPONS[SMOKE].charges, cd: pgSec(WEAPONS[SMOKE].cooldownMs) })}`;
+  return { crossbow: both, grenade: pgFill('ab.gren.d', ch),
            incen: pgFill('ab.incen.d', { n: SALVO.incen.charges, cd: pgSec(SALVO.incen.cdMs), fuse: pgSec(SALVO.incen.fragFuseMs), dmg: SALVO.frag.dmg }),
            sensor: pgFill('ab.sensor.d', { n: SILV.sensor.charges, r: SILV.sensor.radius, s: pgSec(SILV.linkMs), cd: pgSec(SILV.sensor.cdMs) }) }[e.id] || t('wp.' + e.id + '.d');
 }
@@ -198,7 +201,7 @@ function agentKit(a){
   }[a].map(([k, id, o]) => ({ k, id, name: t('ab.' + id), d: pgFill('ab.' + id + '.d', o) }));
 }
 /* which weapon page each piece of gear opens */
-const AG_GEAR = { xbow: 'crossbow', smoke: 'smoke', gren: 'grenade', sensor: 'sensor', incen: 'incen' };
+const AG_GEAR = { xbow: 'crossbow', smoke: 'crossbow', gren: 'grenade', sensor: 'sensor', incen: 'incen' };
 let agSel = myAgent;
 function renderAgentsPage(){
   const pg = byId('agPage'); if (!pg) return;
