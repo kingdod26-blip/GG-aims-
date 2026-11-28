@@ -3642,8 +3642,8 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
     read by server and range alike) went with them: 3.5m -> 5m (Jack).
   - **ARC BLADES three-hit combo** (2026-11-29, Jack's storyboard "Cross Cut
     / Pivot Sweep / Overhead Finisher"; right-click is the shockwave).
-    `TXF.arc.combo` (robots.js, shared): 01 Cross Cut 40, arc 0.55, 300ms,
-    a 0.12s lunge at dash speed (~2.4m); 02 Pivot Sweep 55, arc 0.15 (wide),
+    `TXF.arc.combo` (robots.js, shared; damage since raised, see below): 01 Cross Cut 40, arc 0.55, 300ms,
+    a 0.12s lunge at dash speed (~2.4m, since removed); 02 Pivot Sweep 55, arc 0.15 (wide),
     380ms, CLEAVES everyone in the arc; 03 Overhead Finisher 90, arc 0.80,
     reach 5.5, 560ms, single target, no blast. `windowMs` 1200 resets the
     chain. The SERVER walks the combo on its own clock (p.arcStep/arcAt;
@@ -3658,6 +3658,17 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
     targets). Blades are equal (0.80m). Checked on the range: 40 / 55 / 90,
     then back to 01; a pause resets; the poses and the trail seen in game.
     Not yet checked in a live match (needs the TxF code).
+  - **How the blades are held** (2026-11-29, Jack's notes). Poses are
+    [tilt, yaw, twist, hand x, y, z], applied as yaw, then tilt, then a twist
+    about the blade's own length (`arcApplyPose`, quaternions) so the faces
+    turn to the eye instead of showing an edge. Idle: low right, forward and
+    down, blades along the forward line (`ARC_REST`). 01 flat across the body
+    right to left at chest height; 02 low left up to high right; 03 straight
+    up at 12 o'clock then down to 6; right-click: a thrust straight ahead
+    (`ARC_KEYS[4]`, played by `txf.arcAnim`, which is separate from the
+    combo count). Trail 01 is now a flat sweep at chest height. Every pose
+    was tuned by looking in game. Damage raised so any two swings kill 100
+    HP: 55 / 65 / 100; the first swing no longer steps you forward.
   - **The drum launcher rebuilt too** (2026-11-28, from Jack's HAZARD
     BLASTER picture, ~160 meshes): a hazard-striped yellow drum with blue
     bands, steel end rings and flutes (three chambers, top one on the bore,

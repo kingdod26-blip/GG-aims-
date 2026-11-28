@@ -144,9 +144,10 @@ const TXF = {
              dash speed; `cleave` hits everyone in the arc, not just the
              nearest. No swing explodes: the blast is the right-click's alone. */
           combo: [
-            { id: 'cross',    dmg: 40, reach: 5,   arc: 0.55, ms: 300, lunge: 0.12 },   // 01 Cross Cut: fast forehand diagonal, steps you in
-            { id: 'sweep',    dmg: 55, reach: 5,   arc: 0.15, ms: 380, cleave: true }, // 02 Pivot Sweep: wide backhand, low to high, both blades through all in front
-            { id: 'overhead', dmg: 90, reach: 5.5, arc: 0.80, ms: 560 },               // 03 Overhead Finisher: both hands, straight down
+            /* any two swings kill a 100 HP player (Jack, 2026-11-29); no step on 01 */
+            { id: 'cross',    dmg: 55,  reach: 5,   arc: 0.55, ms: 300 },               // 01 Cross Cut: fast, flat across the body, right to left
+            { id: 'sweep',    dmg: 65,  reach: 5,   arc: 0.15, ms: 380, cleave: true }, // 02 Pivot Sweep: low left up to high right, through all in front
+            { id: 'overhead', dmg: 100, reach: 5.5, arc: 0.80, ms: 560 },               // 03 Overhead Finisher: 12 o'clock down to 6
           ],
           windowMs: 1200,
           knock: 3 },                          // the right-click shockwave throws everyone it hits this far back

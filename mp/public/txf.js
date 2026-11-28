@@ -1354,7 +1354,7 @@ function arcSlash(w, now){
   if (prev && now - txf.arcAt < C[prev - 1].ms) return;                    // the last swing is still going
   const step = (prev && now - txf.arcAt <= A.windowMs) ? (prev % C.length) + 1 : 1;
   const S = C[step - 1];
-  txf.arcStep = step; txf.arcAt = now; lastShot = now; txf.arcSwing = 1; txf.arcDur = S.ms / 1000;
+  txf.arcStep = step; txf.arcAt = now; lastShot = now; txf.arcSwing = 1; txf.arcDur = S.ms / 1000; txf.arcAnim = step;
   Sfx.arcSlash(); if (step === 3) setTimeout(() => Sfx.land(), S.ms * 0.45);
   arcTrail(step);
   if (S.lunge && me.alive && !txfFlying()){                                // 01 steps you in, at dash speed
@@ -1378,7 +1378,7 @@ function arcTrail(step){
   /* each swing's path across the view, as an arc of a circle: [centre x, y,
      inner, outer, start angle, sweep] in view space at 1.2m. 01 upper right
      to lower left; 02 lower left up to upper right; 03 straight down. */
-  const P = { 1: [0.45, -0.35, 0.74, 0.90, 1.60, 1.60], 2: [-0.45, 0.35, 0.74, 0.90, -1.60, 1.55], 3: [-1.60, 0.00, 1.52, 1.68, -0.36, 0.72] }[step];
+  const P = { 1: [0.00, -1.65, 1.52, 1.68, Math.PI / 2 - 0.42, 0.84], 2: [-0.45, 0.35, 0.74, 0.90, -1.60, 1.55], 3: [-1.60, 0.00, 1.52, 1.68, -0.36, 0.72] }[step];
   const g = new THREE.Group(); g.position.set(P[0], P[1], -1.2);
   const mid = (P[2] + P[3]) / 2, w = P[3] - P[2];
   for (const [r0, r1, col, op] of [[P[2], P[3], 0xff6a10, 0.55], [mid - w * 0.18, mid + w * 0.18, 0xfff0b8, 0.95]]){
@@ -1398,24 +1398,44 @@ function arcTrailsFrame(){
 }
 /* The three swings as the hand sees them. p runs 0..1 over the swing;
    each pose is [blade tilt x, blade roll z, hand x, hand y]. */
-const ARC_POSE = { rest: [-0.35, -0.25, 0, -0.11] };
-const ARC_KEYS = {
-  1: [[0.00,  0.25, -0.55, -0.02,  0.02], [0.40, -1.10,  1.25, -0.20, -0.14], [1.00, -0.35, -0.25, 0, -0.11]],   // raised up right, cut down across to the left
-  2: [[0.00, -1.00,  1.35, -0.20, -0.16], [0.45, -0.30, -1.20,  0.10,  0.02], [1.00, -0.35, -0.25, 0, -0.11]],   // from low left, swept up to the right
-  3: [[0.00, -0.35, -0.25,  0.00, -0.11], [0.38,  0.30,  0.05, -0.08,  0.16], [0.55, -1.50,  0.00, -0.10, -0.18], [1.00, -0.35, -0.25, 0, -0.11]],   // raised overhead, then straight down
+/* HOW THE SWORD IS HELD (Jack's notes, 2026-11-29). A pose is
+   [blade tilt x, yaw y, twist, hand x, hand y, hand z]: yaw (round you),
+   then tilt (0 is straight up, -PI/2 straight ahead with the twin blades
+   lying flat), then a twist about the blade's own length so its faces turn
+   toward the eye instead of showing an edge (arcApplyPose).
+   - Idle: low at your right side, angled down and forward about 45 degrees,
+     the twin blades along the forward line, clear of the arm.
+   - 01 Cross Cut: swept flat across the body, right to left, at chest height.
+   - 02 Pivot Sweep: back from low left up to high right, a rising diagonal.
+   - 03 Overhead Finisher: straight up at 12 o'clock, slammed to 6 o'clock.
+   - Right-click (shockwave): thrust straight ahead at chest height, the
+     prongs pointed at the target. */
+const ARC_REST = [-1.95, 0.80, 0.90, 0.00, 0.03, 0.05];   // tuned in game: on screen low right, faces showing
+const ARC_POSE = { rest: ARC_REST };
+const ARC_KEYS = {   // [p, tilt, yaw, twist, hand x, hand y, hand z]; tuned by looking in game (2026-11-29)
+  1: [[0.00, -1.50, -1.05, 1.10,  0.10,  0.02,  0.00], [0.42, -1.50,  1.05, 1.10, -0.18,  0.02,  0.00], [1.00, ...ARC_REST]],   // flat, right to left, chest height
+  2: [[0.00, -1.95,  1.05, 1.10, -0.18, -0.10,  0.00], [0.45, -1.05, -0.90, 1.10,  0.04,  0.05,  0.00], [1.00, ...ARC_REST]],   // low left up to high right
+  3: [[0.00, ...ARC_REST], [0.36, 0.15, 0.00, 0.00, -0.14, 0.14, 0.04], [0.55, -2.25, 0.00, 0.00, -0.12, -0.02, -0.04], [1.00, ...ARC_REST]],   // 12 o'clock, then down to 6
+  4: [[0.00, ...ARC_REST], [0.30, -1.57, 0.00, 0.90, -0.08, -0.02, -0.14], [0.70, -1.57, 0.00, 0.90, -0.08, -0.02, -0.12], [1.00, ...ARC_REST]],   // the shockwave's thrust
 };
+const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qc = new THREE.Quaternion(), _AX = new THREE.Vector3(1, 0, 0), _AY = new THREE.Vector3(0, 1, 0);
+function arcApplyPose(bl, P){
+  _qa.setFromAxisAngle(_AY, P[1]); _qb.setFromAxisAngle(_AX, P[0]); _qc.setFromAxisAngle(_AY, P[2]);
+  bl.quaternion.copy(_qa).multiply(_qb).multiply(_qc);
+  bl.position.set(P[3], P[4], 0.07 + P[5]);
+}
 function arcPose(step, p){
   const K = ARC_KEYS[step]; if (!K) return null;
   let i = 0; while (i < K.length - 2 && p > K[i + 1][0]) i++;
   const a = K[i], b = K[i + 1], u = Math.max(0, Math.min(1, (p - a[0]) / Math.max(1e-3, b[0] - a[0]))), e = u * u * (3 - 2 * u);
-  return [1, 2, 3, 4].map(j => a[j] + (b[j] - a[j]) * e);
+  return [1, 2, 3, 4, 5, 6].map(j => a[j] + (b[j] - a[j]) * e);
 }
 function arcBurst(){
   if (gameState !== 'playing' || !me.alive) return;
   const A = TXF.arc, now = performance.now();
   if (now < txf.arcBurstAt && !txfFree()){ Sfx.empty(); return; }
   txf.arcBurstAt = txfFree() ? 0 : now + A.burstCdMs;
-  txf.arcSwing = 1;
+  txf.arcSwing = 1; txf.arcDur = 0.42; txf.arcAnim = 4;                 // the thrust
   if (gameMode === 'mp'){ if (socket) socket.emit('arcburst'); return; }
   onArcBurstFx({ x: me.x, y: me.feetY + 1.1, z: me.z, r: A.burstR, by: 'me' });
   let any = false;
@@ -1450,8 +1470,8 @@ function onArcBurstFx(d){
     if (txf.infReloadAt && now >= txf.infReloadAt){ txf.infMag = TXF.inferno.mag; txf.infReloadAt = 0; Sfx.magIn(); if (curW().kind === 'inferno') updateHUD(); }
     txf.arcSwing = Math.max(0, txf.arcSwing - dt / (txf.arcDur || 0.32));
     const bl = TXF_ARC_BUILT.g.userData.blades;
-    const P = txf.arcSwing > 0 ? arcPose(txf.arcStep || 1, 1 - txf.arcSwing) : ARC_POSE.rest;
-    if (P){ bl.rotation.set(P[0], 0, P[1]); bl.position.set(P[2], P[3], 0.07); }
+    const P = txf.arcSwing > 0 ? arcPose(txf.arcAnim || txf.arcStep || 1, 1 - txf.arcSwing) : ARC_POSE.rest;
+    if (P) arcApplyPose(bl, P);
     arcTrailsFrame();
     if (curW().kind === 'arc' && (txf.boltT = (txf.boltT || 0) + dt) > 0.07){ txf.boltT = 0; arcBoltsFrame(TXF_ARC_BUILT.g); }
     for (let i = txf.fx.length - 1; i >= 0; i--){
