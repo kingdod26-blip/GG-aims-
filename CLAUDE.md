@@ -3620,6 +3620,9 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
     to the grip and the guard, with fittings. Head in dark worn steel
     (`arciron2`), wider to hold the spaced blades; the guard bar's hazard
     stripes come from its own repeated copy of the texture so they slant.
+    Then STRAIGHT (Jack: "the blade need to be straight"): no lean, both
+    edges straight lines to a point on the blade's centre line; the
+    lightning runs up that centre.
   - **The drum launcher rebuilt too** (2026-11-28, from Jack's HAZARD
     BLASTER picture, ~160 meshes): a hazard-striped yellow drum with blue
     bands, steel end rings and flutes (three chambers, top one on the bore,

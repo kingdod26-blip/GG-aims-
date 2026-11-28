@@ -1099,10 +1099,12 @@ function arcBladeShape(len){
   s.lineTo(-0.074, 0.044);
   s.lineTo(-0.040, 0.104);                                                      // the beard's top, back up to the blade
   s.lineTo(-0.026, 0.124);
-  s.quadraticCurveTo(-0.022, L * 0.40, -0.006, L * 0.64);                       // the back edge
-  s.quadraticCurveTo(0.008, L * 0.86, 0.032, L);                                // to the point
-  s.quadraticCurveTo(0.050, L * 0.78, 0.048, L * 0.52);                         // the cutting edge
-  s.quadraticCurveTo(0.044, L * 0.24, 0.030, 0.066);
+  /* STRAIGHT (Jack, 2026-11-29: "the blade need to be straight"): both
+     edges run straight up, the point on the blade's centre line */
+  s.lineTo(-0.020, L * 0.78);                                                   // the back edge
+  s.lineTo(0.012, L);                                                           // to the point
+  s.lineTo(0.044, L * 0.78);                                                    // the cutting edge
+  s.lineTo(0.040, 0.090);
   s.lineTo(0.022, 0.036);
   s.lineTo(0.013, 0);
   s.lineTo(-0.011, 0);
@@ -1223,7 +1225,7 @@ function drawArcBlades(){
   const halo = new THREE.MeshBasicMaterial({ color: 0xff6a14, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const halo2 = new THREE.MeshBasicMaterial({ color: 0xff7a1a, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const bolts = [];
-  for (const [bx, lean, len] of [[-0.048, -0.20, 0.56], [0.058, -0.20, 0.60]]){
+  for (const [bx, lean, len] of [[-0.048, 0, 0.56], [0.058, 0, 0.60]]){
     const b = new THREE.Group(); b.position.set(bx, 0.160, 0.0); b.rotation.z = lean; g.add(b);
     const shape = arcBladeShape(len);
     { const h = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), halo); h.scale.set(1.16, 1.02, 1); h.position.set(0.002, -0.006, -0.002); b.add(h); h.renderOrder = 1001; }
@@ -1246,7 +1248,7 @@ function drawArcBlades(){
 function arcBoltsFrame(b){
   for (const L of b.userData.bolts){
     const pts = [];
-    for (let i = 0; i <= 14; i++){ const t = i / 14, mid = t < 0.17 ? 0.0 : 0.010 + 0.022 * t * t;
+    for (let i = 0; i <= 14; i++){ const t = i / 14, mid = t < 0.17 ? 0.0 : 0.012;
       pts.push(new THREE.Vector3(mid + (Math.random() - 0.5) * 0.034, (0.05 + t * 0.92) * L.len, 0.002)); }
     L.line.geometry.dispose(); L.line.geometry = new THREE.BufferGeometry().setFromPoints(pts);
   }
