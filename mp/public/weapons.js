@@ -207,6 +207,10 @@ WEAPONS.push({ name:'MINIGUN', mode:'ROTARY', txf:true, kind:'minigun', auto:tru
   recoil:0.0035, spread:0.05, adsSpread:0.012, range:300, adsFov:66, scope:false });
 WEAPONS.push({ name:'TxF MISSILE', mode:'LAUNCHER', txf:true, kind:'txfmsl', auto:false, fireRate:600, dmg:200,
   recoil:0.04, spread:0, adsSpread:0, range:300, adsFov:62, scope:false });
+WEAPONS.push({ name:'INFERNO', mode:'FIRE BLAST', txf:true, kind:'inferno', auto:false, fireRate:900, dmg:120,
+  recoil:0.05, spread:0.22, adsSpread:0.22, range:12, adsFov:66, scope:false });
+WEAPONS.push({ name:'ARC BLADES', mode:'CLOSE COMBAT', txf:true, kind:'arc', auto:false, fireRate:360, dmg:50,
+  recoil:0, spread:0, adsSpread:0, range:3.5, adsFov:80, scope:false });
 const XBOW  = WEAPONS.findIndex(w=>w.kind==='xbow');    // crossbow slot
 const GRENADE = WEAPONS.findIndex(w=>w.kind==='grenade');   // Blast's frag slot
 const SMOKE = WEAPONS.findIndex(w=>w.kind==='smoke');   // smoke slot
@@ -216,6 +220,8 @@ const MISSILE = WEAPONS.findIndex(w=>w.kind==='missile');   // Salvo's launcher 
 const BLADE = WEAPONS.findIndex(w=>w.melee);            // blade slot
 const MINIGUN = WEAPONS.findIndex(w=>w.kind==='minigun');   // TxF's minigun
 const TXFMSL = WEAPONS.findIndex(w=>w.kind==='txfmsl');     // TxF's missile launcher
+const INFERNO = WEAPONS.findIndex(w=>w.kind==='inferno');   // TxF's fire shotgun (3)
+const ARCBLADES = WEAPONS.findIndex(w=>w.kind==='arc');     // TxF's twin blades (F)
 const ABILITY_SLOTS = WEAPONS.map((w,i)=>w.ability?i:-1).filter(i=>i>=0);
 /* What the armory should print on each card. Guns are 1-5; the abilities
    and the blade have their own keys, and printing i+1 told you to press 7
@@ -631,7 +637,7 @@ let dryClicked=false;
    scroll wheel never lands on them mid-fight.
    Target practice has no economy, so everything is yours there. */
 function inventory(){
-  if(myAgent === 'txf') return [MINIGUN, TXFMSL];       // TxF: his own two, nothing else
+  if(myAgent === 'txf') return [MINIGUN, TXFMSL, INFERNO, ARCBLADES];   // TxF: his own four, nothing else
   if(gameMode !== 'mp') return [0,1,2,3,4,BLADE];
   return [...myGuns, BLADE];
 }

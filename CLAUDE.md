@@ -3567,6 +3567,28 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
     first wall, body or the floor sets it off: `blastAt` with radius 100,
     full 6, 200 (was radius 100; Jack cut it to 75%, so 75) - walls between block it, the thrower is spared. `txfboom`
     draws the fireball and the 75m shock ring for everyone.
+  - **3 INFERNO** (`TXF.inferno`, Jack's "HP210" picture, named INFERNO by
+    him): a fire shotgun. One cone of fire a shot (0.22 rad each side): 120
+    inside 4m, falling to nothing at 12m, walls block it, and the target
+    burns 8/s for 4s through the ordinary burn tick. 0.9s between shots, 6
+    then a 2.5s reload (R, or empty); server event `inferno` keeps rate, mag
+    and reload; everyone sees `infernofx`. Drawn: boxy worn-steel receiver,
+    slotted sides, rail with raised orange-tipped sights, the round drum with
+    its name plate on the left (the side you see), the tube under the
+    barrel, a wide mouth, a sling strap. Aims with the red dot (`dotOnly`).
+  - **F ARC BLADES** (`TXF.arc`, Jack's picture, his name): twin energy
+    blades on one hilt - wrapped grip, hazard-striped pommel and knuckle
+    guard, a housing with a glowing danger sign and pipes, two curved
+    additive blades with lightning lines redrawn every 70ms. Held in the
+    right glove only. Left-click slashes for 50 within 3.5m (the sword's arc
+    0.55 and pace 360ms; walls block; server `arcslash`); right-click is the
+    lightning burst: 80 to everyone within 4m, walls block, 8s (`arcburst`,
+    `arcburstfx`). F picks them for TxF; inventory is [MINIGUN, TXFMSL,
+    INFERNO, ARCBLADES]. The weapons page lists all four for TxF.
+  - Measured (`scratchpad/txfmelee.js`): INFERNO six shots then the reload;
+    slash 100 -> 50; burst kills, credited to TxF, 8s cooldown. Range:
+    INFERNO 100 -> 12 at 6.1m and burning; slash 50; burst 80; a second
+    burst refused.
   - Measured (`scratchpad/txfarms.js`): buy and rifle refused, two minigun
     rounds 100 -> 60, two at once land one, a missile at the victim's feet
     kills from 100 and TxF stays 500. Range: spin-up then a kill; missile in

@@ -771,6 +771,7 @@ function respawnAll(room) {
   for (const p of players.values()) {
     const s = spots[i++] || randomSpawn(room);
     p.x = s.x; p.z = s.z; p.y = 0; p.hp = maxHpOf(p); p.alive = true; p.laserOn = false; p.fly = false;
+    p.infMag = TXF.inferno.mag; p.infReloadAt = 0;
     p.tp = (p.tp || 0) + 1;        // force the client to accept this position
     p.burnUntil = 0; p.burnRate = 0; p.inFire = false;
     p.markedUntil = 0; p.markedBy = null; p.rl = 0; p.st = 0; p.diedAt = 0;
@@ -1045,6 +1046,7 @@ io.on('connection', (socket) => {
     agent: agentId,                    // locked for this connection
     teleShots: [], pulseReadyAt: 0, laserOn: false, heat: 0, overheatUntil: 0, fly: false,   // TxF
     mslShots: [], mgHeat: 0, mgAt: 0, mgHotUntil: 0,                                        // TxF's own weapons
+    infMag: TXF.inferno.mag, infAt: 0, infReloadAt: 0, arcAt: 0, arcBurstAt: 0,
     gshots: [], zoneUntil: 0, zoneReadyAt: 0,
     sensorShots: [], droneReadyAt: 0, dogReadyAt: 0, linked: new Map(),   // Silvars
     ishots: [], barrageReadyAt: 0, missileReadyAt: 0,                    // Salvo
@@ -1516,6 +1518,92 @@ io.on('connection', (socket) => {
     io.to(room.id).emit('impact', { x: o.x + dir.x*best.t, y: o.y + dir.y*best.t, z: o.z + dir.z*best.t, head: best.zone === 'head', zone: best.zone, by: p.id });
     txfHurt(room, t, dmg, p, { x: p.x, z: p.z }, best.zone === 'head');
   });
+  /* TxF's INFERNO: a cone of fire from his eye. Everyone inside the cone and
+     the range, with nothing solid between, is hurt by distance and set
+     burning. The server keeps the rate, the magazine and the reload. */
+  socket.on('inferno', (d) => {
+    const p = players.get(socket.id); if (!txfOK(p) || !d) return;
+    const now = Date.now(), F = TXF.inferno;
+    if (p.infReloadAt && now >= p.infReloadAt) { p.infMag = F.mag; p.infReloadAt = 0; }
+    if (p.infReloadAt || p.infMag <= 0 || now - (p.infAt || 0) < F.rateMs * 0.75) { sendTxfTimers(p, now); return; }
+    p.infAt = now; p.infMag--;
+    if (p.infMag <= 0) p.infReloadAt = now + F.reloadMs;
+    const eye = (p.y || 0) + [1.7, 1.05, 0.6][p.st | 0];
+    const o = { x: p.x, y: eye, z: p.z }, dir = normalize(+d.dx || 0, +d.dy || 0, +d.dz || -1);
+    noiseMade(room, p.id, now);
+    io.to(room.id).emit('infernofx', { x: o.x, y: o.y, z: o.z, dx: dir.x, dy: dir.y, dz: dir.z, by: p.id });
+    for (const t of players.values()) {
+      if (!t.alive || t.id === p.id) continue;
+      const cx = aimX(t), cy = (t.y || 0) + 1.1, cz = aimZ(t);
+      const vx = cx - o.x, vy = cy - o.y, vz = cz - o.z, dist = Math.hypot(vx, vy, vz);
+      if (dist > F.range || dist < 1e-3) continue;
+      const cos = (vx * dir.x + vy * dir.y + vz * dir.z) / dist;
+      if (cos < Math.cos(F.cone)) continue;
+      const to = { x: vx / dist, y: vy / dist, z: vz / dist };
+      let blocked = false;
+      for (const r of room.rayBoxes) { const h = rayBoxHit(o, to, r); if (h && h.t > 0.05 && h.t < dist) { blocked = true; break; } }
+      if (blocked) continue;
+      const dmg = Math.round((dist <= F.full ? F.dmg : F.dmg * (1 - (dist - F.full) / (F.range - F.full))) * blastMul(t));
+      if (dmg <= 0) continue;
+      t.burnUntil = now + F.burnMs; t.burnNext = now + 1000; t.burnBy = p.id; t.burnRate = Math.max(t.burnRate || 0, F.burnDps);
+      io.to(room.id).emit('impact', { x: cx, y: cy, z: cz, head: false, zone: 'torso', fire: true, by: p.id });
+      txfHurt(room, t, dmg, p, { x: p.x, z: p.z });
+    }
+    sendTxfTimers(p, now);
+  });
+  socket.on('infreload', () => {
+    const p = players.get(socket.id); if (!p || p.agent !== 'txf') return;
+    const now = Date.now();
+    if (!p.infReloadAt && p.infMag < TXF.inferno.mag) p.infReloadAt = now + TXF.inferno.reloadMs;
+    sendTxfTimers(p, now);
+  });
+  /* TxF's ARC BLADES: a slash (the sword's reach test, through walls never),
+     and the lightning burst round him */
+  socket.on('arcslash', (d) => {
+    const p = players.get(socket.id); if (!txfOK(p) || !d) return;
+    const now = Date.now(), A = TXF.arc;
+    if (now - (p.arcAt || 0) < A.rateMs * 0.75) return;
+    p.arcAt = now;
+    const eye = (p.y || 0) + [1.7, 1.05, 0.6][p.st | 0];
+    const o = { x: p.x, y: eye, z: p.z }, dir = normalize(+d.dx || 0, +d.dy || 0, +d.dz || -1);
+    io.to(room.id).emit('arcslashfx', { by: p.id, x: p.x, z: p.z });
+    let best = null, bestD = Infinity;
+    for (const t of players.values()) {
+      if (!t.alive || t.id === p.id) continue;
+      const h = stateAt(t, now - rewindFor(p));
+      const vx = h.x - o.x, vy = (h.y || 0) + 1.1 - o.y, vz = h.z - o.z, dist = Math.hypot(vx, vy, vz);
+      if (dist > A.reach || dist < 1e-3) continue;
+      if ((vx * dir.x + vy * dir.y + vz * dir.z) / dist < A.arc) continue;
+      const to = { x: vx / dist, y: vy / dist, z: vz / dist };
+      let blocked = false;
+      for (const r of room.rayBoxes) { const hh = rayBoxHit(o, to, r); if (hh && hh.t > 0.1 && hh.t < dist) { blocked = true; break; } }
+      if (!blocked && dist < bestD) { bestD = dist; best = t; }
+    }
+    if (!best) return;
+    io.to(room.id).emit('impact', { x: best.x, y: (best.y || 0) + 1.1, z: best.z, head: false, zone: 'torso', by: p.id });
+    txfHurt(room, best, A.dmg, p, { x: p.x, z: p.z });
+  });
+  socket.on('arcburst', () => {
+    const p = players.get(socket.id); if (!txfOK(p)) return;
+    const now = Date.now(), A = TXF.arc;
+    if (now < (p.arcBurstAt || 0)) { sendTxfTimers(p, now); return; }
+    p.arcBurstAt = now + A.burstCdMs;
+    const o = { x: p.x, y: (p.y || 0) + 1.1, z: p.z };
+    io.to(room.id).emit('arcburstfx', { x: o.x, y: o.y, z: o.z, r: A.burstR, by: p.id });
+    for (const t of players.values()) {
+      if (!t.alive || t.id === p.id) continue;
+      const cx = aimX(t), cy = (t.y || 0) + 1.1, cz = aimZ(t);
+      const vx = cx - o.x, vy = cy - o.y, vz = cz - o.z, dist = Math.hypot(vx, vy, vz);
+      if (dist > A.burstR) continue;
+      let blocked = false;
+      if (dist > 0.2) { const to = { x: vx / dist, y: vy / dist, z: vz / dist };
+        for (const r of room.rayBoxes) { const h = rayBoxHit(o, to, r); if (h && h.t > 0.05 && h.t < dist) { blocked = true; break; } } }
+      if (blocked) continue;
+      io.to(room.id).emit('impact', { x: cx, y: cy, z: cz, head: false, zone: 'torso', by: p.id });
+      txfHurt(room, t, A.burstDmg, p, { x: p.x, z: p.z });
+    }
+    sendTxfTimers(p, now);
+  });
   /* TxF's missile: flies straight on the server; a 100m blast where it hits */
   socket.on('txfmsl', (d) => {
     const p = players.get(socket.id); if (!txfOK(p) || !d) return;
@@ -1881,7 +1969,10 @@ function sendTxfTimers(p, now) {
                      teleQ: (p.teleShots || []).map(t => t + TXF.tele.cdMs - now).filter(ms => ms > 0),
                      pulse: Math.max(0, (p.pulseReadyAt || 0) - now),
                      mslQ: (p.mslShots || []).map(t => t + TXF.missile.cdMs - now).filter(ms => ms > 0),
-                     mgHot: Math.max(0, (p.mgHotUntil || 0) - now) });
+                     mgHot: Math.max(0, (p.mgHotUntil || 0) - now),
+                     infMag: (p.infReloadAt && now >= p.infReloadAt) ? TXF.inferno.mag : (p.infMag | 0),
+                     infReload: Math.max(0, (p.infReloadAt || 0) - now),
+                     arcBurst: Math.max(0, (p.arcBurstAt || 0) - now) });
 }
 /* TxF's missiles in flight: straight, no gravity; the first wall, body or
    the floor sets them off. A 100m blast through blastAt (walls block it,

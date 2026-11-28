@@ -33,6 +33,16 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
       document.getElementById('magNum').textContent = hot ? '--' : Math.round(txf.mgHeat * 100) + '%';
       document.getElementById('reserveNum').textContent = '';
       document.getElementById('modeLbl').textContent = hot ? 'MINIGUN · OVERHEAT ' + Math.ceil((txf.mgHotUntil - now) / 1000) + 's' : 'MINIGUN · HEAT';
+    } else if(w.kind === 'inferno'){
+      const rl = now < txf.infReloadAt;
+      document.getElementById('magNum').textContent = rl ? '--' : txf.infMag;
+      document.getElementById('reserveNum').textContent = '/ ' + TXF.inferno.mag;
+      document.getElementById('modeLbl').textContent = rl ? 'INFERNO · RELOADING' : 'INFERNO · FIRE BLAST';
+    } else if(w.kind === 'arc'){
+      const cd = Math.max(0, Math.ceil((txf.arcBurstAt - now) / 1000));
+      document.getElementById('magNum').textContent = cd ? cd + 's' : 'READY';
+      document.getElementById('reserveNum').textContent = '';
+      document.getElementById('modeLbl').textContent = 'ARC BLADES · RIGHT-CLICK: LIGHTNING BURST';
     } else {
       const have = txfMslHave(now), next = txf.mslQ.length ? Math.max(0, Math.ceil((Math.min(...txf.mslQ) - now) / 1000)) : 0;
       document.getElementById('magNum').textContent = have;
@@ -726,6 +736,13 @@ const Sfx = (()=>{
       S.g.gain.setTargetAtTime(Math.max(0, level) * 0.05, t, 0.05);
       S.o.frequency.setTargetAtTime(60 + level * 260, t, 0.08);
     }),
+    /* INFERNO's roar of fire, the arc blades' crackling swish, and their burst */
+    inferno: safe((at)=>{ const dest = at ? bus(at, 50) : master; if(!dest) return;
+      nz(dest,'lowpass',700,0.5,0.6,0.7,240); nz(dest,'bandpass',1800,0.25,0.3,1.0,600); osc(dest,'sawtooth',90,40,0.4,0.18); }),
+    arcSlash: safe((at)=>{ const dest = at ? bus(at, 16) : master; if(!dest) return;
+      nz(dest,'highpass',3200,0.16,0.28,1.0,900); osc(dest,'sawtooth',900,240,0.14,0.07); osc(dest,'square',2400,1800,0.05,0.04,0.03); }),
+    arcBurst: safe((at)=>{ const dest = at ? bus(at, 40) : master; if(!dest) return;
+      nz(dest,'highpass',2400,0.35,0.5); osc(dest,'sawtooth',180,60,0.5,0.22); nz(dest,'bandpass',900,0.4,0.35,0.8,3000); }),
     txfLaunch: safe((at)=>{ const dest = at ? bus(at, 60) : master; if(!dest) return;
       nz(dest,'bandpass',700,0.6,0.42,0.7,2800); osc(dest,'sawtooth',70,220,0.5,0.14); osc(dest,'sine',1400,500,0.7,0.06); }),
     bigBoom: safe((at)=>{ const dest = at ? bus(at, 260) : master; if(!dest) return;

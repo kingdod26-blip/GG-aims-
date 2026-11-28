@@ -39,7 +39,7 @@ addEventListener('keydown',e=>{
   // G and X are the agent's: a weapon slot to equip, or an instant ability
   if(e.code==='KeyG' && !e.repeat){ const g = agent().g; if(typeof g === 'string') useAgentKey(g); else switchWeapon(g); }
   if(e.code==='KeyX' && !e.repeat){ const x = agent().x; if(x === 'zone') startZone(); else if(typeof x === 'string') useAgentKey(x); else switchWeapon(x); }
-  if(e.code==='KeyF') switchWeapon(BLADE);              // equip the blade
+  if(e.code==='KeyF') switchWeapon(myAgent === 'txf' ? ARCBLADES : BLADE);   // equip the blade (TxF: his arc blades)
   if(e.code==='KeyM' && !e.repeat){ e.preventDefault(); cycleMap(); }   // small -> large -> site
   if(e.code==='KeyV' && !e.repeat){ const v = agent().v; if(v === 'dash') startDash(); else if(v === 'roll') startRoll();
     else if(typeof v === 'number') switchWeapon(v);   // Silvars: the sensor, into your hand
@@ -134,6 +134,7 @@ addEventListener('mousedown',e=>{
   if(typeof missileOn === 'function' && missileOn()){ if(e.button===0 && pointerLocked) missileDetonate(salvo.missile.pos.clone()); return; }
   if(e.button===0){ wantFire=true; semiQueued=true; }
   // crossbow: right-click switches fire mode instead of aiming
+  if(e.button===2 && curW().kind === 'arc'){ arcBurst(); return; }   // TxF's blades: the lightning burst
   if(e.button===2){ if(curW().melee) startCharge();                 // the blade: hold to charge a cut
                     else if(curW().ability && curW().kind !== 'sensor' && curW().kind !== 'missile'){ ricochet=!ricochet; Sfx.swap(); updateHUD(); }
                     else aiming=true; } });   // abilities don't ADS
@@ -171,6 +172,7 @@ function raySphere(o,dir,cx,cy,cz,r){ const ox=o.x-cx,oy=o.y-cy,oz=o.z-cz; const
 let reloadStart=0;
 const RELOAD_LINES=['Reloading!','Reloading, cover me!','Changing mags!'];
 function reload(){ const w=curW();
+  if(w.txf){ if(w.kind === 'inferno') infernoReload(); return; }   // TxF's own: only the INFERNO reloads
   if(w.ability) return;                       // the crossbow recharges, it doesn't reload
   const a=curAmmo();
   if(reloading||a.mag===w.magMax||a.reserve<=0) return; reloading=true;

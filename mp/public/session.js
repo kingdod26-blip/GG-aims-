@@ -776,6 +776,9 @@ function connectMP(name){
   socket.on('pulse', d=> onPulseSeen(d));
   socket.on('pulsed', d=> onPulsed(d));
   socket.on('txfboom', d=> onTxfBoom(d));
+  socket.on('infernofx', d=> onInfernoFx(d));
+  socket.on('arcburstfx', d=> onArcBurstFx(d));
+  socket.on('arcslashfx', d=> { if(d && d.by !== myId) Sfx.arcSlash({ x:d.x, z:d.z }); });
   socket.on('txflaunch', d=> { if(d && d.by !== myId) Sfx.txfLaunch({ x:d.x, z:d.z }); });
   /* Salvo: everyone's barrage warning, and his own timers and missile id */
   socket.on('barrage', d=> onBarrage(d));

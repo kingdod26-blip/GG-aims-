@@ -844,3 +844,270 @@ function weaponsFrame(dt){
 { const _reset = txfReset; txfReset = function(){ _reset();
     txf.spin = 0; txf.mgHeat = 0; txf.mgHotUntil = 0; txf.mslQ = [];
     for (const m of txf.msls) scene.remove(m.mesh); txf.msls.length = 0; Sfx.mgSpin(0); }; }
+
+/* =================== INFERNO and ARC BLADES (Jack's pictures, 2026-11-28) ===================
+   3: INFERNO, a fire shotgun (TXF.inferno): one cone of fire a shot.
+   F: ARC BLADES, twin energy blades (TXF.arc): slash, and a lightning burst
+   on right-click. Both drawn from Jack's reference pictures. */
+txf.infMag = TXF.inferno.mag; txf.infReloadAt = 0; txf.arcBurstAt = 0; txf.arcSwing = 0; txf.arcSide = 1;
+
+/* INFERNO: a long boxy steel receiver with slots down its sides, a top rail
+   with raised front and rear sights, a big round drum on its right side with
+   its name plate, a heavy tube under the barrel, a wide muzzle, a sling
+   strap round the back, a pistol grip and a fore grip. */
+function drawInferno(){
+  const g = new THREE.Group(), dk = M_DARK(), st = dmatL('infstl', [0.34, 0.31, 0.27], 0.8, 0.5, 1), org = M_TXFORG(), poly = M_POLY();
+  dBox(g, st, 0.08, 0.1, 0.62, 0, 0.0, -0.2);                               // the receiver
+  dBox(g, st, 0.07, 0.09, 0.16, 0, -0.01, 0.19);                             // the stock block
+  dBox(g, dk, 0.072, 0.1, 0.02, 0, -0.01, 0.275);                            // butt pad
+  for (const sx of [-1, 1]) for (let k = 0; k < 5; k++)                      // the slots down each side
+    dBox(g, dk, 0.004, 0.022, 0.05, sx * 0.0405, 0.018, -0.42 + k * 0.085);
+  /* the top rail and its two raised sights */
+  dBox(g, dk, 0.05, 0.014, 0.5, 0, 0.057, -0.22);
+  for (let k = 0; k < 16; k++) dBox(g, st, 0.054, 0.006, 0.008, 0, 0.066, -0.45 + k * 0.03);
+  dBox(g, st, 0.05, 0.035, 0.03, 0, 0.08, 0.02); dBox(g, org, 0.02, 0.012, 0.03, 0, 0.1, 0.02);     // rear sight
+  dBox(g, st, 0.05, 0.035, 0.03, 0, 0.08, -0.46); dBox(g, org, 0.012, 0.012, 0.03, 0, 0.1, -0.46);  // front sight
+  /* the drum on the left, the side you see: a rim, a face, the name plate */
+  { const drum = new THREE.Group(); drum.position.set(-0.062, -0.025, -0.08); drum.rotation.y = Math.PI; g.add(drum);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.05, 36), st); body.rotation.z = Math.PI / 2; dAdd(drum, body);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.083, 0.006, 8, 36), dk); rim.rotation.y = Math.PI / 2; rim.position.x = 0.026; dAdd(drum, rim);
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.006, 36), st); face.rotation.z = Math.PI / 2; face.position.x = 0.026; dAdd(drum, face);
+    dBox(drum, dk, 0.004, 0.032, 0.09, 0.03, 0.0, 0.0);                     // the name plate
+    dDecal(drum, 'INFERNO', 0.0325, 0.0, 0.0, 0.08, 0.022, 1);
+    for (let k = 0; k < 6; k++){ const a = k * Math.PI / 3; dScrew(drum, 0.03, Math.cos(a) * 0.058, Math.sin(a) * 0.058, 'x', 0.003); } }
+  /* the tube under the barrel, and the muzzle */
+  dTube(g, st, 0.034, 0.36, 0, -0.075, -0.3, 0.034, 24);
+  dTube(g, org, 0.036, 0.02, 0, -0.075, -0.47, 0.036, 24);
+  dTube(g, dk, 0.026, 0.004, 0, -0.075, -0.482, 0.026, 18);
+  dBox(g, dk, 0.06, 0.07, 0.012, 0, 0.0, -0.512);                            // the wide mouth
+  dBox(g, org, 0.066, 0.008, 0.02, 0, 0.042, -0.5);
+  /* the sling strap round the back, grips */
+  dBox(g, M_RUBBERISH(), 0.086, 0.106, 0.03, 0, 0.0, 0.07);
+  dProf(g, poly, [[0.035, -0.05], [0.005, -0.05], [-0.005, -0.16], [0.04, -0.16]], 0.03, 0.004, 0, 0, 0.11);
+  dProf(g, poly, [[0.02, -0.105], [-0.02, -0.105], [-0.025, -0.2], [0.02, -0.2]], 0.032, 0.004, 0, 0, -0.3);
+  dDecal(g, 'TxF  •  FIRE', -0.0405, 0.0, 0.1, 0.12, 0.016, -1);
+  return { g, grip: [0, -0.115, 0.08], fore: [0, -0.1, -0.3], mag: null, magAt: [0, -0.2, -0.1], aimTop: 0.1,
+           vm: { x: 0.15, y: -0.15, z: -0.5, adsZ: 0.15, rx: 0.03, ry: 0.07, rz: -0.03, viewFov: 62, motion: 0.6 } };
+}
+function M_RUBBERISH(){ return dmatL('txfstrap', [0.02, 0.02, 0.018], 0.0, 0.9, 2); }
+
+/* ARC BLADES: a wrapped grip with taped bands, a hazard-striped pommel and
+   knuckle guard, a housing on top with a glowing danger sign and pipes, and
+   two curved blades of light out of it with lightning crawling over them. */
+function arcBladeShape(len){
+  const s = new THREE.Shape();
+  s.moveTo(-0.018, 0); s.lineTo(0.02, 0);
+  s.lineTo(0.035, len * 0.18);                                                // the barb near the base
+  s.lineTo(0.012, len * 0.22);
+  s.quadraticCurveTo(0.05, len * 0.6, 0.012, len);                              // the curve out to the point
+  s.quadraticCurveTo(0.0, len * 0.6, -0.03, len * 0.25);
+  s.lineTo(-0.018, 0);
+  return s;
+}
+function drawArcBlades(){
+  const root = new THREE.Group(), g = new THREE.Group(); root.add(g);
+  const dk = M_DARK(), st = M_TXFSTL(), y = M_TXFY();
+  const V = (r0, r1, h, m, x, yy, z) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, h, 18), m); o.position.set(x, yy, z); return dAdd(g, o); };
+  /* the grip, wrapped, with tape bands; the striped pommel */
+  V(0.017, 0.017, 0.12, dk, 0, 0, 0);
+  for (let k = 0; k < 5; k++){ const b = new THREE.Mesh(new THREE.TorusGeometry(0.0175, 0.003, 6, 18), k % 2 ? y : dk); b.rotation.x = Math.PI / 2; b.position.y = -0.045 + k * 0.022; dAdd(g, b); }
+  V(0.02, 0.02, 0.05, y, 0, -0.085, 0);
+  for (let k = 0; k < 3; k++) dBox(g, dk, 0.041, 0.008, 0.041, 0, -0.1 + k * 0.016, 0, 0, 0.5);
+  /* the knuckle guard: a frame from the pommel up to the housing, in front of the fingers */
+  dBox(g, st, 0.012, 0.15, 0.012, 0, -0.03, -0.05, 0, 0);
+  dBox(g, y, 0.013, 0.1, 0.004, 0, -0.03, -0.057);
+  for (let k = 0; k < 4; k++) dBox(g, dk, 0.014, 0.008, 0.005, 0, -0.07 + k * 0.025, -0.058, 0.6);
+  dBox(g, st, 0.012, 0.012, 0.06, 0, -0.105, -0.025);
+  /* the housing on top: a block, the glowing danger sign, two pipes */
+  dBox(g, st, 0.05, 0.05, 0.07, 0, 0.085, -0.01);
+  dBox(g, dk, 0.052, 0.012, 0.072, 0, 0.115, -0.01);
+  { const tri = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.004, 3), new THREE.MeshBasicMaterial({ color: 0xff9a20 }));
+    tri.rotation.set(Math.PI / 2, 0, 0); tri.position.set(0, 0.085, 0.027); g.add(tri); }   // on the face toward you
+  for (const sx of [-1, 1]){
+    const pipe = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.004, 6, 14, Math.PI), dk);
+    pipe.position.set(sx * 0.028, 0.08, 0.0); pipe.rotation.y = Math.PI / 2; dAdd(g, pipe); }
+  for (const sx of [-1, 1]) dScrew(g, sx * 0.0255, 0.07, -0.03, 'x', 0.003);
+  /* the blades: a glowing body, a white-hot core, lightning over them */
+  const glow = new THREE.MeshBasicMaterial({ color: 0xff6a0c, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const core = new THREE.MeshBasicMaterial({ color: 0xffc860, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const bolts = [];
+  for (const [bx, bz, lean, len] of [[-0.014, 0.012, -0.06, 0.56], [0.014, -0.02, 0.1, 0.62]]){
+    const b = new THREE.Group(); b.position.set(bx, 0.12, bz); b.rotation.z = lean; g.add(b);                    // broadside to the viewer
+    const outer = new THREE.Mesh(new THREE.ShapeGeometry(arcBladeShape(len), 16), glow); b.add(outer);
+    const inner = new THREE.Mesh(new THREE.ShapeGeometry(arcBladeShape(len), 16), core); inner.scale.set(0.45, 0.96, 1); inner.position.z = 0.001; b.add(inner);
+    const lm = new THREE.LineBasicMaterial({ color: 0xffe8a0, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+    const line = new THREE.Line(new THREE.BufferGeometry(), lm); line.frustumCulled = false; b.add(line);
+    bolts.push({ line, len });
+    for (const m of [outer, inner]) m.renderOrder = 1001;
+  }
+  root.userData = { blades: g, bolts };
+  /* held upright in the fist, leaning out to the right and forward */
+  g.rotation.set(-0.35, 0, -0.25);
+  g.position.set(0, -0.11, 0.07);
+  return { g: root, grip: [0, -0.115, 0.075], fore: [0, -0.115, 0.075], mag: null, magAt: [0, -0.2, 0.0], aimTop: 0.1,
+           vm: { x: 0.26, y: -0.1, z: -0.5, adsZ: 0, rx: 0, ry: 0, rz: 0, viewFov: 0 } };
+}
+/* lightning crawling over the blades: a new jagged line every few frames */
+function arcBoltsFrame(b){
+  for (const L of b.userData.bolts){
+    const pts = []; let x = 0;
+    for (let i = 0; i <= 12; i++){ const t = i / 12; x = (Math.random() - 0.5) * 0.03; pts.push(new THREE.Vector3(x + 0.006 * Math.sin(t * 7), t * L.len * 0.95, 0.002)); }
+    L.line.geometry.dispose(); L.line.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+  }
+}
+const TXF_INF_BUILT = drawInferno(), TXF_ARC_BUILT = drawArcBlades();
+mountGun(INFERNO, TXF_INF_BUILT);
+mountGun(ARCBLADES, TXF_ARC_BUILT);
+WEAPONS[INFERNO].redDot = true; WEAPONS[INFERNO].dotOnly = true;      // aimed like his others: the red dot
+/* the blades are held in the right hand only */
+{ const r = VM_RIGS[ARCBLADES]; if (r && r.left && r.left.parent) r.left.parent.remove(r.left); }
+{ const _tg = txfGlove; txfGlove = function(b){
+    _tg(b);
+    const rOff = b.right.position.clone().sub(new THREE.Vector3().fromArray(PAC9_GRIP));
+    const lOff = b.left.position.clone().sub(new THREE.Vector3().fromArray(PAC9_FORE));
+    const r = VM_RIGS[INFERNO];
+    if (r && r.right.parent){
+      const parent = r.right.parent, right = b.right.clone(), left = b.left.clone();
+      right.position.copy(r.grip).add(rOff); const fb = r.fore.clone(); fb.y += 0.01; left.position.copy(fb).add(lOff);
+      parent.remove(r.right); if (r.left.parent) parent.remove(r.left); parent.add(right, left);
+      r.grip = right.position.clone(); r.fore = left.position.clone(); r.right = right; r.left = left;
+    }
+    const a = VM_RIGS[ARCBLADES];
+    if (a && a.right.parent){
+      const parent = a.right.parent, right = b.right.clone();
+      right.position.copy(a.grip).add(rOff);
+      parent.remove(a.right); if (a.left && a.left.parent) a.left.parent.remove(a.left); parent.add(right);
+      a.grip = right.position.clone(); a.right = right;
+    }
+  }; }
+if (PAC9_BUILT) txfGlove(PAC9_BUILT);        // gloveEveryGun already calls txfGlove (rewrapped above)
+
+/* the trigger, for these two (txfWeaponShot hands them here) */
+{ const _shot = txfWeaponShot; txfWeaponShot = function(w, now){
+    if (w.kind === 'inferno') return infernoShot(w, now);
+    if (w.kind === 'arc') return arcSlash(w, now);
+    return _shot(w, now);
+  }; }
+function infernoReload(){
+  const now = performance.now();
+  if (now < txf.infReloadAt || txf.infMag >= TXF.inferno.mag) return;
+  txf.infReloadAt = now + TXF.inferno.reloadMs; Sfx.magOut();
+  if (gameMode === 'mp' && socket) socket.emit('infreload');
+}
+function infernoShot(w, now){
+  const F = TXF.inferno;
+  if (txf.infReloadAt && now >= txf.infReloadAt){ txf.infMag = F.mag; txf.infReloadAt = 0; Sfx.magIn(); }
+  if (now < txf.infReloadAt) return;
+  if (txf.infMag <= 0){ infernoReload(); return; }
+  lastShot = now;
+  if (!training('infAmmo')){ txf.infMag--; if (txf.infMag <= 0) infernoReload(); }
+  const dir = new THREE.Vector3(0, 0, -1).applyEuler(_te.set(me.pitch, me.yaw, 0)), o = camera.position.clone();
+  gunKick = 1; updateHUD();
+  onInfernoFx({ x: o.x, y: o.y, z: o.z, dx: dir.x, dy: dir.y, dz: dir.z, by: 'me' });
+  if (gameMode === 'mp'){ if (socket) socket.emit('inferno', { dx: dir.x, dy: dir.y, dz: dir.z }); }
+  else {
+    let any = false;
+    for (const b of localBots){
+      if (!b.alive) continue;
+      const c = new THREE.Vector3(b.x, 1.1, b.z), v = c.clone().sub(o), dist = v.length();
+      if (dist > F.range || v.normalize().dot(dir) < Math.cos(F.cone)) continue;
+      _tx.set(o, v); _tx.far = dist; if (_tx.intersectObjects(wallMeshes, false).length) continue;
+      const dmg = Math.round(dist <= F.full ? F.dmg : F.dmg * (1 - (dist - F.full) / (F.range - F.full)));
+      if (dmg <= 0) continue;
+      b.hp -= dmg; any = true;
+      b.burnUntil = now + F.burnMs; b.burnNext = now + 1000; b.burnDps = Math.max(b.burnDps || 0, F.burnDps);
+      if (!b.fire) b.fire = makeBurnFx(b.mesh);
+      if (b.hp <= 0 && b.alive) localKillBot(b);
+    }
+    if (any){ hitmark('torso'); Sfx.hit('torso'); }
+  }
+  me.pitch = Math.min(me.pitch + w.recoil, Math.PI / 2 - 0.05);
+}
+/* everyone's fire blast: a cone of fire rolling out to the range */
+function onInfernoFx(d){
+  if (!d) return;
+  const mine = d.by === myId || d.by === 'me';
+  const from = mine ? muzzleWorld().clone() : new THREE.Vector3(d.x, d.y - 0.25, d.z);
+  const dir = new THREE.Vector3(d.dx, d.dy, d.dz).normalize();
+  const g = new THREE.Group(); scene.add(g);
+  const puffs = [];
+  for (let k = 0; k < 14; k++){
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10), new THREE.MeshBasicMaterial({ color: k % 3 ? 0xd8420c : 0xff9a30, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+    m.frustumCulled = false; m.renderOrder = 946; g.add(m);
+    const spread = new THREE.Vector3((Math.random() - 0.5), (Math.random() - 0.5), (Math.random() - 0.5)).multiplyScalar(0.35);
+    puffs.push({ m, v: dir.clone().add(spread).normalize(), far: TXF.inferno.range * (0.55 + Math.random() * 0.45), d0: Math.random() * 0.1 });
+  }
+  txf.fx.push({ g, t0: performance.now(), ms: 420, kind: 'inferno', from, puffs });
+  Sfx.inferno(mine ? null : { x: d.x, z: d.z });
+}
+/* ARC BLADES: a slash, and the lightning burst */
+function arcSlash(w, now){
+  const A = TXF.arc;
+  lastShot = now; txf.arcSwing = 1; txf.arcSide = -txf.arcSide; Sfx.arcSlash();
+  const dir = new THREE.Vector3(0, 0, -1).applyEuler(_te.set(me.pitch, me.yaw, 0)), o = camera.position.clone();
+  if (gameMode === 'mp'){ if (socket) socket.emit('arcslash', { dx: dir.x, dy: dir.y, dz: dir.z }); return; }
+  let best = null, bestD = Infinity;
+  for (const b of localBots){ if (!b.alive) continue;
+    const to = new THREE.Vector3(b.x - o.x, 1.1 - o.y, b.z - o.z), d = to.length();
+    if (d > A.reach || to.normalize().dot(dir) < A.arc) continue;
+    if (d < bestD){ bestD = d; best = b; } }
+  if (best){ best.hp -= A.dmg; hitmark('torso'); Sfx.hit('torso'); if (best.hp <= 0 && best.alive) localKillBot(best); }
+}
+function arcBurst(){
+  if (gameState !== 'playing' || !me.alive) return;
+  const A = TXF.arc, now = performance.now();
+  if (now < txf.arcBurstAt && !txfFree()){ Sfx.empty(); return; }
+  txf.arcBurstAt = txfFree() ? 0 : now + A.burstCdMs;
+  txf.arcSwing = 1;
+  if (gameMode === 'mp'){ if (socket) socket.emit('arcburst'); return; }
+  onArcBurstFx({ x: me.x, y: me.feetY + 1.1, z: me.z, r: A.burstR, by: 'me' });
+  let any = false;
+  for (const b of localBots){ if (!b.alive) continue;
+    const c = new THREE.Vector3(b.x, 1.1, b.z), o = new THREE.Vector3(me.x, me.feetY + 1.1, me.z), v = c.clone().sub(o), d = v.length();
+    if (d > A.burstR) continue;
+    _tx.set(o, v.normalize()); _tx.far = d; if (d > 0.2 && _tx.intersectObjects(wallMeshes, false).length) continue;
+    b.hp -= A.burstDmg; any = true; if (b.hp <= 0 && b.alive) localKillBot(b); }
+  if (any){ hitmark('torso'); Sfx.hit('torso'); }
+}
+/* everyone's burst: lightning out to the radius, and a flash */
+function onArcBurstFx(d){
+  if (!d) return;
+  const g = new THREE.Group(); g.position.set(d.x, d.y, d.z); scene.add(g);
+  const lm = new THREE.LineBasicMaterial({ color: 0xffc860, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
+  for (let k = 0; k < 16; k++){
+    const dir = new THREE.Vector3(Math.random() - 0.5, (Math.random() - 0.4) * 0.6, Math.random() - 0.5).normalize();
+    const pts = [new THREE.Vector3()]; let p = new THREE.Vector3();
+    for (let i = 0; i < 8; i++){ p = p.clone().addScaledVector(dir, d.r / 8); p.add(new THREE.Vector3((Math.random() - 0.5) * 0.35, (Math.random() - 0.5) * 0.35, (Math.random() - 0.5) * 0.35)); pts.push(p); }
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lm); l.frustumCulled = false; l.renderOrder = 947; g.add(l);
+  }
+  const fm = new THREE.MeshBasicMaterial({ color: 0xffb040, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), fm); ball.frustumCulled = false; g.add(ball);
+  txf.fx.push({ g, t0: performance.now(), ms: 450, kind: 'arcburst', lm, fm, ball, r: d.r });
+  Sfx.arcBurst(d.by === myId || d.by === 'me' ? null : { x: d.x, z: d.z });
+}
+/* the frame: their effects, the slash swing, the lightning on the blades, the reload */
+{ const _wf = weaponsFrame; weaponsFrame = function(dt){
+    _wf(dt);
+    const now = performance.now();
+    if (txf.infReloadAt && now >= txf.infReloadAt){ txf.infMag = TXF.inferno.mag; txf.infReloadAt = 0; Sfx.magIn(); if (curW().kind === 'inferno') updateHUD(); }
+    txf.arcSwing = Math.max(0, txf.arcSwing - dt / 0.32);
+    const bl = TXF_ARC_BUILT.g.userData.blades, s = Math.sin((1 - txf.arcSwing) * Math.PI) * (txf.arcSwing > 0 ? 1 : 0);
+    bl.rotation.set(-0.35 - s * 0.9, 0, -0.25 + txf.arcSide * s * 1.1);
+    if (curW().kind === 'arc' && (txf.boltT = (txf.boltT || 0) + dt) > 0.07){ txf.boltT = 0; arcBoltsFrame(TXF_ARC_BUILT.g); }
+    for (let i = txf.fx.length - 1; i >= 0; i--){
+      const f = txf.fx[i]; if (f.kind !== 'inferno' && f.kind !== 'arcburst') continue;
+      const k = (now - f.t0) / f.ms;
+      if (k >= 1){ scene.remove(f.g); f.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material.dispose) o.material.dispose(); }); txf.fx.splice(i, 1); continue; }
+      if (f.kind === 'inferno') for (const p of f.puffs){
+        const t = Math.max(0, k - p.d0), dd = p.far * (1 - Math.pow(1 - Math.min(1, t * 1.4), 2));
+        p.m.position.copy(f.from).addScaledVector(p.v, dd); p.m.scale.setScalar(0.15 + dd * 0.12); p.m.material.opacity = 0.55 * (1 - k);
+      } else { f.ball.scale.setScalar(0.3 + f.r * k); f.fm.opacity = 0.5 * (1 - k); f.lm.opacity = 1 - k; }
+    }
+  }; }
+{ const _timers = onTxfTimers; onTxfTimers = function(d){ _timers(d); if (!d) return;
+    const now = performance.now();
+    if (d.infMag !== undefined) txf.infMag = d.infMag;
+    if (d.infReload !== undefined) txf.infReloadAt = d.infReload > 0 ? now + d.infReload : 0;
+    if (d.arcBurst !== undefined) txf.arcBurstAt = now + d.arcBurst; }; }
+{ const _reset = txfReset; txfReset = function(){ _reset();
+    txf.infMag = TXF.inferno.mag; txf.infReloadAt = 0; txf.arcBurstAt = 0; txf.arcSwing = 0; }; }

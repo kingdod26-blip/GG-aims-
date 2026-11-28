@@ -58,6 +58,8 @@ const WPN = [
      they are the only weapons shown: he carries nothing else (Jack). */
   { id: 'minigun',  slot: MINIGUN, grp: 'txf', agent: 'txf', key: '1', model: () => drawMinigun().g },
   { id: 'txfmsl',   slot: TXFMSL,  grp: 'txf', agent: 'txf', key: '2', model: () => drawTxfLauncher().g },
+  { id: 'inferno',  slot: INFERNO, grp: 'txf', agent: 'txf', key: '3', model: () => drawInferno().g },
+  { id: 'arcblades', slot: ARCBLADES, grp: 'txf', agent: 'txf', key: 'F', model: () => drawArcBlades().g },
 ];
 /* What the page lists for the agent you are playing. */
 function wpnList(){ return myAgent === 'txf' ? WPN.filter(x => x.agent === 'txf') : WPN.filter(x => x.agent !== 'txf'); }
@@ -85,7 +87,11 @@ function wpnStats(e){
               [t('wp.s.reload'), pgSec(w.reloadMs) + 's'],
               [t('wp.s.range'), w.range + 'm']);
   } else if (w.txf){
-    if (w.kind === 'minigun') rows.push([t('wp.s.dmg'), String(TXF.mg.dmg)], [t('wp.s.rpm'), String(Math.round(60000 / TXF.mg.rateMs))],
+    if (w.kind === 'inferno') rows.push([t('wp.s.dmg'), TXF.inferno.dmg + ' → 0'], [t('wp.s.range'), TXF.inferno.range + 'm'],
+      [t('wp.s.mag'), String(TXF.inferno.mag)], [t('wp.s.reload'), pgSec(TXF.inferno.reloadMs) + 's']);
+    else if (w.kind === 'arc') rows.push([t('wp.s.dmg'), String(TXF.arc.dmg)], [t('wp.s.reach'), TXF.arc.reach + 'm'],
+      [t('wp.s.burst'), TXF.arc.burstDmg + ' · ' + TXF.arc.burstR + 'm · ' + pgSec(TXF.arc.burstCdMs) + 's']);
+    else if (w.kind === 'minigun') rows.push([t('wp.s.dmg'), String(TXF.mg.dmg)], [t('wp.s.rpm'), String(Math.round(60000 / TXF.mg.rateMs))],
       [t('wp.s.heat'), pgSec(TXF.mg.heatMs) + 's / ' + pgSec(TXF.mg.coolMs) + 's'], [t('wp.s.range'), TXF.mg.range + 'm']);
     else rows.push([t('wp.s.dmg'), String(TXF.missile.blast.dmg)], [t('wp.s.blast'), TXF.missile.blast.radius + 'm'],
       [t('wp.s.charges'), String(TXF.missile.charges)], [t('wp.s.cd'), pgSec(TXF.missile.cdMs) + 's']);
@@ -108,6 +114,8 @@ function wpnDesc(e){
            missile: pgFill('ab.missile.d', { life: pgSec(SALVO.missile.lifeMs), dmg: SALVO.missile.blast.dmg, n: SALVO.missile.bomblets, bd: SALVO.missile.bomb.dmg, hp: SALVO.missile.hp, cd: pgSec(SALVO.missile.cdMs) }),
            incen: pgFill('ab.incen.d', { n: SALVO.incen.charges, cd: pgSec(SALVO.incen.cdMs), fuse: pgSec(SALVO.incen.fragFuseMs), dmg: SALVO.frag.dmg }),
            minigun: pgFill('wp.minigun.d', { dmg: TXF.mg.dmg, rpm: Math.round(60000 / TXF.mg.rateMs), spin: pgSec(TXF.mg.spinMs), heat: pgSec(TXF.mg.heatMs), cool: pgSec(TXF.mg.coolMs) }),
+           inferno: pgFill('wp.inferno.d', { dmg: TXF.inferno.dmg, full: TXF.inferno.full, r: TXF.inferno.range, bd: TXF.inferno.burnDps, bs: pgSec(TXF.inferno.burnMs), n: TXF.inferno.mag, rl: pgSec(TXF.inferno.reloadMs) }),
+           arcblades: pgFill('wp.arcblades.d', { dmg: TXF.arc.dmg, reach: TXF.arc.reach, bd: TXF.arc.burstDmg, br: TXF.arc.burstR, cd: pgSec(TXF.arc.burstCdMs) }),
            txfmsl: pgFill('wp.txfmsl.d', { dmg: TXF.missile.blast.dmg, r: TXF.missile.blast.radius, n: TXF.missile.charges, cd: pgSec(TXF.missile.cdMs) }),
            sensor: pgFill('ab.sensor.d', { n: SILV.sensor.charges, r: SILV.sensor.radius, s: pgSec(SILV.linkMs), cd: pgSec(SILV.sensor.cdMs) }) }[e.id] || t('wp.' + e.id + '.d');
 }

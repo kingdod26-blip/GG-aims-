@@ -126,6 +126,16 @@ const TXF = {
      2 the missile: 200 at the centre falling to nothing at 75m, walls
      block it, he is immune to his own; 3 charges, 20s each. */
   mg: { dmg: 20, rateMs: 50, spinMs: 400, heatMs: 6000, coolMs: 3000, range: 300, spread: 0.05, adsSpread: 0.012, recoil: 0.0035 },
+  /* 3 INFERNO (Jack's HP210 picture): a fire shotgun. One cone of fire a
+     shot: `dmg` inside `full`, falling to nothing at `range`, inside a cone
+     of `cone` radians each side; walls block it. It sets the target burning
+     at `burnDps` for `burnMs`. `rateMs` between shots, `mag` then `reloadMs`. */
+  inferno: { dmg: 120, full: 4, range: 12, cone: 0.22, burnDps: 8, burnMs: 4000, rateMs: 900, mag: 6, reloadMs: 2500 },
+  /* F ARC BLADES (Jack's picture): twin energy blades. Left-click slashes
+     for `dmg` within `reach` (the sword's arc and pace); right-click lets
+     the lightning out in a `burstR` burst round him for `burstDmg`, then
+     `burstCdMs`. Walls block the burst. */
+  arc: { dmg: 50, reach: 3.5, arc: 0.55, rateMs: 360, burstR: 4, burstDmg: 80, burstCdMs: 8000 },
   missile: { charges: 3, cdMs: 20000, speed: 45, lifeMs: 6000, r: 0.35,
              blast: { radius: 75, full: 6, dmg: 200 } },   // 75m (Jack: 75% of the first 100m)
 };
