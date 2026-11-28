@@ -151,6 +151,36 @@ bots, which stay untouched (Jack's rule).
 
 ---
 
+## 4. SALVO (new, Jack's design, planned 2026-11-28; NOT BUILT YET)
+
+Jack: an explosives agent modelled on Delta Force's **Uluru (乌鲁鲁)**:
+his Composite Incendiary (复合型燃烧弹) for G and his Loitering Munition
+(巡飞弹) for X. Uluru's own passive is "Battle Hardened" (resists being
+slowed); Salvo's is Jack's own.
+
+| Part | Salvo |
+|---|---|
+| Name | **SALVO** (Jack picked it from suggestions: a volley of shells fired together) |
+| Role | *to decide* |
+| Passive | **Fire- and blast-proof**: takes **75% less** fire and explosive damage, his own and the enemy's (grenades, fire pools and burning, the drone's dive, his own G/V/X). A grenade's 90 becomes about 22. |
+| G | **Composite Incendiary**, thrown. **2 charges, 30s each.** Bursts on landing into a fire pool that is **stronger than Aseed's**: wider, burns harder and longer. **Right-click switches** it to a **frag grenade**: **1s fuse, 90 at the centre** (Blast's is 2s, 90). |
+| V | **Shell barrage**, called by **aim and press**: press V, a target circle shows where you aim (up to **60m**), press again or left-click to confirm. After a **2s** warning, **6 shells** land at random inside a **~10m circle** over **3s**, each up to **60**. Enemies hear a whistle and see the circle. **50s** cooldown. |
+| X | **Steered missile**, like Uluru's loitering munition: fired from the shoulder, you fly it **through its own camera** with the mouse for up to **8s**; on impact **75** plus **4 bomblets of 25**. You stand still and exposed while steering. **Can be shot down** (a few rifle hits). **60s** cooldown after it lands. |
+| Jumps | 1 (no movement ability: his V is the barrage) |
+| Backstory / Look / Voice | *to decide* (look: from Jack's character sheet, like the others) |
+
+**Standard set with Salvo (Jack, 2026-11-28): any agent ability that targets a
+spot uses AIM AND PRESS**: press the key, a marker shows where you aim (within
+range), press again or left-click to confirm. Silvars' G/X orders already work
+this way.
+
+**Notes for building it:** fire pools, burning and grenades already exist
+(effects.js, the GREN and GFIRE blocks; server.js), so G is mostly those with
+Salvo's numbers. The 75% cut goes where the SERVER applies fire and blast
+damage. V and X are new: a server-timed barrage, and a missile the server
+moves and the client steers (a new camera mode). Each needs a `cd-*.png` icon
+from Jack.
+
 ## Looks (Jack's sheets, `Crinsome x/Pictures/character design`) - built 2026-11-27
 
 - **Aseed**: grey hood, crimson mask, plaid poncho over maroon
