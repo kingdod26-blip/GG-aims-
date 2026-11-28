@@ -1218,15 +1218,18 @@ function drawArcBlades(){
     const tip = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.010, 0.022), dk); tip.position.set(cx + (ang > 0 ? -0.008 : 0.008), 0.190, 0); dAdd(g, tip);
     rivet(cx, 0.160, 0.0105);
   }
-  for (const bx of [-0.048, 0.058]){ dBox(g, iron, 0.030, 0.014, 0.024, bx, 0.153, 0); dBox(g, M_TXFGLOW(), 0.022, 0.003, 0.016, bx, 0.1615, 0); }   // the blade sockets, glowing at the lip
+  for (const bx of [-0.054, 0.064]){ dBox(g, iron, 0.030, 0.014, 0.024, bx, 0.153, 0); dBox(g, M_TXFGLOW(), 0.022, 0.003, 0.016, bx, 0.1615, 0); }   // the blade sockets, glowing at the lip
 
   // ---- the blades: molten face with frozen lightning, a soft halo, a hot edge, live lightning ----
   const face = new THREE.MeshBasicMaterial({ map: arcBladeTex(), transparent: true, opacity: 0.96, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const halo = new THREE.MeshBasicMaterial({ color: 0xff6a14, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const halo2 = new THREE.MeshBasicMaterial({ color: 0xff7a1a, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const bolts = [];
-  for (const [bx, lean, len] of [[-0.048, 0, 0.56], [0.058, 0, 0.60]]){
-    const b = new THREE.Group(); b.position.set(bx, 0.160, 0.0); b.rotation.z = lean; g.add(b);
+  /* MIRRORED (Jack, 2026-11-29: "the two blades face different directions"):
+     the second blade is flipped, so each hook points outward, away from the
+     other, and the cutting edges face each other across the gap. */
+  for (const [bx, lean, len, flip] of [[-0.054, 0, 0.56, 1], [0.064, 0, 0.60, -1]]){
+    const b = new THREE.Group(); b.position.set(bx, 0.160, 0.0); b.rotation.z = lean; b.scale.x = flip; g.add(b);
     const shape = arcBladeShape(len);
     { const h = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), halo); h.scale.set(1.16, 1.02, 1); h.position.set(0.002, -0.006, -0.002); b.add(h); h.renderOrder = 1001; }
     const body = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), face); b.add(body); body.renderOrder = 1001;

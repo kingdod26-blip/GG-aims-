@@ -3623,6 +3623,9 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
     Then STRAIGHT (Jack: "the blade need to be straight"): no lean, both
     edges straight lines to a point on the blade's centre line; the
     lightning runs up that centre.
+    And MIRRORED ("the two blades face different directions"): the second
+    blade has scale.x -1, so the hooks point outward and the cutting edges
+    face each other; set at -0.054 / +0.064.
   - **The drum launcher rebuilt too** (2026-11-28, from Jack's HAZARD
     BLASTER picture, ~160 meshes): a hazard-striped yellow drum with blue
     bands, steel end rings and flutes (three chambers, top one on the bore,
