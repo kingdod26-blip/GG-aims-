@@ -54,7 +54,13 @@ const WPN = [
   { id: 'sensor',   slot: SENSOR,  grp: 'gear', agent: 'silvars', key: 'V', model: () => makeSensorMesh() },
   { id: 'incen',    slot: INCEN,   grp: 'gear', agent: 'salvo',   key: 'G', model: () => makeIncenMesh() },
   { id: 'missile',  slot: MISSILE, grp: 'gear', agent: 'salvo',   key: 'X', model: () => makeLauncherMesh() },
+  /* TxF's own two (txf.js). Shown only when TxF is your agent, and then
+     they are the only weapons shown: he carries nothing else (Jack). */
+  { id: 'minigun',  slot: MINIGUN, grp: 'txf', agent: 'txf', key: '1', model: () => drawMinigun().g },
+  { id: 'txfmsl',   slot: TXFMSL,  grp: 'txf', agent: 'txf', key: '2', model: () => drawTxfLauncher().g },
 ];
+/* What the page lists for the agent you are playing. */
+function wpnList(){ return myAgent === 'txf' ? WPN.filter(x => x.agent === 'txf') : WPN.filter(x => x.agent !== 'txf'); }
 /* the guns' bars are each gun against the best of the five */
 const GUNS = WPN.filter(w => w.slot <= 4).map(w => WEAPONS[w.slot]);
 const BAR = {
@@ -78,6 +84,11 @@ function wpnStats(e){
               [t('wp.s.mag'), `${w.magMax} / ${w.reserveMax}`],
               [t('wp.s.reload'), pgSec(w.reloadMs) + 's'],
               [t('wp.s.range'), w.range + 'm']);
+  } else if (w.txf){
+    if (w.kind === 'minigun') rows.push([t('wp.s.dmg'), String(TXF.mg.dmg)], [t('wp.s.rpm'), String(Math.round(60000 / TXF.mg.rateMs))],
+      [t('wp.s.heat'), pgSec(TXF.mg.heatMs) + 's / ' + pgSec(TXF.mg.coolMs) + 's'], [t('wp.s.range'), TXF.mg.range + 'm']);
+    else rows.push([t('wp.s.dmg'), String(TXF.missile.blast.dmg)], [t('wp.s.blast'), TXF.missile.blast.radius + 'm'],
+      [t('wp.s.charges'), String(TXF.missile.charges)], [t('wp.s.cd'), pgSec(TXF.missile.cdMs) + 's']);
   } else if (w.melee){
     rows.push([t('wp.s.combo'), w.combo.join(' · ')],
               [t('wp.s.heavy'), `${HEAVY.min}–${HEAVY.max}`],
@@ -96,6 +107,8 @@ function wpnDesc(e){
   return { crossbow: both, grenade: pgFill('ab.gren.d', ch),
            missile: pgFill('ab.missile.d', { life: pgSec(SALVO.missile.lifeMs), dmg: SALVO.missile.blast.dmg, n: SALVO.missile.bomblets, bd: SALVO.missile.bomb.dmg, hp: SALVO.missile.hp, cd: pgSec(SALVO.missile.cdMs) }),
            incen: pgFill('ab.incen.d', { n: SALVO.incen.charges, cd: pgSec(SALVO.incen.cdMs), fuse: pgSec(SALVO.incen.fragFuseMs), dmg: SALVO.frag.dmg }),
+           minigun: pgFill('wp.minigun.d', { dmg: TXF.mg.dmg, rpm: Math.round(60000 / TXF.mg.rateMs), spin: pgSec(TXF.mg.spinMs), heat: pgSec(TXF.mg.heatMs), cool: pgSec(TXF.mg.coolMs) }),
+           txfmsl: pgFill('wp.txfmsl.d', { dmg: TXF.missile.blast.dmg, r: TXF.missile.blast.radius, n: TXF.missile.charges, cd: pgSec(TXF.missile.cdMs) }),
            sensor: pgFill('ab.sensor.d', { n: SILV.sensor.charges, r: SILV.sensor.radius, s: pgSec(SILV.linkMs), cd: pgSec(SILV.sensor.cdMs) }) }[e.id] || t('wp.' + e.id + '.d');
 }
 
@@ -163,12 +176,14 @@ function wvLoop(){
 
 function renderWeaponsPage(){
   const pg = byId('wpnPage'); if (!pg) return;
-  const e = WPN.find(x => x.id === wpnSel) || WPN[0], w = WEAPONS[e.slot], st = wpnStats(e);
-  const groups = ['primary', 'sidearm', 'melee', 'gear'];
+  const list = wpnList();
+  const e = list.find(x => x.id === wpnSel) || list[0], w = WEAPONS[e.slot], st = wpnStats(e);
+  wpnSel = e.id;
+  const groups = ['primary', 'sidearm', 'melee', 'gear', 'txf'].filter(g => list.some(x => x.grp === g));
   pg.querySelector('.pg-list').innerHTML = groups.map(g => `<div class="pg-grp">${t('wp.grp.' + g)}</div>` +
-    WPN.filter(x => x.grp === g).map(x => `<button class="pg-item ${x.id === e.id ? 'on' : ''}" data-w="${x.id}">
+    list.filter(x => x.grp === g).map(x => `<button class="pg-item ${x.id === e.id ? 'on' : ''}" data-w="${x.id}">
       <b>${t('w.' + x.id)}</b><i>${x.agent ? AGENTS[x.agent].name : WEAPONS[x.slot].mode === 'MELEE' ? t('wp.mode.melee') : pgEsc(WEAPONS[x.slot].mode)}</i></button>`).join('')).join('');
-  const i = WPN.indexOf(e);
+  const i = list.indexOf(e);
   pg.querySelector('.pg-info').innerHTML = `
     <div class="pg-kicker">${t('wp.grp.' + e.grp)} · ${t('wp.key')} ${e.key}${e.agent ? ' · ' + AGENTS[e.agent].name : ''}</div>
     <h2>${t('w.' + e.id)}</h2>
@@ -177,7 +192,7 @@ function renderWeaponsPage(){
     ${st.bars.length ? `<div class="pg-bars">${st.bars.map(([n, v]) => `<div class="pg-bar"><span>${n}</span><i><em style="width:${Math.round(v * 100)}%"></em></i></div>`).join('')}</div>` : ''}
     <div class="pg-stats">${st.rows.map(([n, v]) => `<div><span>${n}</span><b>${pgEsc(v)}</b></div>`).join('')}</div>
     ${e.agent ? `<button class="pg-link" data-agent="${e.agent}">${t('wp.seeagent')} ${AGENTS[e.agent].name} →</button>` : ''}
-    <div class="pg-nav"><button data-step="-1">← ${t('pg.prev')}</button><span>${i + 1} / ${WPN.length}</span><button data-step="1">${t('pg.next')} →</button></div>`;
+    <div class="pg-nav"><button data-step="-1">← ${t('pg.prev')}</button><span>${i + 1} / ${list.length}</span><button data-step="1">${t('pg.next')} →</button></div>`;
   const has = WV.r ? wvShow(e) : false;
   const ic = pg.querySelector('.pg-icon'); ic.hidden = has || !e.icon; if (e.icon) ic.src = e.icon;
   pg.querySelector('.pg-stage canvas').style.visibility = has ? 'visible' : 'hidden';
@@ -275,7 +290,7 @@ function closePage(quiet){
   byId('wpnPage').addEventListener('click', ev => {
     const it = ev.target.closest('[data-w]'), st = ev.target.closest('[data-step]'), ag = ev.target.closest('[data-agent]');
     if (it){ wpnSel = it.dataset.w; renderWeaponsPage(); Sfx.swap(); }
-    if (st){ const i = WPN.findIndex(x => x.id === wpnSel); wpnSel = WPN[(i + +st.dataset.step + WPN.length) % WPN.length].id; renderWeaponsPage(); Sfx.swap(); }
+    if (st){ const L = wpnList(), i = L.findIndex(x => x.id === wpnSel); wpnSel = L[(i + +st.dataset.step + L.length) % L.length].id; renderWeaponsPage(); Sfx.swap(); }
     if (ag){ openPage('agents'); agSel = ag.dataset.agent; renderAgentsPage(); }
   });
   byId('agPage').addEventListener('click', ev => {

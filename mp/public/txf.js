@@ -641,21 +641,13 @@ function drawTxfLauncher(){
   dBox(g, st, 0.06, 0.12, 0.04, 0, -0.02, -0.16);
   dBox(g, blu, 0.062, 0.02, 0.042, 0, -0.07, -0.16);
   for (const sx of [-1, 1]) dScrew(g, sx * 0.031, 0.0, -0.16, 'x', 0.004);
-  /* the sight: a top rail and a reflex sight on the centreline */
-  dBox(g, dk, 0.03, 0.012, 0.14, 0, 0.048, 0.07);
-  txfSightTube(g, dk, 0.022, 0.06, 0, 0.082, 0.05);
-  txfSightRing(g, org, 0.022, 0, 0.082, 0.02);
-  dBox(g, dk, 0.026, 0.022, 0.04, 0, 0.06, 0.05);
-  { const m = new THREE.MeshStandardMaterial({ color: 0x6a8a90, transparent: true, opacity: 0.18, roughness: 0.05, metalness: 0.6, depthWrite: false });
-    const pane = new THREE.Mesh(new THREE.CircleGeometry(0.019, 20), m); pane.position.set(0, 0.082, 0.019); dAdd(g, pane); }
-  dKnob(g, dk, 0.006, 0.008, 0.026, 0.082, 0.05, 'x');
   /* grips and the trigger guard */
   dProf(g, poly, [[0.035, -0.05], [0.005, -0.05], [-0.005, -0.17], [0.04, -0.17]], 0.03, 0.004, 0, 0, 0.1);
   dProf(g, blu, [[0.02, -0.035], [-0.02, -0.035], [-0.025, -0.14], [0.02, -0.14]], 0.032, 0.004, 0, 0, -0.33);
   { const guard = new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.004, 6, 14, Math.PI), dk); guard.position.set(0, -0.06, 0.06); guard.rotation.set(0, Math.PI / 2, Math.PI); dAdd(g, guard); }
   g.userData = { noses, drum };
   return { g, grip: [0, -0.125, 0.085], fore: [0, -0.08, -0.33], mag: null, magAt: [0, -0.2, -0.06],
-           aimTop: 0.082,
+           aimTop: 0.05,
            vm: { x: 0.15, y: -0.15, z: -0.52, adsZ: 0.2, rx: 0.03, ry: 0.08, rz: -0.03, viewFov: 62, motion: 0.6 } };
 }
 /* What it fires (the same reference): a swirling ball of fire, white-hot in
