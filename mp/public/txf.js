@@ -781,7 +781,7 @@ function localMissilesFrame(dt){
     m.mesh.position.copy(m.pos); m.mesh.lookAt(m.pos.x + dir.x, m.pos.y + dir.y, m.pos.z + dir.z);
   }
 }
-/* the 100m blast, for everyone: a fireball, a shock ring racing out to the
+/* the 75m blast, for everyone: a fireball, a shock ring racing out to the
    edge of the blast, a flash if you are inside it */
 function onTxfBoom(d){
   if (!d) return;

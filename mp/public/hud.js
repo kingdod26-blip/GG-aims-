@@ -37,7 +37,7 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
       const have = txfMslHave(now), next = txf.mslQ.length ? Math.max(0, Math.ceil((Math.min(...txf.mslQ) - now) / 1000)) : 0;
       document.getElementById('magNum').textContent = have;
       document.getElementById('reserveNum').textContent = '/ ' + TXF.missile.charges;
-      document.getElementById('modeLbl').textContent = 'MISSILE · 100m BLAST' + (next ? ' · ' + next + 's' : '');
+      document.getElementById('modeLbl').textContent = 'MISSILE · ' + TXF.missile.blast.radius + 'm BLAST' + (next ? ' · ' + next + 's' : '');
     }
   } else if(w.ability){                            // charges, not magazines
     abilityTick();

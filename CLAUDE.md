@@ -3565,8 +3565,8 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
     20s each. Flies straight at 45 m/s for up to 6s on the server
     (`room.txfMissiles`, snapshot arrow flag bit3, `tickTxfMissiles`); the
     first wall, body or the floor sets it off: `blastAt` with radius 100,
-    full 6, 200 - walls between block it, the thrower is spared. `txfboom`
-    draws the fireball and the 100m shock ring for everyone.
+    full 6, 200 (was radius 100; Jack cut it to 75%, so 75) - walls between block it, the thrower is spared. `txfboom`
+    draws the fireball and the 75m shock ring for everyone.
   - Measured (`scratchpad/txfarms.js`): buy and rifle refused, two minigun
     rounds 100 -> 60, two at once land one, a missile at the victim's feet
     kills from 100 and TxF stays 500. Range: spin-up then a kill; missile in
