@@ -3585,6 +3585,20 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
     lightning burst: 80 to everyone within 4m, walls block, 8s (`arcburst`,
     `arcburstfx`). F picks them for TxF; inventory is [MINIGUN, TXFMSL,
     INFERNO, ARCBLADES]. The weapons page lists all four for TxF.
+  - **Models rebuilt for detail** (2026-11-28, Jack: "improve on the model
+    design and details"). INFERNO (~200 meshes): chamfered gunmetal
+    receiver with worn edges, panel lines, vents and screws; rail with
+    front-sight ears and an aperture rear; the HP210 disc (segmented bezel,
+    face plate, name plate, warnings, latch); the fuel canister with bands,
+    a checkered button and bolt; the labelled igniter block and an angled
+    fore grip; a thumbhole skeleton stock (ExtrudeGeometry with holes),
+    yellow trigger, sling strap and buckle, ribbed butt; a hot glow in the
+    mouth. ARC BLADES (~65 meshes): cord-wrapped grip with hazard tape
+    (`M_TXFHAZ`, a canvas stripe texture), screwed pommel, hazard-striped
+    knuckle guard, riveted head with a glowing danger sign, coil drums and
+    hoses, forked blade clamps; blades with a hooked tang, a halo, a
+    white-hot core and a bright edge line. Same hands, poses and APIs as
+    before (`userData.blades/bolts`, grip/fore/vm unchanged).
   - Measured (`scratchpad/txfmelee.js`): INFERNO six shots then the reload;
     slash 100 -> 50; burst kills, credited to TxF, 8s cooldown. Range:
     INFERNO 100 -> 12 at 6.1m and burning; slash 50; burst 80; a second
