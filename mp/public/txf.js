@@ -1287,7 +1287,8 @@ WEAPONS[INFERNO].redDot = true; WEAPONS[INFERNO].dotOnly = true;      // aimed l
       root.quaternion.copy(qz).multiply(qx);
       const conv = new THREE.Group(); conv.add(root);
       holdInGlove(ARCBLADES, b, rOff, new THREE.Vector3(0.03, -0.11, 0.14), conv, true, [-0.15, 0, -0.4, 1.5]);
-      WEAPONS[ARCBLADES].vm = Object.assign({}, WEAPONS[BLADE].vm); }
+      WEAPONS[ARCBLADES].vm = Object.assign({}, WEAPONS[BLADE].vm, { x: 0.24, y: -0.13 });   // a little higher, so the forward blades clear the HUD
+      arcRestPose(); }
   }; }
 if (PAC9_BUILT) txfGlove(PAC9_BUILT);        // gloveEveryGun already calls txfGlove (rewrapped above)
 
@@ -1355,6 +1356,23 @@ function onInfernoFx(d){
    TXF.arc.windowMs starts it again. Each swing has its own length, reach,
    width and damage (TXF.arc.combo); the server keeps its own count, so this
    one only decides what you SEE and what the practice range takes. */
+/* THE RESTING POSE (Jack, 2026-11-29: "the blade is facing outside, the
+   sword is basically sideways, blade in front"; asked and answered: pointing
+   forward, flat). The hilt stays in the glove at the lower right as the
+   sword's; the blades point straight ahead, a little down and in, lying
+   FLAT, the cutting edges facing out to the right. Set as the rig's base
+   orientation, so the cuts start from it and come back to it. In the rig's
+   frame the blade runs along -Z, the edge along Y and the flats face X. */
+function arcRestPose(){                       // (a declaration, so the glove hook above can call it before this line runs)
+  const R = BLADE_RIGS[ARCBLADES]; if (!R) return;
+  const D = new THREE.Vector3(-0.10, -0.16, -1).normalize(), E0 = new THREE.Vector3(1, 0, 0);
+  const E = E0.clone().addScaledVector(D, -E0.dot(D)).normalize();
+  const Z = D.clone().negate(), X = new THREE.Vector3().crossVectors(E, Z);
+  const qT = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, E, Z));
+  const qP = qT.multiply(R.thingQ.clone().invert());                        // pivot * thing = the whole turn
+  R.base.copy(qP); R.q.copy(qP); R.pivot.quaternion.copy(qP); R.wrist.quaternion.copy(qP);
+  R.d0 = D.clone(); R.kq = null; R.from = null;
+}
 /* The swings, as the sword's cut keys (drawn.js SWORD_CUTS): 01 the
    horizontal, mirrored to run RIGHT to LEFT; 02 the rising cut, low left to
    upper right; 03 the overhead finisher; the right-click shockwave is the
