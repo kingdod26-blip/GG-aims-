@@ -45,7 +45,7 @@ is the plan only; nothing has been built yet.
 
 - **The lab door behind the clinic is shut until the mission is done:
   power the door.** Three **fuse boxes** round the town, shown on the map.
-  Hold **E for 5 s** at each to switch it on.
+  Hold **H for 5 s** at each to switch it on (H is the use key: Jack, 2026-11-28).
 - **Contested**: anyone can switch a fuse back **off (3 s)** until all
   three are on. When all three are on, the door opens for everyone for the
   rest of the round.
@@ -66,9 +66,8 @@ is the plan only; nothing has been built yet.
   materials, palms (round trunks drawn as their own collision, like the
   drums), stalls and awnings (out of reach, or real boxes: the rule "if it
   looks like a floor, it is one").
-- Interaction: a new hold-E use for the fuse boxes and the drive. Nothing
-  in the game uses E yet; Q/E peek is taken by E, so the key needs settling
-  (F is the blade). Ask Jack.
+- Interaction: a new **use key, H** (Jack), held for the fuse boxes and
+  pressed to pick up the drive. E stays lean-right and F the blade.
 - The polish rule applies: detailed fuse boxes, door, drive, clinic.
 - Check after building: the drawn-vs-collision probe, pairwise overlaps,
   spawns, and a real match with the mission played through.
@@ -76,6 +75,5 @@ is the plan only; nothing has been built yet.
 ## Still open
 
 - Jack's lab: the files or pictures.
-- Which key powers a fuse (E is peek-right).
 - Whether the map has Hamke or his militia in it as NPCs (bots are off
   limits: Jack's rule), or only the story in the set dressing.
