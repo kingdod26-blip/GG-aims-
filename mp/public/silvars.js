@@ -259,7 +259,7 @@ function onRobots(list){
     seen.add(w.i);
     let r = robotGfx.get(w.i);
     if(!r){
-      const mesh = w.k === 'd' ? makeDroneMesh() : w.k === 'g' ? makeDogMesh() : makeSensorMesh();
+      const mesh = w.k === 'd' ? makeDroneMesh() : w.k === 'g' ? makeDogMesh() : w.k === 'm' ? makeMissileMesh() : makeSensorMesh();
       mesh.position.set(w.x, w.y, w.z); mesh.rotation.y = w.w;
       scene.add(mesh);
       r = { mesh, kind: w.k, x: w.x, y: w.y, z: w.z, yaw: w.w, gait: 0, bob: Math.random()*6 };
@@ -269,7 +269,7 @@ function onRobots(list){
       }
     }
     r.tx = w.x; r.ty = w.y; r.tz = w.z; r.tyaw = w.w; r.hp = w.h; r.state = w.s; r.lock = w.l || 0;
-    r.owner = w.o; r.v = w.v || 0; r.lunge = !!w.u; r.ping = w.p;
+    r.owner = w.o; r.v = w.v || 0; r.lunge = !!w.u; r.ping = w.p; r.q = w.q || 0;
     if(w.k === 'g' && (w.o === myId || w.o === 'me')){ silv.dogHp = w.h; silv.dogLeft = w.e; }
     if(w.k === 'd' && (w.o === myId || w.o === 'me')) silv.droneLeft = w.e;
   }
@@ -293,6 +293,11 @@ function updateRobotGfx(dt){
       // a slow blink, faster just after it has pinged someone
       u.led.material.color.setHex(Math.sin(t * (r.ping > 0 ? 9 : 2.5)) > 0.2 ? 0xff3348 : 0x40070d);
       updateTrapMark(r);                       // Aseed sees it through walls
+      continue;
+    }
+    if(r.kind === 'm'){                              // Salvo's missile: nose down its heading, flame flickering
+      m.position.set(r.x, r.y, r.z); m.rotation.set(r.q || 0, r.yaw, 0, 'YXZ');
+      if(u.flame) u.flame.scale.setScalar(0.8 + Math.random() * 0.4);
       continue;
     }
     m.position.set(r.x, r.y, r.z); m.rotation.y = r.yaw;

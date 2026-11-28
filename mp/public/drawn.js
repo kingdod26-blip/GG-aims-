@@ -1331,6 +1331,9 @@ const OP_LOOKS = {
   aseed:   { suit: 0x1c1d20, legs: 0x1a1f17, plate: 0x3a141a, dark: 0x121314, arm: 0x2a1014, sleeve: 0x2e0d12 },
   blast:   { suit: 0x191a15, legs: 0x181913, plate: 0x0d0e0f, dark: 0x0b0c0d, arm: 0x191a15 },
   silvars: { suit: 0x15161a, legs: 0x1c1a17, plate: 0x2a2119, dark: 0x111110, arm: 0x15161a },
+  /* SALVO: placeholder colours (scorched brown, an ember-red plate) until
+     Jack draws his sheet */
+  salvo:   { suit: 0x1e1a16, legs: 0x221d17, plate: 0x5a1e0c, dark: 0x120f0d, arm: 0x3a1a0c },
 };
 function makeOperator(accent, look){
   const L = OP_LOOKS[look] ? look : 'base', K = OP_LOOKS[L];

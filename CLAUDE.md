@@ -42,6 +42,7 @@ GG aims/
 │       ├── robots.js  #    SILVARS' ROBOTS: rules for sensor/drone/dog (unnumbered; the server requires it too)
 │       ├── effects.js # 8. fire pools, smoke, marks, arrows, grenades, burn FX
 │       ├── silvars.js #    Silvars on the client: abilities, robot models, Linked Sight (unnumbered)
+│       ├── salvo.js   #    Salvo on the client: barrage aim, missile flight and camera, incendiary look (unnumbered)
 │       ├── hud.js     # 9. HUD, kill feed, audio, armory, compass
 │       ├── pages.js   #    the WEAPONS and AGENTS pages off the lobby's top bar (unnumbered; after hud.js)
 │       ├── loop.js    # 10. movement, collision, main loop
@@ -2268,6 +2269,9 @@ sprint.
   grenade** · X **the zone**.
 - **Silvars** (2026-11-27, Jack's design, `PLAN-characters.md`). Passive:
   **Linked Sight**. V **sensor** · G **drone** · X **dog**. See Silvars below.
+- **Salvo** (2026-11-28, Jack's design after Delta Force's Uluru,
+  `PLAN-characters.md` section 4). Passive **blast-proof**. V **barrage** ·
+  G **incendiary** (right-click: frag) · X **missile**. See Salvo below.
 
 **Each agent wears their own outfit** (2026-11-27, from Jack's sheets in
 `Crinsome x/Pictures/character design`): `makeOperator(accent, look)` in
@@ -3411,3 +3415,52 @@ Verify in the browser via `javascript_tool`, not by eyeballing. Two traps:
 - Sound is still synthesised (no audio files), but layered and placed now —
   see the Sound section. Recorded samples would be the next step up; they
   need files Jack supplies or approves a source for.
+
+
+## Salvo (2026-11-28)
+
+The fire-and-explosives agent, after Delta Force's Uluru (his Composite
+Incendiary and Loitering Munition). **All numbers are `SALVO` in robots.js**,
+the one file both sides load, so the range and the match cannot disagree.
+
+- **Passive, blast-proof:** `blastMul` (0.25) of every fire and explosion
+  reaches him - `blastAt` (every blast), `burnTick` (pool and crossbow burns)
+  and the drone's dive (`robotWorld.hurt`, how 'drone'). Owners were already
+  immune to their own grenades and pools. Measured: a 90 frag at his feet
+  does 23.
+- **One blast function now:** `blastAt(room, x, y, z, byId, cfg, now, name)`
+  (server.js) is the old explodeGrenade body with `cfg` {radius, full, dmg};
+  Blast's grenade goes through it with `GRENADE`, unchanged. `room.blasts`
+  holds timed blasts (barrage shells, missile bomblets) ticked in tickRoom.
+  `blastDamage` in robots.js is the same falloff for the range.
+- **G, `INCEN` slot** (weapons.js, appended AFTER the blade so the guns keep
+  0-4, which GUNS indexes): thrown by the grenade code; `ricochet` (right-
+  click) is FRAG. Fire bursts on the first thing it touches (server: a
+  collision or the floor sets `fuseAt` to now) into a pool with its own
+  `r/dps/ms/linger` (`dropFire(..., pool)`, `spawnGroundFire(..., opt)`;
+  pools carry their own numbers now, Aseed's pass none and are unchanged).
+  Frag: 1s fuse, `SALVO.frag`. Snapshot flag bit 2 (4) marks the
+  incendiary for its own mesh.
+- **V, barrage, AIM AND PRESS** (the standard for any spot-targeting
+  ability now): V shows a ring where the crosshair meets the world (grey
+  past 60m), V or left-click calls it, right-click or Esc calls it off. The
+  server checks range and cooldown, lays 6 shells at random in 10m over 3s
+  after a 2s warning, and tells the whole room (`barrage`: ring + whistle).
+- **X, missile = a robot of kind 'missile'** so the existing shot code
+  (`robotOnRay`, `shootRobot`, `damageRobot`) shoots it down: 40 HP, two
+  rifle hits. The PILOT flies it locally (salvo.js: mouse steers, camera
+  rides the nose, movement and firing frozen) and reports `mpos` (vetted
+  against its top speed) and `mboom` (75 + 4 bomblets of 25). Out of fuel
+  (8s) or the pilot dead: it goes off where it is; shot down: no blast.
+  A refused launch answers `missile {no:1}` and the client ends it. The
+  owner's copy from the server is hidden (he draws his own).
+- **Range:** the same timings with `localBlast` / `localMissileBlast`
+  against the targets.
+- **Placeholders until Jack draws them:** the three HUD tiles reuse
+  cd-grenade / cd-fire / cd-drone, and `OP_LOOKS.salvo` is scorched brown
+  with an ember plate.
+- Measured: range - incendiary pool r 5.5, frag 1s/90, barrage on a target
+  (100 -> 25), missile kill; match (two tabs) - out-of-range barrage
+  refused, barrage warning seen by the victim and 56 damage, frag kills,
+  passive 90 -> 23, the server's missile follows the pilot, shot down by a
+  rifle (`die:missile`) and the pilot's view ends. No errors either side.

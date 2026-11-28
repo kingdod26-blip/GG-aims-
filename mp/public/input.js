@@ -117,12 +117,17 @@ function startSlide(){
 }
 addEventListener('keyup',e=> keys[e.code]=false);
 addEventListener('mousemove',e=>{ if(!pointerLocked) return;
+  if(typeof missileOn === 'function' && missileOn()){ steerMissile(e.movementX, e.movementY); return; }   // Salvo flying his missile
   /* SETTINGS.sens scales it (GAMEPLAY tab). 0.0022 rad a count is the 1x it
      always was, so nobody's aim moves unless they ask for it to. */
   const sens = 0.0022*(SETTINGS.sens || 1)*(1 - ads*0.65);   // slower, steadier aim while ADS
   me.yaw-=e.movementX*sens; me.pitch-=e.movementY*sens;
   const l=Math.PI/2-0.05; me.pitch=Math.max(-l,Math.min(l,me.pitch)); });
 addEventListener('mousedown',e=>{
+  /* Salvo: aiming the barrage, left-click calls it in and right-click calls it
+     off; while a missile flies the buttons do nothing */
+  if(typeof salvo !== 'undefined' && salvo.aiming && pointerLocked){ if(e.button===0) barrageConfirm(); else if(e.button===2) salvoAimOff(); return; }
+  if(typeof missileOn === 'function' && missileOn()) return;
   if(e.button===0){ wantFire=true; semiQueued=true; }
   // crossbow: right-click switches fire mode instead of aiming
   if(e.button===2){ if(curW().melee) startCharge();                 // the blade: hold to charge a cut
@@ -267,7 +272,7 @@ function shoot(){
       abilityCharges[currentWeapon]--; abilityRecharge[currentWeapon].push(now + w.cooldownMs);
     }
     lastShot=now; gunKick=1; Sfx.shoot(w); updateHUD();
-    if(w.kind === 'grenade'){
+    if(w.kind === 'grenade' || w.kind === 'incen'){
       /* A lob, not a bolt: thrown along the view with some lift, and the
          simulation (server in a match, effects.js on the range) does the
          bouncing and the fuse. It leaves from just below the eye so it does
@@ -276,7 +281,11 @@ function shoot(){
       const o=camera.position.clone().addScaledVector(look,0.5); o.y-=0.15;
       const v=look.clone().multiplyScalar(w.speed); v.y+=3.5;
       v.x+=me.hv.x*0.5; v.z+=me.hv.z*0.5;                 // a throw carries some of your run
-      if(gameMode==='mp' && socket) socket.emit('grenade',{ ox:o.x,oy:o.y,oz:o.z, vx:v.x,vy:v.y,vz:v.z });
+      if(w.kind === 'incen'){                          // Salvo: right-click picked fire or frag
+        if(gameMode==='mp' && socket) socket.emit('incen',{ ox:o.x,oy:o.y,oz:o.z, vx:v.x,vy:v.y,vz:v.z, frag:ricochet?1:0 });
+        else spawnLocalGrenade(o, v, ricochet ? { cfg:SALVO.frag, fuseMs:SALVO.incen.fragFuseMs } : { incen:true });
+      }
+      else if(gameMode==='mp' && socket) socket.emit('grenade',{ ox:o.x,oy:o.y,oz:o.z, vx:v.x,vy:v.y,vz:v.z });
       else spawnLocalGrenade(o, v);
       dropSpentAbility();
       return;

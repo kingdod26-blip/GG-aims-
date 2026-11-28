@@ -51,6 +51,7 @@ const WPN = [
   { id: 'smoke',    slot: SMOKE,   grp: 'gear', agent: 'aseed',   key: 'X', model: () => drawCrossbow('smoke').g },
   { id: 'grenade',  slot: GRENADE, grp: 'gear', agent: 'blast',   key: 'G', model: () => buildFragGrenade() },
   { id: 'sensor',   slot: SENSOR,  grp: 'gear', agent: 'silvars', key: 'V', model: () => makeSensorMesh() },
+  { id: 'incen',    slot: INCEN,   grp: 'gear', agent: 'salvo',   key: 'G', model: () => makeIncenMesh() },
 ];
 /* the guns' bars are each gun against the best of the five */
 const GUNS = WPN.filter(w => w.slot <= 4).map(w => WEAPONS[w.slot]);
@@ -89,6 +90,7 @@ function wpnStats(e){
 function wpnDesc(e){
   const w = WEAPONS[e.slot], ch = { n: w.charges, cd: w.cooldownMs ? pgSec(w.cooldownMs) : '' };
   return { crossbow: pgFill('ab.xbow.d', ch), smoke: pgFill('ab.smoke.d', ch), grenade: pgFill('ab.gren.d', ch),
+           incen: pgFill('ab.incen.d', { n: SALVO.incen.charges, cd: pgSec(SALVO.incen.cdMs), fuse: pgSec(SALVO.incen.fragFuseMs), dmg: SALVO.frag.dmg }),
            sensor: pgFill('ab.sensor.d', { n: SILV.sensor.charges, r: SILV.sensor.radius, s: pgSec(SILV.linkMs), cd: pgSec(SILV.sensor.cdMs) }) }[e.id] || t('wp.' + e.id + '.d');
 }
 
@@ -178,7 +180,7 @@ function renderWeaponsPage(){
 
 /* ---------- the agents ---------- */
 const AG_ICON = { roll: 'cd-roll', xbow: 'cd-fire', smoke: 'cd-smoke', dash: 'cd-dash', gren: 'cd-grenade', zone: 'cd-zone',
-                  sensor: 'cd-sensor', drone: 'cd-drone', dog: 'cd-dog' };
+                  sensor: 'cd-sensor', drone: 'cd-drone', dog: 'cd-dog', barrage: 'cd-grenade', incen: 'cd-fire', missile: 'cd-drone' };
 /* the same kit, with the same live numbers, as the abilities page */
 function agentKit(a){
   const ch = slot => ({ n: WEAPONS[slot].charges, cd: pgSec(WEAPONS[slot].cooldownMs) });
@@ -189,10 +191,14 @@ function agentKit(a){
       ['V', 'sensor', { n: SILV.sensor.charges, r: SILV.sensor.radius, s: pgSec(SILV.linkMs), cd: pgSec(SILV.sensor.cdMs) }],
       ['G', 'drone', { life: pgSec(SILV.drone.lifeMs), or: SILV.order.range, lock: pgSec(SILV.drone.lockMs), dmg: SILV.drone.dmg, hp: SILV.drone.hp, cd: pgSec(SILV.drone.cdMs) }],
       ['X', 'dog', { sh: SILV.dog.shield, or: SILV.order.range, life: pgSec(SILV.dog.lifeMs), leash: SILV.dog.leash, gun: SILV.dog.gunDmg, bite: SILV.dog.bite, hp: SILV.dog.hp, cd: pgSec(SILV.dog.cdMs) }]],
+    salvo: [['P', 'blastproof', { pct: Math.round((1 - SALVO.blastMul) * 100) }],
+      ['V', 'barrage', { range: SALVO.barrage.range, warn: pgSec(SALVO.barrage.warnMs), n: SALVO.barrage.shells, r: SALVO.barrage.radius, dmg: SALVO.barrage.blast.dmg, cd: pgSec(SALVO.barrage.cdMs) }],
+      ['G', 'incen', { n: SALVO.incen.charges, cd: pgSec(SALVO.incen.cdMs), fuse: pgSec(SALVO.incen.fragFuseMs), dmg: SALVO.frag.dmg }],
+      ['X', 'missile', { life: pgSec(SALVO.missile.lifeMs), dmg: SALVO.missile.blast.dmg, n: SALVO.missile.bomblets, bd: SALVO.missile.bomb.dmg, hp: SALVO.missile.hp, cd: pgSec(SALVO.missile.cdMs) }]],
   }[a].map(([k, id, o]) => ({ k, id, name: t('ab.' + id), d: pgFill('ab.' + id + '.d', o) }));
 }
 /* which weapon page each piece of gear opens */
-const AG_GEAR = { xbow: 'crossbow', smoke: 'smoke', gren: 'grenade', sensor: 'sensor' };
+const AG_GEAR = { xbow: 'crossbow', smoke: 'smoke', gren: 'grenade', sensor: 'sensor', incen: 'incen' };
 let agSel = myAgent;
 function renderAgentsPage(){
   const pg = byId('agPage'); if (!pg) return;

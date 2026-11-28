@@ -28,18 +28,21 @@ const GFIRE = { ms:9000, radius:4.35, baseRadius:1.45, max:14, fadeMs:1200,
                 top:1.0, graceMs:1200, dps:18,     // dps must match the server's FIRE.dps
                 lingerDps:6, lingerMs:5000 };      // still alight after stepping out
 const groundFires = [];
-function spawnGroundFire(x, y, z){
+/* `opt` (Salvo's incendiary): { r, ms, dps, lingerDps, lingerMs } - a bigger,
+   hotter, longer pool. Aseed's pools pass nothing and are as they were. */
+function spawnGroundFire(x, y, z, opt){
   Sfx.ignite({ x, z });                  // heard from where it lands, in a match or on the range
   while(groundFires.length >= GFIRE.max) removeGroundFire(groundFires[0]);
+  const FR = (opt && opt.r) || GFIRE.radius;
   const g = new THREE.Group(); g.position.set(x, y||0, z);   // sits where the bolt stopped
   const flat = (r, color, opacity, y)=>{
     const m = new THREE.Mesh(new THREE.CircleGeometry(r, 24),
       new THREE.MeshBasicMaterial({ color, transparent:true, opacity, depthWrite:false }));
     m.rotation.x = -Math.PI/2; m.position.y = y; g.add(m); return m;
   };
-  const disc  = flat(GFIRE.radius,      0xff4a08, 0.55, 0.02);   // outer pool
-  const inner = flat(GFIRE.radius*0.55, 0xffb020, 0.75, 0.03);   // hot centre
-  const grow  = GFIRE.radius/GFIRE.baseRadius;
+  const disc  = flat(FR,      0xff4a08, 0.55, 0.02);   // outer pool
+  const inner = flat(FR*0.55, 0xffb020, 0.75, 0.03);   // hot centre
+  const grow  = FR/GFIRE.baseRadius;
   const count = Math.max(7, Math.round(7*grow));       // keep the pool populated
   const ts    = Math.sqrt(grow);                       // flames grow, but slower
   const tongues = [];
@@ -47,12 +50,13 @@ function spawnGroundFire(x, y, z){
     const m = new THREE.Mesh(new THREE.ConeGeometry(0.17*ts, 0.62*ts, 6),
       new THREE.MeshBasicMaterial({ color:i%2?0xff8a12:0xff3d05, transparent:true, opacity:0.8, depthWrite:false }));
     // golden-angle spread so they scatter instead of forming a visible ring
-    const ang = i*2.39996, r = GFIRE.radius*Math.sqrt((i+0.5)/count)*0.85;
+    const ang = i*2.39996, r = FR*Math.sqrt((i+0.5)/count)*0.85;
     m.position.set(Math.cos(ang)*r, 0.31*ts, Math.sin(ang)*r);
     g.add(m); tongues.push(m);
   }
   scene.add(g);
-  const f = { g, disc, inner, tongues, until:performance.now()+GFIRE.ms, t:Math.random()*10 };
+  const f = { g, disc, inner, tongues, until:performance.now()+((opt && opt.ms) || GFIRE.ms), t:Math.random()*10,
+              r: FR, dps: (opt && opt.dps) || GFIRE.dps, lingerDps: (opt && opt.lingerDps) || GFIRE.lingerDps, lingerMs: (opt && opt.lingerMs) || GFIRE.lingerMs };
   groundFires.push(f);
   return f;
 }
@@ -125,7 +129,7 @@ function fireAt(x, y, z){
   for(const f of groundFires){
     const fy = f.g.position.y;                    // a pool can sit on a crate
     if(y < fy - 0.6 || y > fy + GFIRE.top) continue;
-    if(Math.hypot(x-f.g.position.x, z-f.g.position.z) <= GFIRE.radius) return f;
+    if(Math.hypot(x-f.g.position.x, z-f.g.position.z) <= (f.r || GFIRE.radius)) return f;
   }
   return null;
 }
@@ -243,17 +247,18 @@ function updateMarks(){
   const now = performance.now();
   for(const b of localBots){
     // stationary targets, so a pool landing on one keeps burning it
-    if(b.alive && fireAt(b.x, 0, b.z)){
+    const pool = b.alive && fireAt(b.x, 0, b.z);
+    if(pool){
       if(!b.burnUntil) b.burnNext = now + 1000;
       b.burnUntil = now + GFIRE.graceMs;               // renews while it stands in it
-      b.burnDps = Math.max(b.burnDps||0, GFIRE.dps);   // a pool never slows a fiercer burn
+      b.burnDps = Math.max(b.burnDps||0, pool.dps || GFIRE.dps);   // a pool never slows a fiercer burn
       if(!b.fire) b.fire = makeBurnFx(b.mesh);
-      b.inFire = true;
+      b.inFire = pool;
     } else if(b.inFire){
       // walked out still alight, at the lower lingering rate
-      b.inFire = false;
-      if(b.burnDps === GFIRE.dps) b.burnDps = GFIRE.lingerDps;
-      const until = now + GFIRE.lingerMs;
+      const was = b.inFire; b.inFire = false;
+      if(b.burnDps === (was.dps || GFIRE.dps)) b.burnDps = was.lingerDps || GFIRE.lingerDps;
+      const until = now + (was.lingerMs || GFIRE.lingerMs);
       if((b.burnUntil||0) < until) b.burnUntil = until;
       if(!b.burnNext || b.burnNext > now + 1000) b.burnNext = now + 1000;
     }
@@ -652,9 +657,19 @@ function makeGrenadeMesh(){
   cap.position.y = 0.105; g.add(cap);
   return g;
 }
-function spawnLocalGrenade(o, v){
-  const mesh = makeGrenadeMesh(); mesh.position.copy(o); scene.add(mesh);
-  grenades.push({ mesh, pos:o.clone(), vel:v.clone(), at:performance.now() });
+/* `opt`: Salvo's throws. { incen:true } bursts into a big fire pool on its
+   first impact; { cfg, fuseMs } is his frag (1s fuse). Blast's passes nothing. */
+function spawnLocalGrenade(o, v, opt){
+  const mesh = (opt && opt.incen && typeof makeIncenMesh === 'function') ? makeIncenMesh() : makeGrenadeMesh();
+  if(opt && opt.incen) mesh.scale.setScalar(1.6);
+  mesh.position.copy(o); scene.add(mesh);
+  grenades.push({ mesh, pos:o.clone(), vel:v.clone(), at:performance.now(), incen: !!(opt && opt.incen),
+                  cfg: (opt && opt.cfg) || null, fuseMs: (opt && opt.fuseMs) || (opt && opt.incen ? SALVO.incen.maxFuseMs : GREN.fuseMs) });
+}
+function burstIncen(g, i){
+  const P = SALVO.incen.pool;
+  spawnGroundFire(g.pos.x, Math.max(0, g.pos.y - 0.08), g.pos.z, { r:P.radius, ms:P.ms, dps:P.dps, lingerDps:P.lingerDps, lingerMs:P.lingerMs });
+  scene.remove(g.mesh); grenades.splice(i, 1);
 }
 function grenadeDamage(d){
   if(d >= GREN.radius) return 0;
@@ -694,17 +709,19 @@ function updateGrenades(dt){
   const now = performance.now();
   for(let i = grenades.length - 1; i >= 0; i--){
     const g = grenades[i];
-    if(now - g.at >= GREN.fuseMs){
+    if(now - g.at >= g.fuseMs){
+      if(g.incen){ burstIncen(g, i); continue; }
+      const C = g.cfg || GREN;
       boom(g.pos.x, g.pos.y, g.pos.z);
       for(const b of localBots){
         if(!b.alive) continue;
         const chest = new THREE.Vector3(b.x, 1.05, b.z);
         const d = chest.distanceTo(g.pos);
-        const dmg = grenadeDamage(d); if(!dmg) continue;
+        const dmg = g.cfg ? blastDamage(C, d) : grenadeDamage(d); if(!dmg) continue;
         const dir = chest.clone().sub(g.pos).normalize();
         _gray.set(g.pos, dir); _gray.far = d;
         if(_gray.intersectObjects(wallMeshes, false).length) continue;      // cover took it
-        b.hp -= dmg; hitmark(dmg >= GREN.dmg ? 'head' : 'torso'); Sfx.hit(dmg >= GREN.dmg ? 'head' : 'torso');
+        b.hp -= dmg; hitmark(dmg >= C.dmg ? 'head' : 'torso'); Sfx.hit(dmg >= C.dmg ? 'head' : 'torso');
         if(b.hp <= 0 && b.alive){ b.alive=false; b.mesh.visible=false; extinguish(b);
           localKills++; creditKill(); updateHUD(); setTimeout(()=>respawnLocalBot(b),2000); }
       }
@@ -717,6 +734,10 @@ function updateGrenades(dt){
       _gray.set(g.pos, dirv); _gray.far = dist + 0.08;
       const hit = _gray.intersectObjects(wallMeshes, false)[0];
       const body = grenadeBodyHit(g.pos, dirv, dist + 0.08);
+      if(g.incen && ((body && (!hit || body.t < hit.distance)) || hit)){   // the incendiary bursts on what it hits
+        g.pos.addScaledVector(dirv, Math.max(0, (body && (!hit || body.t < hit.distance) ? body.t : hit.distance) - 0.08));
+        burstIncen(g, i); continue;
+      }
       if(body && (!hit || body.t < hit.distance)){
         g.pos.addScaledVector(dirv, Math.max(0, body.t - 0.08));
         if(body.axis===0) g.vel.x=-g.vel.x; else if(body.axis===1) g.vel.y=-g.vel.y; else g.vel.z=-g.vel.z;
@@ -728,6 +749,7 @@ function updateGrenades(dt){
       } else g.pos.add(step);
     }
     if(g.pos.y < 0.08){                               // the floor is not a collider box
+      if(g.incen){ g.pos.y = 0.08; burstIncen(g, i); continue; }
       g.pos.y = 0.08;
       if(g.vel.y < 0){ g.vel.y = -g.vel.y * GREN.bounce; g.vel.x *= GREN.friction; g.vel.z *= GREN.friction; }
       if(Math.abs(g.vel.y) < 0.6) g.vel.y = 0;

@@ -181,17 +181,25 @@ const HEAVY = { minMs:250, fullMs:1100, min:35, max:85, reachAdd:0.6, cut:5,
 function heavySpeedMul(v){ return 1 + HEAVY.speedGain * Math.min(1, Math.max(0, (v - HEAVY.speedFrom) / (HEAVY.speedTo - HEAVY.speedFrom))); }
 let chargeFrom = 0;                       // performance.now() the hold began; 0 = not charging
 function heavyCharge(now){ return chargeFrom ? Math.min(1, (now - chargeFrom) / HEAVY.fullMs) : 0; }
+/* SALVO's G (2026-11-28): the composite incendiary, thrown like the frag;
+   right-click (`ricochet`) makes it a frag with a 1s fuse. Appended AFTER the
+   blade so the guns keep slots 0-4, which the server's GUNS is indexed by.
+   Numbers are SALVO.incen in robots.js. */
+WEAPONS.push({ name:'INCENDIARY', mode:'ABILITY', ability:true, kind:'incen', auto:false, fireRate:600, dmg:90,
+  charges:2, cooldownMs:30000, speed:17,
+  recoil:0.01, spread:0, adsSpread:0, range:60, adsFov:75, scope:false });
 const XBOW  = WEAPONS.findIndex(w=>w.kind==='xbow');    // crossbow slot
 const GRENADE = WEAPONS.findIndex(w=>w.kind==='grenade');   // Blast's frag slot
 const SMOKE = WEAPONS.findIndex(w=>w.kind==='smoke');   // smoke slot
 const SENSOR = WEAPONS.findIndex(w=>w.kind==='sensor');  // Silvars' sensor slot
+const INCEN = WEAPONS.findIndex(w=>w.kind==='incen');    // Salvo's incendiary slot
 const BLADE = WEAPONS.findIndex(w=>w.melee);            // blade slot
 const ABILITY_SLOTS = WEAPONS.map((w,i)=>w.ability?i:-1).filter(i=>i>=0);
 /* What the armory should print on each card. Guns are 1-5; the abilities
    and the blade have their own keys, and printing i+1 told you to press 7
    for smoke — a key that isn't bound to anything. */
 const WEAPON_KEY = WEAPONS.map((w,i)=> String(i+1));
-WEAPON_KEY[XBOW]='G'; WEAPON_KEY[SMOKE]='X'; WEAPON_KEY[GRENADE]='G'; WEAPON_KEY[BLADE]='F'; WEAPON_KEY[SENSOR]='V';
+WEAPON_KEY[XBOW]='G'; WEAPON_KEY[SMOKE]='X'; WEAPON_KEY[GRENADE]='G'; WEAPON_KEY[BLADE]='F'; WEAPON_KEY[SENSOR]='V'; WEAPON_KEY[INCEN]='G';
 
 /* ---- Agents ----
    You play an AGENT, picked on the menu and locked for the match. Each has a
@@ -215,6 +223,9 @@ const AGENTS = {
      three are instant, so they are strings: V the sensor, G the drone, X the
      dog. The robots and their rules are robots.js; the client side silvars.js. */
   silvars: { id:'silvars', name:'SILVARS', jumps:1, v:SENSOR, g:'drone', x:'dog', hearing:false },
+  /* SALVO (2026-11-28, PLAN-characters.md section 4; salvo.js): fire- and
+     blast-proof. G the incendiary slot, V the barrage, X the missile. */
+  salvo: { id:'salvo', name:'SALVO', jumps:1, v:'barrage', g:INCEN, x:'missile', hearing:false },
 };
 let myAgent = (()=>{ try{ const a = localStorage.getItem('cx.agent'); return AGENTS[a] ? a : 'aseed'; }
                      catch(e){ return 'aseed'; } })();

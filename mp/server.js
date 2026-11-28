@@ -372,7 +372,7 @@ function makeRoom(id, holdMs, mapId) {
   return { id, ...arenaOf(mapById(mapId || DEFAULT_MAP_ID)),
     players: new Map(),           // socket.id -> player
     parked: new Map(),            // token -> { wins, money, guns, name, at }
-    smokes: [], fires: [], arrows: [], grenades: [],
+    smokes: [], fires: [], arrows: [], grenades: [], blasts: [],   // blasts: Salvo's shells and bomblets, each waiting for its moment
     robots: [],                   // Silvars' sensors, drones and dogs (robots.js)
     /* A room made by the Create button has nobody in it yet. Without a hold
        the very next tick would retire it before its creator's socket even
@@ -466,8 +466,13 @@ const XBOW = { headDmg: 90, bodyDmg: 50, burnDps: 12, burnMs: 5000, charges: 2, 
    Every ability handler checks it, so a patched client cannot throw an
    Aseed bolt as Blast or a grenade as Aseed. Must match AGENTS in
    public/weapons.js. */
-const AGENT_IDS = ['aseed', 'blast', 'silvars'];
+const AGENT_IDS = ['aseed', 'blast', 'silvars', 'salvo'];
 const agentOf = a => AGENT_IDS.includes(a) ? a : 'aseed';
+/* Salvo's passive (robots.js SALVO): fire and explosions do blastMul of
+   their damage to him. Used by every blast, every burn tick and the drone's
+   dive - the things that are fire or explosion - and nothing else. */
+const SALVO = ROBOTS.SALVO;
+const blastMul = t => (t && t.agent === 'salvo') ? SALVO.blastMul : 1;
 /* Blast's frag grenade: lobbed, bounces, goes off fuseMs after the throw.
    Full damage inside `full`, linear to nothing at `radius`, and blocked by
    geometry between the blast and the target's chest. The thrower is never
@@ -837,9 +842,10 @@ function eliminate(room, e, isPlayer) {
 /* Payloads land where the bolt actually stopped, height included. These used
    to be x/z only, so a bolt that stuck in the top of a crate put its fire on
    the floor underneath. */
-function dropFire(room, x, y, z, byId, now) {
-  room.fires.push({ x, y, z, by: byId, until: now + FIRE.ms });
-  io.to(room.id).emit('groundfire', { x, y, z });
+function dropFire(room, x, y, z, byId, now, pool) {
+  const P = pool || FIRE;
+  room.fires.push({ x, y, z, by: byId, until: now + P.ms, r: P.radius, dps: P.dps, lingerDps: P.lingerDps, lingerMs: P.lingerMs });
+  io.to(room.id).emit('groundfire', pool ? { x, y, z, r: P.radius, ms: P.ms } : { x, y, z });
 }
 function dropSmoke(room, x, y, z, byId, now) {
   room.smokes.push({ x, y, z, by: byId, until: now + SMOKE.ms });
@@ -981,7 +987,7 @@ function encodeSnapshot(room, now) {
     buf.writeInt16LE(i16(a.vx), o); o += 2;
     buf.writeInt16LE(i16(a.vy), o); o += 2;
     buf.writeInt16LE(i16(a.vz), o); o += 2;
-    buf.writeUInt8((a.smoke ? 1 : 0) | (a.grenade ? 2 : 0), o++);
+    buf.writeUInt8((a.smoke ? 1 : 0) | (a.grenade ? 2 : 0) | (a.incen ? 4 : 0), o++);
   }
   return buf;
 }
@@ -1027,6 +1033,7 @@ io.on('connection', (socket) => {
     agent: agentOf(auth.agent),        // locked for this connection
     gshots: [], zoneUntil: 0, zoneReadyAt: 0,
     sensorShots: [], droneReadyAt: 0, dogReadyAt: 0, linked: new Map(),   // Silvars
+    ishots: [], barrageReadyAt: 0, missileReadyAt: 0,                    // Salvo
     teamSeen: new Map(), linkUntil: 0, linkReadyAt: 0,
     money: back ? back.money : ECON.start,
     guns: back ? back.guns : [],       // owned WEAPONS slots, in purchase order
@@ -1353,6 +1360,78 @@ io.on('connection', (socket) => {
       x: ox, y: oy, z: oz, vx, vy, vz, fuseAt: now + GRENADE.fuseMs });
   });
 
+  /* ---- Salvo: G incendiary (or frag), V barrage, X missile ----
+     The same server-side charges and cooldowns as everyone else's, and the
+     same caps on where things may start from. */
+  socket.on('incen', (d) => {
+    if (match.phase !== 'live') return;
+    const p = players.get(socket.id); if (!p || !p.alive || p.agent !== 'salvo') return;
+    const now = Date.now(), I = SALVO.incen;
+    p.ishots = p.ishots.filter(t => now - t < I.cdMs);
+    if (p.ishots.length >= I.charges) { sendSalvoTimers(p, now); return; }
+    p.ishots.push(now);
+    let vx = +d.vx || 0, vy = +d.vy || 0, vz = +d.vz || 0;
+    const sp = Math.hypot(vx, vy, vz);
+    if (sp > GRENADE.maxSpeed) { const k = GRENADE.maxSpeed / sp; vx *= k; vy *= k; vz *= k; }
+    let ox = +d.ox, oy = +d.oy, oz = +d.oz;
+    if (!(Math.hypot(ox - p.x, oz - p.z) < 1.5)) { ox = p.x; oz = p.z; }
+    if (!(oy > (p.y || 0) - 0.2 && oy < (p.y || 0) + 2.2)) oy = (p.y || 0) + 1.5;
+    const frag = !!d.frag;
+    room.grenades.push({ id: (arrowSeq = (arrowSeq + 1) & 0xffff), by: socket.id, grenade: true, incen: !frag,
+      cfg: frag ? SALVO.frag : null, x: ox, y: oy, z: oz, vx, vy, vz, fuseAt: now + (frag ? I.fragFuseMs : I.maxFuseMs) });
+    sendSalvoTimers(p, now);
+  });
+  /* V: aimed and pressed on the client; here it is checked (range, cooldown)
+     and the shells are laid out, each on its own moment. Everyone is told,
+     so the circle and the whistle reach the people under it. */
+  socket.on('barrage', (d) => {
+    const p = players.get(socket.id); if (!p) return;
+    const now = Date.now(), B = SALVO.barrage;
+    const x = +d.x, y = Math.max(0, Math.min(30, +d.y || 0)), z = +d.z;
+    if (p.agent !== 'salvo' || !p.alive || match.phase !== 'live' || now < p.barrageReadyAt
+        || !isFinite(x) || !isFinite(z) || Math.hypot(x - p.x, z - p.z) > B.range + 2) { sendSalvoTimers(p, now); return; }
+    p.barrageReadyAt = now + B.cdMs;
+    for (let k = 0; k < B.shells; k++) {
+      const a = Math.random() * Math.PI * 2, r = B.radius * Math.sqrt(Math.random());
+      room.blasts.push({ at: now + B.warnMs + (k / (B.shells - 1)) * B.spanMs, x: x + Math.cos(a) * r, y, z: z + Math.sin(a) * r,
+                         by: socket.id, cfg: B.blast, name: 'a barrage' });
+    }
+    io.to(room.id).emit('barrage', { x, y, z, by: socket.id, ms: B.warnMs, span: B.spanMs, r: B.radius });
+    sendSalvoTimers(p, now);
+  });
+  /* X: the missile is a robot (robots.js) so shots can bring it down. The
+     owner flies it and reports where it is ('mpos', checked against its top
+     speed) and where it hit ('mboom'). */
+  socket.on('missile', (d) => {
+    const p = players.get(socket.id); if (!p) return;
+    const now = Date.now(), M = SALVO.missile;
+    if (p.agent !== 'salvo' || !p.alive || match.phase !== 'live' || now < p.missileReadyAt
+        || room.robots.some(r => r.owner === p.id && r.kind === 'missile')) { socket.emit('missile', { no: 1 }); sendSalvoTimers(p, now); return; }
+    let ox = +d.ox, oy = +d.oy, oz = +d.oz;
+    if (!(Math.hypot(ox - p.x, oz - p.z) < 1.5)) { ox = p.x; oz = p.z; }
+    if (!(oy > (p.y || 0) - 0.2 && oy < (p.y || 0) + 2.6)) oy = (p.y || 0) + 1.8;
+    const r = ROBOTS.makeRobot('missile', p.id, ox, oy, oz, { yaw: +d.yaw || 0, pitch: +d.pitch || 0, state: 'follow', movedAt: now });
+    room.robots.push(r);
+    p.missileReadyAt = now + M.lifeMs + M.cdMs;          // re-set to cdMs from when it is gone
+    socket.emit('missile', { id: r.id });
+  });
+  const ownMissile = (id) => room.robots.find(r => r.id === (id | 0) && r.owner === socket.id && r.kind === 'missile' && r.alive);
+  socket.on('mpos', (d) => {
+    const r = ownMissile(d && d.i); if (!r) return;
+    const now = Date.now(), x = +d.x, y = +d.y, z = +d.z;
+    if (!isFinite(x) || !isFinite(y) || !isFinite(z)) return;
+    const most = SALVO.missile.speed * Math.max(0.05, (now - r.movedAt) / 1000) * 1.6 + 1.5;
+    if (Math.hypot(x - r.x, y - r.y, z - r.z) > most) return;   // faster than it can fly: ignored
+    r.x = x; r.y = y; r.z = z; r.yaw = +d.w || 0; r.pitch = +d.q || 0; r.movedAt = now;
+  });
+  socket.on('mboom', (d) => {
+    const r = ownMissile(d && d.i); if (!r) return;
+    const now = Date.now(); let x = +d.x, y = +d.y, z = +d.z;
+    if (!isFinite(x) || Math.hypot(x - r.x, y - r.y, z - r.z) > 6) { x = r.x; y = r.y; z = r.z; }
+    r.alive = false; r.why = 'boom'; r.x = x; r.y = y; r.z = z;
+    missileBlast(room, x, Math.max(0, y), z, socket.id, now);
+  });
+
   /* Blast's X. Always answers, so the client's timers come from here: the
      zone's duration and when it is next ready, or a refusal saying when. */
   socket.on('zone', () => {
@@ -1572,41 +1651,60 @@ function bodyBoxes(room, exceptId) {
    the radius, unless geometry stands between the blast and their chest. The
    blast is a noise, so Aseeds within earshot hear who threw it. */
 function explodeGrenade(room, g, now) {
+  blastAt(room, g.x, g.y, g.z, g.by, g.cfg || GRENADE, now, 'a grenade');
+}
+/* Any explosion: Blast's frag, Salvo's frag, his shells and his missile.
+   `cfg` is { radius, full, dmg }. Every live player but the thrower inside
+   the radius is hurt unless geometry stands between the blast and their
+   chest; robots too (Silvars' drone, dog and sensors; Salvo's missile). The
+   blast is a noise, so Aseeds within earshot hear who set it off. Salvo
+   takes blastMul of it. */
+function blastAt(room, x, y, z, byId, cfg, now, name) {
   const players = room.players, match = room.match;
-  io.to(room.id).emit('boom', { x: g.x, y: g.y, z: g.z });
-  noiseMade(room, g.by, now);
+  io.to(room.id).emit('boom', { x, y, z });
+  noiseMade(room, byId, now);
   if (match.phase !== 'live') return;
-  const thrower = players.get(g.by);
-  const o = { x: g.x, y: g.y + 0.25, z: g.z };
+  const thrower = players.get(byId);
+  const o = { x, y: y + 0.25, z };
+  const fall = d => d <= cfg.full ? cfg.dmg : Math.round(cfg.dmg * (1 - (d - cfg.full) / (cfg.radius - cfg.full)));
   for (const r of room.robots.slice()) {
-    if (spares(r, g.by) || !r.alive) continue;
+    if (spares(r, byId) || !r.alive) continue;
     const ry = ROBOTS.robotCenterY(r), d = Math.hypot(r.x - o.x, ry - o.y, r.z - o.z);
-    if (d >= GRENADE.radius || !ROBOTS.robotLos(room.robotG, o.x, o.y, o.z, r.x, ry, r.z)) continue;
-    const dmg = d <= GRENADE.full ? GRENADE.dmg : Math.round(GRENADE.dmg * (1 - (d - GRENADE.full) / (GRENADE.radius - GRENADE.full)));
+    if (d >= cfg.radius || !ROBOTS.robotLos(room.robotG, o.x, o.y, o.z, r.x, ry, r.z)) continue;
+    const dmg = fall(d);
     if (dmg > 0) shootRobot(room, r, dmg, thrower, r.x, ry, r.z);
   }
   for (const t of players.values()) {
-    if (!t.alive || t.id === g.by) continue;
+    if (!t.alive || t.id === byId) continue;
     const cx = aimX(t), cy = (t.y || 0) + 1.0, cz = aimZ(t);
     const dx = cx - o.x, dy = cy - o.y, dz = cz - o.z, d = Math.hypot(dx, dy, dz);
-    if (d >= GRENADE.radius) continue;
+    if (d >= cfg.radius) continue;
     const dir = { x: dx/d, y: dy/d, z: dz/d };
     let blocked = false;
     for (const r of room.rayBoxes) { const h = rayBoxHit(o, dir, r); if (h && h.t > 0.05 && h.t < d) { blocked = true; break; } }
     if (blocked) continue;                              // cover took it
-    const dmg = d <= GRENADE.full ? GRENADE.dmg
-              : Math.round(GRENADE.dmg * (1 - (d - GRENADE.full) / (GRENADE.radius - GRENADE.full)));
+    const full = fall(d), dmg = Math.round(full * blastMul(t));
     if (dmg <= 0) continue;
-    t.hp -= dmg; hitBy(t, g.by);
-    io.to(t.id).emit('hurt', { x: g.x, z: g.z });
-    io.to(room.id).emit('impact', { x: cx, y: cy, z: cz, head: dmg >= GRENADE.dmg, by: g.by,
-                                    zone: dmg >= GRENADE.dmg ? 'head' : 'torso' });
+    t.hp -= dmg; hitBy(t, byId);
+    io.to(t.id).emit('hurt', { x, z });
+    io.to(room.id).emit('impact', { x: cx, y: cy, z: cz, head: full >= cfg.dmg, by: byId,
+                                    zone: full >= cfg.dmg ? 'head' : 'torso' });
     if (t.hp <= 0 && t.alive) {
       eliminate(room, t, true);
       if (thrower) thrower.kills++;
       t.deaths++;
-      io.to(room.id).emit('kill', { by: thrower ? thrower.name : 'a grenade', byId: g.by, victim: t.name, head: false });
+      io.to(room.id).emit('kill', { by: thrower ? thrower.name : name, byId, victim: t.name, head: false });
     }
+  }
+}
+/* Salvo's missile going off: the warhead, then its bomblets a moment later,
+   spread around it. */
+function missileBlast(room, x, y, z, byId, now) {
+  const M = SALVO.missile;
+  blastAt(room, x, y, z, byId, M.blast, now, 'a missile');
+  for (let k = 0; k < M.bomblets; k++) {
+    const a = (k / M.bomblets) * Math.PI * 2 + Math.random() * 0.6, r = M.spread * (0.6 + Math.random() * 0.4);
+    room.blasts.push({ at: now + M.bombletMs + k * 60, x: x + Math.cos(a) * r, y, z: z + Math.sin(a) * r, by: byId, cfg: M.bomb, name: 'a missile' });
   }
 }
 
@@ -1651,6 +1749,12 @@ function shootRobot(room, r, dmg, by, x, y, z) {
   io.to(room.id).emit('impact', { x, y, z, head: false, zone: 'torso', by: by ? by.id : null, robot: 1 });
   ROBOTS.damageRobot(r, dmg);
 }
+/* Salvo's timers, for his HUD: ms until the barrage and the missile are back. */
+function sendSalvoTimers(p, now) {
+  const sock = io.sockets.sockets.get(p.id); if (!sock) return;
+  sock.emit('salvo', { incQ: (p.ishots || []).map(t => t + SALVO.incen.cdMs - now).filter(ms => ms > 0),
+                       barrage: Math.max(0, p.barrageReadyAt - now), missile: Math.max(0, p.missileReadyAt - now) });
+}
 /* The sensor's spent charges, as ms until each comes back. */
 function sensorQueue(p, now) {
   return (p.sensorShots || []).map(t => t + SILV.sensor.cdMs - now).filter(ms => ms > 0);
@@ -1685,6 +1789,7 @@ function robotWorld(room, now) {
     hurt: (r, t, dmg, how) => {
       if (!t.alive || room.match.phase !== 'live') return;
       const owner = players.get(r.owner);
+      if (how === 'drone') dmg = Math.round(dmg * blastMul(t));   // the dive is a blast: Salvo shrugs most of it off
       t.hp -= dmg; hitBy(t, r.owner);
       io.to(t.id).emit('hurt', { x: r.x, z: r.z });
       io.to(room.id).emit('impact', { x: t.x, y: ROBOTS.robotChestY(t), z: t.z, head: false, zone: 'torso', by: r.owner });
@@ -1699,6 +1804,13 @@ function robotWorld(room, now) {
     fx: (k, d) => io.to(room.id).emit('robotfx', Object.assign({ k }, d)),
     gone: (r, why) => {
       const owner = players.get(r.owner);
+      if (r.kind === 'missile') {
+        if (owner) { owner.missileReadyAt = now + SALVO.missile.cdMs; sendSalvoTimers(owner, now); }
+        // out of fuel, or its pilot died: it comes down where it is
+        if (why === 'expired' || why === 'owner') missileBlast(room, r.x, r.y, r.z, r.owner, now);
+        else if (why === 'destroyed') io.to(room.id).emit('robotfx', { k: 'die', id: r.id, kind: r.kind, x: r.x, y: r.y, z: r.z });
+        return;                                          // 'boom': it already went off where it hit
+      }
       if (r.kind === 'dog' && owner) owner.dogReadyAt = now + SILV.dog.cdMs;   // 70s from when it is gone
       if (r.kind === 'drone' && owner) owner.droneReadyAt = now + SILV.drone.cdMs;   // and the drone's 40s
       if (why === 'expired') io.to(room.id).emit('robotfx', { k: 'expire', id: r.id, kind: r.kind, x: r.x, y: r.y, z: r.z });
@@ -1978,7 +2090,11 @@ function tickRoom(room, now, dt) {
   const grens = room.grenades;
   for (let i = grens.length - 1; i >= 0; i--) {
     const g = grens[i];
-    if (now >= g.fuseAt) { explodeGrenade(room, g, now); grens.splice(i, 1); continue; }
+    if (now >= g.fuseAt) {
+      if (g.incen) dropFire(room, g.x, g.y, g.z, g.by, now, SALVO.incen.pool);   // never landed: it bursts where it is
+      else explodeGrenade(room, g, now);
+      grens.splice(i, 1); continue;
+    }
     g.vy -= GRENADE.gravity * dt;
     const sx = g.vx*dt, sy = g.vy*dt, sz = g.vz*dt, len = Math.hypot(sx, sy, sz);
     if (len > 1e-6) {
@@ -1995,6 +2111,7 @@ function tickRoom(room, now, dt) {
       if (best) {
         const k = Math.max(0, best.t - 0.08);
         g.x += dir.x*k; g.y += dir.y*k; g.z += dir.z*k;
+        if (g.incen) { g.fuseAt = now; continue; }      // the incendiary bursts on what it hits
         if (best.axis === 0) g.vx = -g.vx; else if (best.axis === 1) g.vy = -g.vy; else g.vz = -g.vz;
         const keep = onBody ? GRENADE.bodyBounce : GRENADE.bounce;
         g.vx *= keep; g.vy *= keep; g.vz *= keep;
@@ -2002,9 +2119,17 @@ function tickRoom(room, now, dt) {
     }
     if (g.y < 0.08) {                                   // the floor is not a collider box
       g.y = 0.08;
+      if (g.incen) { g.y = 0; g.fuseAt = now; continue; }
       if (g.vy < 0) { g.vy = -g.vy * GRENADE.bounce; g.vx *= GRENADE.friction; g.vz *= GRENADE.friction; }
       if (Math.abs(g.vy) < 0.6) g.vy = 0;
     }
+  }
+
+  // ---- Salvo's shells and bomblets, each on its own moment ----
+  for (let i = room.blasts.length - 1; i >= 0; i--) {
+    const b = room.blasts[i]; if (now < b.at) continue;
+    room.blasts.splice(i, 1);
+    blastAt(room, b.x, b.y, b.z, b.by, b.cfg, now, b.name);
   }
 
   // ---- Blast's zone: regenerate while it runs ----
@@ -2034,7 +2159,7 @@ function tickRoom(room, now, dt) {
       if (f.by === id) continue;                       // your own pool won't burn you
       const fy = f.y || 0;                             // pools can sit on crates now
       if ((y || 0) < fy - 0.6 || (y || 0) > fy + FIRE.top) continue;
-      if (Math.hypot(e.x - f.x, e.z - f.z) > FIRE.radius) continue;
+      if (Math.hypot(e.x - f.x, e.z - f.z) > (f.r || FIRE.radius)) continue;
       return f;
     }
     return null;
@@ -2047,14 +2172,14 @@ function tickRoom(room, now, dt) {
       e.burnUntil = now + FIRE.graceMs;                // renews while they stand in it
       e.burnBy = f.by;
       // never let walking into a pool slow an existing, fiercer burn
-      e.burnRate = Math.max(e.burnRate || 0, FIRE.dps);
-      e.inFire = true;
+      e.burnRate = Math.max(e.burnRate || 0, f.dps || FIRE.dps);
+      e.inFire = f;
     } else if (e.inFire) {
       // Just stepped out: they walk away still alight, but at the lower
       // lingering rate. A fiercer burn from a direct hit keeps precedence.
-      e.inFire = false;
-      if (e.burnRate === FIRE.dps) e.burnRate = FIRE.lingerDps;
-      const until = now + FIRE.lingerMs;
+      const was = e.inFire; e.inFire = false;
+      if (e.burnRate === (was.dps || FIRE.dps)) e.burnRate = was.lingerDps || FIRE.lingerDps;
+      const until = now + (was.lingerMs || FIRE.lingerMs);
       if (e.burnUntil < until) e.burnUntil = until;
       if (!e.burnNext || e.burnNext > now + 1000) e.burnNext = now + 1000;
     }
@@ -2114,7 +2239,7 @@ function tickRoom(room, now, dt) {
     if (now > e.burnUntil) { e.burnUntil = 0; e.burnRate = 0; return; }
     if (now < (e.burnNext || 0)) return;
     e.burnNext = now + 1000;
-    e.hp -= (e.burnRate || XBOW.burnDps); hitBy(e, e.burnBy);
+    e.hp -= (e.burnRate || XBOW.burnDps) * blastMul(e); hitBy(e, e.burnBy);
     if (e.hp <= 0 && e.alive) {
       eliminate(room, e, isPlayer);
       const killer = players.get(e.burnBy);

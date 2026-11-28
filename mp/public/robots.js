@@ -73,6 +73,38 @@ const SILV = {
          runDist: 10, runSpeed: 9.5, pounceR: 3.5, r: 0.5, eye: 0.75, follow: 2.4 },
 };
 
+/* SALVO (Jack, 2026-11-28; PLAN-characters.md section 4): the fire-and-
+   explosives agent, after Delta Force's Uluru. Lives here, not in server.js
+   or the client, because both sides need the same numbers and this is the
+   one file both load.
+   - passive: `blastMul` of all fire and explosive damage reaches him.
+   - G: the composite incendiary. Bursts on its first impact into a fire pool
+     stronger than Aseed's (`pool`); right-click makes it a frag with a 1s fuse.
+   - V: a shell barrage, aimed and pressed: `warnMs` of warning, then
+     `shells` shells at random in `radius` over `spanMs`, up to `dmg` each.
+   - X: a missile he flies through its own camera for up to `lifeMs`; on
+     impact `dmg`, then `bomblets` smaller blasts around it. It is a robot
+     (kind 'missile') so the gun code that hits Silvars' drone hits it too:
+     `hp` is a few rifle hits. */
+const SALVO = {
+  blastMul: 0.25,
+  incen: { charges: 2, cdMs: 30000, speed: 17, fragFuseMs: 1000, maxFuseMs: 4000,
+           pool: { radius: 5.5, ms: 12000, dps: 26, lingerDps: 8, lingerMs: 6000 } },
+  frag: { radius: 5.5, full: 1.5, dmg: 90 },
+  barrage: { range: 60, cdMs: 50000, warnMs: 2000, spanMs: 3000, shells: 6, radius: 10,
+             blast: { radius: 4.5, full: 1.2, dmg: 60 } },
+  missile: { cdMs: 60000, lifeMs: 8000, speed: 22, turn: 2.2, hp: 40, r: 0.4,
+             blast: { radius: 4.5, full: 1.2, dmg: 75 },
+             bomblets: 4, spread: 2.6, bombletMs: 350, bomb: { radius: 2.8, full: 0.6, dmg: 25 } },
+};
+/* Damage from a blast at distance d: full inside `full`, linear to nothing
+   at `radius`. Shared so the range and the match cannot disagree. */
+function blastDamage(cfg, d){
+  if (d >= cfg.radius) return 0;
+  if (d <= cfg.full) return cfg.dmg;
+  return Math.round(cfg.dmg * (1 - (d - cfg.full) / (cfg.radius - cfg.full)));
+}
+
 /* ---------------------------------------------------------------
    Geometry. Built once per map and cached, on either side.
    `move` stops a flying body (glass and rails too), `ray` stops a shot
@@ -243,7 +275,7 @@ function gridPath(G, sx, sz, gx, gz, maxNodes){
    --------------------------------------------------------------- */
 let robotSeq = 0;
 function makeRobot(kind, owner, x, y, z, extra){
-  const S = SILV[kind];
+  const S = SILV[kind] || SALVO[kind];
   return Object.assign({ id: (robotSeq = (robotSeq + 1) & 0xffff), kind, owner, x, y, z, vx: 0, vy: 0, vz: 0,
                          yaw: 0, hp: S.hp, maxHp: S.hp, shield: S.shield || 0, state: 'idle', t: 0, lock: 0, alive: true }, extra || {});
 }
@@ -251,6 +283,7 @@ function makeRobot(kind, owner, x, y, z, extra){
 function robotHitT(r, ox, oy, oz, dx, dy, dz){
   const c = r.kind === 'dog' ? [r.x, (r.y || 0) + 0.55, r.z, 0.55]
           : r.kind === 'drone' ? [r.x, r.y, r.z, 0.55]
+          : r.kind === 'missile' ? [r.x, r.y, r.z, SALVO.missile.r + 0.15]
           : [r.x, r.y, r.z, 0.22];
   const lx = c[0] - ox, ly = c[1] - oy, lz = c[2] - oz;
   const tca = lx * dx + ly * dy + lz * dz;
@@ -309,6 +342,9 @@ function stepRobots(W, list, dt){
       if (r.kind === 'sensor') stepSensor(W, r, enemies);
       else if (r.kind === 'drone') stepDrone(W, r, owner, enemies, dt);
       else if (r.kind === 'dog') stepDog(W, r, owner, enemies, dt);
+      /* Salvo's missile is flown by its owner (the client sends where it is);
+         here it only ages, and runs out of fuel at lifeMs */
+      else if (r.kind === 'missile'){ r.t += dt * 1000; if (r.t >= SALVO.missile.lifeMs){ r.alive = false; r.why = 'expired'; } }
     }
     if (!r.alive) { list.splice(i, 1); W.gone(r, r.why || 'destroyed'); }
   }
@@ -574,10 +610,11 @@ function robotOrderPoint(G, ex, ey, ez, dx, dy, dz, feetY){
    sent to the room every tick while any robot is out. */
 const ROBOT_STATES = ['idle', 'follow', 'hunt', 'lock', 'dive', 'run', 'engage', 'guard'];
 function robotWire(r, now){
-  return { i: r.id, k: r.kind === 'dog' ? 'g' : r.kind === 'drone' ? 'd' : 's', o: r.owner,
+  return { i: r.id, k: r.kind === 'dog' ? 'g' : r.kind === 'drone' ? 'd' : r.kind === 'missile' ? 'm' : 's', o: r.owner,
            x: +r.x.toFixed(2), y: +(r.y || 0).toFixed(2), z: +r.z.toFixed(2), w: +(r.yaw || 0).toFixed(2),
            h: Math.round(r.hp), sh: r.shield ? Math.round(r.shield) : undefined, s: Math.max(0, ROBOT_STATES.indexOf(r.state)),
            l: r.kind === 'drone' ? +Math.min(1, (r.lock || 0) / SILV.drone.lockMs).toFixed(2) : 0,
+           q: r.kind === 'missile' ? +(r.pitch || 0).toFixed(2) : undefined,
            n: r.kind === 'sensor' ? [+r.nx.toFixed(2), +r.ny.toFixed(2), +r.nz.toFixed(2)] : undefined,
            p: r.kind === 'sensor' ? Math.max(0, Math.round(((r.readyAt || 0) - now) / 1000)) : undefined,
            v: r.kind === 'dog' ? +(r.speed || 0).toFixed(1) : undefined,
@@ -586,6 +623,6 @@ function robotWire(r, now){
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { SILV, robotGeo, robotRay, robotLos, makeRobot, stepRobots, damageRobot, robotHitT, robotOrderPoint,
+  module.exports = { SILV, SALVO, blastDamage, robotGeo, robotRay, robotLos, makeRobot, stepRobots, damageRobot, robotHitT, robotOrderPoint,
                      robotCenterY, robotWire, ROBOT_STATES, robotChestY };
 }

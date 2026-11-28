@@ -1016,3 +1016,11 @@ body.page-on .lobby-ui { display:none; }
   .pg-grp { width:100%; }
   #agPage { background:rgba(6,4,6,.75); }
 }
+
+/* Salvo's missile camera (salvo.js): a vignette, scan lines and the fuel left */
+body.missilecam #crosshair { opacity:.35 !important; }
+body.missilecam::after { content:''; position:fixed; inset:0; pointer-events:none; z-index:30;
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px),
+             radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.65)); }
+#missileHud { position:fixed; left:50%; top:16%; transform:translateX(-50%); z-index:31; pointer-events:none;
+  font-weight:800; letter-spacing:4px; font-size:13px; color:#ffb38a; text-shadow:0 0 12px rgba(255,90,40,.7); display:none; }

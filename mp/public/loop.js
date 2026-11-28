@@ -404,7 +404,8 @@ function loop(){ requestAnimationFrame(loop);
     revealHazards(gameMode === 'mp' && detectUntil > performance.now());
     animatePotions(nowMs / 1000);        // bob and spin the health pickups
     if(me.alive && !paused){      // frozen while the pause menu is up
-      movePlayer(dt);
+      if(typeof missileOn === 'function' && missileOn()){ me.hv.set(0,0,0); wantFire=false; semiQueued=false; }   // Salvo stands still while he flies it
+      else movePlayer(dt);
       // Targets keep the heading they spawned with; they used to turn to
       // face you every frame (Jack asked for that gone, 2026-11-15).
       if(gameMode==='bots'){ updateBotHealthBars(); updateHitboxOverlay(); }
@@ -429,6 +430,7 @@ function loop(){ requestAnimationFrame(loop);
       } }
     }
     if(!paused) updateSilvars(dt);           // Silvars' robots and Linked Sight, alive or spectating
+    if(!paused) updateSalvo(dt);             // Salvo's barrage aim and warnings, and his missile
     rangeRegen();                            // the range refills you after a fall
     /* The snapshot writes me.hp straight from the server and never tells the
        HUD, so the number and the bar sat at whatever they last showed until
@@ -475,6 +477,7 @@ function loop(){ requestAnimationFrame(loop);
     camera.position.set(me.x + rgtX*off, eyeY, me.z + rgtZ*off);
     // right lean rolls negative, matching the sign the dodge roll already uses
     camera.rotation.order='YXZ'; camera.rotation.set(me.pitch,me.yaw,camRoll - leanAmt*LEAN.angle);
+    const flying = typeof missileCamera === 'function' && missileCamera();   // Salvo's missile has the camera
     // eliminated in a match: ride behind a survivor instead (session.js)
     if(gameMode==='mp' && !me.alive) spectateCamera(dt); else spectateOff();
     // --- ADS (right-click aim): smooth zoom, tightened aim, scope on sniper ---
@@ -490,7 +493,7 @@ function loop(){ requestAnimationFrame(loop);
     const scoped = curW().scope && ads > 0.85;
     document.getElementById('scope').style.display = scoped ? 'block' : 'none';
     document.getElementById('crosshair').style.opacity = ads > 0.5 ? 0 : 1;
-    gun.visible = !scoped && !specOn;             // scope view hides the gun; so does watching someone else
+    gun.visible = !scoped && !specOn && !flying;  // scope view hides the gun; so does watching someone else, or flying the missile
     redDot.visible = !!curW().redDot && ads > 0.82 && !reloading && rollT <= 0 && !specOn;
 
     gunKick=Math.max(0,gunKick-dt*6);

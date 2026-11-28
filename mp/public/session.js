@@ -212,6 +212,12 @@ function renderAbilityCards(){
       ['G', t('ab.gren'),    fill('ab.gren.d',  ch(GRENADE))],
       ['X', t('ab.zone'),    fill('ab.zone.d',  { dur: sec(ZONE.ms), cd: sec(ZONE.cdMs), hp: ZONE.regen })],
     ],
+    salvo: [
+      ['P', t('ab.blastproof'), fill('ab.blastproof.d', { pct: Math.round((1 - SALVO.blastMul) * 100) })],
+      ['V', t('ab.barrage'),    fill('ab.barrage.d',    { range: SALVO.barrage.range, warn: sec(SALVO.barrage.warnMs), n: SALVO.barrage.shells, r: SALVO.barrage.radius, dmg: SALVO.barrage.blast.dmg, cd: sec(SALVO.barrage.cdMs) })],
+      ['G', t('ab.incen'),      fill('ab.incen.d',      { n: SALVO.incen.charges, cd: sec(SALVO.incen.cdMs), fuse: sec(SALVO.incen.fragFuseMs), dmg: SALVO.frag.dmg })],
+      ['X', t('ab.missile'),    fill('ab.missile.d',    { life: sec(SALVO.missile.lifeMs), dmg: SALVO.missile.blast.dmg, n: SALVO.missile.bomblets, bd: SALVO.missile.bomb.dmg, hp: SALVO.missile.hp, cd: sec(SALVO.missile.cdMs) })],
+    ],
     silvars: [
       ['P', t('ab.linked'),  fill('ab.linked.d', { s: sec(SILV.linkMs), cd: sec(SILV.linkCdMs) })],
       ['V', t('ab.sensor'),  fill('ab.sensor.d', { n: SILV.sensor.charges, r: SILV.sensor.radius, s: sec(SILV.linkMs), cd: sec(SILV.sensor.cdMs) })],
@@ -264,7 +270,7 @@ function quitToMenu(){
   // clear arrows in flight + reset ability state
   while(arrows.length) removeArrow(arrows[0]);
   for(const [id,m] of arrowGfx) scene.remove(m); arrowGfx.clear();
-  rollT=0; rollQueued=false; me.jumped=false; slideT=0; leanAmt=0; resetAbilities(); clearSmoke(); clearGrenades(); silvReset();
+  rollT=0; rollQueued=false; me.jumped=false; slideT=0; leanAmt=0; resetAbilities(); clearSmoke(); clearGrenades(); silvReset(); if(typeof salvoReset === 'function') salvoReset();
   dashT=0; dashCdUntil=0; climbT=0; zoneUntil=0; zoneReadyAt=0; document.body.classList.remove('inzone');
   me.hv.set(0,0,0); camRoll=0; camDip=0; comboStep=0; swingT=0;
   // stop timers / audio / input state
@@ -747,7 +753,11 @@ function connectMP(name){
     hitmark(zone); Sfx.hit(zone);              // a match had no hit sound at all
   });
   socket.on('hurt', d=>{ if(d){ hurtFrom(d.x, d.z); Sfx.hurt(); } });
-  socket.on('groundfire', d=> spawnGroundFire(d.x, d.y||0, d.z));
+  socket.on('groundfire', d=> spawnGroundFire(d.x, d.y||0, d.z, d.r ? { r:d.r, ms:d.ms } : null));
+  /* Salvo: everyone's barrage warning, and his own timers and missile id */
+  socket.on('barrage', d=> onBarrage(d));
+  socket.on('salvo', d=> onSalvoTimers(d));
+  socket.on('missile', d=> onMissileStart(d));
   socket.on('smoke', d=> spawnSmoke(d.x, d.y||0, d.z, d.by));
   // the server decides the cash; ammo is ours to refill
   // somebody took the round's cash — tell everyone, and grey out the ring
@@ -946,8 +956,8 @@ function decodeSnapshot(buf){
     const vx = d.getInt16(o,true)/100; o += 2;
     const vy = d.getInt16(o,true)/100; o += 2;
     const vz = d.getInt16(o,true)/100; o += 2;
-    const fl = d.getUint8(o++);                  // bit0 smoke bolt, bit1 grenade
-    arrows.push({ id, x:ax, y:ay, z:az, vx, vy, vz, sm: !!(fl & 1), gr: !!(fl & 2) });
+    const fl = d.getUint8(o++);                  // bit0 smoke bolt, bit1 grenade, bit2 Salvo's incendiary
+    arrows.push({ id, x:ax, y:ay, z:az, vx, vy, vz, sm: !!(fl & 1), gr: !!(fl & 2), ic: !!(fl & 4) });
   }
   return { match:{ phase, round, endsIn, roundWinner, matchWinner, resupplyTaken, ammoIn, potions },
            players, arrows };
@@ -1031,7 +1041,7 @@ function onSnapshot(s){
   const aseen=new Set();
   for(const ar of (s.arrows||[])){ aseen.add(ar.id);
     let m=arrowGfx.get(ar.id);
-    if(!m){ m = ar.gr ? makeGrenadeMesh() : makeArrowMesh(); if(ar.sm) tintSmokeBolt(m); scene.add(m); arrowGfx.set(ar.id,m); }
+    if(!m){ m = ar.ic ? makeIncenMesh() : ar.gr ? makeGrenadeMesh() : makeArrowMesh(); if(ar.ic) m.scale.setScalar(1.6); if(ar.sm) tintSmokeBolt(m); scene.add(m); arrowGfx.set(ar.id,m); }
     m.position.set(ar.x,ar.y,ar.z);
     if(ar.gr){ m.rotation.x += 0.15; m.rotation.z += 0.08; continue; }   // a grenade tumbles; no bolt trail
     const voff = boltVisualOffset(ar.id, m.position);

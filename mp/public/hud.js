@@ -32,6 +32,7 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
     const next = q.length ? Math.max(0,Math.ceil((q[0]-performance.now())/1000)) : 0;
     const label = (w.kind==='xbow') ? 'CROSSBOW · '+(ricochet?'RICOCHET':'DIRECT')
                 : (w.kind==='sensor') ? 'SENSOR · CLICK A SURFACE TO PLACE'
+                : (w.kind==='incen') ? 'INCENDIARY · '+(ricochet?'FRAG · 1s FUSE':'FIRE')+' · RIGHT-CLICK TO SWITCH'
                 : 'SMOKE · ' + (ricochet?'RICOCHET':'DIRECT');
     document.getElementById('modeLbl').textContent = label + (next?(' · '+next+'s'):'');
   } else {
@@ -135,16 +136,18 @@ const CD_TILES = [
 ];
 /* The three tiles are V, G and X, so what they show depends on the agent. */
 const CD_ART = { roll:'cd-roll', xbow:'cd-fire', smoke:'cd-smoke', dash:'cd-dash', grenade:'cd-grenade', zone:'cd-zone',
-                 sensor:'cd-sensor', drone:'cd-drone', dog:'cd-dog' };
+                 sensor:'cd-sensor', drone:'cd-drone', dog:'cd-dog',
+                 /* Salvo: stand-ins until Jack draws his three */
+                 barrage:'cd-grenade', incen:'cd-fire', missile:'cd-drone' };
 function configureTiles(){
   const a = agent();
-  const kinds = [typeof a.v === 'number' ? WEAPONS[a.v].kind : a.v, typeof a.g === 'string' ? a.g : a.g === XBOW ? 'xbow' : 'grenade',
+  const kinds = [typeof a.v === 'number' ? WEAPONS[a.v].kind : a.v, typeof a.g === 'string' ? a.g : a.g === XBOW ? 'xbow' : a.g === INCEN ? 'incen' : 'grenade',
                  typeof a.x === 'string' ? a.x : a.x === SMOKE ? 'smoke' : 'grenade'];
   CD_TILES.forEach((t, k) => {
     t.kind = kinds[k];
     const box = document.getElementById(t.id), img = box.querySelector('.cdico');
     img.src = 'assets/' + CD_ART[t.kind] + '.png'; img.alt = t.kind;
-    const n = box.querySelector('.cdn'); if(n) n.style.display = (t.kind === 'xbow' || t.kind === 'smoke' || t.kind === 'grenade' || t.kind === 'sensor') ? '' : 'none';
+    const n = box.querySelector('.cdn'); if(n) n.style.display = (t.kind === 'xbow' || t.kind === 'smoke' || t.kind === 'grenade' || t.kind === 'sensor' || t.kind === 'incen') ? '' : 'none';
   });
   cdEls = null;
 }
@@ -183,13 +186,24 @@ function cdState(kind, now){
     const remain = Math.max(0, silv.dogAt - now);
     return { remain: isFinite(remain) ? remain : 0, total: SILV.dog.cdMs, have: remain > 0 ? 0 : 1, max: 1 };
   }
+  /* Salvo: the barrage is a plain cooldown; the missile's tile is lit and
+     counts its fuel down while it flies */
+  if(kind === 'barrage'){
+    const remain = Math.max(0, salvo.barrageAt - now);
+    return { remain, total: SALVO.barrage.cdMs, have: remain > 0 ? 0 : 1, max: 1 };
+  }
+  if(kind === 'missile'){
+    if(salvo.missile) return { live:true, txt: String(Math.max(0, Math.ceil(SALVO.missile.lifeMs / 1000 - salvo.missile.t))), remain:0, total:1, have:1, max:1 };
+    const remain = Math.max(0, salvo.missileAt - now);
+    return { remain, total: SALVO.missile.cdMs, have: remain > 0 ? 0 : 1, max: 1 };
+  }
   if(kind === 'zone'){
     // while it runs the tile counts the 25s DOWN, lit; then the cooldown
     if(now < zoneUntil) return { live:true, remain: zoneUntil - now, total:ZONE.ms, have:1, max:1 };
     const remain = Math.max(0, zoneReadyAt - now);
     return { remain, total:ZONE.cdMs, have:remain > 0 ? 0 : 1, max:1 };
   }
-  const slot = kind === 'xbow' ? XBOW : kind === 'grenade' ? GRENADE : SMOKE, w = WEAPONS[slot];
+  const slot = kind === 'xbow' ? XBOW : kind === 'grenade' ? GRENADE : kind === 'incen' ? INCEN : SMOKE, w = WEAPONS[slot];
   const q = abilityRecharge[slot] || [];
   return { remain: q.length ? Math.max(0, q[0] - now) : 0, total:w.cooldownMs,
            have: abilityCharges[slot] | 0, max:w.charges };
@@ -611,7 +625,7 @@ const Sfx = (()=>{
         nz(dest, 'bandpass', 900, 0.22, 0.16, 1.2, 2400);
       } else if(w.kind === 'smoke'){               // a hollow launcher thump
         osc(dest, 'sine', 130, 55, 0.18, 0.55); nz(dest, 'lowpass', 900, 0.20, 0.35);
-      } else if(w.kind === 'grenade'){             // the pin, then the throw
+      } else if(w.kind === 'grenade' || w.kind === 'incen'){   // the pin, then the throw
         osc(dest, 'triangle', 2400, 1800, 0.03, 0.18); nz(dest, 'bandpass', 700, 0.22, 0.22, 0.8, 1500);
       } else gunshot(GUN[w.name] || GUN.RIFLE, dest);
     }),
@@ -649,6 +663,10 @@ const Sfx = (()=>{
     /* Silvars: the sensor's ping, which everyone near it hears; a robot's
        warning before it acts (the drone's lock, the dog drawing a bead);
        the dog's bite. */
+    /* Salvo: a shell falling (a long falling whistle), and the missile leaving */
+    whistle: safe((at)=>{ const dest = bus(at, 70); if(!dest) return;
+      osc(dest, 'sine', 1900, 520, 1.8, 0.16); osc(dest, 'sine', 1940, 540, 1.8, 0.06); }),
+    launch: safe(()=>{ nz(master, 'bandpass', 600, 0.45, 0.32, 0.7, 2600); osc(master, 'sawtooth', 90, 240, 0.4, 0.12); }),
     beep: safe((at)=>{ const dest = bus(at, 14); if(!dest) return;
       osc(dest,'square',1760,1760,0.07,0.16); osc(dest,'square',2350,2350,0.07,0.14,0.1); }),
     lock: safe((at)=>{ const dest = bus(at, 16); if(!dest) return;

@@ -151,7 +151,7 @@ bots, which stay untouched (Jack's rule).
 
 ---
 
-## 4. SALVO (new, Jack's design, planned 2026-11-28; NOT BUILT YET)
+## 4. SALVO (new, Jack's design; BUILT 2026-11-28)
 
 Jack: an explosives agent modelled on Delta Force's **Uluru (乌鲁鲁)**:
 his Composite Incendiary (复合型燃烧弹) for G and his Loitering Munition
