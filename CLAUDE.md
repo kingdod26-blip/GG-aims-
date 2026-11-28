@@ -3462,6 +3462,18 @@ the one file both sides load, so the range and the match cannot disagree.
   owner's copy from the server is hidden (he draws his own).
 - **Range:** the same timings with `localBlast` / `localMissileBlast`
   against the targets.
+- **The gear is drawn like the guns** (2026-11-28, Jack: "improve the model
+  for the vgx ... more detailed"), all in salvo.js with drawn.js's kit
+  (dmatL finishes, dProf, dRail, dScrew, dKnob, dDecal), real sizes:
+  `makeIncenMesh` an AN-M14-style can (63 x 118mm, red bands, vents, fuze,
+  spoon, pin, stencils; thrown at 1.6x), `drawLauncher` a shoulder tube
+  mounted with `mountGun` (two gloves, VM_RIGS) whose REFLEX SIGHT is on the
+  centreline with the tube to its right, so aiming (`redDot`, aimTop 0)
+  looks through it over the tube; `makeMissileMesh` (ogive, seeker, canards,
+  scissor wings, tail fins, nozzle, flame); `makeShellMesh` a 155mm HE round.
+  `salvoGlove` wraps `gloveEveryGun` to put both in the PAC-9 gloves.
+  **The barrage event carries its shells** (`shells: [[dx, dz, ms]]`) and
+  every client draws each one falling for the last 1.1s before it lands.
 - **Placeholders until Jack draws them:** the three HUD tiles reuse
   cd-grenade / cd-fire / cd-drone, and `OP_LOOKS.salvo` is scorched brown
   with an ember plate.

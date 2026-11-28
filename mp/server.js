@@ -1391,12 +1391,14 @@ io.on('connection', (socket) => {
     if (p.agent !== 'salvo' || !p.alive || match.phase !== 'live' || now < p.barrageReadyAt
         || !isFinite(x) || !isFinite(z) || Math.hypot(x - p.x, z - p.z) > B.range + 2) { sendSalvoTimers(p, now); return; }
     p.barrageReadyAt = now + B.cdMs;
+    const shells = [];                                   // [dx, dz, ms from now], so every client sees each round fall
     for (let k = 0; k < B.shells; k++) {
-      const a = Math.random() * Math.PI * 2, r = B.radius * Math.sqrt(Math.random());
-      room.blasts.push({ at: now + B.warnMs + (k / (B.shells - 1)) * B.spanMs, x: x + Math.cos(a) * r, y, z: z + Math.sin(a) * r,
+      const a = Math.random() * Math.PI * 2, r = B.radius * Math.sqrt(Math.random()), dt = B.warnMs + (k / (B.shells - 1)) * B.spanMs;
+      room.blasts.push({ at: now + dt, x: x + Math.cos(a) * r, y, z: z + Math.sin(a) * r,
                          by: socket.id, cfg: B.blast, name: 'a barrage' });
+      shells.push([+(Math.cos(a) * r).toFixed(2), +(Math.sin(a) * r).toFixed(2), Math.round(dt)]);
     }
-    io.to(room.id).emit('barrage', { x, y, z, by: socket.id, ms: B.warnMs, span: B.spanMs, r: B.radius });
+    io.to(room.id).emit('barrage', { x, y, z, by: socket.id, ms: B.warnMs, span: B.spanMs, r: B.radius, shells });
     sendSalvoTimers(p, now);
   });
   /* X: the missile is a robot (robots.js) so shots can bring it down. The
