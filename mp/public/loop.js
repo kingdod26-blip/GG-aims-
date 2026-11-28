@@ -209,6 +209,7 @@ function fallFlags(){ return (me.ladder || climbT > 0 ? 1 : 0) | (dashT > 0 || p
 /* A landing from more than FALL.safe. In a match the server sends `fell`
    with the damage; here we only make it heavy. On the range it is real. */
 function landFall(drop, rolled){
+  if(myAgent === 'txf') return;                        // TxF takes no fall damage
   let dmg = (drop - FALL.safe) * FALL.perM;
   if(rolled && myAgent === 'aseed') dmg *= FALL.rollMul;
   dmg = Math.round(dmg);
@@ -218,12 +219,12 @@ function landFall(drop, rolled){
   if(me.hp <= 0){                                      // the range has no death: back to the start, whole
     addFeed({ by: 'the fall', victim: (document.getElementById('nameInput') || {}).value || 'you', head: false });
     const p = clearSpawnSpot(0, Math.min(44, ARENA - 8));
-    me.x = p[0]; me.z = p[1]; me.feetY = 0; me.vy = 0; me.hv.set(0,0,0); me.fallPeak = 0; me.hp = 100; updateHUD();
+    me.x = p[0]; me.z = p[1]; me.feetY = 0; me.vy = 0; me.hv.set(0,0,0); me.fallPeak = 0; me.hp = maxHp(); updateHUD();
   }
 }
 function rangeRegen(){
-  if(gameMode === 'mp' || me.hp >= 100 || !fallHurtAt) return;
-  if(performance.now() - fallHurtAt > FALL.regenMs){ me.hp = 100; fallHurtAt = 0; updateHUD(); }
+  if(gameMode === 'mp' || me.hp >= maxHp() || !fallHurtAt) return;
+  if(performance.now() - fallHurtAt > FALL.regenMs){ me.hp = maxHp(); fallHurtAt = 0; updateHUD(); }
 }
 function movePlayer(dt){
   const st=STANCE[me.stance];
@@ -235,6 +236,8 @@ function movePlayer(dt){
      moving you along a path it already checked. */
   if(climbT>0){ updateClimb(dt); return; }
   if(!me.alive) me.ladder = null;
+  /* TxF in the air: his own movement (txf.js), no gravity, no ladders */
+  if(txfFlying()){ me.ladder = null; txfFlyStep(dt); return; }
   if(me.ladder){ updateLadder(dt); return; }
   { const L = ladderGrab(); if(L){ me.ladder = L; ladderStep = 0; me.hv.set(0,0,0); me.vy = 0; updateLadder(dt); return; } }
   if(jumpPressed){
@@ -426,11 +429,12 @@ function loop(){ requestAnimationFrame(loop);
           tp: lastTp,          // the forced move we've accepted; stale ones are ignored
           lo: +(me.lean||0).toFixed(2),   // lean offset in metres, already wall-clamped
           rl: rollT>0 ? +(1-rollT/rollDur).toFixed(3) : 0,    // roll progress, so others see the tumble
-          fl: fallFlags()});                                  // ladder / dash / landing roll, for fall damage
+          fl: fallFlags(),                                    // ladder / dash / landing roll, for fall damage
+          fly: txfFlying() ? 1 : 0});                         // TxF in the air, so others see his thrusters
       } }
     }
     if(!paused) updateSilvars(dt);           // Silvars' robots and Linked Sight, alive or spectating
-    if(!paused) updateSalvo(dt);             // Salvo's barrage aim and warnings, and his missile
+    if(!paused){ updateSalvo(dt); updateTxf(dt); }             // Salvo's barrage aim and warnings, and his missile
     rangeRegen();                            // the range refills you after a fall
     /* The snapshot writes me.hp straight from the server and never tells the
        HUD, so the number and the bar sat at whatever they last showed until

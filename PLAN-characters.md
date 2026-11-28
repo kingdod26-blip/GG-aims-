@@ -257,7 +257,7 @@ References: Delta Force's **Uluru (乌鲁鲁)** 速凝掩体 for G.
 
 ---
 
-## 7. THE HIDDEN AGENT (Jack's design, 2026-11-28; PLANNED, not built)
+## 7. TxF, THE HIDDEN AGENT (Jack's design, 2026-11-28; BUILT 2026-11-28)
 
 A secret agent that only a code typed in the CALLSIGN box can summon.
 
@@ -265,7 +265,7 @@ A secret agent that only a code typed in the CALLSIGN box can summon.
 |---|---|
 | Unlock | **Typed every time.** While the secret code is in the CALLSIGN box (`#nameInput`), the agent shows on the AGENTS page and can be picked. Clear it and the agent is gone. Jack chooses the code. The **server checks the code** and keeps only a scrambled (hashed) copy, so reading the game files does not reveal it. The code is **never shown as the player's name**: the server swaps it for the agent's name in the feed, the scoreboard and the nameplate. |
 | Where | The **practice range** and **matches, one per room** (the server refuses a second one). Any **future modes** too. In a match the feed warns everyone when it joins. |
-| Name / look | ***To decide* (Jack).** |
+| Name / look | **TxF** (Jack). Jack chose the code; it is stored only as a hash, never written down. Look: black suit, hazard-yellow plates, amber visor, danger signs, jet pack, shoulder emitter. |
 | Passive | **Flight** and **500 HP**. Double-tap Space to take off, and again to land. In the air, Space goes up, Ctrl/C goes down, and WASD moves where you look at **12 m/s (Shift 18)**. Capped by the roof and the map's sky lid. **No fall damage.** The server's `vetMove` must allow its flying (`MOVE.maxSpeed` 20 still holds). |
 | V | **Laser beam**: **hold V** to fire a continuous beam down the crosshair. **120 m** range, **300 damage a second** (a 100 HP player dies in about 0.3 s), stopped by walls. A **heat bar** allows **4 s** of firing, then it overheats and takes **6 s** to cool. A bright beam that everyone sees, with a hum. The server resolves the hits every tick. |
 | G | **Teleport**, by **aim and press**: press G and a marker shows where the crosshair hits, **up to 200 m** away (a floor, a roof, or in front of a wall face). Press again or left-click to go. A flash shows where you leave and where you land. **2 charges, 8 s each.** The server checks that the spot is free and inside the map, and bumps `p.tp`. |

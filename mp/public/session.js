@@ -218,6 +218,12 @@ function renderAbilityCards(){
       ['G', t('ab.incen'),      fill('ab.incen.d',      { n: SALVO.incen.charges, cd: sec(SALVO.incen.cdMs), fuse: sec(SALVO.incen.fragFuseMs), dmg: SALVO.frag.dmg })],
       ['X', t('ab.missile'),    fill('ab.missile.d',    { life: sec(SALVO.missile.lifeMs), dmg: SALVO.missile.blast.dmg, n: SALVO.missile.bomblets, bd: SALVO.missile.bomb.dmg, hp: SALVO.missile.hp, cd: sec(SALVO.missile.cdMs) })],
     ],
+    txf: [
+      ['P', t('ab.flight'), fill('ab.flight.d', { spd: TXF.fly.speed, fast: TXF.fly.fast, hp: TXF.hp })],
+      ['V', t('ab.laser'),  fill('ab.laser.d',  { dps: TXF.laser.dps, range: TXF.laser.range, heat: sec(TXF.laser.heatMs), cool: sec(TXF.laser.coolMs) })],
+      ['G', t('ab.tele'),   fill('ab.tele.d',   { range: TXF.tele.range, n: TXF.tele.charges, cd: sec(TXF.tele.cdMs) })],
+      ['X', t('ab.pulse'),  fill('ab.pulse.d',  { r: TXF.pulse.radius, dmg: TXF.pulse.dmg, s: sec(TXF.pulse.showMs), cd: sec(TXF.pulse.cdMs) })],
+    ],
     silvars: [
       ['P', t('ab.linked'),  fill('ab.linked.d', { s: sec(SILV.linkMs), cd: sec(SILV.linkCdMs) })],
       ['V', t('ab.sensor'),  fill('ab.sensor.d', { n: SILV.sensor.charges, r: SILV.sensor.radius, s: sec(SILV.linkMs), cd: sec(SILV.sensor.cdMs) })],
@@ -270,7 +276,7 @@ function quitToMenu(){
   // clear arrows in flight + reset ability state
   while(arrows.length) removeArrow(arrows[0]);
   for(const [id,m] of arrowGfx) scene.remove(m); arrowGfx.clear();
-  rollT=0; rollQueued=false; me.jumped=false; slideT=0; leanAmt=0; resetAbilities(); clearSmoke(); clearGrenades(); silvReset(); if(typeof salvoReset === 'function') salvoReset();
+  rollT=0; rollQueued=false; me.jumped=false; slideT=0; leanAmt=0; resetAbilities(); clearSmoke(); clearGrenades(); silvReset(); if(typeof salvoReset === 'function') salvoReset(); if(typeof txfReset === 'function') txfReset();
   dashT=0; dashCdUntil=0; climbT=0; zoneUntil=0; zoneReadyAt=0; document.body.classList.remove('inzone');
   me.hv.set(0,0,0); camRoll=0; camDip=0; comboStep=0; swingT=0;
   // stop timers / audio / input state
@@ -608,11 +614,13 @@ function startPlay(mode){
   if(mode === 'bots') ensureMap(pickedMap);
   heroGroup.forEach(o=>o.visible=false); gun.visible=true;
   setMenuBackdrop(false);              // out of the studio, into the map
-  const nm = (document.getElementById('nameInput').value.trim()) || (mode==='bots'?'You':'Player');
+  const nm = callsignName() || (mode==='bots'?'You':'Player');
+  /* TxF only while the code is in the CALLSIGN box (txf.js) */
+  if(myAgent === 'txf' && !txfUnlocked()){ myAgent = 'aseed'; try{ localStorage.setItem('cx.agent', myAgent); }catch(e){} }
   // reset player + weapons
   /* z=44 is a corner of Foundry and the WALL of anything smaller, so the
      spawn is clamped to the arena actually standing. */
-  me.x=0; me.z=Math.min(44, ARENA-8); me.feetY=0; me.eyeH=1.7; me.stance='stand'; me.vy=0; me.hp=100; me.alive=true; me.ladder=null;
+  me.x=0; me.z=Math.min(44, ARENA-8); me.feetY=0; me.eyeH=1.7; me.stance='stand'; me.vy=0; me.hp=maxHp(); me.alive=true; me.ladder=null; txfReset();
   /* ...and then moved to the nearest spot where nothing stands (2026-11-22).
      Jack: "every time when i enter the game i am pushed or moved a
      distance". On the power station (0, 44) is inside the turbine hall's
@@ -660,7 +668,8 @@ function connectMP(name){
      — one tab, two people in the match. Entering multiplayer twice without
      quitting in between (a double-click on the card will do it) was enough. */
   if(socket){ try{ socket.disconnect(); }catch(e){} socket=null; }
-  const opts = { auth: { tok: clientToken(), room: roomCode(), agent: myAgent } };
+  const opts = { auth: { tok: clientToken(), room: roomCode(), agent: myAgent,
+                         txf: myAgent === 'txf' ? document.getElementById('nameInput').value : undefined } };
   socket = MP_SERVER ? io(MP_SERVER, opts) : io(opts);
   socket.on('connect', ()=>{ connected=true; document.getElementById('status').textContent='connected'; socket.emit('state',{name}); });
   socket.on('disconnect', ()=>{ connected=false;
@@ -754,6 +763,16 @@ function connectMP(name){
   });
   socket.on('hurt', d=>{ if(d){ hurtFrom(d.x, d.z); Sfx.hurt(); } });
   socket.on('groundfire', d=> spawnGroundFire(d.x, d.y||0, d.z, d.r ? { r:d.r, ms:d.ms } : null));
+  /* TxF: refused, his timers, everyone's beams, teleports and pulses */
+  socket.on('txfno', d=> onTxfRefused(d));
+  socket.on('txfjoin', ()=> toast(t('txf.joined')));
+  socket.on('txf', d=> onTxfTimers(d));
+  socket.on('teleno', ()=> onTeleRefused());
+  socket.on('telefx', d=> onTeleFx(d));
+  socket.on('lasers', list=> onLasers(list));
+  socket.on('pulsefx', d=> onPulseFx(d));
+  socket.on('pulse', d=> onPulseSeen(d));
+  socket.on('pulsed', d=> onPulsed(d));
   /* Salvo: everyone's barrage warning, and his own timers and missile id */
   socket.on('barrage', d=> onBarrage(d));
   socket.on('salvo', d=> onSalvoTimers(d));
@@ -780,7 +799,7 @@ function connectMP(name){
     else toast(gotAmmo ? 'RESUPPLIED' : `AMMO IN ${d.in}s`);
   });
   socket.on('ammotaken', d=>{
-    if(d && d.name && d.name !== (document.getElementById('nameInput').value.trim()||'Player'))
+    if(d && d.name && d.name !== (callsignName()||'Player'))
       toast(`${d.name.toUpperCase()} TOOK THE AMMO`);
   });
   socket.on('bought', d=>{ myMoney=d.money; myGuns=(d.guns||[]).slice(); Sfx.swap();
@@ -897,7 +916,7 @@ function showEliminated(on){
 
    Players arrive as a one-byte SLOT instead of a 20-character socket id, so
    nothing can be read until 'meta' has supplied the slot -> id mapping. */
-const SNAP_VERSION = 4;          // 2 lean, 3 ammo timer, 4 potions
+const SNAP_VERSION = 5;          // 2 lean, 3 ammo timer, 4 potions, 5 hp u16 (TxF's 500)
 const PHASES = ['waiting', 'intermission', 'live', 'over', 'paused'];
 let lastMeta = null, warnedVersion = false;
 function decodeSnapshot(buf){
@@ -928,7 +947,7 @@ function decodeSnapshot(buf){
     const slot = d.getUint8(o++);
     const flags = d.getUint8(o++);
     const st = d.getUint8(o++);
-    const hp = d.getUint8(o++);
+    const hp = d.getUint16(o,true); o += 2;
     const x = d.getInt16(o,true)/100; o += 2;
     const y = d.getInt16(o,true)/100; o += 2;
     const z = d.getInt16(o,true)/100; o += 2;
@@ -942,9 +961,9 @@ function decodeSnapshot(buf){
     const dR = d.getUint16(o,true); o += 2;
     const meta = bySlot.get(slot);
     if(!meta) continue;                        // a join we have not been told about yet
-    players.push({ id: meta.id, name: meta.name, color: meta.color,
+    players.push({ id: meta.id, name: meta.name, color: meta.color, agent: meta.agent,
       money: meta.money, wins: meta.wins, kills: meta.kills, guns: meta.guns,
-      x, y, z, yaw, st, hp, alive: !!(flags & 1), bn: !!(flags & 2),
+      x, y, z, yaw, st, hp, alive: !!(flags & 1), bn: !!(flags & 2), fly: !!(flags & 4),
       rl, tp, lo, mk, dT, dU, dR });
   }
   const arrows = [];
@@ -1013,7 +1032,7 @@ function onSnapshot(s){
        undefined and the heard-them-shoot silhouette never drew once. The smoke
        tag was unaffected because it tests o.markedBy, which comes off the
        snapshot. */
-    let o=others.get(p.id); if(!o){ const mesh=newPlayerMesh(p.color, p.agent); scene.add(mesh); o={mesh,id:p.id,tx:p.x,tz:p.z,ty:p.y||0,tyaw:p.yaw}; others.set(p.id,o); }
+    let o=others.get(p.id); if(!o){ const mesh=newPlayerMesh(p.color, p.agent); scene.add(mesh); o={mesh,id:p.id,agent:p.agent,tx:p.x,tz:p.z,ty:p.y||0,tyaw:p.yaw}; others.set(p.id,o); }
     o.id = p.id;
     /* Velocity between snapshots, measured BEFORE the new position lands.
        animate() extrapolates with it so a moving player is drawn where they
@@ -1027,7 +1046,7 @@ function onSnapshot(s){
     // look direction — without this, remote players appear to run backwards.
     o.tx=p.x; o.tz=p.z; o.ty=p.y||0; o.tyaw=p.yaw+Math.PI; o.tst=p.st||0; o.trl=p.rl||0;
     o.tlo=p.lo||0;                    // how far they are peeking out of cover
-    o.tburn=!!p.bn; o.mesh.visible=p.alive; o.alive=!!p.alive; o.name=p.name;
+    o.tburn=!!p.bn; o.mesh.visible=p.alive; o.alive=!!p.alive; o.name=p.name; o.fly=!!p.fly;
     o.wins=p.wins||0;
     o.markedBy = p.mk || null; }       // set only while the tag is live
   for (const [id,o] of others){ if(!seen.has(id)){ clearMark(o); clearBurnFx(o); scene.remove(o.mesh); others.delete(id); } }

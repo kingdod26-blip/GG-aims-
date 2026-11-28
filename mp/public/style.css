@@ -1024,3 +1024,31 @@ body.missilecam::after { content:''; position:fixed; inset:0; pointer-events:non
              radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.65)); }
 #missileHud { position:fixed; left:50%; top:16%; transform:translateX(-50%); z-index:31; pointer-events:none;
   font-weight:800; letter-spacing:4px; font-size:13px; color:#ffb38a; text-shadow:0 0 12px rgba(255,90,40,.7); display:none; }
+
+/* TxF, the hidden agent (txf.js): the laser's heat under the crosshair,
+   the flash of a teleport, the DETECTED warning, distance tags on what the
+   pulse found, and the note on the menu when the code is typed. */
+#txfHeat { position:fixed; left:50%; top:calc(50% + 44px); transform:translateX(-50%); z-index:21; pointer-events:none;
+  display:flex; flex-direction:column; align-items:center; gap:3px; font:700 10px/1 'IBM Plex Mono', Consolas, monospace;
+  letter-spacing:2px; color:rgba(255,214,120,.85); text-shadow:0 0 6px rgba(0,0,0,.8); opacity:.75; }
+#txfHeat i { display:block; width:120px; height:4px; background:rgba(0,0,0,.45); border:1px solid rgba(255,179,0,.45); }
+#txfHeat u { display:block; height:100%; width:0; background:linear-gradient(90deg, #ffb300, #ff5a1a); }
+#txfHeat.firing { opacity:1; }
+#txfHeat.hot { color:#ff6a3a; }
+#txfHeat.hot u { background:#ff3a1a; animation:txfBlink .4s steps(2) infinite; }
+#txfHeat em { font-style:normal; color:rgba(255,255,255,.7); }
+@keyframes txfBlink { 50% { opacity:.35; } }
+#txfFlash { position:fixed; inset:0; z-index:29; pointer-events:none; opacity:0;
+  background:radial-gradient(ellipse at center, rgba(255,241,196,.75), rgba(255,179,0,.25) 60%, transparent); }
+#txfFlash.go { animation:txfFlash .45s ease-out; }
+@keyframes txfFlash { 0% { opacity:1; } 100% { opacity:0; } }
+#txfDetected { position:fixed; left:50%; top:22%; transform:translateX(-50%); z-index:31; pointer-events:none; display:none;
+  font:900 22px/1 'IBM Plex Mono', Consolas, monospace; letter-spacing:8px; color:#ffb300;
+  padding:10px 22px; border:2px solid #ffb300; background:rgba(20,14,0,.55); text-shadow:0 0 14px rgba(255,179,0,.8); }
+#txfDetected.on { display:block; animation:txfBlink .5s steps(2) infinite; }
+#txfTags span { position:fixed; transform:translate(-50%, -100%); z-index:22; pointer-events:none;
+  font:700 11px/1 'IBM Plex Mono', Consolas, monospace; letter-spacing:1px; color:#ffb300; text-shadow:0 0 4px #000, 0 0 8px rgba(0,0,0,.8); }
+#txfNote { position:fixed; left:50%; bottom:12%; transform:translateX(-50%) translateY(10px); z-index:60; pointer-events:none; opacity:0;
+  transition:opacity .25s, transform .25s; font:800 13px/1 'IBM Plex Mono', Consolas, monospace; letter-spacing:4px;
+  color:#111; background:#ffb300; padding:10px 18px; }
+#txfNote.on { opacity:1; transform:translateX(-50%); }

@@ -35,7 +35,7 @@ addEventListener('keydown',e=>{
   const digit = /^Digit([1-9])$/.exec(e.code);
   if(digit){ const inv = inventory(), at = +digit[1] - 1;
              if(at < inv.length) switchWeapon(inv[at]); }
-  if(e.code==='Space' && !e.repeat) jumpPressed=true;   // edge, so holding won't spam
+  if(e.code==='Space' && !e.repeat){ if(!txfSpace()) jumpPressed=true; }   // edge, so holding won't spam; TxF: a double tap flies
   // G and X are the agent's: a weapon slot to equip, or an instant ability
   if(e.code==='KeyG' && !e.repeat){ const g = agent().g; if(typeof g === 'string') useAgentKey(g); else switchWeapon(g); }
   if(e.code==='KeyX' && !e.repeat){ const x = agent().x; if(x === 'zone') startZone(); else if(typeof x === 'string') useAgentKey(x); else switchWeapon(x); }
@@ -44,6 +44,7 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyV' && !e.repeat){ const v = agent().v; if(v === 'dash') startDash(); else if(v === 'roll') startRoll();
     else if(typeof v === 'number') switchWeapon(v);   // Silvars: the sensor, into your hand
     else useAgentKey(v); }
+  if(e.code==='KeyC' && txfFlying()) return;            // TxF in the air: C is down, not crouch
   if(e.code==='KeyC'){
     // sprinting -> slide; otherwise it's the normal crouch toggle
     // slide if you're sprinting OR still carrying speed (e.g. out of a roll)
@@ -115,7 +116,8 @@ function startSlide(){
   slideLean = -slideDir.dot(new THREE.Vector3(Math.cos(me.yaw),0,-Math.sin(me.yaw)));
   slideCdUntil=now+SLIDE.cdMs; me.stance='crouch'; Sfx.step(true);
 }
-addEventListener('keyup',e=> keys[e.code]=false);
+addEventListener('keyup',e=>{ keys[e.code]=false;
+  if(e.code==='KeyV' && agent().v === 'laser') laserKey(false); });   // TxF: the laser fires while V is held
 addEventListener('mousemove',e=>{ if(!pointerLocked) return;
   if(typeof missileOn === 'function' && missileOn()){ steerMissile(e.movementX, e.movementY); return; }   // Salvo flying his missile
   /* SETTINGS.sens scales it (GAMEPLAY tab). 0.0022 rad a count is the 1x it
@@ -127,6 +129,8 @@ addEventListener('mousedown',e=>{
   /* Salvo: aiming the barrage, left-click calls it in and right-click calls it
      off; while a missile flies the buttons do nothing */
   if(typeof salvo !== 'undefined' && salvo.aiming && pointerLocked){ if(e.button===0) barrageConfirm(); else if(e.button===2) salvoAimOff(); return; }
+  /* TxF: aiming the teleport, left-click goes and right-click calls it off */
+  if(typeof txf !== 'undefined' && txf.aiming && pointerLocked){ if(e.button===0) teleConfirm(); else if(e.button===2) teleAimOff(); return; }
   if(typeof missileOn === 'function' && missileOn()) return;
   if(e.button===0){ wantFire=true; semiQueued=true; }
   // crossbow: right-click switches fire mode instead of aiming

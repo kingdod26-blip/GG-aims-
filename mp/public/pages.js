@@ -185,7 +185,8 @@ function renderWeaponsPage(){
 
 /* ---------- the agents ---------- */
 const AG_ICON = { roll: 'cd-roll', xbow: 'cd-fire', smoke: 'cd-smoke', dash: 'cd-dash', gren: 'cd-grenade', zone: 'cd-zone',
-                  sensor: 'cd-sensor', drone: 'cd-drone', dog: 'cd-dog', barrage: 'cd-fire', incen: 'cd-grenade', missile: 'cd-drone' };
+                  sensor: 'cd-sensor', drone: 'cd-drone', dog: 'cd-dog', barrage: 'cd-fire', incen: 'cd-grenade', missile: 'cd-drone',
+                  laser: 'cd-laser', tele: 'cd-tele', pulse: 'cd-pulse' };
 /* the same kit, with the same live numbers, as the abilities page */
 function agentKit(a){
   const ch = slot => ({ n: WEAPONS[slot].charges, cd: pgSec(WEAPONS[slot].cooldownMs) });
@@ -200,6 +201,10 @@ function agentKit(a){
       ['V', 'barrage', { range: SALVO.barrage.range, warn: pgSec(SALVO.barrage.warnMs), n: SALVO.barrage.shells, r: SALVO.barrage.radius, dmg: SALVO.barrage.blast.dmg, cd: pgSec(SALVO.barrage.cdMs) }],
       ['G', 'incen', { n: SALVO.incen.charges, cd: pgSec(SALVO.incen.cdMs), fuse: pgSec(SALVO.incen.fragFuseMs), dmg: SALVO.frag.dmg }],
       ['X', 'missile', { life: pgSec(SALVO.missile.lifeMs), dmg: SALVO.missile.blast.dmg, n: SALVO.missile.bomblets, bd: SALVO.missile.bomb.dmg, hp: SALVO.missile.hp, cd: pgSec(SALVO.missile.cdMs) }]],
+    txf: [['P', 'flight', { spd: TXF.fly.speed, fast: TXF.fly.fast, hp: TXF.hp }],
+      ['V', 'laser', { dps: TXF.laser.dps, range: TXF.laser.range, heat: pgSec(TXF.laser.heatMs), cool: pgSec(TXF.laser.coolMs) }],
+      ['G', 'tele', { range: TXF.tele.range, n: TXF.tele.charges, cd: pgSec(TXF.tele.cdMs) }],
+      ['X', 'pulse', { r: TXF.pulse.radius, dmg: TXF.pulse.dmg, s: pgSec(TXF.pulse.showMs), cd: pgSec(TXF.pulse.cdMs) }]],
   }[a].map(([k, id, o]) => ({ k, id, name: t('ab.' + id), d: pgFill('ab.' + id + '.d', o) }));
 }
 /* which weapon page each piece of gear opens */
@@ -207,7 +212,7 @@ const AG_GEAR = { xbow: 'crossbow', smoke: 'crossbow', gren: 'grenade', sensor: 
 let agSel = myAgent;
 function renderAgentsPage(){
   const pg = byId('agPage'); if (!pg) return;
-  const ids = Object.keys(AGENTS), a = AGENTS[agSel] ? agSel : myAgent, i = ids.indexOf(a), mine = a === myAgent;
+  const ids = agentIds(), a = ids.includes(agSel) ? agSel : myAgent, i = ids.indexOf(a), mine = a === myAgent;
   pg.querySelector('.pg-list').innerHTML = `<div class="pg-grp">${t('ag.roster')}</div>` + ids.map(id => `
     <button class="pg-item ag ${id === a ? 'on' : ''}" data-a="${id}"><b>${AGENTS[id].name}</b>
       <i>${id === myAgent ? t('ag.yours') : pgEsc(t(id + '.kit'))}</i></button>`).join('');
@@ -225,6 +230,7 @@ function renderAgentsPage(){
   setHeroLook(a);                              // the podium wears whoever you are looking at
 }
 function agentChoose(a){
+  if (myAgent !== 'txf') txf.prevAgent = myAgent;     // where clearing TxF's code puts you back
   myAgent = a;
   try { localStorage.setItem('cx.agent', myAgent); } catch (e) {}
   renderLobbyCards(); renderAgentsPage(); Sfx.swap();
@@ -274,7 +280,7 @@ function closePage(quiet){
   });
   byId('agPage').addEventListener('click', ev => {
     const it = ev.target.closest('[data-a]'), st = ev.target.closest('[data-step]'), sel = ev.target.closest('.pg-select'), wp = ev.target.closest('[data-wpn]');
-    const ids = Object.keys(AGENTS);
+    const ids = agentIds();
     if (it){ agSel = it.dataset.a; renderAgentsPage(); Sfx.swap(); }
     if (st){ agSel = ids[(ids.indexOf(agSel) + +st.dataset.step + ids.length) % ids.length]; renderAgentsPage(); Sfx.swap(); }
     if (sel && !sel.disabled) agentChoose(agSel);

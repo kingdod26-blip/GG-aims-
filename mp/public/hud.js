@@ -12,8 +12,10 @@
 
 /* ---- HUD ---- */
 function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Math.round(me.hp));
-  document.getElementById('hpFill').style.width=Math.max(0,me.hp)+'%';
-  document.getElementById('hpFill').style.background = me.hp>50 ? '#fff' : me.hp>25 ? '#ffb648' : '#ff4d4d';
+  /* the bar is a share of YOUR full health: 100 for most, TxF's 500 */
+  const hpPct = Math.max(0, Math.min(100, me.hp / maxHp() * 100));
+  document.getElementById('hpFill').style.width=hpPct+'%';
+  document.getElementById('hpFill').style.background = hpPct>50 ? '#fff' : hpPct>25 ? '#ffb648' : '#ff4d4d';
   const w=curW();
   updateCrosshair();                               // ring for the shotgun, cross otherwise
   if(w.melee){                                     // combo chain, no ammo
@@ -139,7 +141,9 @@ const CD_TILES = [
 const CD_ART = { roll:'cd-roll', xbow:'cd-fire', smoke:'cd-smoke', dash:'cd-dash', grenade:'cd-grenade', zone:'cd-zone',
                  sensor:'cd-sensor', drone:'cd-drone', dog:'cd-dog',
                  /* Salvo: stand-ins until Jack draws his three */
-                 barrage:'cd-fire', incen:'cd-grenade', missile:'cd-drone' };
+                 barrage:'cd-fire', incen:'cd-grenade', missile:'cd-drone',
+                 /* TxF, the hidden agent */
+                 laser:'cd-laser', tele:'cd-tele', pulse:'cd-pulse' };
 function configureTiles(){
   const a = agent();
   const kinds = [typeof a.v === 'number' ? WEAPONS[a.v].kind : a.v, typeof a.g === 'string' ? a.g : a.g === XBOW ? 'xbow' : a.g === INCEN ? 'incen' : 'grenade',
@@ -148,7 +152,7 @@ function configureTiles(){
     t.kind = kinds[k];
     const box = document.getElementById(t.id), img = box.querySelector('.cdico');
     img.src = 'assets/' + CD_ART[t.kind] + '.png'; img.alt = t.kind;
-    const n = box.querySelector('.cdn'); if(n) n.style.display = (t.kind === 'xbow' || t.kind === 'smoke' || t.kind === 'grenade' || t.kind === 'sensor' || t.kind === 'incen') ? '' : 'none';
+    const n = box.querySelector('.cdn'); if(n) n.style.display = (t.kind === 'xbow' || t.kind === 'smoke' || t.kind === 'grenade' || t.kind === 'sensor' || t.kind === 'incen' || t.kind === 'tele') ? '' : 'none';
   });
   cdEls = null;
 }
@@ -197,6 +201,21 @@ function cdState(kind, now){
     if(salvo.missile) return { live:true, txt: String(Math.max(0, Math.ceil(SALVO.missile.lifeMs / 1000 - salvo.missile.t))), remain:0, total:1, have:1, max:1 };
     const remain = Math.max(0, salvo.missileAt - now);
     return { remain, total: SALVO.missile.cdMs, have: remain > 0 ? 0 : 1, max: 1 };
+  }
+  /* TxF: the laser's tile is lit while it fires and shows the heat; an
+     overheat is its cooldown. The teleport has two charges, the pulse one. */
+  if(kind === 'laser'){
+    if(now < txf.hotUntil) return { remain: txf.hotUntil - now, total: TXF.laser.coolMs, have: 0, max: 1 };
+    if(txf.laserOn) return { live:true, txt: Math.round(txf.heat * 100) + '%', remain:0, total:1, have:1, max:1 };
+    return { remain: 0, total: 1, have: 1, max: 1 };
+  }
+  if(kind === 'tele'){
+    const have = teleHave(now), q = txf.teleQ;
+    return { remain: q.length ? Math.max(0, Math.min(...q) - now) : 0, total: TXF.tele.cdMs, have, max: TXF.tele.charges };
+  }
+  if(kind === 'pulse'){
+    const remain = Math.max(0, txf.pulseAt - now);
+    return { remain, total: TXF.pulse.cdMs, have: remain > 0 ? 0 : 1, max: 1 };
   }
   if(kind === 'zone'){
     // while it runs the tile counts the 25s DOWN, lit; then the cooldown
@@ -505,7 +524,7 @@ const Sfx = (()=>{
      thin whine riding it, and the shaft itself at 50 turns a second.
      The fundamentals are below what a laptop speaker can make, so most of
      what carries on one is the 200 to 400Hz partials and the whine. */
-  let plant = null;
+  let plant = null, laserNodes = null;
   /* THE AMBIENCE (2026-11-23, the Saltline list): wind over the site
      outdoors - band-passed noise whose pitch and level drift on two slow
      LFOs so it gusts - and room tone indoors, a low muffled air with a
@@ -668,6 +687,33 @@ const Sfx = (()=>{
     whistle: safe((at)=>{ const dest = bus(at, 70); if(!dest) return;
       osc(dest, 'sine', 1900, 520, 1.8, 0.16); osc(dest, 'sine', 1940, 540, 1.8, 0.06); }),
     launch: safe(()=>{ nz(master, 'bandpass', 600, 0.45, 0.32, 0.7, 2600); osc(master, 'sawtooth', 90, 240, 0.4, 0.12); }),
+    /* TxF: the teleport's rising zip, the pulse's deep wave, the DETECTED
+       ping the pulse's targets hear, the overheat, the jet pack lighting,
+       and the laser's hum (held: only its level moves). */
+    teleport: safe((at)=>{ const dest = at ? bus(at, 30) : master; if(!dest) return;
+      osc(dest,'sine',240,1900,0.32,0.20); osc(dest,'triangle',1500,200,0.42,0.09,0.06); nz(dest,'bandpass',2600,0.3,0.16,1.2,700); }),
+    pulse: safe((at)=>{ const dest = at ? bus(at, 140) : master; if(!dest) return;
+      osc(dest,'sine',70,32,1.3,0.55); osc(dest,'sine',960,240,0.9,0.10); nz(dest,'lowpass',320,1.1,0.42); }),
+    ping: safe(()=>{ osc(master,'sine',1320,1320,0.16,0.24); osc(master,'sine',1980,1980,0.22,0.18,0.13); osc(master,'sine',1320,1320,0.16,0.2,0.3); }),
+    overheat: safe(()=>{ nz(master,'highpass',2600,0.7,0.24); osc(master,'square',420,130,0.45,0.07); }),
+    thrust: safe(()=>{ nz(master,'lowpass',900,0.5,0.4,0.8,240); osc(master,'sawtooth',70,140,0.35,0.08); }),
+    laserHum: safe((level)=>{
+      let L = laserNodes;
+      if(!L){ if(!(level > 0.003)) return;
+        const c = ctx, g = c.createGain(); g.gain.value = 0; g.connect(master);
+        const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1600; lp.connect(g);
+        const o1 = c.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 112; o1.connect(lp);
+        const o2 = c.createOscillator(); o2.type = 'square'; o2.frequency.value = 225; o2.connect(lp);
+        const n = c.createBufferSource(); n.buffer = noiseBuf; n.loop = true;
+        const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3400; bp.Q.value = 2.5;
+        const ng = c.createGain(); ng.gain.value = 0.3; n.connect(bp).connect(ng).connect(g);
+        o1.start(); o2.start(); n.start(); L = laserNodes = { g, o1, c };
+      }
+      if(L.c !== ctx){ laserNodes = null; return; }
+      const t = ctx.currentTime;
+      L.g.gain.setTargetAtTime(Math.max(0, level) * 0.10, t, 0.03);
+      L.o1.frequency.setTargetAtTime(112 + level * 18, t, 0.1);
+    }),
     beep: safe((at)=>{ const dest = bus(at, 14); if(!dest) return;
       osc(dest,'square',1760,1760,0.07,0.16); osc(dest,'square',2350,2350,0.07,0.14,0.1); }),
     lock: safe((at)=>{ const dest = bus(at, 16); if(!dest) return;

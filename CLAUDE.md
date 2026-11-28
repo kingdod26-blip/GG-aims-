@@ -2272,6 +2272,10 @@ sprint.
 - **Salvo** (2026-11-28, Jack's design after Delta Force's Uluru,
   `PLAN-characters.md` section 4). Passive **blast-proof**. V **barrage** ·
   G **incendiary** (right-click: frag) · X **missile**. See Salvo below.
+- **TxF, the hidden agent** (2026-11-28, Jack's design, `PLAN-characters.md`
+  section 7). Only while the secret code is in the CALLSIGN box, one per
+  room. Passive **flight**, 500 HP. V **laser** · G **teleport** · X
+  **pulse**. See TxF below.
 
 **Each agent wears their own outfit** (2026-11-27, from Jack's sheets in
 `Crinsome x/Pictures/character design`): `makeOperator(accent, look)` in
@@ -3482,3 +3486,67 @@ the one file both sides load, so the range and the match cannot disagree.
   refused, barrage warning seen by the victim and 56 damage, frag kills,
   passive 90 -> 23, the server's missile follows the pilot, shot down by a
   rifle (`die:missile`) and the pilot's view ends. No errors either side.
+
+## TxF, the hidden agent (2026-11-28)
+
+Jack: a hidden character only a code in the callsign can summon. Name TxF;
+Jack chose the code (ask him; it is not written anywhere). **All numbers are `TXF` in robots.js**,
+shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
+
+- **The code is never written in the game.** robots.js keeps only two
+  hashes (`TXF_HASHES`, the sign first or last; spaces, emoji variation
+  marks and case ignored) and `txfCodeOk(s)` is used on both sides. Do not
+  write the code itself into any file, comment or commit message.
+- **Unlock is typed every time** (Jack's choice): while the CALLSIGN box
+  (`#nameInput`) holds the code, `agentIds()` includes TxF and the AGENTS
+  page lists it (`AGENTS.txf.hidden`). Clear the box and you go back to your
+  previous agent (`txf.prevAgent`). `myAgent` never loads as `txf` from
+  localStorage. `callsignName()` sends "TxF" in place of the code; the
+  server also renames anyone whose name passes `txfCodeOk`, and a TxF is
+  always named TxF, so the code can never reach a scoreboard or kill feed.
+- **The server checks the code** from `auth.txf` at connect, and **one per
+  room**: a second TxF or a wrong code joins as Aseed and gets `txfno`
+  (`code` / `taken`); the client switches and says so. Others get `txfjoin`.
+- **500 HP**: `maxHpOf(p)` (server) and `maxHp()` (client) for every "back to
+  full" (respawn, potions, the range's fall reset). The HUD bar is a share
+  of max. **The snapshot's hp is a u16 now: SNAP_VERSION 5, PLAYER_B 22**,
+  and player flags bit2 is "flying". The decoder in session.js changed with
+  it; the probe `mp/scratchpad/txfmp.js` has its own decoder.
+- **Flight** (`txfFlyStep`, from movePlayer before ladders): double-tap Space
+  (300ms) to take off or land; Space up, **C down** (not Ctrl: Ctrl+W closes
+  the tab), WASD along the look at 12 m/s, Shift 18, horizontal capped at 19
+  for the server's 20 m/s budget. Floors, slabs over the head, walls and the
+  map's lid stop him. No fall damage on either side (`landFall`,
+  `trackFall`). The state packet carries `fly` so others see his jet flame.
+- **V laser** (held: keydown starts, keyup in input.js stops): the server
+  runs `tickLasers` every tick from his eye along his yaw/pitch, against
+  rayBoxes, robots and bodies (`hitZone`, no rewind), 300/s in whole points
+  (`laserAcc`), heat 4s then a 6s overheat (`overheatUntil`). Everyone gets
+  `lasers` [{id, o, e}] while any fires. The client mirrors the heat for the
+  bar and draws its own beam from the shoulder emitter (`makeEmitterMesh`,
+  a camera child); on the range it damages the targets itself.
+- **G teleport**, aim and press: `teleAimPoint` puts the feet on a floor or
+  roof, in front of a wall, under a ceiling or in the air at 200m, nudged up
+  then back until a body fits (`teleClearLocal`); the server re-checks with
+  `teleClear`, moves him, bumps `p.tp`, and sends `telefx` (both ends) with
+  `fly` set when he lands in the air. 2 charges, 8s.
+- **X pulse**: 40 to every player within 200m (3D), `pulsed` to each (the
+  DETECTED warning and a ping), `pulse {ids}` to him: they are outlined in
+  amber through walls (`txfMark`, separate from `mark`) for 8s with distance
+  tags (`#txfTags`). 25s.
+- Timers come from the server's `txf` event (heat, hot, teleQ, pulse).
+- **Look**: `OP_LOOKS.txf` in drawn.js: black suit, hazard-yellow plates, a
+  closed helmet with an amber T-visor, a danger sign on the brow and chest,
+  a jet pack (`userData.thrust`, lit while flying) and a shoulder emitter.
+  Icons `cd-laser/tele/pulse.png` (drawn by script, line art like the rest).
+- **Fixed on the way:** decoded players never carried `agent`, so every
+  remote player was drawn in the plain outfit; `agent` is copied from meta now.
+- Measured (`TXF_CODE=<the code> URL=http://localhost:8210 node mp/scratchpad/txfmp.js`): second
+  TxF refused `taken`, wrong code refused `code`, a TxF whose callsign is the
+  code is named TxF, 500 on the wire, 300m teleport refused and 170m landed,
+  a teleport into the air sets flying, pulse 100 -> 60 with the id sent back
+  and a second at once refused, laser overheats after 4s and is refused
+  while hot, then kills a victim at 14m in about 0.35s credited
+  "TxF -> VICTIM". Range: flight rises ~7 m/s and holds its height, laser
+  300/s on a target, teleports to the floor and into the air, the third
+  refused, pulse 40 to all eight targets and marks them. No console errors.

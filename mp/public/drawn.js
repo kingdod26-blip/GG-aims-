@@ -1360,10 +1360,15 @@ const OP_LOOKS = {
   /* SALVO: placeholder colours (scorched brown, an ember-red plate) until
      Jack draws his sheet */
   salvo:   { suit: 0x1e1a16, legs: 0x221d17, plate: 0x5a1e0c, dark: 0x120f0d, arm: 0x3a1a0c },
+  /* TxF, the hidden agent: the danger sign worn as a suit - black, with
+     hazard-yellow plates, a closed helmet with an amber visor, a jet pack
+     and a laser emitter on the right shoulder */
+  txf:     { suit: 0x0f1012, legs: 0x121316, plate: 0xc78a00, dark: 0x0a0a0b, arm: 0x16171a },
 };
 function makeOperator(accent, look){
   const L = OP_LOOKS[look] ? look : 'base', K = OP_LOOKS[L];
   const g = new THREE.Group();
+  let txThrust = null;                             // TxF's jet flame
   const suit = opMat('suit' + L, K.suit, 0.0, 0.86), plate = opMat('plate' + L, K.plate, L === 'base' ? 0.50 : 0.25, L === 'base' ? 0.42 : 0.6),
         dark = opMat('pdark' + L, K.dark, L === 'base' ? 0.45 : 0.2, L === 'base' ? 0.48 : 0.7);
   const legs = opMat('legs' + L, K.legs, 0.0, 0.9), arm = opMat('arm' + L, K.arm, L === 'base' ? 0.5 : 0.1, 0.7);
@@ -1457,6 +1462,46 @@ function makeOperator(accent, look){
     P(g, dark, B(0.06, 0.09, 0.04), 0.07, 1.42, -0.32);
     P(g, dark, C(0.005, 0.006, 0.42), 0.12, 1.66, -0.24); P(g, dark, C(0.005, 0.006, 0.3), -0.12, 1.6, -0.26);
     P(g, dark, opGeo('svcable', () => new THREE.TorusGeometry(0.1, 0.006, 4, 16)), 0, 1.32, -0.315);
+  } else if (L === 'txf') {
+    const yel = opMat('tx_yel', 0xc78a00, 0.25, 0.5), glow = opMat('tx_glow', 0x1a0e00, 0.3, 0.2, { emissive: new THREE.Color(0xffb300), emissiveIntensity: 1.6, side: THREE.DoubleSide }),
+          steel = opMat('tx_steel', 0x6b7078, 0.85, 0.35);
+    /* a closed helmet: the shell, a T-visor across the eyes and down the face */
+    const helm = opGeo('txhelm', () => new THREE.LatheGeometry([[0.001, 0.17], [0.075, 0.162], [0.124, 0.13], [0.15, 0.08], [0.156, 0.01], [0.15, -0.06], [0.13, -0.11], [0.1, -0.13]]
+      .map(p => new THREE.Vector2(p[0], p[1])), 24));
+    P(g, dark, helm, 0, 1.71, 0).scale.set(1, 1, 1.08);
+    P(g, glow, opGeo('txvisor', () => new THREE.CylinderGeometry(0.159, 0.157, 0.034, 24, 1, true, -0.9, 1.8)), 0, 1.725, 0).scale.set(1, 1, 1.08);
+    P(g, glow, B(0.026, 0.07, 0.012), 0, 1.675, 0.163);
+    for (const sx of [-1, 1]) P(g, yel, B(0.012, 0.13, 0.05), sx * 0.155, 1.74, -0.02);    // yellow fins on the shell
+    P(g, yel, B(0.03, 0.02, 0.22), 0, 1.885, -0.02);                                        // and a crest
+    /* the danger sign on the brow and, big, on the chest plate */
+    const triGeo = opGeo('txtri', () => new THREE.CylinderGeometry(0.05, 0.05, 0.01, 3));
+    const brow = P(g, glow, triGeo, 0, 1.80, 0.13, Math.PI / 2); brow.scale.set(0.45, 1, 0.45); brow.rotation.y = Math.PI;
+    const chest = P(g, dark, triGeo, 0, 1.40, 0.177, Math.PI / 2); chest.scale.set(1.4, 1, 1.4); chest.rotation.y = Math.PI;
+    P(g, yel, B(0.008, 0.035, 0.006), 0, 1.408, 0.184); P(g, yel, B(0.008, 0.008, 0.006), 0, 1.375, 0.184);   // its "!"
+    for (let i = 0; i < 5; i++) P(g, dark, B(0.018, 0.06, 0.006), -0.12 + i * 0.06, 1.262, 0.181, 0, 0.6);   // chevrons along the plate's foot
+    /* the jet pack: a spine plate, two thruster cans, nozzles that glow */
+    P(g, dark, B(0.24, 0.36, 0.08), 0, 1.38, -0.22);
+    P(g, yel, B(0.245, 0.04, 0.085), 0, 1.50, -0.22);
+    for (const sx of [-1, 1]){
+      P(g, steel, C(0.06, 0.06, 0.34), sx * 0.085, 1.36, -0.29);
+      P(g, dark, C(0.064, 0.064, 0.03), sx * 0.085, 1.52, -0.29);
+      P(g, dark, C(0.05, 0.068, 0.07), sx * 0.085, 1.16, -0.29);                              // the nozzle
+      P(g, glow, C(0.048, 0.048, 0.006), sx * 0.085, 1.123, -0.29);
+    }
+    /* the laser emitter on the right shoulder, pointing where he looks */
+    P(g, dark, B(0.09, 0.07, 0.07), 0.25, 1.62, -0.03);
+    P(g, dark, B(0.07, 0.065, 0.22), 0.25, 1.66, 0.06);
+    P(g, yel, B(0.072, 0.02, 0.05), 0.25, 1.66, 0.0);
+    P(g, steel, C(0.018, 0.018, 0.1), 0.25, 1.665, 0.21, Math.PI / 2);
+    P(g, glow, C(0.014, 0.014, 0.006), 0.25, 1.665, 0.262, Math.PI / 2);
+    /* the flame under the pack, only while he flies (txf.js thrustFrame) */
+    txThrust = new THREE.Group(); g.add(txThrust); txThrust.visible = false;
+    const fMat = new THREE.MeshBasicMaterial({ color: 0xffb35a, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false });
+    const cMat = new THREE.MeshBasicMaterial({ color: 0xfff1d0, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+    for (const sx of [-1, 1]){
+      const f = new THREE.Mesh(opGeo('txflame', () => { const c = new THREE.ConeGeometry(0.05, 0.55, 12, 1, true); c.translate(0, -0.275, 0); return c; }), fMat); f.position.set(sx * 0.085, 1.12, -0.29); txThrust.add(f);
+      const c = new THREE.Mesh(opGeo('txcore', () => { const c = new THREE.ConeGeometry(0.025, 0.22, 10); c.translate(0, -0.11, 0); return c; }), cMat); c.position.set(sx * 0.085, 1.12, -0.29); txThrust.add(c);
+    }
   } else {
     const shell = opGeo('helm', () => new THREE.LatheGeometry([[0.001, 0.165], [0.070, 0.158], [0.118, 0.128], [0.146, 0.080], [0.154, 0.020], [0.150, -0.040], [0.138, -0.085], [0.120, -0.100]]
       .map(p => new THREE.Vector2(p[0], p[1])), 22));
@@ -1502,6 +1547,10 @@ function makeOperator(accent, look){
     P(f, plate, C(0.056, 0.05, 0.16), 0, -0.15, 0);
     for (let i = 0; i < 3; i++) P(f, plate, opGeo('tqspine', () => new THREE.ConeGeometry(0.015, 0.06, 5)), 0.05, -0.09 - i * 0.045, 0, 0, -1.2);
   }
+  if (L === 'txf') {                                                                      // hazard bands on the forearms
+    const yel = opMat('tx_yel', 0xc78a00, 0.25, 0.5);
+    for (const f of [rf, lf]) { P(f, yel, C(0.054, 0.05, 0.05), 0, -0.12, 0); P(f, dark, C(0.055, 0.051, 0.012), 0, -0.12, 0); }
+  }
   if (L === 'silvars') {                                                                  // a screen on each wrist
     const scr = opMat('sv_screen', 0x0a1410, 0.4, 0.3, { emissive: new THREE.Color(0x48e0a0), emissiveIntensity: 0.9 });
     for (const f of [rf, lf]) { P(f, dark, B(0.07, 0.07, 0.02), 0, -0.18, 0.045); P(f, scr, B(0.05, 0.05, 0.004), 0, -0.18, 0.056); }
@@ -1517,7 +1566,7 @@ function makeOperator(accent, look){
      the trunk and the limbs make the same shadow on the floor. */
   g.traverse(o => { if (o.isMesh){ const p = o.geometry.parameters || {}; o.castShadow = (p.height || 0) >= 0.24 || (p.radius || 0) >= 0.085; } });
   const still = new THREE.Group();                 // what the loop swings in place of the arms
-  g.userData = { la: still, ra: still, ll, rl, walk: 0, look: L };
+  g.userData = { la: still, ra: still, ll, rl, walk: 0, look: L, thrust: txThrust };
   return g;
 }
 /* What the rest of the game calls for a body. Players take the brand

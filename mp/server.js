@@ -247,7 +247,7 @@ function groundAt(room, x, z, y) {
    roll queued (Aseed). 1 and 2 restart the count from where you are. */
 function trackFall(room, p, fl, now) {
   const y = p.y || 0;
-  if (!p.alive || room.match.phase !== 'live' || (fl & 3) || p.fallPeak === undefined) { p.fallPeak = y; p.fallRoll = false; return; }
+  if (!p.alive || room.match.phase !== 'live' || (fl & 3) || p.fallPeak === undefined || p.agent === 'txf') { p.fallPeak = y; p.fallRoll = false; return; }
   const ground = groundAt(room, p.x, p.z, y);
   if (y > ground + FALL.air) { if (y > p.fallPeak) p.fallPeak = y; if (fl & 4) p.fallRoll = true; return; }
   const drop = p.fallPeak - y, rolled = p.fallRoll || !!(fl & 4);
@@ -466,7 +466,11 @@ const XBOW = { headDmg: 90, bodyDmg: 50, burnDps: 12, burnMs: 5000, charges: 2, 
    Every ability handler checks it, so a patched client cannot throw an
    Aseed bolt as Blast or a grenade as Aseed. Must match AGENTS in
    public/weapons.js. */
-const AGENT_IDS = ['aseed', 'blast', 'silvars', 'salvo'];
+const AGENT_IDS = ['aseed', 'blast', 'silvars', 'salvo', 'txf'];
+/* TxF, the hidden agent (robots.js TXF): only with the secret code, and one
+   per room. 500 HP, so every "back to full" goes through maxHpOf. */
+const TXF = ROBOTS.TXF;
+const maxHpOf = p => (p && p.agent === 'txf') ? TXF.hp : 100;
 const agentOf = a => AGENT_IDS.includes(a) ? a : 'aseed';
 /* Salvo's passive (robots.js SALVO): fire and explosions do blastMul of
    their damage to him. Used by every blast, every burn tick and the drone's
@@ -766,7 +770,7 @@ function respawnAll(room) {
   let i = 0;
   for (const p of players.values()) {
     const s = spots[i++] || randomSpawn(room);
-    p.x = s.x; p.z = s.z; p.y = 0; p.hp = 100; p.alive = true;
+    p.x = s.x; p.z = s.z; p.y = 0; p.hp = maxHpOf(p); p.alive = true; p.laserOn = false; p.fly = false;
     p.tp = (p.tp || 0) + 1;        // force the client to accept this position
     p.burnUntil = 0; p.burnRate = 0; p.inFire = false;
     p.markedUntil = 0; p.markedBy = null; p.rl = 0; p.st = 0; p.diedAt = 0;
@@ -832,7 +836,7 @@ function noiseMade(room, byId, now) {
    where it fell. You sit the round out there — same place you'd start a round
    or a match from. Bots have no spawn to go to, so they stay put. */
 function eliminate(room, e, isPlayer) {
-  e.alive = false; e.hp = 0;
+  e.alive = false; e.hp = 0; e.laserOn = false; e.fly = false;
   e.diedAt = Date.now();        // who went down last decides a mutual kill
   e.burnUntil = 0; e.burnRate = 0; e.inFire = false;
   e.markedUntil = 0; e.markedBy = null; e.rl = 0;
@@ -904,9 +908,9 @@ const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff
      u8  ammo cooldown, whole seconds left (0 = ready)
      u8  potions still on the map, one bit each (positions come in 'potions')
      u8  player count         u8  arrow count
-   PLAYER  21 bytes each
-     u8  slot                 u8  flags: bit0 alive, bit1 burning
-     u8  stance               u8  hp
+   PLAYER  22 bytes each
+     u8  slot                 u8  flags: bit0 alive, bit1 burning, bit2 flying (TxF)
+     u8  stance               u16 hp
      i16 x*100  i16 y*100  i16 z*100      (centimetres; the arena is +-60m)
      u16 yaw    (0..65535 across a full turn)
      u8  roll   (0..255 across 0..1)
@@ -919,9 +923,9 @@ const COLORS = [0x27ff9e, 0x3ad0ff, 0xffd15a, 0xff7ac2, 0xb08bff, 0x8affc1, 0xff
      i16 x,y,z *100           i16 vx,vy,vz *100
      u8  flags: bit0 smoke bolt, bit1 grenade
    ========================================================================= */
-const SNAP_VERSION = 4;          // 2 lean, 3 ammo timer, 4 potions
+const SNAP_VERSION = 5;          // 2 lean, 3 ammo timer, 4 potions, 5 hp u16 (TxF's 500)
 const PHASES = ['waiting', 'intermission', 'live', 'over', 'paused'];
-const HEAD_B = 12, PLAYER_B = 21, ARROW_B = 15;
+const HEAD_B = 12, PLAYER_B = 22, ARROW_B = 15;
 const i16 = v => Math.max(-32768, Math.min(32767, Math.round(v * 100)));
 const u16 = v => Math.max(0, Math.min(65535, Math.round(v)));
 
@@ -963,9 +967,9 @@ function encodeSnapshot(room, now) {
   buf.writeUInt8(as.length, o++);
   for (const p of ps) {
     buf.writeUInt8(p.slot, o++);
-    buf.writeUInt8((p.alive ? 1 : 0) | (p.burnUntil > now ? 2 : 0), o++);
+    buf.writeUInt8((p.alive ? 1 : 0) | (p.burnUntil > now ? 2 : 0) | (p.fly ? 4 : 0), o++);
     buf.writeUInt8(p.st || 0, o++);
-    buf.writeUInt8(Math.max(0, Math.min(255, Math.round(p.hp))), o++);
+    buf.writeUInt16LE(Math.max(0, Math.min(65535, Math.round(p.hp))), o); o += 2;
     buf.writeInt16LE(i16(p.x), o); o += 2;
     buf.writeInt16LE(i16(p.y || 0), o); o += 2;
     buf.writeInt16LE(i16(p.z), o); o += 2;
@@ -1023,14 +1027,23 @@ io.on('connection', (socket) => {
   if (saved && Date.now() - saved.at > MATCH.rejoinMs) { parked.delete(tok); }
   const back = (saved && Date.now() - saved.at <= MATCH.rejoinMs) ? saved : null;
   if (back) parked.delete(tok);
+  /* TxF only with the code, and only one per room: anyone else asking for
+     it is given Aseed and told why. */
+  let agentId = agentOf(auth.agent), txfNo = null;
+  if (agentId === 'txf') {
+    if (!ROBOTS.txfCodeOk(auth.txf)) txfNo = 'code';
+    else if ([...players.values()].some(q => q.agent === 'txf')) txfNo = 'taken';
+    if (txfNo) agentId = 'aseed';
+  }
   const player = {
     id: socket.id, tok, x: s.x, z: s.z, y: 0, yaw: 0, pitch: 0, st: 0,
     /* Joining mid-round used to drop you into it alive at full health, so a
        latecomer could win a round they were not in at the start — and, with
        three or more in the room, reloading the page was a free heal. Sit the
        round out instead; respawnAll() brings you in at the next one. */
-    hp: 100, alive: match.phase !== 'live', kills: 0, deaths: 0, wins: back ? back.wins : 0, tp: 0,
-    agent: agentOf(auth.agent),        // locked for this connection
+    hp: agentId === 'txf' ? TXF.hp : 100, alive: match.phase !== 'live', kills: 0, deaths: 0, wins: back ? back.wins : 0, tp: 0,
+    agent: agentId,                    // locked for this connection
+    teleShots: [], pulseReadyAt: 0, laserOn: false, heat: 0, overheatUntil: 0, fly: false,   // TxF
     gshots: [], zoneUntil: 0, zoneReadyAt: 0,
     sensorShots: [], droneReadyAt: 0, dogReadyAt: 0, linked: new Map(),   // Silvars
     ishots: [], barrageReadyAt: 0, missileReadyAt: 0,                    // Salvo
@@ -1042,6 +1055,7 @@ io.on('connection', (socket) => {
     name: 'Player-' + socket.id.slice(0, 4),
   };
   if (back) player.name = back.name;
+  if (agentId === 'txf') player.name = 'TxF';
   player.slot = freeSlot(room);        // one byte stands in for the socket id
   players.set(socket.id, player);
   /* Everything that never changes goes out ONCE, here, instead of riding in
@@ -1055,6 +1069,8 @@ io.on('connection', (socket) => {
     maxMain: MAX_MAIN, maxSide: MAX_SIDE, maxPlayers: MATCH.maxPlayers,
     winsNeeded: MATCH.winsNeeded });
   sendMeta(room, true);                // the roster, before any frame refers to it
+  if (txfNo) socket.emit('txfno', { why: txfNo });
+  if (agentId === 'txf') { socket.to(room.id).emit('txfjoin', {}); sendTxfTimers(player, Date.now()); }
   if (room.potions) socket.emit('potions',
     { at: room.potions.map(p => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2) })) });
   if (back) console.log(`[~] ${player.name} rejoined with ${player.wins} round win(s)`);
@@ -1085,7 +1101,9 @@ io.on('connection', (socket) => {
        dropped while you were down, so anyone sitting a round out — eliminated,
        or joining midway — stayed "Player-a1b2" on the scoreboard until they
        next respawned. */
-    if (typeof d.name === 'string') p.name = d.name.slice(0, 16);
+    /* The secret code must never become anyone's name, and TxF is always TxF. */
+    if (typeof d.name === 'string') p.name = (p.agent === 'txf' || ROBOTS.txfCodeOk(d.name)) ? 'TxF' : d.name.slice(0, 16);
+    if (p.agent === 'txf' && typeof d.fly === 'number') p.fly = !!d.fly;
     if (!p.alive) return;
     /* Ignore position until the client has acknowledged the last forced move.
        Packets already in flight carry the OLD position and would otherwise
@@ -1434,6 +1452,52 @@ io.on('connection', (socket) => {
     missileBlast(room, x, Math.max(0, y), z, socket.id, now);
   });
 
+  /* ---- TxF: V laser (held), G teleport, X pulse ----
+     The laser is resolved every tick in tickRoom from where he looks; these
+     only switch it on and off. */
+  const txfOK = p => p && p.alive && p.agent === 'txf' && match.phase === 'live';
+  socket.on('laser', (d) => {
+    const p = players.get(socket.id); if (!p || p.agent !== 'txf') return;
+    const now = Date.now();
+    p.laserOn = !!(d && d.on) && txfOK(p) && now >= (p.overheatUntil || 0);
+    if (p.laserOn) p.laserAcc = 0;
+    sendTxfTimers(p, now);
+  });
+  socket.on('tele', (d) => {
+    const p = players.get(socket.id); if (!p || !d) return;
+    const now = Date.now(), T = TXF.tele;
+    p.teleShots = (p.teleShots || []).filter(t => now - t < T.cdMs);
+    const x = +d.x, y = +d.y, z = +d.z;
+    const ok = txfOK(p) && p.teleShots.length < T.charges && isFinite(x) && isFinite(y) && isFinite(z)
+      && Math.hypot(x - p.x, y - (p.y || 0), z - p.z) <= T.range + 2 && teleClear(room, x, y, z);
+    if (!ok) { socket.emit('teleno', {}); sendTxfTimers(p, now); return; }
+    p.teleShots.push(now);
+    const from = { x: p.x, y: p.y || 0, z: p.z };
+    p.x = x; p.y = Math.max(0, Math.min(y, room.roofY - 1.9)); p.z = z;
+    p.tp = (p.tp || 0) + 1; p.moveAt = 0; p.vx = 0; p.vz = 0; p.stateAt = 0; p.fallPeak = undefined;
+    if (p.hist) p.hist.length = 0;
+    if (p.y > groundAt(room, p.x, p.z, p.y) + 0.3) p.fly = true;
+    io.to(room.id).emit('telefx', { id: p.id, a: from, b: { x: p.x, y: p.y, z: p.z }, fly: p.fly ? 1 : 0 });
+    sendTxfTimers(p, now);
+  });
+  socket.on('pulse', () => {
+    const p = players.get(socket.id); if (!p) return;
+    const now = Date.now(), P = TXF.pulse;
+    if (!txfOK(p) || now < (p.pulseReadyAt || 0)) { sendTxfTimers(p, now); return; }
+    p.pulseReadyAt = now + P.cdMs;
+    const seen = [];
+    io.to(room.id).emit('pulsefx', { x: p.x, y: (p.y || 0) + 1.2, z: p.z, r: P.radius, by: p.id });
+    for (const t of players.values()) {
+      if (!t.alive || t.id === p.id) continue;
+      if (Math.hypot(t.x - p.x, (t.y || 0) - (p.y || 0), t.z - p.z) > P.radius) continue;
+      seen.push(t.id);
+      io.to(t.id).emit('pulsed', { x: p.x, z: p.z, ms: P.showMs });
+      txfHurt(room, t, P.dmg, p, { x: p.x, z: p.z });
+    }
+    socket.emit('pulse', { ids: seen, ms: P.showMs });
+    sendTxfTimers(p, now);
+  });
+
   /* Blast's X. Always answers, so the client's timers come from here: the
      zone's duration and when it is next ready, or a refusal saying when. */
   socket.on('zone', () => {
@@ -1756,6 +1820,84 @@ function sendSalvoTimers(p, now) {
   const sock = io.sockets.sockets.get(p.id); if (!sock) return;
   sock.emit('salvo', { incQ: (p.ishots || []).map(t => t + SALVO.incen.cdMs - now).filter(ms => ms > 0),
                        barrage: Math.max(0, p.barrageReadyAt - now), missile: Math.max(0, p.missileReadyAt - now) });
+}
+/* TxF's timers, for his HUD: heat (0..1), ms of overheat left, the
+   teleport's spent charges, and ms until the pulse is back. */
+function sendTxfTimers(p, now) {
+  const sock = io.sockets.sockets.get(p.id); if (!sock) return;
+  sock.emit('txf', { heat: +(p.heat || 0).toFixed(3), hot: Math.max(0, (p.overheatUntil || 0) - now), on: p.laserOn ? 1 : 0,
+                     teleQ: (p.teleShots || []).map(t => t + TXF.tele.cdMs - now).filter(ms => ms > 0),
+                     pulse: Math.max(0, (p.pulseReadyAt || 0) - now) });
+}
+/* Damage from TxF to a player: the same bookkeeping as a gunshot. */
+function txfHurt(room, t, dmg, by, from) {
+  if (!t.alive || room.match.phase !== 'live' || dmg <= 0) return;
+  t.hp -= dmg; hitBy(t, by.id);
+  io.to(t.id).emit('hurt', { x: from.x, z: from.z });
+  if (t.hp <= 0 && t.alive) {
+    eliminate(room, t, true);
+    by.kills++; t.deaths++;
+    io.to(room.id).emit('kill', { by: by.name, byId: by.id, victim: t.name, head: false });
+  }
+}
+/* Is there room for a body standing at (x, y, z)? Inside the map, under the
+   lid, and no box between the feet and the head within the body's radius. */
+function teleClear(room, x, y, z) {
+  const b = room.arena - 1.2;
+  if (Math.abs(x) > b || Math.abs(z) > b || y < -0.05 || y > room.roofY - 1.9) return false;
+  const r = MOVE.radius - 0.05, top = y + BODY_H[0];
+  for (const c of room.rects) {
+    if (c.miny >= top || c.maxy <= y + 0.05) continue;
+    const cx = Math.max(c.minx, Math.min(x, c.maxx)), cz = Math.max(c.minz, Math.min(z, c.maxz));
+    if (Math.hypot(x - cx, z - cz) < r) return false;
+  }
+  return true;
+}
+/* One tick of TxF's laser: heat, then the beam from his eye down where he
+   looks, stopped by the first wall, robot or body. Everyone is sent the
+   beams so they can see them. */
+function tickLasers(room, now, dt) {
+  const beams = [];
+  for (const p of room.players.values()) {
+    if (p.agent !== 'txf') continue;
+    const L = TXF.laser, firing = p.laserOn && p.alive && room.match.phase === 'live';
+    if (firing) {
+      p.heat = Math.min(1, (p.heat || 0) + dt * 1000 / L.heatMs);
+      if (p.heat >= 1) { p.laserOn = false; p.overheatUntil = now + L.coolMs; sendTxfTimers(p, now); }
+    } else if (now >= (p.overheatUntil || 0)) {
+      p.heat = Math.max(0, (p.heat || 0) - dt * 1000 / L.coolMs);
+    } else p.heat = (p.overheatUntil - now) / L.coolMs;        // cooling off an overheat
+    if (!firing) continue;
+    const eye = (p.y || 0) + [1.7, 1.05, 0.6][p.st | 0];
+    const cp = Math.cos(p.pitch || 0);
+    const o = { x: p.x, y: eye, z: p.z };
+    const dir = { x: -Math.sin(p.yaw || 0) * cp, y: Math.sin(p.pitch || 0), z: -Math.cos(p.yaw || 0) * cp };
+    let far = L.range;
+    for (const r of room.rayBoxes) { const h = rayBoxHit(o, dir, r); if (h && h.t > 0.05 && h.t < far) far = h.t; }
+    if (dir.y < -1e-4) far = Math.min(far, -o.y / dir.y);
+    let best = null;
+    for (const t of room.players.values()) {
+      if (!t.alive || t.id === p.id) continue;
+      const z = hitZone(o, dir, aimX(t), aimZ(t), t.y || 0, t.st || 0);
+      if (z && z.t < far && (!best || z.t < best.t)) best = { t: z.t, ref: t };
+    }
+    const dmg = L.dps * dt;
+    const rHit = robotOnRay(room, p.id, o, dir, best ? best.t : far);
+    if (rHit) { far = rHit.t; shootRobot(room, rHit.r, Math.ceil(dmg), p, o.x + dir.x*far, o.y + dir.y*far, o.z + dir.z*far); }
+    else if (best) {
+      far = best.t;
+      p.laserAcc = (p.laserAcc || 0) + dmg;                 // whole points, carried tick to tick
+      const whole = Math.floor(p.laserAcc); p.laserAcc -= whole;
+      if (whole > 0) {
+        io.to(room.id).emit('impact', { x: o.x + dir.x*far, y: o.y + dir.y*far, z: o.z + dir.z*far, head: false, zone: 'torso', by: p.id, laser: 1 });
+        txfHurt(room, best.ref, whole, p, { x: p.x, z: p.z });
+      }
+    }
+    beams.push({ id: p.id, ox: +o.x.toFixed(2), oy: +o.y.toFixed(2), oz: +o.z.toFixed(2),
+                 ex: +(o.x + dir.x*far).toFixed(2), ey: +(o.y + dir.y*far).toFixed(2), ez: +(o.z + dir.z*far).toFixed(2) });
+  }
+  if (beams.length || room.hadBeams) io.to(room.id).emit('lasers', beams);
+  room.hadBeams = beams.length > 0;
 }
 /* The sensor's spent charges, as ms until each comes back. */
 function sensorQueue(p, now) {
@@ -2134,6 +2276,9 @@ function tickRoom(room, now, dt) {
     blastAt(room, b.x, b.y, b.z, b.by, b.cfg, now, b.name);
   }
 
+  // ---- TxF's laser ----
+  tickLasers(room, now, dt);
+
   // ---- Blast's zone: regenerate while it runs ----
   for (const pl of players.values())
     if (pl.alive && pl.zoneUntil > now && pl.hp < 100) pl.hp = Math.min(100, pl.hp + ZONE.regen * dt);
@@ -2220,7 +2365,7 @@ function tickRoom(room, now, dt) {
 
   /* ---- Health potions: one use each, and your own falloff ---- */
   if (match.phase === 'live') for (const pl of players.values()) {
-    if (!pl.alive || pl.hp >= 100) continue;          // no point walking over one at full
+    if (!pl.alive || pl.hp >= maxHpOf(pl)) continue;          // no point walking over one at full
     for (const pot of (room.potions || [])) {
       if (pot.taken) continue;
       if (Math.hypot(pl.x - pot.x, pl.z - pot.z) > POTION.radius) continue;
@@ -2228,7 +2373,7 @@ function tickRoom(room, now, dt) {
       const heal = POTION.heals[nth];
       pot.taken = true;
       pl.potions = (pl.potions || 0) + 1;
-      pl.hp = Math.min(100, pl.hp + heal);
+      pl.hp = Math.min(maxHpOf(pl), pl.hp + heal);
       io.to(pl.id).emit('healed', { heal, hp: pl.hp, nth: pl.potions, left: potionMask(room) });
       io.to(room.id).emit('potiongone', { name: pl.name });
       break;                                           // one per tick, not the whole set

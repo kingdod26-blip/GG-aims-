@@ -105,6 +105,39 @@ function blastDamage(cfg, d){
   return Math.round(cfg.dmg * (1 - (d - cfg.full) / (cfg.radius - cfg.full)));
 }
 
+/* TxF, THE HIDDEN AGENT (Jack, 2026-11-28; PLAN-characters.md section 7).
+   Summoned only by a secret code in the CALLSIGN box, typed every time.
+   One per room. Numbers shared by the server and the range, like SALVO.
+   - passive: flies (double-tap Space), `hp` 500, no fall damage.
+   - V: a laser held down the crosshair: `dps` to `range`, walls stop it,
+     `heatMs` of firing then an overheat that takes `coolMs` to clear.
+   - G: teleport, aimed and pressed, up to `range`; 2 charges.
+   - X: a pulse: everyone within `radius` takes `dmg` and is shown to him
+     through walls for `showMs`. */
+const TXF = {
+  hp: 500,
+  fly: { speed: 12, fast: 18, up: 8, accel: 10 },
+  laser: { dps: 300, range: 120, heatMs: 4000, coolMs: 6000, tickMs: 50 },
+  tele: { range: 200, charges: 2, cdMs: 8000 },
+  pulse: { radius: 200, dmg: 40, showMs: 8000, cdMs: 25000 },
+};
+/* The code is never written down anywhere in the game: only a hash of it.
+   Spaces, emoji variation marks and letter case do not matter, and the
+   danger sign may go first or last. */
+const TXF_HASHES = ['2dq6mkd6ga0', 'ktk1gcs6zc'];
+function txfHash(str){
+  let h1 = 0xdeadbeef ^ 0x7f1, h2 = 0x41c6ce57 ^ 0x7f1;
+  for (let i = 0, ch; i < str.length; i++){ ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507); h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507); h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+function txfCodeOk(s){
+  if (typeof s !== 'string' || s.length > 32) return false;
+  const n = s.normalize('NFC').replace(/[\s️︎]/g, '').toLowerCase();
+  return TXF_HASHES.includes(txfHash(n));
+}
+
 /* ---------------------------------------------------------------
    Geometry. Built once per map and cached, on either side.
    `move` stops a flying body (glass and rails too), `ray` stops a shot
@@ -623,6 +656,6 @@ function robotWire(r, now){
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { SILV, SALVO, blastDamage, robotGeo, robotRay, robotLos, makeRobot, stepRobots, damageRobot, robotHitT, robotOrderPoint,
+  module.exports = { SILV, SALVO, TXF, txfCodeOk, blastDamage, robotGeo, robotRay, robotLos, makeRobot, stepRobots, damageRobot, robotHitT, robotOrderPoint,
                      robotCenterY, robotWire, ROBOT_STATES, robotChestY };
 }

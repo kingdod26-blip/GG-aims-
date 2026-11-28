@@ -239,8 +239,17 @@ const AGENTS = {
   /* SALVO (2026-11-28, PLAN-characters.md section 4; salvo.js): fire- and
      blast-proof. G the incendiary slot, V the barrage, X the missile. */
   salvo: { id:'salvo', name:'SALVO', jumps:1, v:'barrage', g:INCEN, x:MISSILE, hearing:false },
+  /* TxF, THE HIDDEN AGENT (2026-11-28, PLAN-characters.md section 7; txf.js).
+     Only while the secret code is in the CALLSIGN box, one per room. Flies,
+     500 HP. V the laser (held), G teleport, X the pulse. `hidden` keeps it
+     off every list until the code is typed. */
+  txf: { id:'txf', name:'TxF', jumps:1, v:'laser', g:'tele', x:'pulse', hearing:false, hidden:true },
 };
-let myAgent = (()=>{ try{ const a = localStorage.getItem('cx.agent'); return AGENTS[a] ? a : 'aseed'; }
+/* Full health: 100 for everyone but TxF (robots.js TXF.hp). */
+function maxHp(){ return myAgent === 'txf' ? TXF.hp : 100; }
+/* The agents a list should show: TxF only while his code is typed. */
+function agentIds(){ return Object.keys(AGENTS).filter(id => !AGENTS[id].hidden || (typeof txfUnlocked === 'function' && txfUnlocked())); }
+let myAgent = (()=>{ try{ const a = localStorage.getItem('cx.agent'); return AGENTS[a] && !AGENTS[a].hidden ? a : 'aseed'; }   // TxF never survives a reload: the code is typed each time
                      catch(e){ return 'aseed'; } })();
 function agent(){ return AGENTS[myAgent]; }
 function agentHas(slot){ const a = agent(); return a.g === slot || a.x === slot || a.v === slot; }
