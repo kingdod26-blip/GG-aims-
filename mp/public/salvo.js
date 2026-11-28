@@ -147,21 +147,48 @@ function onBarrage(d){
   if(d.by === myId || d.by === 'me'){ if(d.by === myId) salvo.barrageAt = cdFree() ? 0 : performance.now() + SALVO.barrage.cdMs; }
 }
 
-/* ---------- X: the missile ---------- */
-const missileOn = () => !!salvo.missile;
-function missileKey(){
-  if(gameState !== 'playing' || !me.alive || salvo.missile) return;
+/* ---------- X: the missile ----------
+   Like Uluru's loitering munition (Jack, 2026-11-28): X takes the LAUNCHER
+   out (a WEAPONS slot, MISSILE). Fired from the hip it flies straight down
+   your aim on its own ("preset guidance") and you keep moving; right-click
+   to aim first and it is guided - you fly it through its own camera and
+   stand still while you do. Either way it is the same missile (a robot on
+   the server, so it can be shot down). */
+const missileOn = () => !!(salvo.missile && salvo.missile.guided);   // camera, mouse and feet belong to it
+const missileReady = () => !salvo.missile && (performance.now() >= salvo.missileAt || cdFree());
+function makeLauncherMesh(){
+  /* a shoulder launcher: olive tube, a sight block, a grip and a red-tipped
+     round showing at the muzzle; points down -Z */
+  const g = new THREE.Group(), olive = new THREE.MeshLambertMaterial({ color: 0x3f4630 }), dark = new THREE.MeshLambertMaterial({ color: SALVO_DARK }),
+        red = new THREE.MeshLambertMaterial({ color: SALVO_RED });
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.95, 16), olive); tube.rotation.x = Math.PI / 2; g.add(tube);
+  for(const z of [-0.47, 0.47]){ const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.064, 0.064, 0.05, 16), dark); ring.rotation.x = Math.PI / 2; ring.position.z = z; g.add(ring); }
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.12, 12), red); nose.rotation.x = -Math.PI / 2; nose.position.z = -0.53; g.add(nose);
+  const sight = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.12), dark); sight.position.set(-0.07, 0.05, -0.1); g.add(sight);
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.12, 0.05), dark); grip.position.set(0, -0.11, 0.05); grip.rotation.x = 0.25; g.add(grip);
+  const fore = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.09, 0.05), dark); fore.position.set(0, -0.1, -0.22); g.add(fore);
+  return g;
+}
+(function buildLauncherHeld(){
+  const m = makeLauncherMesh(); m.position.set(0.02, -0.02, -0.25);
+  const g = new THREE.Group(); g.add(m); g.position.set(0.04, -0.03, 0.02);
+  weaponHolders[MISSILE].add(g);
+})();
+/* the trigger (input.js): aimed means guided */
+function missileFire(guided){
+  if(gameState !== 'playing' || !me.alive || salvo.missile) return false;
   salvoAimOff();
   const now = performance.now();
-  if(now < salvo.missileAt && !cdFree()){ Sfx.empty(); return; }
+  if(now < salvo.missileAt && !cdFree()){ Sfx.empty(); return false; }
   const rgt = new THREE.Vector3(Math.cos(me.yaw), 0, -Math.sin(me.yaw));
   const o = camera.position.clone().addScaledVector(rgt, 0.3); o.y += 0.1;
   const mesh = makeMissileMesh(); scene.add(mesh);
-  salvo.missile = { pos: o, yaw: me.yaw, pitch: Math.max(-0.6, me.pitch), t: 0, mesh, id: null, sendAcc: 0, seen: false };
+  salvo.missile = { pos: o, yaw: me.yaw, pitch: guided ? Math.max(-0.6, me.pitch) : me.pitch, t: 0, mesh, id: null, sendAcc: 0, seen: false, guided: !!guided };
   salvo.missileAt = now + SALVO.missile.lifeMs + SALVO.missile.cdMs;
-  document.body.classList.add('missilecam');
+  if(guided) document.body.classList.add('missilecam');
   Sfx.launch();
   if(gameMode === 'mp' && socket) socket.emit('missile', { ox: o.x, oy: o.y, oz: o.z, yaw: me.yaw, pitch: me.pitch });
+  return true;
 }
 function onMissileStart(d){
   if(!salvo.missile || !d) return;
@@ -170,7 +197,7 @@ function onMissileStart(d){
 }
 /* the mouse flies it while it is out (input.js hands the movement here) */
 function steerMissile(dx, dy){
-  const m = salvo.missile; if(!m) return;
+  const m = salvo.missile; if(!m || !m.guided) return;
   const s = 0.0022 * (SETTINGS.sens || 1);
   m.yaw -= dx * s; m.pitch = Math.max(-1.45, Math.min(1.2, m.pitch - dy * s));
 }
@@ -226,12 +253,13 @@ function updateMissile(dt){
     if(m.sendAcc > 0.05){ m.sendAcc = 0; socket.emit('mpos', { i: m.id, x: +m.pos.x.toFixed(2), y: +m.pos.y.toFixed(2), z: +m.pos.z.toFixed(2), w: +m.yaw.toFixed(3), q: +m.pitch.toFixed(3) }); }
   }
   let lbl = document.getElementById('missileHud');
+  if(!m.guided){ if(lbl) lbl.style.display = 'none'; return; }   // a straight shot needs no readout: you are still looking through your own eyes
   if(!lbl){ lbl = document.createElement('div'); lbl.id = 'missileHud'; document.body.appendChild(lbl); }
   lbl.style.display = ''; lbl.textContent = 'MISSILE · ' + Math.max(0, (M.lifeMs / 1000 - m.t)).toFixed(1) + 's';
 }
 /* loop.js: while it flies, the camera rides it */
 function missileCamera(){
-  const m = salvo.missile; if(!m) return false;
+  const m = salvo.missile; if(!m || !m.guided) return false;
   const back = new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(m.pitch, m.yaw, 0, 'YXZ'));
   camera.position.copy(m.pos).addScaledVector(back, -0.75);   // just ahead of the nose: its own camera
   camera.rotation.order = 'YXZ'; camera.rotation.set(m.pitch, m.yaw, 0);
@@ -257,4 +285,4 @@ function updateSalvo(dt){
 addEventListener('keydown', e => { if(e.code === 'Escape' && salvo.aiming) salvoAimOff(); });
 /* V and X go through useAgentKey (silvars.js) like Silvars' instant keys */
 { const _useAgentKey = useAgentKey;
-  useAgentKey = function(k){ if(k === 'barrage') return barrageKey(); if(k === 'missile') return missileKey(); return _useAgentKey(k); }; }
+  useAgentKey = function(k){ if(k === 'barrage') return barrageKey(); return _useAgentKey(k); }; }

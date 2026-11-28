@@ -131,7 +131,7 @@ addEventListener('mousedown',e=>{
   if(e.button===0){ wantFire=true; semiQueued=true; }
   // crossbow: right-click switches fire mode instead of aiming
   if(e.button===2){ if(curW().melee) startCharge();                 // the blade: hold to charge a cut
-                    else if(curW().ability && curW().kind !== 'sensor'){ ricochet=!ricochet; Sfx.swap(); updateHUD(); }
+                    else if(curW().ability && curW().kind !== 'sensor' && curW().kind !== 'missile'){ ricochet=!ricochet; Sfx.swap(); updateHUD(); }
                     else aiming=true; } });   // abilities don't ADS
 addEventListener('mouseup',e=>{
   if(e.button===0){ wantFire=false; dryClicked=false; }   // the next pull may click again
@@ -263,6 +263,13 @@ function shoot(){
     lastShot=now;
     if(useSensor()){ abilityTick(); if(abilitySpent(SENSOR)) switchWeapon(fallbackWeapon()); }
     updateHUD();                                     // placed: keep holding the second, or back to your gun when both are out
+    return;
+  }
+  /* Salvo's launcher: aimed (right-click held) it is guided, from the hip it flies straight */
+  if(w.kind === 'missile'){
+    lastShot=now;
+    if(missileFire(ads > 0.6)){ gunKick=1; aiming=false; switchWeapon(fallbackWeapon()); }
+    updateHUD();
     return;
   }
   if(w.ability){

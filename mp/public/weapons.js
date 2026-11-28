@@ -104,6 +104,12 @@ function abilityTick(){
   const now = performance.now();
   for(const slot of ABILITY_SLOTS){
     if(slot === SENSOR){ abilityCharges[slot] = typeof silv !== 'undefined' ? sensorHave(now) : WEAPONS[slot].charges; continue; }
+    if(slot === MISSILE){                       // Salvo's launcher: ready, or the cooldown salvo.js keeps
+      const ok = typeof salvo === 'undefined' || missileReady();
+      abilityCharges[slot] = ok ? 1 : 0;
+      abilityRecharge[slot] = (!ok && typeof salvo !== 'undefined' && salvo.missileAt > now) ? [salvo.missileAt] : [];
+      continue;
+    }
     const q = abilityRecharge[slot] || (abilityRecharge[slot] = []);
     while(q.length && q[0] <= now){ q.shift(); abilityCharges[slot]++; }
     if(abilityCharges[slot] > WEAPONS[slot].charges) abilityCharges[slot] = WEAPONS[slot].charges;
@@ -188,18 +194,25 @@ function heavyCharge(now){ return chargeFrom ? Math.min(1, (now - chargeFrom) / 
 WEAPONS.push({ name:'INCENDIARY', mode:'ABILITY', ability:true, kind:'incen', auto:false, fireRate:600, dmg:90,
   charges:2, cooldownMs:30000, speed:17,
   recoil:0.01, spread:0, adsSpread:0, range:60, adsFov:75, scope:false });
+/* SALVO's X (2026-11-28): the missile LAUNCHER. Hip-fired it flies straight;
+   aimed (right-click) you fly it (salvo.js). Its one "charge" is the
+   cooldown, SALVO.missile in robots.js. */
+WEAPONS.push({ name:'MISSILE', mode:'ABILITY', ability:true, kind:'missile', auto:false, fireRate:800, dmg:75,
+  charges:1, cooldownMs:60000, speed:22,
+  recoil:0.03, spread:0, adsSpread:0, range:180, adsFov:55, scope:false });
 const XBOW  = WEAPONS.findIndex(w=>w.kind==='xbow');    // crossbow slot
 const GRENADE = WEAPONS.findIndex(w=>w.kind==='grenade');   // Blast's frag slot
 const SMOKE = WEAPONS.findIndex(w=>w.kind==='smoke');   // smoke slot
 const SENSOR = WEAPONS.findIndex(w=>w.kind==='sensor');  // Silvars' sensor slot
 const INCEN = WEAPONS.findIndex(w=>w.kind==='incen');    // Salvo's incendiary slot
+const MISSILE = WEAPONS.findIndex(w=>w.kind==='missile');   // Salvo's launcher slot
 const BLADE = WEAPONS.findIndex(w=>w.melee);            // blade slot
 const ABILITY_SLOTS = WEAPONS.map((w,i)=>w.ability?i:-1).filter(i=>i>=0);
 /* What the armory should print on each card. Guns are 1-5; the abilities
    and the blade have their own keys, and printing i+1 told you to press 7
    for smoke — a key that isn't bound to anything. */
 const WEAPON_KEY = WEAPONS.map((w,i)=> String(i+1));
-WEAPON_KEY[XBOW]='G'; WEAPON_KEY[SMOKE]='X'; WEAPON_KEY[GRENADE]='G'; WEAPON_KEY[BLADE]='F'; WEAPON_KEY[SENSOR]='V'; WEAPON_KEY[INCEN]='G';
+WEAPON_KEY[XBOW]='G'; WEAPON_KEY[SMOKE]='X'; WEAPON_KEY[GRENADE]='G'; WEAPON_KEY[BLADE]='F'; WEAPON_KEY[SENSOR]='V'; WEAPON_KEY[INCEN]='G'; WEAPON_KEY[MISSILE]='X';
 
 /* ---- Agents ----
    You play an AGENT, picked on the menu and locked for the match. Each has a
@@ -225,7 +238,7 @@ const AGENTS = {
   silvars: { id:'silvars', name:'SILVARS', jumps:1, v:SENSOR, g:'drone', x:'dog', hearing:false },
   /* SALVO (2026-11-28, PLAN-characters.md section 4; salvo.js): fire- and
      blast-proof. G the incendiary slot, V the barrage, X the missile. */
-  salvo: { id:'salvo', name:'SALVO', jumps:1, v:'barrage', g:INCEN, x:'missile', hearing:false },
+  salvo: { id:'salvo', name:'SALVO', jumps:1, v:'barrage', g:INCEN, x:MISSILE, hearing:false },
 };
 let myAgent = (()=>{ try{ const a = localStorage.getItem('cx.agent'); return AGENTS[a] ? a : 'aseed'; }
                      catch(e){ return 'aseed'; } })();
@@ -636,6 +649,7 @@ function abilitySpent(i){
   const w = WEAPONS[i];
   if(!w || !w.ability || training('noCooldown')) return false;
   if(i === SENSOR) return typeof silv !== 'undefined' && sensorHave(performance.now()) <= 0;   // both recharging
+  if(i === MISSILE) return typeof salvo !== 'undefined' && !missileReady();                    // one in the air, or cooling down
   return (abilityCharges[i] | 0) <= 0;
 }
 function fallbackWeapon(){

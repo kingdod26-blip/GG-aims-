@@ -53,6 +53,7 @@ const WPN = [
   { id: 'grenade',  slot: GRENADE, grp: 'gear', agent: 'blast',   key: 'G', model: () => buildFragGrenade() },
   { id: 'sensor',   slot: SENSOR,  grp: 'gear', agent: 'silvars', key: 'V', model: () => makeSensorMesh() },
   { id: 'incen',    slot: INCEN,   grp: 'gear', agent: 'salvo',   key: 'G', model: () => makeIncenMesh() },
+  { id: 'missile',  slot: MISSILE, grp: 'gear', agent: 'salvo',   key: 'X', model: () => makeLauncherMesh() },
 ];
 /* the guns' bars are each gun against the best of the five */
 const GUNS = WPN.filter(w => w.slot <= 4).map(w => WEAPONS[w.slot]);
@@ -93,6 +94,7 @@ function wpnDesc(e){
   const both = (LANG === 'zh' ? '同一把弩发射 Aseed 的两种弩箭。' : 'One crossbow fires both of Aseed’s bolts.')
     + ` ${t('ab.xbow')} (G): ${pgFill('ab.xbow.d', ch)} ${t('ab.smoke')} (X): ${pgFill('ab.smoke.d', { n: WEAPONS[SMOKE].charges, cd: pgSec(WEAPONS[SMOKE].cooldownMs) })}`;
   return { crossbow: both, grenade: pgFill('ab.gren.d', ch),
+           missile: pgFill('ab.missile.d', { life: pgSec(SALVO.missile.lifeMs), dmg: SALVO.missile.blast.dmg, n: SALVO.missile.bomblets, bd: SALVO.missile.bomb.dmg, hp: SALVO.missile.hp, cd: pgSec(SALVO.missile.cdMs) }),
            incen: pgFill('ab.incen.d', { n: SALVO.incen.charges, cd: pgSec(SALVO.incen.cdMs), fuse: pgSec(SALVO.incen.fragFuseMs), dmg: SALVO.frag.dmg }),
            sensor: pgFill('ab.sensor.d', { n: SILV.sensor.charges, r: SILV.sensor.radius, s: pgSec(SILV.linkMs), cd: pgSec(SILV.sensor.cdMs) }) }[e.id] || t('wp.' + e.id + '.d');
 }
@@ -201,7 +203,7 @@ function agentKit(a){
   }[a].map(([k, id, o]) => ({ k, id, name: t('ab.' + id), d: pgFill('ab.' + id + '.d', o) }));
 }
 /* which weapon page each piece of gear opens */
-const AG_GEAR = { xbow: 'crossbow', smoke: 'crossbow', gren: 'grenade', sensor: 'sensor', incen: 'incen' };
+const AG_GEAR = { xbow: 'crossbow', smoke: 'crossbow', gren: 'grenade', sensor: 'sensor', incen: 'incen', missile: 'missile' };
 let agSel = myAgent;
 function renderAgentsPage(){
   const pg = byId('agPage'); if (!pg) return;

@@ -32,6 +32,7 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
     const next = q.length ? Math.max(0,Math.ceil((q[0]-performance.now())/1000)) : 0;
     const label = (w.kind==='xbow') ? 'CROSSBOW · '+(ricochet?'RICOCHET':'DIRECT')
                 : (w.kind==='sensor') ? 'SENSOR · CLICK A SURFACE TO PLACE'
+                : (w.kind==='missile') ? 'MISSILE · CLICK: STRAIGHT · RIGHT-CLICK THEN CLICK: STEER IT'
                 : (w.kind==='incen') ? 'INCENDIARY · '+(ricochet?'FRAG · 1s FUSE':'FIRE')+' · RIGHT-CLICK TO SWITCH'
                 : 'SMOKE · ' + (ricochet?'RICOCHET':'DIRECT');
     document.getElementById('modeLbl').textContent = label + (next?(' · '+next+'s'):'');
@@ -142,7 +143,7 @@ const CD_ART = { roll:'cd-roll', xbow:'cd-fire', smoke:'cd-smoke', dash:'cd-dash
 function configureTiles(){
   const a = agent();
   const kinds = [typeof a.v === 'number' ? WEAPONS[a.v].kind : a.v, typeof a.g === 'string' ? a.g : a.g === XBOW ? 'xbow' : a.g === INCEN ? 'incen' : 'grenade',
-                 typeof a.x === 'string' ? a.x : a.x === SMOKE ? 'smoke' : 'grenade'];
+                 typeof a.x === 'string' ? a.x : a.x === SMOKE ? 'smoke' : a.x === MISSILE ? 'missile' : 'grenade'];
   CD_TILES.forEach((t, k) => {
     t.kind = kinds[k];
     const box = document.getElementById(t.id), img = box.querySelector('.cdico');

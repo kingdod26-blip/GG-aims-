@@ -3446,7 +3446,13 @@ the one file both sides load, so the range and the match cannot disagree.
   past 60m), V or left-click calls it, right-click or Esc calls it off. The
   server checks range and cooldown, lays 6 shells at random in 10m over 3s
   after a 2s warning, and tells the whole room (`barrage`: ring + whistle).
-- **X, missile = a robot of kind 'missile'** so the existing shot code
+- **X takes out the LAUNCHER** (`MISSILE` slot, appended after `INCEN`;
+  Jack, 2026-11-28, like Uluru's): click from the hip and it flies straight
+  down your aim on its own while you keep moving; right-click to aim, then
+  click, and it is guided (camera, mouse, feet frozen). `missileFire(guided)`
+  in salvo.js; its one "charge" is the cooldown (`abilityTick` / `abilitySpent`
+  special-case it), and after firing you are handed your gun back.
+- **The missile itself = a robot of kind 'missile'** so the existing shot code
   (`robotOnRay`, `shootRobot`, `damageRobot`) shoots it down: 40 HP, two
   rifle hits. The PILOT flies it locally (salvo.js: mouse steers, camera
   rides the nose, movement and firing frozen) and reports `mpos` (vetted

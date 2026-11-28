@@ -165,7 +165,7 @@ slowed); Salvo's is Jack's own.
 | Passive | **Fire- and blast-proof**: takes **75% less** fire and explosive damage, his own and the enemy's (grenades, fire pools and burning, the drone's dive, his own G/V/X). A grenade's 90 becomes about 22. |
 | G | **Composite Incendiary**, thrown. **2 charges, 30s each.** Bursts on landing into a fire pool that is **stronger than Aseed's**: wider, burns harder and longer. **Right-click switches** it to a **frag grenade**: **1s fuse, 90 at the centre** (Blast's is 2s, 90). |
 | V | **Shell barrage**, called by **aim and press**: press V, a target circle shows where you aim (up to **60m**), press again or left-click to confirm. After a **2s** warning, **6 shells** land at random inside a **~10m circle** over **3s**, each up to **60**. Enemies hear a whistle and see the circle. **50s** cooldown. |
-| X | **Steered missile**, like Uluru's loitering munition: fired from the shoulder, you fly it **through its own camera** with the mouse for up to **8s**; on impact **75** plus **4 bomblets of 25**. You stand still and exposed while steering. **Can be shot down** (a few rifle hits). **60s** cooldown after it lands. |
+| X | **Missile launcher**, like Uluru's loitering munition: X takes it out; **click from the hip** and it flies straight on its own while you keep moving; **right-click to aim, then click**, and you fly it **through its own camera** with the mouse for up to **8s**; on impact **75** plus **4 bomblets of 25**. You stand still and exposed while steering. **Can be shot down** (a few rifle hits). **60s** cooldown after it lands. |
 | Jumps | 1 (no movement ability: his V is the barrage) |
 | Backstory / Look / Voice | *to decide* (look: from Jack's character sheet, like the others) |
 
