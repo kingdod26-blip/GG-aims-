@@ -1113,7 +1113,7 @@ function arcBladeShape(len){
 /* The blade's face: molten orange, hotter toward the middle, with bright
    cracks of lightning frozen into it (the picture's look). ShapeGeometry
    gives each vertex its own x,y as uv, so the texture is scaled onto the
-   blade's real size (x -0.088 .. 0.052, y 0 .. 0.62). */
+   blade's real size (x -0.088 .. 0.052, y 0 .. 0.84). */
 function arcBladeTex(){
   if (arcBladeTex.t) return arcBladeTex.t;
   const W = 128, H = 512, c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -1130,7 +1130,7 @@ function arcBladeTex(){
   for (let k = 0; k < 7; k++) crack(30 + Math.random() * 70, H - Math.random() * 120, 14 + (Math.random() * 10 | 0), 1.6, 'rgba(255,236,170,0.95)');
   for (let k = 0; k < 10; k++) crack(20 + Math.random() * 90, H - Math.random() * H * 0.8, 6, 0.9, 'rgba(255,214,120,0.7)');
   const tx = new THREE.CanvasTexture(c); tx.encoding = THREE.sRGBEncoding; tx.wrapS = tx.wrapT = THREE.ClampToEdgeWrapping;
-  if (tx.repeat){ tx.repeat.set(1 / 0.140, 1 / 0.62); tx.offset.set(0.088 / 0.140, 0); }
+  if (tx.repeat){ tx.repeat.set(1 / 0.140, 1 / 0.84); tx.offset.set(0.088 / 0.140, 0); }
   return (arcBladeTex.t = tx);
 }
 /* A leather-wrapped grip as a texture: overlapping strips on the slant,
@@ -1228,7 +1228,7 @@ function drawArcBlades(){
   /* MIRRORED (Jack, 2026-11-29: "the two blades face different directions"):
      the second blade is flipped, so each hook points outward, away from the
      other, and the cutting edges face each other across the gap. */
-  for (const [bx, lean, len, flip] of [[-0.054, 0, 0.56, 1], [0.064, 0, 0.60, -1]]){
+  for (const [bx, lean, len, flip] of [[-0.054, 0, 0.78, 1], [0.064, 0, 0.82, -1]]){   // longer (Jack, 2026-11-29)
     const b = new THREE.Group(); b.position.set(bx, 0.160, 0.0); b.rotation.z = lean; b.scale.x = flip; g.add(b);
     const shape = arcBladeShape(len);
     { const h = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), halo); h.scale.set(1.16, 1.02, 1); h.position.set(0.002, -0.006, -0.002); b.add(h); h.renderOrder = 1001; }
