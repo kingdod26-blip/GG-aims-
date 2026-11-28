@@ -1267,7 +1267,7 @@ function holdInGlove(slot, b, rOff, at, thing, alignAxis, turn){
     wrist.add(left);
     pivot.updateMatrix();
     const d0 = new THREE.Vector3(0, 0, -1).applyQuaternion(thing.quaternion).applyQuaternion(pivot.quaternion).normalize();
-    BLADE_RIG = { pivot, wrist, base: pivot.quaternion.clone(), thingQ: thing.quaternion.clone(), d0, off: new THREE.Vector3(), q: pivot.quaternion.clone(), from: null, lastT: 0,
+    const RIG = BLADE_RIGS[slot] = { pivot, wrist, base: pivot.quaternion.clone(), thingQ: thing.quaternion.clone(), d0, off: new THREE.Vector3(), q: pivot.quaternion.clone(), from: null, lastT: 0,
                   left, leftFist, leftGrip, at: at.clone(), rgrp };
     /* JOINTED ARMS (2026-11-22). Jack: "i want you to add elbow so it looks
        more logical, for example for the fifth hit ... a human would need to
@@ -1282,7 +1282,7 @@ function holdInGlove(slot, b, rOff, at, thing, alignAxis, turn){
        from where the hands are: hands drawn in bend the elbows, hands driven
        out straighten them. The wrist does not bend: each hand is turned
        round the handle it holds so its own forearm points at its elbow. */
-    BLADE_RIG.arms = [jointedArm(holder, rgrp, glove, false, [0.21, -0.38, 0.14], [0.9, -0.8, 0.3]),
+    RIG.arms = [jointedArm(holder, rgrp, glove, false, [0.21, -0.38, 0.14], [0.9, -0.8, 0.3]),
                       jointedArm(holder, left, lg, true, [-0.21, -0.38, 0.14], [-0.9, -0.8, 0.3])];
   }
 }
@@ -1343,7 +1343,7 @@ function armSpan(m, a, b){
 }
 /* Every frame with the blade out, after the viewmodel is placed. */
 function bladeArmsFrame(){
-  const R = BLADE_RIG; if (!R || !R.arms) return;
+  const R = bladeRig(); if (!R || !R.arms) return;
   const k = PAC9_GRIP_AXIS;
   camera.updateWorldMatrix(true, false); _cInv.copy(camera.matrixWorld).invert();   // (matrixWorldInverse is only refreshed at render)
   /* THE ARMS ARE FOR THE CHARGED ATTACK ONLY. Jack, after the jointed
@@ -1411,7 +1411,12 @@ function bladeArmsFrame(){
    direction]. The hand moves the whole hold; the blade turns about the
    grip as a wrist does. A cut chained before the last one finished starts
    from wherever that one had got to. */
-let BLADE_RIG = null;
+/* One rig per held blade, by weapon slot: the sword's, and TxF's ARC BLADES
+   (2026-11-29, Jack: "just refer to how the other blade was made") - both
+   held in the glove the same way and cut with the same keys. bladeRig() is
+   the one in your hand. */
+const BLADE_RIGS = {};
+function bladeRig(){ return (typeof currentWeapon !== 'undefined' && BLADE_RIGS[currentWeapon]) || null; }
 /* EDGE FIRST, IN FRONT (2026-11-22). Jack: "it should be sideways and not
    like ur wacking it using the body, i am slicing with the blade not the
    metal, and the swinging should be swinging infront not at the side".
@@ -1470,7 +1475,7 @@ function bladeKeyQuats(R, K){
      charge and the stab, Jack: "when charging the sword should be pointing
      to the aim"). The hand's place in view space is the blade's resting
      pose plus its grip point plus the key's offset. */
-  const vm = WEAPONS[BLADE].vm || { x: 0, y: 0, z: 0 };
+  const vm = WEAPONS[currentWeapon].vm || WEAPONS[BLADE].vm || { x: 0, y: 0, z: 0 };
   const dirs = K.map(k => k[2] === 'aim'
     ? new THREE.Vector3(-(vm.x + R.at.x + k[1][0]), -(vm.y + R.at.y + k[1][1]), -8 - (vm.z + R.at.z + k[1][2])).normalize()
     : new THREE.Vector3(...k[2]).normalize());
@@ -1492,7 +1497,7 @@ function bladeKeyQuats(R, K){
 /* Called every frame while the blade is out: returns the hand's offset to
    add to the gun's position, and turns the blade's pivot. */
 function bladeSwingFrame(swingT, cut, charge){
-  const R = BLADE_RIG; if (!R) return null;
+  const R = bladeRig(); if (!R) return null;
   const p = 1 - swingT;
   if (swingT > R.lastT + 0.05) R.from = { off: R.off.clone(), q: R.q.clone() };   // a new cut began
   R.lastT = swingT;
@@ -1507,7 +1512,7 @@ function bladeSwingFrame(swingT, cut, charge){
   }
   else if (swingT <= 0){ R.off.set(0, 0, 0); R.q.copy(R.base); R.from = null; }
   else {
-    const K = SWORD_CUTS[Math.max(0, Math.min(SWORD_CUTS.length - 1, cut | 0))], KQ = bladeKeyQuats(R, K);
+    const K = Array.isArray(cut) ? cut : SWORD_CUTS[Math.max(0, Math.min(SWORD_CUTS.length - 1, cut | 0))], KQ = bladeKeyQuats(R, K);
     const keys = [[0, R.from ? R.from.off.toArray() : [0, 0, 0], R.from ? R.from.q : R.base],
                   ...K.map((k, j) => [k[0], k[1], KQ[j]]), [1, [0, 0, 0], R.base]];
     let i = 0; while (i < keys.length - 2 && p > keys[i + 1][0]) i++;

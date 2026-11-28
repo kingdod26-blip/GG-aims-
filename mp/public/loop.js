@@ -519,7 +519,7 @@ function loop(){ requestAnimationFrame(loop);
        so the generic swing - a sine of the whole viewmodel - is for nothing
        else now: with the blade out, `sw` is zero and the cut moves the hand. */
     if (chargeFrom && (!curW().melee || !me.alive || paused)) chargeFrom = 0;   // switched, died or paused mid-charge
-    const bladeOut = curW().melee && typeof bladeSwingFrame === 'function' && BLADE_RIG;
+    const bladeOut = (curW().melee || curW().kind === 'arc') && typeof bladeSwingFrame === 'function' && bladeRig();
     const sw = bladeOut ? 0 : Math.sin(swingT*Math.PI) * swingDir;
     const sp = sprintAmt*(1-ads);
     // stance and sprint poses give way while aiming: you shoulder the gun

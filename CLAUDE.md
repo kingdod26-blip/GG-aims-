@@ -3669,6 +3669,17 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
     combo count). Trail 01 is now a flat sweep at chest height. Every pose
     was tuned by looking in game. Damage raised so any two swings kill 100
     HP: 55 / 65 / 100; the first swing no longer steps you forward.
+  - **Held and cut like the sword** (2026-11-29, Jack: "just refer to how
+    the other blade was made"; replaces the hand-made poses above). The
+    blade rig is now one per slot (`BLADE_RIGS`, `bladeRig()` is the one in
+    your hand); `holdInGlove` mounts the ARC BLADES exactly as the sword
+    (same glove, rest pose, vm), the model turned into the sword's frame
+    (blades along -Z, edges along Y, flats facing X, origin at the head).
+    The combo drives the sword's cuts through `swingT`/`swingCut`: 01 the
+    horizontal mirrored to run right to left (`ARC_CROSS`), 02 the rising
+    cut, 03 the overhead finisher, right-click the stab (both hands on it).
+    `bladeSwingFrame` takes a cut as its own key array too. loop.js treats
+    `kind === 'arc'` as a blade out. Damage unchanged (55/65/100).
   - **The drum launcher rebuilt too** (2026-11-28, from Jack's HAZARD
     BLASTER picture, ~160 meshes): a hazard-striped yellow drum with blue
     bands, steel end rings and flutes (three chambers, top one on the bore,

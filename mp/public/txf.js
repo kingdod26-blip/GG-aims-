@@ -1274,13 +1274,20 @@ WEAPONS[INFERNO].redDot = true; WEAPONS[INFERNO].dotOnly = true;      // aimed l
       parent.remove(r.right); if (r.left.parent) parent.remove(r.left); parent.add(right, left);
       r.grip = right.position.clone(); r.fore = left.position.clone(); r.right = right; r.left = left;
     }
-    const a = VM_RIGS[ARCBLADES];
-    if (a && a.right.parent){
-      const parent = a.right.parent, right = b.right.clone();
-      right.position.copy(a.grip).add(rOff);
-      parent.remove(a.right); if (a.left && a.left.parent) a.left.parent.remove(a.left); parent.add(right);
-      a.grip = right.position.clone(); a.right = right;
-    }
+    /* ARC BLADES are held and cut exactly as the sword is (Jack: "just refer
+       to how the other blade was made"): the same glove, the same rig
+       (holdInGlove, bladeSwingFrame), the same resting pose. The model is
+       turned into the sword's frame - blades along -Z, edges along Y, the
+       flats facing X - with the head (where the blades leave it) at the
+       origin, so the grip runs back along +Z into the fist as the sword's. */
+    { const root = TXF_ARC_BUILT.g, blades = root.userData.blades;
+      blades.position.set(0, -0.075, 0); blades.rotation.set(0, 0, 0);
+      const qx = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+      const qz = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2);
+      root.quaternion.copy(qz).multiply(qx);
+      const conv = new THREE.Group(); conv.add(root);
+      holdInGlove(ARCBLADES, b, rOff, new THREE.Vector3(0.03, -0.11, 0.14), conv, true, [-0.15, 0, -0.4, 1.5]);
+      WEAPONS[ARCBLADES].vm = Object.assign({}, WEAPONS[BLADE].vm); }
   }; }
 if (PAC9_BUILT) txfGlove(PAC9_BUILT);        // gloveEveryGun already calls txfGlove (rewrapped above)
 
@@ -1348,6 +1355,13 @@ function onInfernoFx(d){
    TXF.arc.windowMs starts it again. Each swing has its own length, reach,
    width and damage (TXF.arc.combo); the server keeps its own count, so this
    one only decides what you SEE and what the practice range takes. */
+/* The swings, as the sword's cut keys (drawn.js SWORD_CUTS): 01 the
+   horizontal, mirrored to run RIGHT to LEFT; 02 the rising cut, low left to
+   upper right; 03 the overhead finisher; the right-click shockwave is the
+   stab, both hands on it, the point on the crosshair. */
+const ARC_CROSS = [[0.20, [-0.02, 0.16, 0.02], [0.90, 0.15, 0.40]], [0.32, [-0.12, 0.16, -0.12], [0.80, 0.12, -0.58]],
+                   [0.44, [-0.36, 0.16, -0.14], [-0.80, 0.10, -0.58]], [0.62, [-0.46, 0.12, -0.04], [-0.92, 0.05, 0.30]]];
+const ARC_CUT = { 1: ARC_CROSS, 2: 2, 3: 4, 4: 5 };
 function arcSlash(w, now){
   const A = TXF.arc, C = A.combo;
   const prev = txf.arcStep;
@@ -1355,6 +1369,7 @@ function arcSlash(w, now){
   const step = (prev && now - txf.arcAt <= A.windowMs) ? (prev % C.length) + 1 : 1;
   const S = C[step - 1];
   txf.arcStep = step; txf.arcAt = now; lastShot = now; txf.arcSwing = 1; txf.arcDur = S.ms / 1000; txf.arcAnim = step;
+  swingT = 1; swingCut = ARC_CUT[step];                                  // the sword's rig draws it
   Sfx.arcSlash(); if (step === 3) setTimeout(() => Sfx.land(), S.ms * 0.45);
   arcTrail(step);
   if (S.lunge && me.alive && !txfFlying()){                                // 01 steps you in, at dash speed
@@ -1398,44 +1413,13 @@ function arcTrailsFrame(){
 }
 /* The three swings as the hand sees them. p runs 0..1 over the swing;
    each pose is [blade tilt x, blade roll z, hand x, hand y]. */
-/* HOW THE SWORD IS HELD (Jack's notes, 2026-11-29). A pose is
-   [blade tilt x, yaw y, twist, hand x, hand y, hand z]: yaw (round you),
-   then tilt (0 is straight up, -PI/2 straight ahead with the twin blades
-   lying flat), then a twist about the blade's own length so its faces turn
-   toward the eye instead of showing an edge (arcApplyPose).
-   - Idle: low at your right side, angled down and forward about 45 degrees,
-     the twin blades along the forward line, clear of the arm.
-   - 01 Cross Cut: swept flat across the body, right to left, at chest height.
-   - 02 Pivot Sweep: back from low left up to high right, a rising diagonal.
-   - 03 Overhead Finisher: straight up at 12 o'clock, slammed to 6 o'clock.
-   - Right-click (shockwave): thrust straight ahead at chest height, the
-     prongs pointed at the target. */
-const ARC_REST = [-1.95, 0.80, 0.90, 0.00, 0.03, 0.05];   // tuned in game: on screen low right, faces showing
-const ARC_POSE = { rest: ARC_REST };
-const ARC_KEYS = {   // [p, tilt, yaw, twist, hand x, hand y, hand z]; tuned by looking in game (2026-11-29)
-  1: [[0.00, -1.50, -1.05, 1.10,  0.10,  0.02,  0.00], [0.42, -1.50,  1.05, 1.10, -0.18,  0.02,  0.00], [1.00, ...ARC_REST]],   // flat, right to left, chest height
-  2: [[0.00, -1.95,  1.05, 1.10, -0.18, -0.10,  0.00], [0.45, -1.05, -0.90, 1.10,  0.04,  0.05,  0.00], [1.00, ...ARC_REST]],   // low left up to high right
-  3: [[0.00, ...ARC_REST], [0.36, 0.15, 0.00, 0.00, -0.14, 0.14, 0.04], [0.55, -2.25, 0.00, 0.00, -0.12, -0.02, -0.04], [1.00, ...ARC_REST]],   // 12 o'clock, then down to 6
-  4: [[0.00, ...ARC_REST], [0.30, -1.57, 0.00, 0.90, -0.08, -0.02, -0.14], [0.70, -1.57, 0.00, 0.90, -0.08, -0.02, -0.12], [1.00, ...ARC_REST]],   // the shockwave's thrust
-};
-const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qc = new THREE.Quaternion(), _AX = new THREE.Vector3(1, 0, 0), _AY = new THREE.Vector3(0, 1, 0);
-function arcApplyPose(bl, P){
-  _qa.setFromAxisAngle(_AY, P[1]); _qb.setFromAxisAngle(_AX, P[0]); _qc.setFromAxisAngle(_AY, P[2]);
-  bl.quaternion.copy(_qa).multiply(_qb).multiply(_qc);
-  bl.position.set(P[3], P[4], 0.07 + P[5]);
-}
-function arcPose(step, p){
-  const K = ARC_KEYS[step]; if (!K) return null;
-  let i = 0; while (i < K.length - 2 && p > K[i + 1][0]) i++;
-  const a = K[i], b = K[i + 1], u = Math.max(0, Math.min(1, (p - a[0]) / Math.max(1e-3, b[0] - a[0]))), e = u * u * (3 - 2 * u);
-  return [1, 2, 3, 4, 5, 6].map(j => a[j] + (b[j] - a[j]) * e);
-}
 function arcBurst(){
   if (gameState !== 'playing' || !me.alive) return;
   const A = TXF.arc, now = performance.now();
   if (now < txf.arcBurstAt && !txfFree()){ Sfx.empty(); return; }
   txf.arcBurstAt = txfFree() ? 0 : now + A.burstCdMs;
   txf.arcSwing = 1; txf.arcDur = 0.42; txf.arcAnim = 4;                 // the thrust
+  swingT = 1; swingCut = ARC_CUT[4];
   if (gameMode === 'mp'){ if (socket) socket.emit('arcburst'); return; }
   onArcBurstFx({ x: me.x, y: me.feetY + 1.1, z: me.z, r: A.burstR, by: 'me' });
   let any = false;
@@ -1469,9 +1453,6 @@ function onArcBurstFx(d){
     const now = performance.now();
     if (txf.infReloadAt && now >= txf.infReloadAt){ txf.infMag = TXF.inferno.mag; txf.infReloadAt = 0; Sfx.magIn(); if (curW().kind === 'inferno') updateHUD(); }
     txf.arcSwing = Math.max(0, txf.arcSwing - dt / (txf.arcDur || 0.32));
-    const bl = TXF_ARC_BUILT.g.userData.blades;
-    const P = txf.arcSwing > 0 ? arcPose(txf.arcAnim || txf.arcStep || 1, 1 - txf.arcSwing) : ARC_POSE.rest;
-    if (P) arcApplyPose(bl, P);
     arcTrailsFrame();
     if (curW().kind === 'arc' && (txf.boltT = (txf.boltT || 0) + dt) > 0.07){ txf.boltT = 0; arcBoltsFrame(TXF_ARC_BUILT.g); }
     for (let i = txf.fx.length - 1; i >= 0; i--){
