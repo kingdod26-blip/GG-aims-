@@ -289,145 +289,175 @@ function drawShotgun(){
     aimTop: 0.044,
     vm: { adsPlain: true, x: 0.098, y: -0.11, z: -0.40, adsZ: -0.03, rx: 0.034, ry: 0.085, rz: -0.03, viewFov: 54, motion: 0.6 } };
 }
-/* ---- THE S12K (2026-11-28) ----
+/* ---- THE S12K (2026-11-28, rebuilt the same day) ----
    Jack's reference: a "Dragon's Breath" S12K render. A semi-automatic
    12-gauge on an AK action (the real gun is the Saiga-12K: gas-operated,
    rotating bolt, 430mm barrel, about 3.5kg, box magazines or a 12-30 round
-   drum). Built from that picture: a stamped black receiver with its rivets,
-   the long AK safety lever and the charging handle on the right; a rail on
-   the dust cover carrying a holographic sight; a folding adapter and a
-   collapsible AR-style stock; a long rail handguard with a vertical grip
-   and a laser/light module up front; two tubes past the handguard (the
-   barrel with a slotted brake, the gas cylinder under it), an AK front
-   sight on the gas block; and the 20-round drum with its rust-red, geared
-   face plates, which is the magazine you swap on a reload. */
+   drum). The first build was too long, its stock a slab and its drum too
+   far back (Jack's screenshots); this one is laid out to the render's own
+   proportions over 0.92m: stock 20%, receiver 28%, handguard 24%, barrel
+   and brake the rest, the drum under the middle at 15% of the length,
+   the holographic sight over the receiver's front half.
+   Forward is f = -z. The side you see is the left (-x). */
+function s12Slot(g, m, x, y, z, len, h){                // an oval (stadium) slot laid on a side face
+  const s = new THREE.Shape(), r = h / 2, a = len / 2 - r;
+  s.moveTo(-a, -r); s.lineTo(a, -r); s.absarc(a, 0, r, -Math.PI / 2, Math.PI / 2, false);
+  s.lineTo(-a, r); s.absarc(-a, 0, r, Math.PI / 2, Math.PI * 1.5, false);
+  const o = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 0.002, bevelEnabled: false, curveSegments: 6 }), m);
+  o.rotation.y = Math.PI / 2; o.position.set(x, y, z); return dAdd(g, o);
+}
 function drawS12K(){
   const g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), po = M_POLY(), p2 = M_POLY2();
-  const rust = dmatL('s12rust', [0.17, 0.048, 0.024], 0.55, 0.50, 1);                    // the drum's face plates
+  const blk = dmatL('s12blk', [0.022, 0.022, 0.024], 0.55, 0.42, 0);                     // the receiver's black finish
+  const rust = dmatL('s12rust', [0.20, 0.058, 0.028], 0.50, 0.52, 0);                    // the drum's face: scuffed, not turned
   const laser = dmat('s12laser', 0x3a0604, 0.0, 0.35, { emissive: new THREE.Color(0xff2a14), emissiveIntensity: 1.6 });
-  const holo = dmat('s12holo', 0x3a5560, 0.2, 0.05, { transparent: true, opacity: 0.16, depthWrite: false });
+  const holo = dmat('s12holo', 0x7a2018, 0.1, 0.05, { transparent: true, opacity: 0.14, depthWrite: false, emissive: new THREE.Color(0x401008) });
+  const P = (m, pts, thick, bevel) => dProf(g, m, pts, thick, bevel);
 
-  // ---- receiver: stamped, slab-sided, the dust cover on top with a rail ----
-  dProf(g, dk, [[-0.10, -0.030], [0.16, -0.030], [0.16, 0.028], [-0.06, 0.028], [-0.10, 0.016]], 0.046, 0.004);
-  dBox(g, dk, 0.042, 0.007, 0.215, 0, 0.0305, -0.045);                                    // the dust cover's ridge
-  dRail(g, dk, 0.034, -0.165, 0.085);                                                     // rail along it
-  for (const sx of [-1, 1]){                                                              // the rivets an AK receiver is held by
-    for (const z of [-0.135, -0.118, 0.060, 0.075]) dScrew(g, sx * 0.0232, -0.022, z, 'x', 0.0022);
-    dScrew(g, sx * 0.0232, 0.006, 0.040, 'x', 0.0026); dScrew(g, sx * 0.0232, 0.006, 0.010, 'x', 0.0026);   // trigger and hammer pins
+  // ---- receiver (f -0.216 .. 0.042): stamped, a sloped rear, the dust cover on top ----
+  P(blk, [[-0.216, -0.026], [0.042, -0.030], [0.042, 0.022], [-0.172, 0.022], [-0.204, 0.014], [-0.216, 0.004]], 0.046, 0.003);
+  P(blk, [[-0.200, 0.020], [0.036, 0.020], [0.036, 0.034], [-0.168, 0.034], [-0.196, 0.028]], 0.048, 0.004);   // dust cover
+  for (const sx of [-1, 1]) dBox(g, dk, 0.001, 0.0018, 0.23, sx * 0.0242, 0.020, 0.080);                        // its seam
+  dRail(g, dk, 0.034, -0.034, 0.192);                                                    // rail on the dust cover
+  dBox(g, st, 0.020, 0.010, 0.018, 0, 0.0435, 0.150);                                    // rear sight on the rail
+  for (const sx of [-1, 1]) dBox(g, st, 0.0035, 0.014, 0.014, sx * 0.0078, 0.054, 0.150);
+  for (const sx of [-1, 1]){                                                             // rivets and pins
+    for (const [y, z] of [[-0.020, 0.185], [-0.020, 0.165], [-0.020, -0.010], [-0.020, -0.028], [0.004, 0.120], [0.004, 0.090], [0.004, -0.030]])
+      dScrew(g, sx * 0.0232, y, z, 'x', 0.0021);
   }
-  dBox(g, st, 0.004, 0.020, 0.075, 0.0235, 0.012, -0.050);                                // ejection port (right)
-  dBox(g, st, 0.006, 0.012, 0.052, 0.0215, 0.012, -0.050);                                // the bolt carrier in it
-  dKnob(g, st, 0.0052, 0.030, 0.036, 0.012, -0.098, 'x');                                 // charging handle
-  dBox(g, st, 0.0035, 0.010, 0.120, 0.0248, 0.001, 0.010, -0.05);                         // the long safety lever
-  dBox(g, st, 0.006, 0.018, 0.012, 0.0262, -0.008, 0.068);                                // its finger tab
-  dDecal(g, 'S12K   12 GA   12x76', -0.0236, 0.012, -0.010, 0.120, 0.0085, -1);
-  dDecal(g, "DRAGON'S BREATH", -0.0236, -0.004, -0.030, 0.085, 0.0068, -1);
-  dDecal(g, 'N 26-0412', 0.0236, -0.018, -0.085, 0.050, 0.006, 1);
+  dBox(g, dk, 0.003, 0.016, 0.076, 0.0235, 0.008, 0.060);                                // ejection port (right)
+  dBox(g, st, 0.004, 0.010, 0.056, 0.0228, 0.008, 0.062);                                // the bolt carrier in it
+  dKnob(g, st, 0.0050, 0.028, 0.036, 0.008, 0.012, 'x');                                 // charging handle at its front
+  dBox(g, st, 0.0025, 0.007, 0.095, 0.0243, 0.012, 0.130, -0.04);                        // safety lever, under the dust cover
+  dBox(g, st, 0.004, 0.014, 0.010, 0.0250, 0.006, 0.178);                                // its tab
+  dDecal(g, 'S12K   12 GA   12x76', -0.0236, 0.006, 0.100, 0.115, 0.0080, -1);
+  dDecal(g, "DRAGON'S BREATH  ·  CAL 12", -0.0236, -0.008, 0.100, 0.090, 0.0060, -1);
+  { const tri = new THREE.Mesh(new THREE.CylinderGeometry(0.0048, 0.0048, 0.0012, 3), M_WHITE());   // the warning triangle
+    tri.rotation.set(0, 0, Math.PI / 2); tri.position.set(-0.0236, -0.004, 0.030); dAdd(g, tri); }
+  dDecal(g, 'N 26-0412', 0.0236, -0.018, 0.140, 0.045, 0.0055, 1);
 
-  // ---- magazine well, release paddle, trigger guard, trigger, grip ----
-  dProf(g, dk, [[0.068, -0.030], [0.152, -0.030], [0.150, -0.062], [0.070, -0.058]], 0.044, 0.003);
-  dBox(g, st, 0.014, 0.024, 0.005, 0, -0.050, -0.063, 0.25);                              // mag release paddle
-  dProf(g, dk, [[0.062, -0.030], [0.066, -0.056], [-0.042, -0.058], [-0.050, -0.030], [-0.040, -0.030],
-                [-0.034, -0.049], [0.056, -0.048], [0.054, -0.030]], 0.007, 0.001);       // the AK's flat guard
-  dBox(g, st, 0.005, 0.022, 0.006, 0, -0.040, 0.004, 0.3);                                // trigger
-  dProf(g, po, [[-0.040, -0.028], [-0.082, -0.028], [-0.114, -0.126], [-0.074, -0.132], [-0.050, -0.062]], 0.032, 0.006);   // pistol grip
-  for (let i = 0; i < 5; i++) dBox(g, p2, 0.0335, 0.004, 0.022, 0, -0.050 - i * 0.016, 0.070 + i * 0.0065, 0.32);          // its finger grooves
+  // ---- magazine well with its windows, release paddle, trigger guard, trigger ----
+  P(blk, [[-0.062, -0.026], [0.034, -0.028], [0.030, -0.066], [-0.058, -0.062]], 0.044, 0.003);
+  for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) dBox(g, dk, 0.002, 0.020, 0.018, sx * 0.0222, -0.046, 0.034 - k * 0.026);
+  dBox(g, st, 0.014, 0.022, 0.005, 0, -0.050, 0.066, 0.25);                              // mag release paddle
+  P(dk, [[-0.064, -0.026], [-0.066, -0.050], [-0.150, -0.052], [-0.156, -0.026], [-0.148, -0.026],
+         [-0.143, -0.044], [-0.072, -0.043], [-0.072, -0.026]], 0.007, 0.001);           // the AK's flat guard
+  dBox(g, st, 0.005, 0.020, 0.006, 0, -0.036, 0.108, 0.3);                               // trigger
 
-  // ---- folding adapter, buffer tube, collapsible stock ----
-  dProf(g, p2, [[-0.100, 0.024], [-0.138, 0.024], [-0.138, -0.022], [-0.100, -0.028]], 0.042, 0.004);
-  dKnob(g, st, 0.0055, 0.050, 0, 0.000, 0.128);                                           // the hinge pin
-  dTube(g, st, 0.0145, 0.200, 0, 0.008, 0.238);                                           // buffer tube
-  for (let i = 0; i < 6; i++) dBox(g, dk, 0.0055, 0.004, 0.010, 0, -0.008, 0.18 + i * 0.022);   // its position notches
-  dProf(g, po, [[-0.205, 0.032], [-0.418, 0.030], [-0.428, -0.092], [-0.398, -0.098], [-0.330, -0.036],
-                [-0.250, -0.022], [-0.205, -0.014]], 0.040, 0.006);                       // the stock body
-  dProf(g, p2, [[-0.285, 0.030], [-0.405, 0.030], [-0.405, 0.045], [-0.295, 0.041]], 0.036, 0.004);   // cheek riser
-  dBox(g, p2, 0.012, 0.010, 0.060, 0, -0.019, 0.275);                                     // the adjust lever under it
-  dBox(g, po, 0.044, 0.130, 0.014, 0, -0.030, 0.431);                                     // butt pad
-  for (let i = 0; i < 7; i++) dBox(g, dk, 0.045, 0.003, 0.015, 0, -0.088 + i * 0.019, 0.432);
-  { const loop = new THREE.Mesh(new THREE.TorusGeometry(0.010, 0.0024, 6, 14), st);         // sling loop
-    loop.rotation.y = Math.PI / 2; loop.position.set(-0.024, -0.075, 0.38); dAdd(g, loop); }
+  // ---- pistol grip: AK style, raked, stippled panels, a finger bump ----
+  P(po, [[-0.148, -0.024], [-0.194, -0.024], [-0.224, -0.124], [-0.188, -0.132], [-0.170, -0.090], [-0.162, -0.074], [-0.158, -0.050]], 0.034, 0.005);
+  for (const sx of [-1, 1]){ const pan = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.070, 0.024), p2);
+    pan.position.set(sx * 0.0172, -0.074, 0.188); pan.rotation.x = -0.29; dAdd(g, pan); }
+  dBox(g, p2, 0.035, 0.008, 0.040, 0, -0.130, 0.205, -0.29);                             // its base
 
-  // ---- handguard: a long rail, M-LOK slots, a side rail, the vertical grip ----
-  dProf(g, dk, [[0.158, -0.030], [0.402, -0.027], [0.402, 0.030], [0.158, 0.030]], 0.052, 0.005);
-  dRail(g, dk, 0.030, -0.402, -0.160);                                                    // continuing the top rail
-  for (const sx of [-1, 1]) for (let i = 0; i < 6; i++){
-    dBox(g, po, 0.002, 0.009, 0.026, sx * 0.0262, 0.013, -0.190 - i * 0.034);              // the upper row of slots
-    if (i % 2 === 0) dBox(g, po, 0.002, 0.009, 0.026, sx * 0.0262, -0.010, -0.190 - i * 0.034);
+  // ---- folding adapter, a short tube, the skeleton stock ----
+  P(dk, [[-0.212, 0.022], [-0.236, 0.022], [-0.236, -0.016], [-0.212, -0.024]], 0.040, 0.003);
+  dKnob(g, st, 0.0050, 0.046, 0, 0.000, 0.226);                                          // hinge pin
+  dTube(g, st, 0.0140, 0.040, 0, 0.010, 0.255);                                          // buffer tube
+  { const s = new THREE.Shape(), O = [[-0.262, 0.028], [-0.380, 0.034], [-0.398, 0.030], [-0.398, -0.084], [-0.384, -0.092],
+      [-0.346, -0.064], [-0.300, -0.014], [-0.262, -0.008]];
+    O.forEach((p, i) => i ? s.lineTo(p[0], p[1]) : s.moveTo(p[0], p[1]));
+    const h = new THREE.Path(), H = [[-0.334, -0.004], [-0.378, -0.002], [-0.380, -0.060], [-0.366, -0.064]];
+    H.forEach((p, i) => i ? h.lineTo(p[0], p[1]) : h.moveTo(p[0], p[1])); s.holes.push(h);
+    const b = 0.005, th = 0.040;
+    const geo = new THREE.ExtrudeGeometry(s, { depth: th - 2 * b, bevelEnabled: true, bevelSize: b, bevelThickness: b, bevelSegments: 2, curveSegments: 6 });
+    geo.translate(0, 0, -(th - 2 * b) / 2);
+    const o = new THREE.Mesh(geo, po); o.rotation.y = Math.PI / 2; dAdd(g, o); }
+  P(p2, [[-0.284, 0.030], [-0.386, 0.033], [-0.386, 0.042], [-0.292, 0.038]], 0.034, 0.003);  // cheek riser
+  dBox(g, p2, 0.012, 0.008, 0.050, 0, -0.008, 0.300);                                    // adjust lever under it
+  dScrew(g, -0.0205, 0.012, 0.316, 'x', 0.004); dScrew(g, 0.0205, 0.012, 0.316, 'x', 0.004);   // the lock pin
+  dBox(g, M_PAD(), 0.042, 0.128, 0.012, 0, -0.026, 0.404);                               // butt pad
+  for (let k = 0; k < 8; k++) dBox(g, dk, 0.043, 0.0025, 0.013, 0, -0.082 + k * 0.016, 0.405);
+  { const cup = new THREE.Mesh(new THREE.TorusGeometry(0.0065, 0.0018, 6, 14), st);     // QD sling cup
+    cup.rotation.y = Math.PI / 2; cup.position.set(-0.0205, -0.068, 0.370); dAdd(g, cup); }
+
+  // ---- handguard (f 0.042 .. 0.262): two rows of oval slots, a side rail, the grip ----
+  P(blk, [[0.042, -0.028], [0.262, -0.026], [0.266, -0.020], [0.266, 0.026], [0.262, 0.032], [0.042, 0.032]], 0.052, 0.004);
+  dRail(g, dk, 0.032, -0.262, -0.042);                                                   // top rail, continuing
+  for (const sx of [-1, 1]){
+    for (let k = 0; k < 7; k++){ s12Slot(g, po, sx * 0.0262, 0.021, -0.066 - k * 0.029, 0.020, 0.0075);
+                                 s12Slot(g, po, sx * 0.0262, -0.018, -0.066 - k * 0.029, 0.020, 0.0075); }
+    dBox(g, dk, 0.004, 0.016, 0.170, sx * 0.0280, 0.0015, -0.152);                       // the side rail's base
+    for (let z = -0.232; z < -0.072; z += 0.010) dBox(g, dk, 0.0035, 0.018, 0.0052, sx * 0.0305, 0.0015, z);
+    dScrew(g, sx * 0.0302, 0.0015, -0.058, 'x', 0.0032); dScrew(g, sx * 0.0302, 0.0015, -0.247, 'x', 0.0032);
   }
-  dBox(g, dk, 0.004, 0.018, 0.075, 0.0280, 0.002, -0.300);                                // side rail section (right)
-  for (let z = -0.334; z < -0.266; z += 0.010) dBox(g, dk, 0.0035, 0.020, 0.0052, 0.0305, 0.002, z);
-  dBox(g, dk, 0.020, 0.006, 0.070, 0, -0.0305, -0.330);                                   // bottom rail for the grip
-  dBox(g, dk, 0.028, 0.012, 0.038, 0, -0.038, -0.330);                                    // the grip's clamp
-  dScrew(g, 0.0142, -0.038, -0.330, 'x', 0.0032);
-  { const fg = new THREE.Mesh(new THREE.CylinderGeometry(0.0155, 0.0145, 0.082, 18), po);   // vertical foregrip
-    fg.position.set(0, -0.084, -0.330); dAdd(g, fg);
-    for (let i = 0; i < 6; i++){ const r = new THREE.Mesh(new THREE.TorusGeometry(0.0153, 0.0016, 6, 18), p2);
-      r.rotation.x = Math.PI / 2; r.position.set(0, -0.060 - i * 0.0095, -0.330); dAdd(g, r); }
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.0160, 0.0150, 0.008, 18), p2); cap.position.set(0, -0.128, -0.330); dAdd(g, cap); }
+  dBox(g, dk, 0.020, 0.006, 0.060, 0, -0.0295, -0.155);                                  // bottom rail for the grip
+  dBox(g, dk, 0.028, 0.012, 0.034, 0, -0.037, -0.155);                                   // the grip's clamp
+  dKnob(g, st, 0.0042, 0.006, 0.016, -0.037, -0.155, 'x');
+  { const fg = new THREE.Mesh(new THREE.CylinderGeometry(0.0158, 0.0146, 0.086, 20), po);   // vertical grip
+    fg.position.set(0, -0.085, -0.155); dAdd(g, fg);
+    for (let k = 0; k < 8; k++){ const a = k / 8 * Math.PI * 2;                         // shallow flutes, not rings
+      const f = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.060, 0.004), p2);
+      f.position.set(Math.sin(a) * 0.0152, -0.088, -0.155 + Math.cos(a) * 0.0152); f.rotation.y = a; dAdd(g, f); }
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.0164, 0.0150, 0.010, 20), p2); cap.position.set(0, -0.131, -0.155); dAdd(g, cap); }
 
-  // ---- laser / light module on the rail, its red emitter lit ----
-  dBox(g, st, 0.026, 0.008, 0.050, 0, 0.0385, -0.365);                                   // clamp
-  dBox(g, dk, 0.034, 0.026, 0.070, 0, 0.055, -0.365);                                     // body
-  dBox(g, p2, 0.030, 0.004, 0.050, 0, 0.0695, -0.360);                                    // its top plate
-  dKnob(g, dk, 0.0045, 0.008, 0.008, 0.074, -0.345); dKnob(g, dk, 0.0045, 0.008, -0.008, 0.074, -0.345);   // mode knobs
-  dTube(g, laser, 0.0060, 0.004, 0.0075, 0.057, -0.4015);                                 // the laser, lit
-  dTube(g, M_GLASS(), 0.0052, 0.004, -0.0080, 0.057, -0.4015);                            // the IR window
-  dTube(g, st, 0.0075, 0.006, 0.0075, 0.057, -0.3985); dTube(g, st, 0.0068, 0.006, -0.0080, 0.057, -0.3985);   // bezels
+  // ---- laser / light module on the top rail, its red emitter lit ----
+  dBox(g, st, 0.024, 0.008, 0.044, 0, 0.0395, -0.150);                                  // clamp
+  dBox(g, dk, 0.032, 0.024, 0.070, 0, 0.055, -0.172);                                    // body
+  dBox(g, dk, 0.026, 0.018, 0.030, 0, 0.052, -0.120);                                    // the switch housing behind it
+  dKnob(g, st, 0.0060, 0.010, 0, 0.069, -0.150);                                         // turret on top
+  dKnob(g, st, 0.0045, 0.008, 0.019, 0.055, -0.160, 'x');                                // and on the side
+  dTube(g, st, 0.0085, 0.010, 0.006, 0.056, -0.209);                                     // the emitter's bezel
+  dTube(g, laser, 0.0062, 0.004, 0.006, 0.056, -0.2145);                                 // the laser, lit
+  dTube(g, M_GLASS(), 0.0045, 0.004, -0.009, 0.056, -0.2085);                            // the IR window
 
-  // ---- barrel, gas cylinder, front sight on the gas block, the brake ----
-  dTube(g, st, 0.0125, 0.200, 0, 0.012, -0.480);                                          // barrel
-  dTube(g, st, 0.0105, 0.130, 0, -0.016, -0.455);                                         // gas cylinder under it
-  dTube(g, dk, 0.0118, 0.012, 0, -0.016, -0.524);                                         // its cap
-  dBox(g, st, 0.026, 0.046, 0.030, 0, -0.002, -0.452);                                    // gas block
-  dProf(g, st, [[0.440, 0.024], [0.466, 0.024], [0.462, 0.052], [0.446, 0.052]], 0.018, 0.002);   // front sight base
-  for (const sx of [-1, 1]) dBox(g, st, 0.0028, 0.026, 0.012, sx * 0.0082, 0.062, -0.454);        // its protective ears
-  dBox(g, st, 0.0025, 0.022, 0.0028, 0, 0.060, -0.454);                                   // and the post
-  dTube(g, dk, 0.0172, 0.064, 0, 0.012, -0.610, 0.0165);                                  // the slotted brake
-  for (let i = 0; i < 3; i++) dBox(g, po, 0.036, 0.012, 0.009, 0, 0.012, -0.590 - i * 0.017);
-  dTube(g, st, 0.0080, 0.003, 0, 0.012, -0.6425);                                         // the crown
+  // ---- barrel, gas cylinder, AK front sight on the gas block, the brake ----
+  dTube(g, st, 0.0125, 0.190, 0, 0.012, -0.355);                                         // barrel, f 0.26 .. 0.45
+  dTube(g, st, 0.0105, 0.140, 0, -0.016, -0.330);                                        // gas cylinder under it
+  dKnurl(g, dk, 0.0115, -0.016, -0.400, -0.388);                                         // its ribbed cap
+  dBox(g, st, 0.026, 0.052, 0.034, 0, -0.002, -0.376);                                   // gas block
+  P(st, [[0.360, 0.024], [0.392, 0.024], [0.386, 0.052], [0.366, 0.052]], 0.018, 0.002);   // front sight base
+  for (const sx of [-1, 1]) dBox(g, st, 0.0028, 0.024, 0.012, sx * 0.0080, 0.062, -0.376);
+  dBox(g, st, 0.0025, 0.020, 0.0028, 0, 0.060, -0.376);                                  // the post
+  dTube(g, st, 0.0140, 0.012, 0, 0.012, -0.432);                                         // thread collar
+  dKnurl(g, st, 0.0144, 0.012, -0.437, -0.428);
+  dTube(g, dk, 0.0178, 0.080, 0, 0.012, -0.478, 0.0172);                                 // the brake
+  for (let k = 0; k < 3; k++){ dBox(g, po, 0.0370, 0.014, 0.011, 0, 0.012, -0.458 - k * 0.019);   // its windows, through both sides
+                               dBox(g, po, 0.012, 0.0365, 0.011, 0, 0.012, -0.458 - k * 0.019); }
+  dTube(g, st, 0.0080, 0.003, 0, 0.012, -0.5185);                                        // the crown
 
-  // ---- holographic sight on the receiver rail ----
-  const zs = -0.050;
-  dBox(g, dk, 0.030, 0.010, 0.078, 0, 0.044, zs);                                         // base / mount
-  dKnob(g, st, 0.0055, 0.008, 0.0195, 0.044, zs, 'x');                                    // its cross-bolt
-  dBox(g, dk, 0.036, 0.020, 0.074, 0, 0.058, zs);                                         // the housing under the window
-  for (const sx of [-1, 1]) dBox(g, dk, 0.0045, 0.042, 0.052, sx * 0.0195, 0.088, zs - 0.006);   // hood sides
-  dBox(g, dk, 0.043, 0.0045, 0.052, 0, 0.1085, zs - 0.006);                               // hood top
-  for (const z of [zs - 0.031, zs + 0.019]) dBox(g, dk, 0.040, 0.004, 0.004, 0, 0.068, z);         // window frame, bottom bars
-  dBox(g, holo, 0.034, 0.038, 0.0015, 0, 0.087, zs - 0.020);                              // the glass
-  { const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0012, 8, 6), laser); dot.position.set(0, 0.086, zs - 0.021); dAdd(g, dot); }
-  for (const z of [zs + 0.004, zs + 0.020]) dKnob(g, p2, 0.0058, 0.004, -0.0200, 0.058, z, 'x');    // the two buttons
-  dBox(g, p2, 0.026, 0.012, 0.004, 0, 0.058, zs + 0.0385);                                // battery cap at the back
-  dTube(g, st, 0.004, 0.0015, 0, 0.058, zs + 0.0408);                                    // its screw
+  // ---- holographic sight: base, housing, an open-sided hood, the window ----
+  const zc = 0.030;
+  dBox(g, dk, 0.030, 0.010, 0.084, 0, 0.043, zc);                                        // base / mount
+  dKnob(g, st, 0.0055, 0.008, 0.0190, 0.043, zc - 0.012, 'x');                           // cross-bolt
+  dBox(g, dk, 0.036, 0.022, 0.084, 0, 0.059, zc);                                        // housing under the window
+  dBox(g, dk, 0.030, 0.012, 0.010, 0, 0.064, zc + 0.045);                                // battery cap at the back
+  dTube(g, st, 0.0042, 0.0015, 0, 0.064, zc + 0.0505);
+  for (const z of [zc - 0.004, zc + 0.022]) dKnob(g, p2, 0.0068, 0.004, -0.0195, 0.059, z, 'x');    // the two buttons
+  dKnob(g, st, 0.0060, 0.006, 0.0195, 0.060, zc - 0.028, 'x');                           // windage knob
+  for (const sx of [-1, 1]) for (const z of [zc - 0.034, zc + 0.012])                    // hood posts: open at the sides
+    dBox(g, dk, 0.0045, 0.040, 0.008, sx * 0.0195, 0.089, z);
+  dBox(g, dk, 0.043, 0.0050, 0.054, 0, 0.1095, zc - 0.011);                              // hood top
+  for (const sx of [-1, 1]) dBox(g, dk, 0.004, 0.006, 0.054, sx * 0.0215, 0.1055, zc - 0.011, 0, sx * 0.6);   // its chamfered edges
+  dBox(g, holo, 0.034, 0.036, 0.0015, 0, 0.0885, zc - 0.012);                            // the glass
+  { const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0012, 8, 6), laser); dot.position.set(0, 0.0885, zc - 0.013); dAdd(g, dot); }
 
-  // ---- the drum: 20 rounds, rust-red face plates with their gear ----
-  const mag = new THREE.Group(); mag.position.set(0, 0, 0);
-  dBox(mag, dk, 0.040, 0.030, 0.050, 0, -0.072, -0.108);                                  // the feed tower
-  const dc = [0, -0.150, -0.100], R = 0.068;
-  { const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.050, 36), dk);
-    body.rotation.z = Math.PI / 2; body.position.fromArray(dc); dAdd(mag, body);
-    for (const sx of [-1, 1]){
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(R - 0.001, 0.0035, 8, 36), st);
-      rim.rotation.y = Math.PI / 2; rim.position.set(sx * 0.026, dc[1], dc[2]); dAdd(mag, rim);
-      const face = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.006, R - 0.006, 0.004, 36), rust);
-      face.rotation.z = Math.PI / 2; face.position.set(sx * 0.0275, dc[1], dc[2]); dAdd(mag, face);
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.0035, 6, 30), rust);           // the geared ring
-      ring.rotation.y = Math.PI / 2; ring.position.set(sx * 0.0300, dc[1], dc[2]); dAdd(mag, ring);
-      for (let k = 0; k < 10; k++){ const a = k / 10 * Math.PI * 2;                                // its teeth
-        const tth = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.010, 0.008), rust);
-        tth.position.set(sx * 0.0300, dc[1] + Math.cos(a) * 0.043, dc[2] + Math.sin(a) * 0.043); tth.rotation.x = -a; dAdd(mag, tth); }
-      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.006, 20), st);
-      hub.rotation.z = Math.PI / 2; hub.position.set(sx * 0.0305, dc[1], dc[2]); dAdd(mag, hub);
-      dBox(mag, st, 0.004, 0.006, 0.026, sx * 0.0335, dc[1], dc[2]);                       // the winding key
-    }
-    for (const dz of [-0.035, 0.035]){ const band = new THREE.Mesh(new THREE.TorusGeometry(R + 0.001, 0.0022, 6, 36), st);   // seam bands
-      band.rotation.y = Math.PI / 2; band.position.set(dz * 0.4, dc[1], dc[2]); dAdd(mag, band); } }
-  g.add(mag);
+  // ---- the drum: 20 rounds, a rust-red face with its cog, seam bands ----
+  const mag = new THREE.Group(); g.add(mag);
+  dBox(mag, blk, 0.040, 0.030, 0.050, 0, -0.072, 0.010);                                 // the feed tower
+  for (const sx of [-1, 1]) dBox(mag, dk, 0.002, 0.016, 0.030, sx * 0.0202, -0.074, 0.010);
+  const C = [0, -0.152, 0.010], R = 0.070;
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.060, 40), blk); body.rotation.z = Math.PI / 2; body.position.fromArray(C); dAdd(mag, body);
+  for (const bx of [-0.016, 0.016]){ const band = new THREE.Mesh(new THREE.TorusGeometry(R + 0.0008, 0.0022, 6, 40), dk);
+    band.rotation.y = Math.PI / 2; band.position.set(bx, C[1], C[2]); dAdd(mag, band); }
+  for (const sx of [-1, 1]){
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(R - 0.002, 0.0035, 8, 40), blk); rim.rotation.y = Math.PI / 2; rim.position.set(sx * 0.030, C[1], C[2]); dAdd(mag, rim);
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.005, R - 0.005, 0.004, 40), rust); face.rotation.z = Math.PI / 2; face.position.set(sx * 0.0315, C[1], C[2]); dAdd(mag, face);
+    const cog = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.004, 32), rust); cog.rotation.z = Math.PI / 2; cog.position.set(sx * 0.0345, C[1], C[2]); dAdd(mag, cog);   // the raised cog
+    for (let k = 0; k < 10; k++){ const a = k / 10 * Math.PI * 2;                                 // its teeth, out toward the rim
+      const t = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.012, 0.010), rust);
+      t.position.set(sx * 0.0345, C[1] + Math.cos(a) * 0.050, C[2] + Math.sin(a) * 0.050); t.rotation.x = -a; dAdd(mag, t); }
+    const ann = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.0025, 6, 28), rust); ann.rotation.y = Math.PI / 2; ann.position.set(sx * 0.0370, C[1], C[2]); dAdd(mag, ann);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.006, 24), rust); hub.rotation.z = Math.PI / 2; hub.position.set(sx * 0.0375, C[1], C[2]); dAdd(mag, hub);
+    const ctr = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.004, 18), dk); ctr.rotation.z = Math.PI / 2; ctr.position.set(sx * 0.0405, C[1], C[2]); dAdd(mag, ctr);
+    dBox(mag, st, 0.003, 0.0035, 0.014, sx * 0.0420, C[1], C[2]);                         // the winding key's slot
+  }
+  dDecal(mag, '20 RD  ·  12 GA', -0.0338, C[1] + 0.060, C[2], 0.034, 0.0045, -1);
 
-  return { g, grip: [0, -0.074, 0.084], fore: [0, -0.072, -0.330], mag, magAt: [0, -0.150, -0.100],
+  return { g, grip: [0, -0.074, 0.185], fore: [0, -0.072, -0.155], mag, magAt: [0, -0.152, 0.010],
     /* aimed through the holographic window: its centre on the eye line */
-    aimTop: 0.087,
-    vm: { x: 0.098, y: -0.118, z: -0.30, adsZ: 0.10, rx: 0.034, ry: 0.085, rz: -0.03, viewFov: 54, motion: 0.6 } };
+    aimTop: 0.0885,
+    vm: { x: 0.098, y: -0.118, z: -0.40, adsZ: 0.12, rx: 0.034, ry: 0.085, rz: -0.03, viewFov: 54, motion: 0.6 } };
 }
 function drawPistol(heavy){
   const g = new THREE.Group(), st = M_STEEL(), dk = M_DARK(), po = M_POLY(), p2 = M_POLY2();

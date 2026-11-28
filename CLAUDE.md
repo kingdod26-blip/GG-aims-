@@ -3646,6 +3646,19 @@ from box magazines or a 12-30 round drum.
   handguard, an AK front sight on the gas block, a slotted brake, and the
   **drum** (rust-red geared face plates, a feed tower) as the reload's `mag`.
   Markings: `S12K 12 GA 12x76`, `DRAGON'S BREATH`.
+- **Rebuilt the same day** from Jack's screenshots of the first build (too
+  long, a slab stock, the drum too far back, a solid box for a sight, a grip
+  of rings, stripes on the drum face): laid out to the render's proportions
+  over 0.92m (stock 20%, receiver 28%, handguard 24%, barrel and brake the
+  rest; drum under the middle, 15% of the length). Skeleton stock with a
+  hole, a short tube, an AK grip with stippled panels; dust cover with its
+  seam and a rear sight; handguard with two rows of oval slots
+  (`s12Slot`) and full-length side rails; fluted vertical grip; an open-sided
+  holo hood you can see through; AK front sight and a windowed brake; the
+  drum face uses the scuffed finish (kind 0), not turned steel (kind 1,
+  which drew rings like wood grain), with a raised cog, annulus and hub.
+  Hands moved with it (grip z 0.185, fore -0.155), so `vm` z is -0.40 and
+  adsZ 0.12 to keep the hold and the sight distance.
 - **Sound:** `GUN.S12K` in hud.js, the pump's boom made sharper and shorter.
 - Page: `wp.s12k.d` (EN + 简体中文), key 6 on the weapons page.
 - Not done: the "Dragon's Breath" name is markings only; its shells do not
