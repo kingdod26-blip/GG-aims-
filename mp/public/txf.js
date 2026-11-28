@@ -704,7 +704,7 @@ function txfMuzzleArcs(at){
 const TXF_MG_BUILT = drawMinigun(), TXF_ML_BUILT = drawTxfLauncher();
 mountGun(MINIGUN, TXF_MG_BUILT);
 mountGun(TXFMSL, TXF_ML_BUILT);
-WEAPONS[TXFMSL].redDot = true;           // aimed, you look through its sight
+WEAPONS[TXFMSL].redDot = true; WEAPONS[TXFMSL].dotOnly = true;   // aimed like the minigun (Jack): the gun stays low, just the red dot
 /* Aiming the minigun (Jack): exactly as it first was - right-click brings it
    in and zooms a little - plus the red dot in the middle, as the shotgun
    and the launcher have, so you see where the rounds go. */
