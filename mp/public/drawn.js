@@ -438,15 +438,19 @@ function drawS12K(){
   dKnob(g, st, 0.0045, 0.006, -0.0180, 0.041, zc + 0.012, 'x');                                    // its pivot
   dKnob(g, st, 0.0050, 0.008, 0.0185, 0.041, zc - 0.010, 'x');                                     // the cross-bolt nut (right)
   // the lower body: front battery bay, a long middle, the raised rear for the buttons
-  dProf(g, dk, [[-zc + 0.050, 0.047], [-zc + 0.050, 0.066], [-zc + 0.044, 0.072], [-zc - 0.008, 0.072],
-                [-zc - 0.014, 0.084], [-zc - 0.040, 0.084], [-zc - 0.047, 0.077], [-zc - 0.047, 0.047]], 0.036, 0.004);
+  /* The rear stays BELOW the window (Jack, 2026-11-29: "the scope is half
+     covered"): it is the part nearest the eye, so a rear raised to 84mm sat
+     across the bottom half of a window that starts at 77mm. Its top is 72mm,
+     level with the front, and slopes off at the back. */
+  dProf(g, dk, [[-zc + 0.050, 0.047], [-zc + 0.050, 0.066], [-zc + 0.044, 0.072], [-zc - 0.040, 0.072],
+                [-zc - 0.047, 0.066], [-zc - 0.047, 0.047]], 0.036, 0.004);
   dKnob(g, st, 0.0095, 0.006, 0.0195, 0.058, zc - 0.036, 'x');                                     // battery cap (right)
   for (const z of [zc + 0.020, zc + 0.034]){                                                       // the two buttons (left)
-    dBox(g, p2, 0.003, 0.011, 0.011, -0.0195, 0.075, z);
-    dBox(g, st, 0.0035, 0.0015, 0.006, -0.0198, 0.075, z); }
-  for (const [y, z] of [[0.074, zc + 0.022], [0.074, zc + 0.036]]){ dScrew(g, 0.0182, y, z, 'x', 0.0032);   // windage and elevation (right)
+    dBox(g, p2, 0.003, 0.011, 0.011, -0.0195, 0.060, z);
+    dBox(g, st, 0.0035, 0.0015, 0.006, -0.0198, 0.060, z); }
+  for (const [y, z] of [[0.060, zc + 0.022], [0.060, zc + 0.036]]){ dScrew(g, 0.0182, y, z, 'x', 0.0032);   // windage and elevation (right)
     dBox(g, dk, 0.0012, 0.0045, 0.0008, 0.0190, y, z); }
-  dDecal(g, 'HWS  EXPS3', -0.0184, 0.058, zc + 0.006, 0.040, 0.0060, -1);
+  dDecal(g, 'HWS  EXPS3', -0.0184, 0.0535, zc - 0.012, 0.034, 0.0055, -1);
   // the hood: an arched tunnel with the window through it
   { const s = new THREE.Shape();
     rRect(s, -0.0200, 0.0700, 0.0200, 0.1065, 0.002, 0.012);                                     // outside: square feet, round shoulders

@@ -3689,6 +3689,10 @@ from box magazines or a 12-30 round drum.
   rounded landscape window cut through it), a rear frame ring, a front lip,
   a copper-coated front pane, a clear rear pane, and the 68 MOA ring with a
   centre dot in the window. `aimTop` is still the window's centre (0.0885).
+  The rear of the body was first raised to 84mm and, being nearest the
+  eye, covered the window's lower half when aimed (Jack's screenshot); it is
+  now 72mm, below the 77mm window bottom, and the buttons and screws sit
+  lower on its sides.
   The drum leans forward 0.20 rad like the render's: `mag` pivots at the
   bottom of the well, `drumIn` keeps the parts' coordinates, `magAt` moved
   to the tilted centre.
