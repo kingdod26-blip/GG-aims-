@@ -922,6 +922,7 @@ function weaponsFrame(dt){
    F: ARC BLADES, twin energy blades (TXF.arc): slash, and a lightning burst
    on right-click. Both drawn from Jack's reference pictures. */
 txf.infMag = TXF.inferno.mag; txf.infReloadAt = 0; txf.arcBurstAt = 0; txf.arcSwing = 0; txf.arcSide = 1;
+txf.arcStep = 0; txf.arcAt = 0; txf.arcTrails = [];          // the combo: which swing, when it began, its light trails
 
 /* INFERNO, rebuilt (2026-11-28, Jack: "improve on the model design and
    details"), from his HP210 pictures: a long, chamfered gunmetal receiver
@@ -1228,7 +1229,7 @@ function drawArcBlades(){
   /* MIRRORED (Jack, 2026-11-29: "the two blades face different directions"):
      the second blade is flipped, so each hook points outward, away from the
      other, and the cutting edges face each other across the gap. */
-  for (const [bx, lean, len, flip] of [[-0.054, 0, 0.78, 1], [0.064, 0, 0.82, -1]]){   // longer (Jack, 2026-11-29)
+  for (const [bx, lean, len, flip] of [[-0.054, 0, 0.80, 1], [0.064, 0, 0.80, -1]]){   // longer, and equal (Jack, 2026-11-29)
     const b = new THREE.Group(); b.position.set(bx, 0.160, 0.0); b.rotation.z = lean; b.scale.x = flip; g.add(b);
     const shape = arcBladeShape(len);
     { const h = new THREE.Mesh(new THREE.ShapeGeometry(shape, 18), halo); h.scale.set(1.16, 1.02, 1); h.position.set(0.002, -0.006, -0.002); b.add(h); h.renderOrder = 1001; }
@@ -1342,17 +1343,72 @@ function onInfernoFx(d){
   Sfx.inferno(mine ? null : { x: d.x, z: d.z });
 }
 /* ARC BLADES: a slash, and the lightning burst */
+/* THE THREE-HIT COMBO (Jack's storyboard, 2026-11-29): left-click walks
+   01 Cross Cut -> 02 Pivot Sweep -> 03 Overhead Finisher, and stopping for
+   TXF.arc.windowMs starts it again. Each swing has its own length, reach,
+   width and damage (TXF.arc.combo); the server keeps its own count, so this
+   one only decides what you SEE and what the practice range takes. */
 function arcSlash(w, now){
-  const A = TXF.arc;
-  lastShot = now; txf.arcSwing = 1; txf.arcSide = -txf.arcSide; Sfx.arcSlash();
+  const A = TXF.arc, C = A.combo;
+  const prev = txf.arcStep;
+  if (prev && now - txf.arcAt < C[prev - 1].ms) return;                    // the last swing is still going
+  const step = (prev && now - txf.arcAt <= A.windowMs) ? (prev % C.length) + 1 : 1;
+  const S = C[step - 1];
+  txf.arcStep = step; txf.arcAt = now; lastShot = now; txf.arcSwing = 1; txf.arcDur = S.ms / 1000;
+  Sfx.arcSlash(); if (step === 3) setTimeout(() => Sfx.land(), S.ms * 0.45);
+  arcTrail(step);
+  if (S.lunge && me.alive && !txfFlying()){                                // 01 steps you in, at dash speed
+    dashDir.set(-Math.sin(me.yaw), 0, -Math.cos(me.yaw)); dashT = S.lunge; }
+  if (typeof updateHUD === 'function') updateHUD();                       // the HUD names the swing
   const dir = new THREE.Vector3(0, 0, -1).applyEuler(_te.set(me.pitch, me.yaw, 0)), o = camera.position.clone();
   if (gameMode === 'mp'){ if (socket) socket.emit('arcslash', { dx: dir.x, dy: dir.y, dz: dir.z }); return; }
-  let best = null, bestD = Infinity;
+  const hits = []; let best = null, bestD = Infinity;
   for (const b of localBots){ if (!b.alive) continue;
     const to = new THREE.Vector3(b.x - o.x, 1.1 - o.y, b.z - o.z), d = to.length();
-    if (d > A.reach || to.normalize().dot(dir) < A.arc) continue;
-    if (d < bestD){ bestD = d; best = b; } }
-  if (best){ best.hp -= A.dmg; hitmark('torso'); Sfx.hit('torso'); if (best.hp <= 0 && best.alive) localKillBot(best); }
+    if (d > S.reach || to.normalize().dot(dir) < S.arc) continue;
+    hits.push(b); if (d < bestD){ bestD = d; best = b; } }
+  const struck = S.cleave ? hits : best ? [best] : [];
+  for (const b of struck){ b.hp -= S.dmg; if (b.hp <= 0 && b.alive) localKillBot(b); }
+  if (struck.length){ const z = step === 3 ? 'head' : 'torso'; setTimeout(() => { hitmark(z); Sfx.hit(z); }, step === 3 ? S.ms * 0.45 : 40); }
+}
+/* A swing's trail: a sweep of molten light across the view along the
+   blade's path, gone in a quarter of a second. 01 runs from upper right to
+   lower left, 02 from lower left up to the right, 03 straight down. */
+function arcTrail(step){
+  /* each swing's path across the view, as an arc of a circle: [centre x, y,
+     inner, outer, start angle, sweep] in view space at 1.2m. 01 upper right
+     to lower left; 02 lower left up to upper right; 03 straight down. */
+  const P = { 1: [0.45, -0.35, 0.74, 0.90, 1.60, 1.60], 2: [-0.45, 0.35, 0.74, 0.90, -1.60, 1.55], 3: [-1.60, 0.00, 1.52, 1.68, -0.36, 0.72] }[step];
+  const g = new THREE.Group(); g.position.set(P[0], P[1], -1.2);
+  const mid = (P[2] + P[3]) / 2, w = P[3] - P[2];
+  for (const [r0, r1, col, op] of [[P[2], P[3], 0xff6a10, 0.55], [mid - w * 0.18, mid + w * 0.18, 0xfff0b8, 0.95]]){
+    const m = new THREE.Mesh(new THREE.RingGeometry(r0, r1, 48, 1, P[4], P[5]),
+      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, side: THREE.DoubleSide }));
+    m.renderOrder = 1003; m.frustumCulled = false; m.userData.op = op; g.add(m); }
+  camera.add(g);
+  txf.arcTrails.push({ r: g, t0: performance.now(), delay: step === 3 ? 0.40 : 0.08, ms: 240 });
+}
+function arcTrailsFrame(){
+  const now = performance.now();
+  for (let i = txf.arcTrails.length - 1; i >= 0; i--){
+    const T = txf.arcTrails[i], dur = txf.arcDur || 0.3, k = ((now - T.t0) / 1000 - T.delay * dur) / (T.ms / 1000);
+    if (k >= 1){ camera.remove(T.r); T.r.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); txf.arcTrails.splice(i, 1); continue; }
+    T.r.children.forEach(m => { m.material.opacity = k < 0 ? 0 : m.userData.op * (1 - k); });
+  }
+}
+/* The three swings as the hand sees them. p runs 0..1 over the swing;
+   each pose is [blade tilt x, blade roll z, hand x, hand y]. */
+const ARC_POSE = { rest: [-0.35, -0.25, 0, -0.11] };
+const ARC_KEYS = {
+  1: [[0.00,  0.25, -0.55, -0.02,  0.02], [0.40, -1.10,  1.25, -0.20, -0.14], [1.00, -0.35, -0.25, 0, -0.11]],   // raised up right, cut down across to the left
+  2: [[0.00, -1.00,  1.35, -0.20, -0.16], [0.45, -0.30, -1.20,  0.10,  0.02], [1.00, -0.35, -0.25, 0, -0.11]],   // from low left, swept up to the right
+  3: [[0.00, -0.35, -0.25,  0.00, -0.11], [0.38,  0.30,  0.05, -0.08,  0.16], [0.55, -1.50,  0.00, -0.10, -0.18], [1.00, -0.35, -0.25, 0, -0.11]],   // raised overhead, then straight down
+};
+function arcPose(step, p){
+  const K = ARC_KEYS[step]; if (!K) return null;
+  let i = 0; while (i < K.length - 2 && p > K[i + 1][0]) i++;
+  const a = K[i], b = K[i + 1], u = Math.max(0, Math.min(1, (p - a[0]) / Math.max(1e-3, b[0] - a[0]))), e = u * u * (3 - 2 * u);
+  return [1, 2, 3, 4].map(j => a[j] + (b[j] - a[j]) * e);
 }
 function arcBurst(){
   if (gameState !== 'playing' || !me.alive) return;
@@ -1367,7 +1423,8 @@ function arcBurst(){
     const c = new THREE.Vector3(b.x, 1.1, b.z), o = new THREE.Vector3(me.x, me.feetY + 1.1, me.z), v = c.clone().sub(o), d = v.length();
     if (d > A.burstR) continue;
     _tx.set(o, v.normalize()); _tx.far = d; if (d > 0.2 && _tx.intersectObjects(wallMeshes, false).length) continue;
-    b.hp -= A.burstDmg; any = true; if (b.hp <= 0 && b.alive) localKillBot(b); }
+    b.hp -= A.burstDmg; any = true; if (b.hp <= 0 && b.alive) localKillBot(b);
+    if (b.alive && d > 0.05){ const hd = Math.hypot(v.x, v.z) || 1; b.x += v.x / hd * A.knock; b.z += v.z / hd * A.knock; if (b.mesh) b.mesh.position.set(b.x, b.mesh.position.y, b.z); } }
   if (any){ hitmark('torso'); Sfx.hit('torso'); }
 }
 /* everyone's burst: lightning out to the radius, and a flash */
@@ -1391,9 +1448,11 @@ function onArcBurstFx(d){
     _wf(dt);
     const now = performance.now();
     if (txf.infReloadAt && now >= txf.infReloadAt){ txf.infMag = TXF.inferno.mag; txf.infReloadAt = 0; Sfx.magIn(); if (curW().kind === 'inferno') updateHUD(); }
-    txf.arcSwing = Math.max(0, txf.arcSwing - dt / 0.32);
-    const bl = TXF_ARC_BUILT.g.userData.blades, s = Math.sin((1 - txf.arcSwing) * Math.PI) * (txf.arcSwing > 0 ? 1 : 0);
-    bl.rotation.set(-0.35 - s * 0.9, 0, -0.25 + txf.arcSide * s * 1.1);
+    txf.arcSwing = Math.max(0, txf.arcSwing - dt / (txf.arcDur || 0.32));
+    const bl = TXF_ARC_BUILT.g.userData.blades;
+    const P = txf.arcSwing > 0 ? arcPose(txf.arcStep || 1, 1 - txf.arcSwing) : ARC_POSE.rest;
+    if (P){ bl.rotation.set(P[0], 0, P[1]); bl.position.set(P[2], P[3], 0.07); }
+    arcTrailsFrame();
     if (curW().kind === 'arc' && (txf.boltT = (txf.boltT || 0) + dt) > 0.07){ txf.boltT = 0; arcBoltsFrame(TXF_ARC_BUILT.g); }
     for (let i = txf.fx.length - 1; i >= 0; i--){
       const f = txf.fx[i]; if (f.kind !== 'inferno' && f.kind !== 'arcburst') continue;
@@ -1411,4 +1470,5 @@ function onArcBurstFx(d){
     if (d.infReload !== undefined) txf.infReloadAt = d.infReload > 0 ? now + d.infReload : 0;
     if (d.arcBurst !== undefined) txf.arcBurstAt = now + d.arcBurst; }; }
 { const _reset = txfReset; txfReset = function(){ _reset();
-    txf.infMag = TXF.inferno.mag; txf.infReloadAt = 0; txf.arcBurstAt = 0; txf.arcSwing = 0; }; }
+    txf.infMag = TXF.inferno.mag; txf.infReloadAt = 0; txf.arcBurstAt = 0; txf.arcSwing = 0; txf.arcStep = 0;
+    for (const T of txf.arcTrails) camera.remove(T.r); txf.arcTrails.length = 0; }; }

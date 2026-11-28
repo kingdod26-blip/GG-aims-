@@ -3629,6 +3629,24 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
     Longer (Jack): 0.78 and 0.82m (were 0.56 / 0.60); the blade texture's
     v scale follows (1 / 0.84). The slash's reach (`TXF.arc.reach`, robots.js,
     read by server and range alike) went with them: 3.5m -> 5m (Jack).
+  - **ARC BLADES three-hit combo** (2026-11-29, Jack's storyboard "Cross Cut
+    / Pivot Sweep / Overhead Finisher"; right-click is the shockwave).
+    `TXF.arc.combo` (robots.js, shared): 01 Cross Cut 40, arc 0.55, 300ms,
+    a 0.12s lunge at dash speed (~2.4m); 02 Pivot Sweep 55, arc 0.15 (wide),
+    380ms, CLEAVES everyone in the arc; 03 Overhead Finisher 90, arc 0.80,
+    reach 5.5, 560ms, single target, no blast. `windowMs` 1200 resets the
+    chain. The SERVER walks the combo on its own clock (p.arcStep/arcAt;
+    each swing waits 75% of the last one's ms) and sends `s` in arcslashfx;
+    the client only decides what is drawn and what the range takes. Poses:
+    `ARC_KEYS` [p, tilt x, roll z, hand x, hand y] per swing, `arcPose`
+    blends them; trails: `arcTrail` puts an orange arc with a hot core on
+    the camera along the swing's path, fading in 0.24s. HUD: NEXT n/3 and
+    the swing's name, "RIGHT-CLICK: SHOCKWAVE" (`arc.*`, EN + zh). The
+    shockwave now also throws everyone it hits `knock` 3m straight back,
+    stopping 0.5m short of walls (server bumps `tp`; the range moves its
+    targets). Blades are equal (0.80m). Checked on the range: 40 / 55 / 90,
+    then back to 01; a pause resets; the poses and the trail seen in game.
+    Not yet checked in a live match (needs the TxF code).
   - **The drum launcher rebuilt too** (2026-11-28, from Jack's HAZARD
     BLASTER picture, ~160 meshes): a hazard-striped yellow drum with blue
     bands, steel end rings and flutes (three chambers, top one on the bore,

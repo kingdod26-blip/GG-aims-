@@ -90,7 +90,7 @@ function wpnStats(e){
   } else if (w.txf){
     if (w.kind === 'inferno') rows.push([t('wp.s.dmg'), TXF.inferno.dmg + ' → 0'], [t('wp.s.range'), TXF.inferno.range + 'm'],
       [t('wp.s.mag'), String(TXF.inferno.mag)], [t('wp.s.reload'), pgSec(TXF.inferno.reloadMs) + 's']);
-    else if (w.kind === 'arc') rows.push([t('wp.s.dmg'), String(TXF.arc.dmg)], [t('wp.s.reach'), TXF.arc.reach + 'm'],
+    else if (w.kind === 'arc') rows.push([t('wp.s.dmg'), TXF.arc.combo.map(c => c.dmg).join(' · ')], [t('wp.s.reach'), TXF.arc.reach + 'm'],
       [t('wp.s.burst'), TXF.arc.burstDmg + ' · ' + TXF.arc.burstR + 'm · ' + pgSec(TXF.arc.burstCdMs) + 's']);
     else if (w.kind === 'minigun') rows.push([t('wp.s.dmg'), String(TXF.mg.dmg)], [t('wp.s.rpm'), String(Math.round(60000 / TXF.mg.rateMs))],
       [t('wp.s.heat'), pgSec(TXF.mg.heatMs) + 's / ' + pgSec(TXF.mg.coolMs) + 's'], [t('wp.s.range'), TXF.mg.range + 'm']);
@@ -116,7 +116,7 @@ function wpnDesc(e){
            incen: pgFill('ab.incen.d', { n: SALVO.incen.charges, cd: pgSec(SALVO.incen.cdMs), fuse: pgSec(SALVO.incen.fragFuseMs), dmg: SALVO.frag.dmg }),
            minigun: pgFill('wp.minigun.d', { dmg: TXF.mg.dmg, rpm: Math.round(60000 / TXF.mg.rateMs), spin: pgSec(TXF.mg.spinMs), heat: pgSec(TXF.mg.heatMs), cool: pgSec(TXF.mg.coolMs) }),
            inferno: pgFill('wp.inferno.d', { dmg: TXF.inferno.dmg, full: TXF.inferno.full, r: TXF.inferno.range, bd: TXF.inferno.burnDps, bs: pgSec(TXF.inferno.burnMs), n: TXF.inferno.mag, rl: pgSec(TXF.inferno.reloadMs) }),
-           arcblades: pgFill('wp.arcblades.d', { dmg: TXF.arc.dmg, reach: TXF.arc.reach, bd: TXF.arc.burstDmg, br: TXF.arc.burstR, cd: pgSec(TXF.arc.burstCdMs) }),
+           arcblades: pgFill('wp.arcblades.d', { d1: TXF.arc.combo[0].dmg, d2: TXF.arc.combo[1].dmg, d3: TXF.arc.combo[2].dmg, reach: TXF.arc.reach, win: pgSec(TXF.arc.windowMs), kb: TXF.arc.knock, bd: TXF.arc.burstDmg, br: TXF.arc.burstR, cd: pgSec(TXF.arc.burstCdMs) }),
            txfmsl: pgFill('wp.txfmsl.d', { dmg: TXF.missile.blast.dmg, r: TXF.missile.blast.radius, n: TXF.missile.charges, cd: pgSec(TXF.missile.cdMs) }),
            sensor: pgFill('ab.sensor.d', { n: SILV.sensor.charges, r: SILV.sensor.radius, s: pgSec(SILV.linkMs), cd: pgSec(SILV.sensor.cdMs) }) }[e.id] || t('wp.' + e.id + '.d');
 }

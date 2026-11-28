@@ -42,7 +42,9 @@ function updateHUD(){ document.getElementById('hpNum').textContent=Math.max(0,Ma
       const cd = Math.max(0, Math.ceil((txf.arcBurstAt - now) / 1000));
       document.getElementById('magNum').textContent = cd ? cd + 's' : 'READY';
       document.getElementById('reserveNum').textContent = '';
-      document.getElementById('modeLbl').textContent = 'ARC BLADES · RIGHT-CLICK: LIGHTNING BURST';
+      /* the combo's next swing, and the shockwave on right-click */
+      const live = txf.arcStep && now - txf.arcAt <= TXF.arc.windowMs, nx = live ? (txf.arcStep % 3) + 1 : 1;
+      document.getElementById('modeLbl').textContent = t('arc.next') + ' ' + nx + '/3 ' + t('arc.step' + nx) + ' · ' + t('arc.rmb');
     } else {
       const have = txfMslHave(now), next = txf.mslQ.length ? Math.max(0, Math.ceil((Math.min(...txf.mslQ) - now) / 1000)) : 0;
       document.getElementById('magNum').textContent = have;

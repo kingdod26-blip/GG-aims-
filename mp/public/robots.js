@@ -136,7 +136,20 @@ const TXF = {
      the lightning out in a `burstR` burst round him for `burstDmg`, then
      `burstCdMs`. Walls block the burst. */
   arc: { dmg: 50, reach: 5, arc: 0.55,   // reach 3.5 -> 5 with the longer blades (Jack, 2026-11-29)
-          rateMs: 360, burstR: 4, burstDmg: 80, burstCdMs: 8000 },
+          rateMs: 360, burstR: 4, burstDmg: 80, burstCdMs: 8000,
+          /* THE THREE-HIT COMBO (Jack's storyboard, 2026-11-29). Left-click walks
+             the chain; stop for windowMs and it starts again. `ms` is how long
+             that swing takes before the next may start; `arc` the cosine of
+             its half-width (smaller is wider); `lunge` a step forward in s at
+             dash speed; `cleave` hits everyone in the arc, not just the
+             nearest. No swing explodes: the blast is the right-click's alone. */
+          combo: [
+            { id: 'cross',    dmg: 40, reach: 5,   arc: 0.55, ms: 300, lunge: 0.12 },   // 01 Cross Cut: fast forehand diagonal, steps you in
+            { id: 'sweep',    dmg: 55, reach: 5,   arc: 0.15, ms: 380, cleave: true }, // 02 Pivot Sweep: wide backhand, low to high, both blades through all in front
+            { id: 'overhead', dmg: 90, reach: 5.5, arc: 0.80, ms: 560 },               // 03 Overhead Finisher: both hands, straight down
+          ],
+          windowMs: 1200,
+          knock: 3 },                          // the right-click shockwave throws everyone it hits this far back
   missile: { charges: 3, cdMs: 20000, speed: 45, lifeMs: 6000, r: 0.35,
              blast: { radius: 75, full: 6, dmg: 200 } },   // 75m (Jack: 75% of the first 100m)
 };

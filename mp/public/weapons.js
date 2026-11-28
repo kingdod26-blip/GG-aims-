@@ -215,7 +215,7 @@ WEAPONS.push({ name:'TxF MISSILE', mode:'LAUNCHER', txf:true, kind:'txfmsl', aut
   recoil:0.04, spread:0, adsSpread:0, range:300, adsFov:62, scope:false });
 WEAPONS.push({ name:'INFERNO', mode:'FIRE BLAST', txf:true, kind:'inferno', auto:false, fireRate:200, dmg:120,
   recoil:0.05, spread:0.22, adsSpread:0.22, range:20, adsFov:66, scope:false });
-WEAPONS.push({ name:'ARC BLADES', mode:'CLOSE COMBAT', txf:true, kind:'arc', auto:false, fireRate:360, dmg:50,
+WEAPONS.push({ name:'ARC BLADES', mode:'CLOSE COMBAT', txf:true, kind:'arc', auto:false, fireRate:220, dmg:50,   // each swing keeps its own time (TXF.arc.combo)
   recoil:0, spread:0, adsSpread:0, range:3.5, adsFov:80, scope:false });
 /* The guns are slots 0..GUN_N-1 (keys and shop slots); everything after them
    is an ability, the blade or TxF's kit. server.js GUNS has GUN_N entries. */

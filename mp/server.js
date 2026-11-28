@@ -1562,27 +1562,36 @@ io.on('connection', (socket) => {
      and the lightning burst round him */
   socket.on('arcslash', (d) => {
     const p = players.get(socket.id); if (!txfOK(p) || !d) return;
-    const now = Date.now(), A = TXF.arc;
-    if (now - (p.arcAt || 0) < A.rateMs * 0.75) return;
-    p.arcAt = now;
+    const now = Date.now(), A = TXF.arc, C = A.combo;
+    /* The SERVER walks the combo: which swing this is comes from its own
+       clock, never the client. Each swing must wait out the one before. */
+    const prev = p.arcStep || 0;
+    if (prev && now - (p.arcAt || 0) < C[prev - 1].ms * 0.75) return;
+    const step = (prev && now - (p.arcAt || 0) <= A.windowMs) ? (prev % C.length) + 1 : 1;
+    p.arcAt = now; p.arcStep = step;
+    const S = C[step - 1];
     const eye = (p.y || 0) + [1.7, 1.05, 0.6][p.st | 0];
     const o = { x: p.x, y: eye, z: p.z }, dir = normalize(+d.dx || 0, +d.dy || 0, +d.dz || -1);
-    io.to(room.id).emit('arcslashfx', { by: p.id, x: p.x, z: p.z });
+    io.to(room.id).emit('arcslashfx', { by: p.id, x: p.x, z: p.z, s: step });
+    const hits = [];
     let best = null, bestD = Infinity;
     for (const t of players.values()) {
       if (!t.alive || t.id === p.id) continue;
       const h = stateAt(t, now - rewindFor(p));
       const vx = h.x - o.x, vy = (h.y || 0) + 1.1 - o.y, vz = h.z - o.z, dist = Math.hypot(vx, vy, vz);
-      if (dist > A.reach || dist < 1e-3) continue;
-      if ((vx * dir.x + vy * dir.y + vz * dir.z) / dist < A.arc) continue;
+      if (dist > S.reach || dist < 1e-3) continue;
+      if ((vx * dir.x + vy * dir.y + vz * dir.z) / dist < S.arc) continue;
       const to = { x: vx / dist, y: vy / dist, z: vz / dist };
       let blocked = false;
       for (const r of room.rayBoxes) { const hh = rayBoxHit(o, to, r); if (hh && hh.t > 0.1 && hh.t < dist) { blocked = true; break; } }
-      if (!blocked && dist < bestD) { bestD = dist; best = t; }
+      if (blocked) continue;
+      hits.push(t);
+      if (dist < bestD) { bestD = dist; best = t; }
     }
-    if (!best) return;
-    io.to(room.id).emit('impact', { x: best.x, y: (best.y || 0) + 1.1, z: best.z, head: false, zone: 'torso', by: p.id });
-    txfHurt(room, best, A.dmg, p, { x: p.x, z: p.z });
+    for (const t of (S.cleave ? hits : best ? [best] : [])) {
+      io.to(room.id).emit('impact', { x: t.x, y: (t.y || 0) + 1.1, z: t.z, head: step === 3, zone: step === 3 ? 'head' : 'torso', by: p.id });
+      txfHurt(room, t, S.dmg, p, { x: p.x, z: p.z });
+    }
   });
   socket.on('arcburst', () => {
     const p = players.get(socket.id); if (!txfOK(p)) return;
@@ -1602,6 +1611,14 @@ io.on('connection', (socket) => {
       if (blocked) continue;
       io.to(room.id).emit('impact', { x: cx, y: cy, z: cz, head: false, zone: 'torso', by: p.id });
       txfHurt(room, t, A.burstDmg, p, { x: p.x, z: p.z });
+      /* the shockwave throws them back (Jack, 2026-11-29): up to A.knock
+         metres straight away from TxF, stopping short of any wall */
+      if (t.alive && dist > 0.05) {
+        const hd = Math.hypot(vx, vz) || 1, hx = vx / hd, hz = vz / hd, k = { x: hx, y: 0, z: hz }, from = { x: t.x, y: (t.y || 0) + 0.9, z: t.z };
+        let go = A.knock;
+        for (const r of room.rayBoxes) { const h = rayBoxHit(from, k, r); if (h && h.t > 0 && h.t - 0.5 < go) go = Math.max(0, h.t - 0.5); }
+        if (go > 0.2) { t.x += hx * go; t.z += hz * go; t.tp = (t.tp || 0) + 1; t.moveAt = 0; t.vx = 0; t.vz = 0; t.stateAt = 0; if (t.hist) t.hist.length = 0; }
+      }
     }
     sendTxfTimers(p, now);
   });
