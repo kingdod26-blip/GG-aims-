@@ -135,7 +135,8 @@ const TXF = {
      for `dmg` within `reach` (the sword's arc and pace); right-click lets
      the lightning out in a `burstR` burst round him for `burstDmg`, then
      `burstCdMs`. Walls block the burst. */
-  arc: { dmg: 50, reach: 3.5, arc: 0.55, rateMs: 360, burstR: 4, burstDmg: 80, burstCdMs: 8000 },
+  arc: { dmg: 50, reach: 5, arc: 0.55,   // reach 3.5 -> 5 with the longer blades (Jack, 2026-11-29)
+          rateMs: 360, burstR: 4, burstDmg: 80, burstCdMs: 8000 },
   missile: { charges: 3, cdMs: 20000, speed: 45, lifeMs: 6000, r: 0.35,
              blast: { radius: 75, full: 6, dmg: 200 } },   // 75m (Jack: 75% of the first 100m)
 };

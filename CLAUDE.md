@@ -3627,7 +3627,8 @@ shared like SALVO. Client side is `txf.js` (after salvo.js, before hud.js).
     blade has scale.x -1, so the hooks point outward and the cutting edges
     face each other; set at -0.054 / +0.064.
     Longer (Jack): 0.78 and 0.82m (were 0.56 / 0.60); the blade texture's
-    v scale follows (1 / 0.84). Visual only; the slash's reach is TXF.arc.reach.
+    v scale follows (1 / 0.84). The slash's reach (`TXF.arc.reach`, robots.js,
+    read by server and range alike) went with them: 3.5m -> 5m (Jack).
   - **The drum launcher rebuilt too** (2026-11-28, from Jack's HAZARD
     BLASTER picture, ~160 meshes): a hazard-striped yellow drum with blue
     bands, steel end rings and flutes (three chambers, top one on the bore,
