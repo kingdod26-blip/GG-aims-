@@ -23,6 +23,13 @@ In code an agent is `AGENTS` in `mp/public/weapons.js` + `AGENT_IDS` in
 (EN + 简体中文), three cooldown icons `assets/cd-*.png` (Jack's art), and a
 server check on every ability (`p.agent`).
 
+**Polish rule (Jack, 2026-11-28): every agent ships finished.** The
+abilities must play well: tuned, with clear effects, sounds and feedback,
+and checked by playing them. The model and every piece of gear (held
+devices, thrown items, launchers, placed objects) must be detailed drawn
+models like the guns, crossbow, sensor and grenade, never placeholder
+boxes. Each piece also gets its entry on the weapons and agents pages.
+
 ---
 
 ## 1. ASEED (in the game)
